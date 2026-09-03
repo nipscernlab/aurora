@@ -31,25 +31,70 @@
  * -----
  * Each open preview registers its source file and gets a random single-use host
  * id mapped to that file's DIRECTORY; the handler serves that subtree and
- * nothing else, so a previewed page cannot read `~/.ssh` or elsewhere on disk.
- * The id is dropped when the preview tab closes.
+ * nothing else. The id is dropped when the preview tab closes. Three fences on
+ * top of the subtree (see regrasDePreview/temSegmentoOculto):
+ *   - se a pasta do arquivo e a HOME do usuario ou a raiz de uma unidade, so o
+ *     proprio documento e servido, porque "os vizinhos" ali sao o perfil
+ *     inteiro (AppData, .ssh) e o connect-src https: deixaria exfiltrar;
+ *   - segmento oculto (.ssh, .git, .env) nunca e servido como vizinho;
+ *   - o teste de raiz usa dentroDe (fs_guard), que trata raiz de unidade e
+ *     caixa do Windows; a comparacao manual de antes respondia 403 para TUDO
+ *     quando o arquivo morava em `C:\`.
  */
 
 const path = require('path');
+const os = require('os');
 const fs = require('fs').promises;
 const crypto = require('crypto');
 const { protocol, ipcMain } = require('electron');
 const log = require('electron-log');
 
 const { safePath } = require('../utils');
+const { dentroDe } = require('./fs_guard');
 
 const SCHEME = 'aurora-preview';
 
 /**
  * Live previews: URL host id → what it may serve.
- * @type {Map<string, { root: string, doc: string, override: string|null }>}
+ * @type {Map<string, { root: string, doc: string, override: string|null, docOnly: boolean }>}
  */
 const previews = new Map();
+
+/**
+ * Decide a raiz servida para um documento e se ela deve encolher para o
+ * documento sozinho.
+ *
+ * A raiz e a pasta do arquivo, que e o que faz `./style.css` resolver. Mas ha
+ * pastas em que "a pasta do arquivo" e a vida inteira do usuario: a home (um
+ * .html solto ali serviria AppData, .ssh e tudo o mais, e o connect-src https:
+ * do preview deixaria a pagina exfiltrar o que leu) e a raiz de uma unidade.
+ * Nesses dois casos o preview serve SO o proprio documento: a pagina renderiza,
+ * CDN carrega, e um vizinho local responde 404, que e o custo certo.
+ *
+ * @param {string} doc caminho absoluto do arquivo visualizado.
+ * @param {string} [home] os.homedir(), injetavel para teste.
+ * @param {NodeJS.Platform} [plataforma]
+ * @returns {{ root: string, docOnly: boolean }}
+ */
+function regrasDePreview(doc, home = os.homedir(), plataforma = process.platform) {
+  const root = path.dirname(doc);
+  const ehRaizDeUnidade = path.parse(root).root === root;
+  const norm = (/** @type {string} */ p) =>
+    (plataforma === 'win32' ? path.resolve(p).toLowerCase() : path.resolve(p));
+  const ehHome = norm(root) === norm(home);
+  return { root, docOnly: ehRaizDeUnidade || ehHome };
+}
+
+/**
+ * Um segmento oculto (comecando por ponto) no caminho pedido? `.ssh`, `.git`,
+ * `.env` e afins nunca sao dependencia legitima de uma pagina visualizada, e
+ * sao exatamente o que vale a pena exfiltrar. O proprio documento pode ser um
+ * dotfile (a pessoa abriu, e escolha dela); os VIZINHOS ocultos nao.
+ * @param {string} rel caminho relativo ja decodificado.
+ */
+function temSegmentoOculto(rel) {
+  return String(rel).split(/[\\/]+/).some((s) => s.length > 1 && s.startsWith('.') && s !== '.' && s !== '..');
+}
 
 /**
  * The policy the previewed document runs under. It is deliberately close to
@@ -169,10 +214,26 @@ function installProtocol() {
       const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '');
       target = path.resolve(entry.root, rel);
 
-      // Root-scoping. path.resolve has already collapsed any `..`, so this
-      // rejects every traversal out of the previewed file's directory.
-      if (target !== entry.root && !target.startsWith(entry.root + path.sep)) {
+      const ehODocumento = target === entry.doc;
+
+      // Root-scoping via dentroDe (fs_guard): prefixo com separador e sem
+      // diferenciar caixa no Windows. A comparacao manual de antes quebrava
+      // com arquivo na raiz da unidade (`C:\` + sep nunca casava) e o preview
+      // inteiro respondia 403.
+      if (!ehODocumento && !dentroDe(entry.root, target)) {
         log.warn('[preview] refused out-of-root request:', target);
+        return new Response('Forbidden', { status: 403 });
+      }
+
+      // Pasta sensivel (home, raiz de unidade): so o proprio documento sai.
+      if (!ehODocumento && entry.docOnly) {
+        log.warn('[preview] doc-only preview refused sibling:', target);
+        return new Response('Forbidden', { status: 403 });
+      }
+
+      // Vizinho oculto (.ssh, .git, .env...) nunca e dependencia de pagina.
+      if (!ehODocumento && temSegmentoOculto(rel)) {
+        log.warn('[preview] refused hidden-path request:', target);
         return new Response('Forbidden', { status: 403 });
       }
 
@@ -207,9 +268,11 @@ function register() {
   ipcMain.handle('preview:register', (_e, sourcePath, content) => {
     const doc = safePath(sourcePath, 'preview source');
     const id = crypto.randomBytes(8).toString('hex');   // a valid, unguessable host
+    const { root, docOnly } = regrasDePreview(doc);
     previews.set(id, {
-      root: path.dirname(doc),
+      root,
       doc,
+      docOnly,
       override: typeof content === 'string' ? content : null,
     });
     return { id, url: `${SCHEME}://${id}/${encodeURIComponent(path.basename(doc))}` };
@@ -219,4 +282,9 @@ function register() {
   ipcMain.handle('preview:unregister', (_e, id) => previews.delete(id));
 }
 
-module.exports = { register, registerScheme, installProtocol, isPreviewUrl, mimeFor, SCHEME, PREVIEW_CSP };
+module.exports = {
+  register, registerScheme, installProtocol, isPreviewUrl, mimeFor, SCHEME, PREVIEW_CSP,
+  // Exportadas para teste: sao a fronteira entre "a pagina ve os vizinhos" e
+  // "a pagina ve a home do usuario". Ver tests/unit/previewScheme.test.js.
+  regrasDePreview, temSegmentoOculto,
+};

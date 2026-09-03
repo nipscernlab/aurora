@@ -269,6 +269,25 @@ if (acquiredLock) {
       log.warn('[csp] failed to install Content-Security-Policy:', e);
     }
 
+    // Pedidos de permissao (camera, microfone, geolocalizacao, notificacao,
+    // midi, hid...) eram CONCEDIDOS por padrao, porque nenhuma sessao tinha
+    // handler, e o iframe aurora-preview roda HTML arbitrario do usuario. A
+    // AURORA nao usa nenhuma dessas capacidades no renderer; a unica exigida
+    // por paginas comuns e a escrita saneada no clipboard (botao "copiar" de
+    // um export de grafico, o proprio Monaco). Nega-se o resto, com log, para
+    // um pedido legitimo futuro aparecer no main.log em vez de sumir calado.
+    try {
+      const permitidas = new Set(['clipboard-sanitized-write']);
+      session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => {
+        const ok = permitidas.has(permission);
+        if (!ok) log.info(`[perm] negado: ${permission} pedido por ${wc?.getURL?.() || '?'}`);
+        callback(ok);
+      });
+      session.defaultSession.setPermissionCheckHandler((_wc, permission) => permitidas.has(permission));
+    } catch (e) {
+      log.warn('[perm] failed to install permission handlers:', e);
+    }
+
     // Serves the editor's rendered-HTML preview. Must come after app.whenReady,
     // and after the CSP block above so the exemption is already in place for the
     // first request. Failing here only costs the preview, so it must not throw.

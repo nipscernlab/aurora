@@ -1744,11 +1744,6 @@ linha, porque linha apodrece.
 - main.js, bloco da CSP: a política existe e cobre file:// e dev server, mas
   script-src leva `unsafe-inline` e `unsafe-eval` (Monaco 0.52), então qualquer
   injeção de HTML no renderer executa. Ponte expõe `shell:start` e `shell:input`.
-- Nenhuma sessão tem `setPermissionRequestHandler`; pedidos de permissão do
-  iframe aurora-preview (que roda HTML arbitrário) são concedidos por padrão.
-- main/ipc/preview.js: a raiz servida é a pasta inteira do arquivo visualizado,
-  com `connect-src https:`; um .html na home entrega a árvore toda, inclusive
-  .ssh. Arquivo na raiz da unidade também quebra a checagem (`C:\\`).
 - main/compile/binary_allowlist.js: a lista inclui perl, python, g++ e make com
   `args` livres, então `perl -e` ou `python -c` executam qualquer coisa; a
   documentação apresenta o allowlist como fronteira de confiança, e ele só

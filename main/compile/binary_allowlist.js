@@ -17,7 +17,14 @@
  * end with one of the listed names AND live in one of the listed
  * directories under componentsPath.
  *
- * Adding a new toolchain binary: add it here. That's the whole gate.
+ * Adding a new toolchain binary: add it here. That's the whole gate for WHICH
+ * executable may start. It is not the whole gate for what it does: perl,
+ * python, g++ and make take free-form args, and for an interpreter the args
+ * ARE the program. The executor closes that for perl and python through
+ * main/compile/interpreter_guard.js (no `-e`, `-c`, `-m` or stdin program in
+ * the interpreter's own option prefix). g++ and make stay as they are: their
+ * args are compiler flags and targets, and the damage they can do is bounded
+ * by the cwd the spec names, which the executor already confines.
  */
 
 'use strict';

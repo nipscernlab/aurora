@@ -64,6 +64,7 @@ function soltarTela() {
 }
 const { getCPUCount } = require('../utils');
 const { isAllowed } = require('./binary_allowlist');
+const { argumentosDeInterpretadorPermitidos } = require('./interpreter_guard');
 const protectedFlags = require('./protected_flags');
 
 /**
@@ -181,6 +182,12 @@ function validateSpecForExec(spec, baseSpecForProtection) {
   }
   const allowed = isAllowed(spec.binary);
   if (!allowed.ok) return allowed;
+
+  // A allowlist diz qual binario pode nascer; para perl e python o argumento
+  // E o programa, entao `-e`/`-c` no prefixo de opcoes e recusado aqui. Ver
+  // interpreter_guard.js.
+  const interp = argumentosDeInterpretadorPermitidos(spec.binary, spec.args);
+  if (!interp.ok) return interp;
 
   // Protected-flag check only applies when the caller supplied a base
   // spec (i.e., overrides were applied). Same-spec call (no overrides)

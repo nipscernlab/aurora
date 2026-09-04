@@ -1,11 +1,27 @@
 /**
  * Aurora Icon Manager
- * Manages loading, storing, and displaying the application icon across multiple
- * elements with support for fallback and persistence using localStorage.
+ *
+ * Dono unico do icone do aplicativo: le e grava a escolha do usuario no
+ * localStorage e a aplica onde o logo aparece.
+ *
+ * Sao dois caminhos de entrega, e os dois precisam existir. Os elementos do
+ * DOM claro (`.aurora-icon`) recebem o `src` direto daqui. Quem vive dentro
+ * de um shadow root, como a marca-d'agua da <aurora-welcome>, e invisivel
+ * para `document.querySelectorAll`, entao escuta o evento
+ * `aurora:icon-changed` e troca o proprio `src`; `window.auroraIconSrc`
+ * guarda o valor corrente para quem montar depois do evento ter passado.
+ *
+ * Ate 03/09/2026 so o quadrado de previa das configuracoes tinha a classe:
+ * trocar a imagem la nao mudava nada em lugar nenhum, embora a descricao do
+ * ajuste prometesse o contrario. A marca-d'agua tinha ido para dentro do
+ * shadow DOM quando a tela inicial virou componente, e a marca da barra e o
+ * logo do Sobre nunca tiveram a classe.
  */
 (() => {
     // Constants
-    const DEFAULT_ICON_PATH = './assets/icons/sapho_aurora_icon.svg';
+    // Absoluta, resolvida contra o documento: a mesma forma que a
+    // <aurora-welcome> usa. Relativa, o valor dependia de quem chamava.
+    const DEFAULT_ICON_PATH = new URL('assets/icons/sapho_aurora_icon.svg', document.baseURI).href;
     const IMAGE_KEY = 'auroraIconPath';
     const IMAGE_DATA_KEY = 'auroraIconData';
 
@@ -47,6 +63,11 @@
 
         // Hide all fallback icons
         fallbackIcons.forEach(icon => icon.style.display = 'none');
+
+        // Quem vive em shadow DOM nao e alcancavel daqui; o evento e o
+        // caminho ate ele, e a variavel atende quem montar depois.
+        window.auroraIconSrc = iconSrc;
+        window.dispatchEvent(new CustomEvent('aurora:icon-changed', { detail: { src: iconSrc } }));
     }
 
     /**
@@ -127,14 +148,12 @@
      * Initializes the module, finds all elements, and sets up event listeners.
      */
     function init() {
-        // Cache collections of DOM elements using classes. Welcome
-        // screen watermark is included via `.welcome-watermark` so the
-        // chosen application icon also drives the splash background:
-        // "changing the icon in settings actually changes it everywhere"
-        // as the user expects, without forcing inline display on the
-        // decorative variants (handled inside showIcons).
+        // Os elementos do DOM claro que carregam o logo: a previa das
+        // configuracoes, a marca da barra de titulo e o logo do Sobre. Os
+        // dois ultimos sao decorativos (`data-decorative-icon`), entao o
+        // showIcons nao mexe no `display` deles, que e do CSS.
         iconUploadInput = document.getElementById('icon-upload');
-        auroraIcons = document.querySelectorAll('.aurora-icon, .welcome-watermark');
+        auroraIcons = document.querySelectorAll('.aurora-icon');
         fallbackIcons = document.querySelectorAll('.fallback-icon');
 
         if (!iconUploadInput || auroraIcons.length === 0) {

@@ -8,6 +8,15 @@ const PHOSPHOR_HREF = new URL('vendor/phosphor/src/regular/style.css', document.
 const WATERMARK_SRC = new URL('assets/icons/sapho_aurora_icon.svg', document.baseURI).href;
 
 /**
+ * O icone corrente do aplicativo, que o usuario pode trocar nas
+ * configuracoes. O dono e js/ui/icon_aurora.js; aqui so se le o valor que
+ * ele publica, com o pacote como reserva enquanto ele nao carregou.
+ */
+function iconeAtual() {
+  return window.auroraIconSrc || WATERMARK_SRC;
+}
+
+/**
  * <aurora-welcome>, the empty-project welcome screen (DESIGN §6/§9), the
  * "Start + Recent" stage shown inside #editor-overlay when no project is open.
  *
@@ -32,6 +41,7 @@ class AuroraWelcome extends LitElement {
     locateScanned: { attribute: false },
     version: { type: String },
     auroraBg: { attribute: false },
+    iconSrc: { attribute: false },
   };
 
   constructor() {
@@ -56,6 +66,11 @@ class AuroraWelcome extends LitElement {
     // faz cada nova montagem ja nascer com a preferencia certa.
     this.auroraBg = AuroraWelcome._bgEnabled();
     this._onBgToggle = (e) => { this.auroraBg = !!e.detail?.enabled; };
+    // A marca-d'agua segue o icone escolhido nas configuracoes. Ela mora no
+    // shadow root, entao o gerenciador do icone nao a alcanca pelo DOM e o
+    // aviso vem por evento.
+    this.iconSrc = iconeAtual();
+    this._onIcon = (e) => { this.iconSrc = e.detail?.src || WATERMARK_SRC; };
   }
 
   /** Le a preferencia sem depender de o modulo de settings ja ter carregado. */
@@ -67,7 +82,11 @@ class AuroraWelcome extends LitElement {
     super.connectedCallback();
     window.addEventListener('aurora:locale-changed', this._onLocale);
     window.addEventListener('aurora:background-toggled', this._onBgToggle);
+    window.addEventListener('aurora:icon-changed', this._onIcon);
     this.auroraBg = AuroraWelcome._bgEnabled();
+    // Montagens novas (a Welcome volta a cada projeto fechado) leem o valor
+    // corrente, que pode ter mudado enquanto o componente nao existia.
+    this.iconSrc = iconeAtual();
     if (!this.version) {
       window.electronAPI?.getAppVersion?.()
         .then((v) => { if (v) this.version = `v${String(v).replace(/^v/, '')}`; })
@@ -78,6 +97,7 @@ class AuroraWelcome extends LitElement {
   disconnectedCallback() {
     window.removeEventListener('aurora:locale-changed', this._onLocale);
     window.removeEventListener('aurora:background-toggled', this._onBgToggle);
+    window.removeEventListener('aurora:icon-changed', this._onIcon);
     if (this._procPopEl) { this._procPopEl.remove(); this._procPopEl = null; }
     super.disconnectedCallback();
   }
@@ -553,7 +573,7 @@ class AuroraWelcome extends LitElement {
         ? html`<aurora-canvas class="bg-canvas" intensity="1.0" speed="1.3" aria-hidden="true"></aurora-canvas>`
         : ''}
       <div class="scrim" aria-hidden="true"></div>
-      <img class="watermark" src=${WATERMARK_SRC} alt="" aria-hidden="true" />
+      <img class="watermark" src=${this.iconSrc} alt="" aria-hidden="true" />
       <div class="content">
         <header class="topbar">
           <span class="mark">SAPHO</span>

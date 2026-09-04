@@ -163,6 +163,9 @@ function applyFileTreeWidth(w) {
   fileTreeContainer.style.width = w + 'px';
   fileTreeContainer.classList.toggle('is-collapsed', colapsada);
   document.body.classList.toggle('tree-collapsed', colapsada);
+  // A orientacao das abas do terminal ouve isto (js/terminal/tab_orientation.js)
+  // e se ajusta na hora, sem depender de um quadro de renderizacao.
+  window.dispatchEvent(new CustomEvent('aurora:layout-changed', { detail: { origem: 'arvore', largura: w } }));
 }
 
 // Public toggle for the sidebar. O botao da barra de ferramentas

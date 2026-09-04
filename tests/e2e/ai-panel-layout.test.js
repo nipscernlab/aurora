@@ -151,13 +151,25 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
         if (prof < 4) for (const f of el.children) visitar(f, prof + 1);
       };
       visitar(term, 0);
+      // A geometria vai junto na mensagem: uma falha so com "passa 31px" nao
+      // diz em que largura de janela nem em que orientacao aconteceu, e foi
+      // preciso reproduzir as cegas quando o runner falhou e a maquina local nao.
+      const barra = document.querySelector('.terminal-tabs');
       return {
         colado: Math.round(term.getBoundingClientRect().right) === Math.round(aiLeft),
         fora,
+        geometria: {
+          janela: `${window.innerWidth}x${window.innerHeight}`,
+          terminal: Math.round(term.getBoundingClientRect().width),
+          painel: Math.round(ai.getBoundingClientRect().width),
+          coluna: term.classList.contains('tabs-vertical'),
+          barra: barra ? `${barra.clientWidth} visiveis de ${barra.scrollWidth}` : 'sem barra',
+        },
       };
     });
-    expect(r.colado, 'a borda do terminal tem que encostar na do painel').toBe(true);
-    expect(r.fora, 'nada do terminal pode entrar na faixa do painel').toEqual([]);
+    const onde = JSON.stringify(r.geometria);
+    expect(r.colado, `a borda do terminal tem que encostar na do painel; ${onde}`).toBe(true);
+    expect(r.fora, `nada do terminal pode entrar na faixa do painel; ${onde}`).toEqual([]);
   }, 30_000);
 
   // O caso "apertou muito" e coberto pelo teste da coluna, logo abaixo: abaixo

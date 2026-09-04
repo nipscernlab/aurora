@@ -214,6 +214,10 @@ class AIAssistantManager {
     c.classList.toggle('is-collapsed', !aberto);
     document.body.classList.toggle('ai-assistant-open', aberto);
     document.body.classList.toggle('ai-collapsed', !aberto);
+    // Quem divide a tela com o painel (a orientacao das abas do terminal) ouve
+    // isto e se ajusta na hora, sem esperar um quadro de renderizacao que numa
+    // janela oculta pode nao vir.
+    window.dispatchEvent(new CustomEvent('aurora:layout-changed', { detail: { origem: 'painel-ia', largura: w } }));
     // P17 a11y: com largura zero o painel continua no DOM, e sem isto o Tab e o
     // leitor de tela entram nele.
     if (aberto) c.removeAttribute('inert');

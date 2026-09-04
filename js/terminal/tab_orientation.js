@@ -22,21 +22,45 @@
  */
 export const LARGURA_VIRA_COLUNA = 780;
 
-let agendado = null;
+/**
+ * Largura do terminal em que a faixa horizontal estourou pela última vez, ou 0.
+ *
+ * O limiar fixo cobre o caso comum, mas a barra também pode não caber ACIMA
+ * dele: fonte maior, idioma com nomes mais longos, um botão a mais nas ações.
+ * Aí as abas passavam da borda direita do terminal, que é a borda esquerda do
+ * painel de IA, e na tela isso é indistinguível do painel estar por cima. Quando
+ * a faixa não cabe, vira coluna também; e para não oscilar (em coluna não dá
+ * para medir se a faixa caberia), a coluna só volta a faixa quando o terminal
+ * cresce uma folga além da largura em que estourou.
+ */
+let larguraQueEstourou = 0;
+const FOLGA_PARA_VOLTAR = 40;
 
-/** Decide entre faixa horizontal e coluna, pela largura do terminal. */
+/** Decide entre faixa horizontal e coluna, pela largura do terminal e pelo que cabe. */
 function ajustarOrientacao() {
   const term = document.querySelector('.terminal-container');
   if (!term) return false;
-  const coluna = term.getBoundingClientRect().width < LARGURA_VIRA_COLUNA;
+  const largura = term.getBoundingClientRect().width;
+  const barra = term.querySelector('.terminal-tabs');
+  const emColuna = term.classList.contains('tabs-vertical');
+  if (!emColuna && barra && barra.scrollWidth > barra.clientWidth + 1) {
+    larguraQueEstourou = largura;
+  } else if (emColuna && largura > larguraQueEstourou + FOLGA_PARA_VOLTAR) {
+    larguraQueEstourou = 0;
+  }
+  const coluna = largura < LARGURA_VIRA_COLUNA || (larguraQueEstourou > 0 && largura <= larguraQueEstourou + FOLGA_PARA_VOLTAR);
   term.classList.toggle('tabs-vertical', coluna);
   return coluna;
 }
 
-/** Uma passada por quadro, no máximo: o observador dispara em rajada. */
+/**
+ * Roda de imediato, e não num requestAnimationFrame: o ResizeObserver já entrega
+ * as mudanças em lote antes da pintura, e um quadro de animação numa janela
+ * que o compositor considera oculta (ocorre no runner do CI e com a tela
+ * bloqueada) pode simplesmente não vir, deixando as abas na orientação velha.
+ */
 function agendar() {
-  if (agendado) cancelAnimationFrame(agendado);
-  agendado = requestAnimationFrame(() => { agendado = null; ajustarOrientacao(); });
+  ajustarOrientacao();
 }
 
 function initTerminalTabOrientation() {
@@ -47,6 +71,15 @@ function initTerminalTabOrientation() {
   // largura dele sem a janela mudar de tamanho.
   try { new ResizeObserver(agendar).observe(term); }
   catch (_) { window.addEventListener('resize', agendar); }
+
+  // E ouve quem muda a largura por código, na hora. O ResizeObserver só entrega
+  // no próximo quadro de renderização, e numa janela que o compositor considera
+  // oculta (atrás de outra, no runner do CI, com a tela bloqueada) esse quadro
+  // pode não vir: o painel de IA abria, o terminal encolhia para 540 px e as
+  // abas ficavam em faixa, estourando 15 px para dentro do painel. Quem aplica
+  // largura (painel de IA, árvore) avisa por este evento, e a orientação segue
+  // a mudança sem depender de quadro nenhum.
+  window.addEventListener('aurora:layout-changed', agendar);
 
   agendar();
   return true;

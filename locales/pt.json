@@ -928,7 +928,9 @@
   },
   "sac": {
     "title": "Simulação bloqueada pelo Windows",
-    "body": "O Smart App Control está ativo e bloqueia os programas sem assinatura da cadeia de simulação (Icarus, GTKWave); compilar vai falhar com spawn UNKNOWN. Desligue-o em Segurança do Windows, Controle de aplicativos e navegador."
+    "body": "O Smart App Control está ativo neste Windows e barra todo programa sem assinatura, inclusive o Icarus, o GTKWave e os executáveis que o Verilator gera. Enquanto ele estiver ligado, compilar e simular falham com <code>spawn UNKNOWN</code>, e não existe exceção por pasta nem por aplicativo.<br><br>Para desligar: Segurança do Windows, Controle de aplicativos e navegador, Configurações do Controle Inteligente de Aplicativos, Desativado. Depois abra a AURORA de novo.<br><br>Atenção: uma vez desligado, ele só volta reinstalando o Windows. A decisão é sua, sobre a sua máquina; a AURORA não muda nada sozinha.",
+    "open": "Abrir Segurança do Windows",
+    "later": "Agora não"
   },
   "updates": {
     "upToDateTitle": "SAPHO atualizado",

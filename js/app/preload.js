@@ -26,6 +26,9 @@ const fileOperations = {
   getFileStats:    (p) => ipcRenderer.invoke('get-file-stats', p),
   isOnBattery:     () => ipcRenderer.invoke('system:on-battery'),
   openPowerSettings: () => ipcRenderer.invoke('system:open-power-settings'),
+  // Seguranca do Windows > Controle de aplicativos e navegador, onde o Smart
+  // App Control se desliga (relato #6).
+  openAppBrowserControl: () => ipcRenderer.invoke('system:open-app-browser-control'),
   getFileSizeLive: (p) => ipcRenderer.invoke('get-file-size-live', p),
   fileExists:      (p) => ipcRenderer.invoke('file-exists', p),
 

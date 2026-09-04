@@ -32,6 +32,21 @@ function register() {
     }
   });
 
+  // Seguranca do Windows, na pagina "Controle de aplicativos e navegador", que
+  // e onde o Smart App Control se desliga (relato #6). URL fixa, sem entrada do
+  // renderer, como a de energia acima: o esquema windowsdefender: e o do
+  // proprio aplicativo Seguranca do Windows e nao passa pelo open-external
+  // generico, que so aceita http, https e mailto de proposito.
+  ipcMain.handle('system:open-app-browser-control', async () => {
+    try {
+      const { shell } = require('electron');
+      await shell.openExternal('windowsdefender://appbrowser');
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
   ipcMain.handle('system:on-battery', () => {
     try {
       const { powerMonitor } = require('electron');

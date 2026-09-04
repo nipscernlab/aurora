@@ -928,7 +928,9 @@
   },
   "sac": {
     "title": "Simulation blocked by Windows",
-    "body": "Smart App Control is on and blocks the unsigned simulation tools (Icarus, GTKWave), so compiling will fail with spawn UNKNOWN. Turn it off in Windows Security, App and browser control."
+    "body": "Smart App Control is on in this Windows and blocks every unsigned program, including Icarus, GTKWave and the executables Verilator generates. While it is on, compiling and simulating fail with <code>spawn UNKNOWN</code>, and there is no exception per folder or per application.<br><br>To turn it off: Windows Security, App and browser control, Smart App Control settings, Off. Then open AURORA again.<br><br>Note: once off, it only comes back by reinstalling Windows. The decision is yours, about your machine; AURORA changes nothing by itself.",
+    "open": "Open Windows Security",
+    "later": "Not now"
   },
   "updates": {
     "upToDateTitle": "SAPHO updated",

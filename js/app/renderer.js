@@ -209,12 +209,36 @@ window.onload = () => {
     // proposito, porque enquanto ele bloqueia a simulacao esta quebrada de
     // verdade (spawn UNKNOWN no vvp/gtkwave) e um aviso que se cala ensina a
     // esquecer o problema. O atraso deixa a janela assentar primeiro.
+    //
+    // Era um toast de quinze segundos. O relato #6 mostrou o limite dele: o
+    // aluno leu, nao sabia onde ficava a configuracao nem que o desligamento
+    // e definitivo, e foi reinstalar componentes. Agora e um dialogo com o
+    // caminho inteiro, o aviso de que so volta reinstalando o Windows, e um
+    // botao que abre a pagina certa da Seguranca do Windows. O toast fica
+    // como reserva para quando o dialogo nao existir (design-lab, testes).
     electronAPI?.getSacStatus?.().then((r) => {
         if (!r || r.estado !== 'ligado') return;
-        setTimeout(() => {
-            const title = window.t ? window.t('sac.title') : 'Simulation blocked by Windows';
-            const body = window.t ? window.t('sac.body') : '';
-            window.showNotification?.(body, 'error', 15000, title);
+        setTimeout(async () => {
+            const tr = (k, fb) => (window.t ? window.t(k) : fb);
+            const title = tr('sac.title', 'Simulation blocked by Windows');
+            const body = tr('sac.body', '');
+            const dialog = window.AuroraUI?.dialog;
+            if (typeof dialog !== 'function') {
+                window.showNotification?.(body, 'error', 15000, title);
+                return;
+            }
+            const escolha = await dialog({
+                title,
+                message: body,
+                variant: 'error',
+                buttons: [
+                    { label: tr('sac.later', 'Not now'), action: 'cancel', type: 'cancel' },
+                    { label: tr('sac.open', 'Open Windows Security'), action: 'abrir', type: 'primary' },
+                ],
+            });
+            if (escolha === 'abrir') {
+                try { await electronAPI.openAppBrowserControl?.(); } catch (_) { /* melhor esforco */ }
+            }
         }, 4500);
     }).catch(() => { /* cortesia; nao pode quebrar o boot */ });
 

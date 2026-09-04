@@ -4,6 +4,53 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.15.0](https://github.com/nipscernlab/aurora/compare/v6.14.0...v6.15.0) (2026-09-04)
+
+
+### Features
+
+* **bench:** medidor de desempenho por commit e primeira medicao ([0af1a89](https://github.com/nipscernlab/aurora/commit/0af1a89c55f25f51eb579f6d053666616b1d16bc))
+* **compile:** o terminal diz quantos modulos, portas e instancias a compilacao produziu ([b2db575](https://github.com/nipscernlab/aurora/commit/b2db575678c88179091625cc957fe3bfec57045f))
+* **editor:** "// New Verilog file" vira dica de arquivo vazio, nao conteudo ([58849db](https://github.com/nipscernlab/aurora/commit/58849db85c249287de79eb4128f2d522320604b4))
+* **git:** selecao com ctrl e descarte em lote pelo botao direito ([3896ad5](https://github.com/nipscernlab/aurora/commit/3896ad52bc4ec9b8c7945b761147d51d13fa832e))
+* **tree:** lixeira no nome do processador abre a exclusao que ja existia ([b64f003](https://github.com/nipscernlab/aurora/commit/b64f00381d038649f8dd6a2a71e6511c70ef67b8))
+* **welcome:** botao que abre a pasta do projeto na lista de recentes ([3b5d10e](https://github.com/nipscernlab/aurora/commit/3b5d10e7bfeb9489f64cd4b7bb26636c0dcf517d))
+
+
+### Bug Fixes
+
+* **bench:** --runs 0 vale 1, como o contrato diz ([9686f65](https://github.com/nipscernlab/aurora/commit/9686f65e25bcbde185f4618aeb7a138dfaae93d9))
+* **ci:** o worker da busca e entrada declarada para o knip ([bf8d43e](https://github.com/nipscernlab/aurora/commit/bf8d43e6434a23ac78d08b6b9d4fbbeb0ab39fab))
+* **compile:** mkdir vestigial na pasta ANTIGA dos componentes derrubava a pre-compilacao ([e083886](https://github.com/nipscernlab/aurora/commit/e0838862f3afe4fe9d8a7fb46b71068aa603cf6d))
+* **compile:** o aviso do Smart App Control vira dialogo com o caminho e um botao para a Seguranca do Windows ([26c09ee](https://github.com/nipscernlab/aurora/commit/26c09ee5710a9d002851d9b5836e2609f3ebd2ff))
+* **compile:** perl e python nao aceitam codigo pela linha de comando no exec-spec ([30c006b](https://github.com/nipscernlab/aurora/commit/30c006b070b0bea647f3a756061b43a7afc520e2))
+* **csp:** script-src sem 'unsafe-inline'; os scripts inline viraram arquivos ([53dec72](https://github.com/nipscernlab/aurora/commit/53dec722bb832f9e703eb15dfd57162b9a96af80))
+* **deps:** package-lock volta a bater com o package.json ([d381409](https://github.com/nipscernlab/aurora/commit/d38140983f9166acc02e5acc96de973616247628))
+* **docs:** o manual offline fica fora da politica de seguranca do app ([25d6e3c](https://github.com/nipscernlab/aurora/commit/25d6e3c1a35d302d5b55aaf3646a1aa212c20319))
+* **files:** escrita e remocao confinadas as areas gravaveis ([a96acb3](https://github.com/nipscernlab/aurora/commit/a96acb38068213da880da79aa527441d079482f3))
+* **git:** limpar credenciais ao sair so quando a AURORA conectou uma conta ([ca5632d](https://github.com/nipscernlab/aurora/commit/ca5632d60804c9873e7f4d8fdb3fd01a1f92642c))
+* **git:** selecao de varios sobrevivia mal ao redesenho da lista ([7cdba3d](https://github.com/nipscernlab/aurora/commit/7cdba3d08ea454a40c2729f9d6b4d187ab9efec7))
+* **lsp:** leitor de quadros linear e backoff para servidor que morre ao subir ([d9e3a5b](https://github.com/nipscernlab/aurora/commit/d9e3a5b0b884d479c16d3759b6a1d8523b657720))
+* **lsp:** processador ainda nao compilado deixa de ser erro no top level ([dd60a3f](https://github.com/nipscernlab/aurora/commit/dd60a3f205e5a039bab491a4b60135c6422b4bb7))
+* **main:** projeto aberto por janela e watchers com varios assinantes ([dfb78e8](https://github.com/nipscernlab/aurora/commit/dfb78e80792f99a1f6e759dc7559bddb851ecf7a))
+* **main:** saida espera a faxina, reaper de IA por janela, KaTeX antes do loader e os avulsos da secao 10 ([7e48e3f](https://github.com/nipscernlab/aurora/commit/7e48e3f2b8cbdede58db45eb8f7515dfab75fb3e))
+* **main:** valida nome de processador, grava .spf atomico e fecha os avulsos da auditoria ([15d8ede](https://github.com/nipscernlab/aurora/commit/15d8ede4206828b40b7c703978f548251e7c92f0))
+* **preview:** home e raiz de unidade servem so o documento, e permissao de pagina e negada por padrao ([926c44a](https://github.com/nipscernlab/aurora/commit/926c44ac656daa0efbcdb5fbc4f03c1497fc8241))
+* **prism:** caminhos da sintese derivados no main e script do Yosys sem injecao ([e2a7ef9](https://github.com/nipscernlab/aurora/commit/e2a7ef97b72dba22f8037392d1081f593b4273db))
+* **pylibs:** commit atomico do manifesto e verificacao que nao segura o main ([85635bc](https://github.com/nipscernlab/aurora/commit/85635bc43f2fe4efd4700ef3bb6232a2d110b28d))
+* **search:** a busca no projeto roda num worker thread com prazo ([d1212b7](https://github.com/nipscernlab/aurora/commit/d1212b717742a25e1eb7352304c608f13b306d6f))
+* **sec:** dependencias vulneraveis no chao corrigido, actions por SHA e publisherName na release assinada ([4094b4b](https://github.com/nipscernlab/aurora/commit/4094b4b4112cbef4ce33581381dcb7463cd9cf35))
+* **settings:** caixa de selecao sobrepunha o tamanho no cartao com atualizacao ([93eb2a8](https://github.com/nipscernlab/aurora/commit/93eb2a83594c98770e8545721ddb7d1989062d1d))
+* **settings:** trocar o icone do aplicativo passa a valer em todo lugar ([abbae61](https://github.com/nipscernlab/aurora/commit/abbae6116459c26f9238c60acb3740f943443fa2))
+* **terminal:** as abas mudam de orientacao na hora em que o layout muda ([7eccff5](https://github.com/nipscernlab/aurora/commit/7eccff5cccc30e71485aeced7931e1369c52d473))
+* **ui:** o cabecalho do modal sai da regiao de arrasto da janela ([a6d20cd](https://github.com/nipscernlab/aurora/commit/a6d20cde7ce81a4b07c6b8e57eecb4095e6e3a86))
+
+
+### Documentation
+
+* **bench:** medicao da secao 10, experimento, controle e a terceira regra ([c84de12](https://github.com/nipscernlab/aurora/commit/c84de12498bbf3c9b35e9a89e262b356eec6e4a6))
+* **todo:** registra a auditoria de 02/09/2026 como secao 10 ([5ad5207](https://github.com/nipscernlab/aurora/commit/5ad52078b754e54c2ed122c03d364dd0c47f4b95))
+
 ## [6.14.0](https://github.com/nipscernlab/aurora/compare/v6.13.0...v6.14.0) (2026-09-02)
 
 

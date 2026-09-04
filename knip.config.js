@@ -68,6 +68,11 @@ module.exports = {
     'js/app/preload*.js',      // 4 contextBridge preloads, loaded by path
     'scripts/*.js',            // npm-run build/release/bootstrap helpers
     'components/Scripts/*.js', // toolchain download/copy (npm run bootstrap)
+    // O corpo do worker da busca no projeto e lido como TEXTO por search.js
+    // (readFileSync + Worker com eval), entao nao ha aresta de import para o
+    // knip seguir. Sem esta linha ele acusa o arquivo como morto e o CI da
+    // main fica vermelho, como ficou de 03/09 a 04/09/2026.
+    'main/ipc/search_worker.js',
     // prism.js e design-lab.js estavam aqui à mão e saíram: entradasDasPaginas
     // acha os dois lendo as páginas que os carregam, junto com todo o resto.
     ...entradasDasPaginas(),

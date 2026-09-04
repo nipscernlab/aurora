@@ -901,6 +901,8 @@
     "clickMissingTitle": "Project not found",
     "clickMissingMessage": "The project file \"{{name}}\" was not found on disk. It stays struck through in the recents list; use the magnifier button to search this computer for it.",
     "removeRecent": "Remove from recents",
+    "revealFolder": "Open the project folder",
+    "revealFailed": "Could not open the project folder.",
     "forgetMissingTitle": "Remove the projects that no longer exist",
     "missingHint": "This project was not found on disk.",
     "examples": "Example projects",

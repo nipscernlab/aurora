@@ -901,6 +901,8 @@
     "clickMissingTitle": "Projeto não encontrado",
     "clickMissingMessage": "O arquivo do projeto \"{{name}}\" não foi encontrado no disco. Ele fica riscado na lista de recentes; use a lupa para procurá-lo neste computador.",
     "removeRecent": "Tirar dos recentes",
+    "revealFolder": "Abrir a pasta do projeto",
+    "revealFailed": "Não foi possível abrir a pasta do projeto.",
     "forgetMissingTitle": "Remove da lista os projetos que nao existem mais",
     "missingHint": "Este projeto nao foi encontrado no disco.",
     "examples": "Projetos de exemplo",

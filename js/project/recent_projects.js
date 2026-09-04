@@ -41,6 +41,9 @@ export class RecentProjectsManager {
         this.locate(this.projects.filter((p) => p._missing).map((p) => p.path));
       });
       this.welcomeEl.addEventListener('recent-locate-cancel', () => this.cancelLocate());
+      // Abrir a pasta e o gesto irmao de abrir o projeto: mesma linha, mesma
+      // lista, sem passar pela IDE.
+      this.welcomeEl.addEventListener('project-reveal', (e) => this.revealFolder(e.detail));
     }
 
     this.loadFromStorage();
@@ -354,6 +357,33 @@ export class RecentProjectsManager {
   // A recent row was clicked in the <aurora-welcome> view, open that project.
   // (The view escapes its own text bindings and animates the rows; this manager
   // keeps the data + the open/remove actions.)
+  /**
+   * Abre no explorador de arquivos a pasta que contem o .spf.
+   *
+   * O que a lista guarda e o caminho do .spf; a pasta e o diretorio dele, e
+   * quem sabe recortar caminho e o processo principal (o renderer nao tem
+   * `path`, e cortar na mao erraria na primeira UNC ou barra trocada). Se
+   * o recorte falhar, ainda tentamos com o proprio caminho: o handler do
+   * main recusa o que nao for diretorio, entao o erro chega como aviso e
+   * nao como pasta errada aberta.
+   */
+  async revealFolder(spfPath) {
+    if (!spfPath) return;
+    try {
+      const pasta = (await electronAPI?.dirname?.(spfPath)) || spfPath;
+      const r = await electronAPI?.openFolder?.(pasta);
+      // O handler devolve { success, error }; sem isto, uma pasta apagada
+      // entre a listagem e o clique nao dizia nada a ninguem.
+      if (r && r.success === false) throw new Error(motivoDe(r, 'unknown error'));
+    } catch (e) {
+      showCardNotification(
+        window.t?.('welcome.revealFailed', 'Could not open the project folder.') || 'Could not open the project folder.',
+        'warning',
+      );
+      console.warn('[recentes] abrir a pasta falhou:', e);
+    }
+  }
+
   _handleOpenByPath(path) {
     const project = this.projects.find((p) => p.path === path);
     if (project) this.handleProjectClick(project);

@@ -19,6 +19,7 @@ const WATERMARK_SRC = new URL('assets/icons/sapho_aurora_icon.svg', document.bas
  *     (each { name, path, displayPath }) and listens for the events emitted here:
  *       project-open   (detail: path), a row was clicked
  *       project-remove (detail: path), the row's × was clicked
+ *       project-reveal (detail: path), the row's folder button was clicked
  * Strings come from window.t(); it re-renders on `aurora:locale-changed`.
  * #editor-overlay stays in the light DOM (TabManager toggles it, and a sibling
  * selector hides the editor behind it), only its content moved into the shadow.
@@ -423,6 +424,7 @@ class AuroraWelcome extends LitElement {
     .project-item:hover .project-remove { opacity: 1; }
     .project-remove:hover { background: rgba(226, 108, 108, 0.10); color: var(--state-error); }
     .project-locate:hover { background: var(--status-success-bg); color: var(--aurora-mint); }
+    .project-reveal:hover { background: var(--surface-hover); color: var(--text-primary); }
 
     .project-actions {
       display: inline-flex; align-items: center; gap: 2px;
@@ -646,6 +648,13 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
             @click=${(e) => this._locate(p.path, e)}
           ><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>` : ''}
           ${p.locating ? html`<span class="locate-spinner row" aria-hidden="true"></span>` : ''}
+          ${!p.missing ? html`
+          <button
+            class="project-remove project-reveal"
+            data-tip=${this._t('welcome.revealFolder', 'Open the project folder')}
+            aria-label=${this._t('welcome.revealFolder', 'Open the project folder')}
+            @click=${(e) => this._reveal(p.path, e)}
+          ><i class="ph ph-folder-notch-open" aria-hidden="true"></i></button>` : ''}
           <button
             class="project-remove"
             data-tip=${this._t('welcome.removeRecent', 'Remove from recents')}
@@ -667,6 +676,18 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
   _locate(path, e) {
     e.stopPropagation();
     this.dispatchEvent(new CustomEvent('project-locate', { detail: path, bubbles: true, composed: true }));
+  }
+
+  /**
+   * Abrir a pasta do projeto no explorador de arquivos.
+   *
+   * Manda o caminho do .spf, e nao a pasta: quem sabe transformar um no
+   * outro e o gerenciador, que ja tem o caminho e a ponte para o main. A
+   * view continua sem saber o que e pasta.
+   */
+  _reveal(path, e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('project-reveal', { detail: path, bubbles: true, composed: true }));
   }
 
   /** Localizar todos os ausentes de uma vez: quem perdeu um, perdeu varios. */

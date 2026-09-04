@@ -49,3 +49,35 @@ describe('decidirLimparAoSair', () => {
     }
   });
 });
+
+describe('decidirLimparAoSair no encerramento, com o cofre em conta', () => {
+  // Desde 04/09/2026 o padrão só apaga quando a AURORA tem algo seu na
+  // máquina: uma conta conectada pelo painel Git. Antes, toda instalação nova
+  // apagava ao fechar a credencial do github.com que o usuário guardara por
+  // fora (git no terminal, VS Code), e cada fechamento virava um pedido de
+  // login novo em outro programa.
+  it('no padrão, sem conta conectada, NÃO limpa: a credencial não é nossa', () => {
+    expect(decidirLimparAoSair(null, false)).toBe(false);
+    expect(decidirLimparAoSair('{ isto nao e json', false)).toBe(false);
+    expect(decidirLimparAoSair(JSON.stringify({ outraCoisa: 1 }), false)).toBe(false);
+  });
+
+  it('no padrão, com conta conectada, limpa: é o aluno do laboratório', () => {
+    expect(decidirLimparAoSair(null, true)).toBe(true);
+  });
+
+  it('um true gravado limpa sempre, conectado ou não', () => {
+    expect(decidirLimparAoSair(JSON.stringify({ limparAoSair: true }), false)).toBe(true);
+  });
+
+  it('um false gravado nunca limpa, nem com conta conectada', () => {
+    expect(decidirLimparAoSair(JSON.stringify({ limparAoSair: false }), true)).toBe(false);
+  });
+
+  it('valor que não é boolean cai no padrão, que depende da conta', () => {
+    for (const v of ['', 0, null, 'false']) {
+      expect(decidirLimparAoSair(JSON.stringify({ limparAoSair: v }), false), String(v)).toBe(false);
+      expect(decidirLimparAoSair(JSON.stringify({ limparAoSair: v }), true), String(v)).toBe(true);
+    }
+  });
+});

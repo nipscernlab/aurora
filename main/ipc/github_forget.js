@@ -301,6 +301,20 @@ function caminhoPreferencia() {
  * escolha de quem usa a IDE na propria maquina e foi ate as Configuracoes
  * desmarcar. Arquivo ilegivel tambem cai no padrao, de proposito: nesse estado
  * nao da para afirmar que alguem pediu para manter o acesso.
+ *
+ * O padrao, porem, so vale quando ha o que a AURORA tenha criado. Ate
+ * 04/09/2026 a limpeza ao sair rodava em toda instalacao nova, conectada ou
+ * nao, e apagava do Gerenciador de Credenciais do Windows a credencial do
+ * github.com que o proprio usuario tinha guardado por fora, pelo git no
+ * terminal ou pelo VS Code. Na maquina do mantenedor isso virava uma janela
+ * "Connect to GitHub" a cada commit de outro programa, em todas as maquinas,
+ * e cada teste de ponta a ponta que fechava a AURORA apagava a credencial de
+ * novo. A regra agora: com a preferencia no padrao, a limpeza ao sair so roda
+ * se uma conta de forja foi conectada NESTA instalacao (o cofre da AURORA tem
+ * token), porque so entao existe algo que a AURORA deixou na maquina. O aluno
+ * do laboratorio, que conecta pelo painel Git para entregar, continua coberto;
+ * quem nunca conectou nao tem a credencial dos outros programas apagada. Um
+ * `true` gravado explicitamente limpa sempre, como antes.
  */
 /**
  * A decisao, separada da leitura do disco para poder ser testada sem Electron.
@@ -308,28 +322,54 @@ function caminhoPreferencia() {
  * limpeza de codigo devolveria o padrao antigo sem falhar nada.
  *
  * @param {string|null} raw conteudo do arquivo, ou null se nao ha arquivo
+ * @param {boolean} [contaConectada] se o cofre da AURORA tem alguma conta de
+ *   forja; e o que o PADRAO devolve. Quem pergunta pela preferencia em si (o
+ *   interruptor das Configuracoes) nao passa nada e recebe o padrao ligado.
  */
-function decidirLimparAoSair(raw) {
-  if (raw == null) return true;
+function decidirLimparAoSair(raw, contaConectada = true) {
+  if (raw == null) return contaConectada;
   try {
-    return JSON.parse(raw)?.limparAoSair !== false;
+    const v = JSON.parse(raw)?.limparAoSair;
+    if (v === false) return false;
+    if (v === true) return true;
+    return contaConectada;
   } catch (_) {
-    return true;
+    return contaConectada;
   }
 }
 
-function limparAoSair() {
-  let raw = null;
+/**
+ * Alguma conta de forja esta conectada neste cofre? Nunca lanca: o encerramento
+ * nao pode travar numa leitura de cofre, e sem resposta a decisao segura e a
+ * de nao apagar o que nao se sabe se e nosso.
+ */
+function contaConectada() {
   try {
-    raw = fs.readFileSync(caminhoPreferencia(), 'utf8');
+    if (githubAuth.getToken()) return true;
+  } catch (_) { /* cofre ilegivel: trate como ausente */ }
+  try {
+    if (gitlabAuth && typeof gitlabAuth.getToken === 'function' && gitlabAuth.getToken()) return true;
+  } catch (_) { /* idem */ }
+  return false;
+}
+
+/** O conteudo bruto do arquivo da preferencia, ou null quando nao ha arquivo. */
+function lerPreferenciaBruta() {
+  try {
+    return fs.readFileSync(caminhoPreferencia(), 'utf8');
   } catch (e) {
     // ENOENT e o caso normal (instalacao nova, ninguem mexeu). Qualquer outro
     // erro e anomalia e merece registro, mas nao muda a decisao.
     if (e && e.code !== 'ENOENT') {
-      log.warn('[github-forget] preferencia ilegivel, usando o padrao (limpar):', e);
+      log.warn('[github-forget] preferencia ilegivel, usando o padrao:', e);
     }
+    return null;
   }
-  return decidirLimparAoSair(raw);
+}
+
+/** A preferencia como o interruptor das Configuracoes a mostra: padrao ligado. */
+function limparAoSair() {
+  return decidirLimparAoSair(lerPreferenciaBruta());
 }
 
 function definirLimparAoSair(ligado) {
@@ -342,9 +382,19 @@ function definirLimparAoSair(ligado) {
   }
 }
 
-/** Chamado no encerramento. Nao faz nada se a preferencia estiver desligada. */
+/**
+ * Chamado no encerramento. Nao faz nada se a preferencia estiver desligada, nem
+ * quando, no padrao, nenhuma conta foi conectada nesta instalacao: ai a unica
+ * credencial de forja na maquina e de outro programa, e nao e nossa para apagar.
+ * A conta e conferida ANTES da limpeza, porque o primeiro passo dela e
+ * justamente esvaziar o cofre.
+ */
 async function aoEncerrar() {
-  if (!limparAoSair()) return { ok: true, pulado: true };
+  const conectada = contaConectada();
+  if (!decidirLimparAoSair(lerPreferenciaBruta(), conectada)) {
+    if (!conectada) log.info('[github-forget] nada a limpar ao sair: nenhuma conta de forja conectada nesta instalacao');
+    return { ok: true, pulado: true };
+  }
   log.info('[github-forget] limpando ao sair, conforme a preferencia');
   return esquecerTudo();
 }

@@ -218,6 +218,40 @@
   flex-shrink: 0;
 }
 
+/* Lixeira do processador: nasce na cor do proprio separador (muted, herdada) e
+   so aparece com o mouse sobre a linha, para a arvore parada continuar sendo
+   duas linhas e um nome. Vermelha so quando o ponteiro esta nela, que e o
+   aviso de que aquele clique apaga arquivos do disco. Ela fica no fluxo, entre
+   o rotulo e a linha da direita, e ocupa o lugar desde sempre: aparecer por
+   opacidade e nao por display evita que o nome escorregue para o lado no
+   instante em que o mouse chega. */
+.verilog-processor-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font-size: var(--icon-xs);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.verilog-processor-separator:hover .verilog-processor-delete,
+.verilog-processor-delete:focus-visible {
+  opacity: 1;
+}
+
+.verilog-processor-delete:hover {
+  color: var(--state-error);
+}
+
 /* ---------------------------------------------------------------------------
  *  File rows, match the regular file tree's row metrics
  * ------------------------------------------------------------------------- */

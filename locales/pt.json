@@ -135,6 +135,7 @@
       "copyRelPath": "Copiar Caminho Relativo",
       "rename": "Renomear...",
       "delete": "Excluir",
+      "deleteProcessor": "Apagar o processador",
       "openTerminal": "Abrir no Terminal Integrado",
       "reveal": "Revelar no Explorador de Arquivos",
       "refresh": "Atualizar",

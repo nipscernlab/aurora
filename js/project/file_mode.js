@@ -244,6 +244,19 @@ class ProjectTreeManager {
                     await this.confirmAndDismissMissingFiles();
                     return;
                 }
+                // Lixeira do separador de processador: mesmo caminho de
+                // exclusao do menu de botao direito, com o mesmo dialogo de
+                // confirmacao. Vem antes da row porque o separador nao e uma.
+                const lixeira = e.target.closest('.verilog-processor-delete');
+                if (lixeira) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const procName = lixeira.closest('.verilog-processor-separator')?.dataset.processorName;
+                    if (procName && procName !== '__imported__') {
+                        await this._deleteProcessorByName(procName);
+                    }
+                    return;
+                }
                 const row = e.target.closest('.verilog-file-item');
                 if (!row) return;
                 const path = row.dataset.filePath;

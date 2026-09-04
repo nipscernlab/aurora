@@ -397,13 +397,25 @@ export const RenderMixin = {
         sep.className = 'verilog-processor-separator';
         if (isImported) sep.classList.add('verilog-imported-separator');
         sep.dataset.processorName = procName;
+        // A lixeira so existe para processador de verdade: "Imported" e um
+        // rotulo de secao, nao ha o que apagar. O nome NAO entra por HTML
+        // (ele vem do .spf, e um projeto clonado pode trazer qualquer coisa
+        // no lugar); vai por textContent logo abaixo, como o rotulo.
         sep.innerHTML = `
             <span class="verilog-processor-separator-line"></span>
             <span class="verilog-processor-separator-label"></span>
+            ${isImported ? '' : '<button type="button" class="verilog-processor-delete" data-action="delete-processor" tabindex="-1"><i class="ph ph-trash" aria-hidden="true"></i></button>'}
             <span class="verilog-processor-separator-line"></span>
         `;
         sep.querySelector('.verilog-processor-separator-label').textContent =
             isImported ? 'Imported' : procName;
+        const lixeira = sep.querySelector('.verilog-processor-delete');
+        if (lixeira) {
+            const rotulo = (window.t?.('fileTree.crud.deleteProcessor', 'Delete processor') || 'Delete processor')
+                + ` "${procName}"`;
+            lixeira.title = rotulo;
+            lixeira.setAttribute('aria-label', rotulo);
+        }
         return sep;
     },
 

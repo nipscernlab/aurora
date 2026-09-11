@@ -103,6 +103,10 @@ class StandardTreeCrud {
         // múltipla. Um Ctrl+C de cinco arquivos cola os cinco.
         this.clipboard = null;
         this._inlineCleanup = null;
+        /** O card de menu que esta aberto agora, ou null. Ver _renderMenu. */
+        this._menu = null;
+        this._menuDismiss = null;
+        this._menuAttachTimer = null;
         /** caminho apagado -> o que ele tinha no .spf, para o Ctrl+Z repor. */
         this._spfRetirado = new Map();
 
@@ -754,36 +758,58 @@ class StandardTreeCrud {
         menu.style.left = `${x}px`;
         menu.style.top = `${y}px`;
         document.body.appendChild(menu);
+        // A referencia fica no objeto, nao no id: o menu anterior continua no
+        // DOM por 150 ms enquanto esvaece, e procurar por id nesse intervalo
+        // devolvia o card velho e deixava o novo orfao. Botao direito repetido
+        // empilhava um card por clique.
+        this._menu = menu;
         requestAnimationFrame(() => {
+            if (this._menu !== menu) return;
             const rect = menu.getBoundingClientRect();
             if (rect.right > window.innerWidth) menu.style.left = `${x - rect.width}px`;
             if (rect.bottom > window.innerHeight) menu.style.top = `${y - rect.height}px`;
             menu.classList.add('show');
         });
 
-        this._menuDismiss = (e) => {
+        const dismiss = (e) => {
             if (e.type === 'keydown' && e.key !== 'Escape') return;
-            if (e.type === 'click' && e.target.closest('#standard-tree-context-menu')) return;
+            if (e.type === 'click' && menu.contains(e.target)) return;
             this._closeMenu();
         };
-        setTimeout(() => {
-            document.addEventListener('click', this._menuDismiss);
-            document.addEventListener('contextmenu', this._menuDismiss);
-            document.addEventListener('keydown', this._menuDismiss);
+        this._menuDismiss = dismiss;
+        // Liga no proximo tick para o contextmenu que abriu o card nao o
+        // fechar. Se outro menu abrir antes disso, o timer e cancelado em
+        // _closeMenu e este dismiss nunca chega ao document.
+        this._menuAttachTimer = setTimeout(() => {
+            this._menuAttachTimer = null;
+            if (this._menuDismiss !== dismiss) return;
+            document.addEventListener('click', dismiss);
+            document.addEventListener('contextmenu', dismiss);
+            document.addEventListener('keydown', dismiss);
         }, 0);
     }
 
     _closeMenu() {
-        const menu = document.getElementById('standard-tree-context-menu');
+        if (this._menuAttachTimer) {
+            clearTimeout(this._menuAttachTimer);
+            this._menuAttachTimer = null;
+        }
+        const menu = this._menu;
         if (menu) {
+            this._menu = null;
+            // Some o id e os cliques: o card que esvaece nao pode ser
+            // confundido com o que esta abrindo nem receber acoes.
+            menu.removeAttribute('id');
+            menu.style.pointerEvents = 'none';
             menu.classList.remove('show');
             setTimeout(() => menu.remove(), 150);
         }
-        if (this._menuDismiss) {
-            document.removeEventListener('click', this._menuDismiss);
-            document.removeEventListener('contextmenu', this._menuDismiss);
-            document.removeEventListener('keydown', this._menuDismiss);
+        const dismiss = this._menuDismiss;
+        if (dismiss) {
             this._menuDismiss = null;
+            document.removeEventListener('click', dismiss);
+            document.removeEventListener('contextmenu', dismiss);
+            document.removeEventListener('keydown', dismiss);
         }
     }
 

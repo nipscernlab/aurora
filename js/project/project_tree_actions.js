@@ -43,6 +43,30 @@ import { classifyVerilogContent } from './verilog_classifier.js';
 // (rare; renderer hits these only after DOMContentLoaded).
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
+/** O fechar-no-clique-fora do card "New File" que esta ligado ao document. */
+let createMenuDismiss = null;
+
+/**
+ * Tira um card de menu da tela pelo id.
+ *
+ * O card que sai fica 200 ms no DOM enquanto esvaece. Enquanto ele guardava
+ * o id, o fechamento seguinte encontrava o card velho em vez do que estava
+ * aberto: removia o 'show' de quem ja estava saindo e deixava o aberto na
+ * tela para sempre. Botao direito repetido empilhava um card por clique.
+ * Tirar o id (e os cliques) na hora deixa o id valendo so para o card vivo.
+ *
+ * Funcao de modulo, e nao metodo, porque closeContextMenu e passada como
+ * referencia para addEventListener: ali dentro `this` e o document.
+ */
+function fecharCardDeMenu(id) {
+    const card = document.getElementById(id);
+    if (!card) return;
+    card.removeAttribute('id');
+    card.style.pointerEvents = 'none';
+    card.classList.remove('show');
+    setTimeout(() => card.remove(), 200);
+}
+
 export const ActionsMixin = {
     // ----- drag and drop -----------------------------------------------
 
@@ -735,19 +759,18 @@ async def basic_test(dut):
 
     /** Fecha o context menu de row (set top-level, mark tb, delete). */
     closeContextMenu() {
-        const existingMenu = document.getElementById('verilog-context-menu');
-        if (existingMenu) {
-            existingMenu.classList.remove('show');
-            setTimeout(() => existingMenu.remove(), 200);
-        }
+        fecharCardDeMenu('verilog-context-menu');
     },
 
     /** Fecha o context menu de area vazia (New Verilog File). */
     closeCreateMenu() {
-        const existingMenu = document.getElementById('verilog-create-menu');
-        if (existingMenu) {
-            existingMenu.classList.remove('show');
-            setTimeout(() => existingMenu.remove(), 200);
+        fecharCardDeMenu('verilog-create-menu');
+        // O fechar-no-clique-fora do card e um closure novo a cada abertura,
+        // e so se removia ao disparar. Sem isto, cada abertura deixava um
+        // listener a mais no document.
+        if (createMenuDismiss) {
+            document.removeEventListener('click', createMenuDismiss);
+            createMenuDismiss = null;
         }
     },
 
@@ -969,13 +992,15 @@ async def basic_test(dut):
         });
 
         const closeOnClickOutside = (e) => {
-            if (!e.target.closest('#verilog-create-menu')) {
-                this.closeCreateMenu();
-                document.removeEventListener('click', closeOnClickOutside);
-            }
+            if (menu.contains(e.target)) return;
+            this.closeCreateMenu();
         };
 
         setTimeout(() => {
+            // Se outro card abriu nesses 100 ms, este ja nao e o vivo: ligar
+            // o dismiss dele agora fecharia o card do outro clique.
+            if (menu.id !== 'verilog-create-menu') return;
+            createMenuDismiss = closeOnClickOutside;
             document.addEventListener('click', closeOnClickOutside);
         }, 100);
     },

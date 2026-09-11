@@ -130,11 +130,22 @@ export default defineConfig([
     // production code that reads `window.*` and stub it via globalThis.window
     // in beforeEach/afterEach — declare `window` so the assertions lint
     // clean. `document` is included for the same reason in case future
-    // tests stub DOM apis.
+    // tests stub DOM apis. Os construtores de evento vem do happy-dom, o
+    // ambiente dos testes que exercitam DOM de verdade (`@vitest-environment
+    // happy-dom` no topo do arquivo): sem declara-los, um teste que dispara
+    // um clique real quebra o no-undef.
     files: ["tests/unit/**/*.{js,mjs,cjs}"],
     languageOptions: {
       sourceType: "module",
-      globals: { ...globals.node, window: "readonly", document: "readonly" },
+      globals: {
+        ...globals.node,
+        window: "readonly",
+        document: "readonly",
+        EventTarget: "readonly",
+        Event: "readonly",
+        MouseEvent: "readonly",
+        KeyboardEvent: "readonly",
+      },
     },
   },
 

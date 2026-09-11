@@ -20,6 +20,7 @@ const UI = {
     retrying: (a, of, s) =>
       `The connection dropped. Trying again in ${s}s, attempt ${a} of ${of}.`,
     resuming: 'Reconnecting',
+    minimize: 'Minimize, keep updating in the background',
   },
   pt: {
     avTitle: (v) => `A versão ${v} está pronta`,
@@ -35,6 +36,7 @@ const UI = {
     retrying: (a, of, s) =>
       `A conexão caiu. Tentando de novo em ${s}s, tentativa ${a} de ${of}.`,
     resuming: 'Reconectando',
+    minimize: 'Minimizar, seguir atualizando em segundo plano',
   },
 };
 
@@ -228,6 +230,7 @@ function applyLocale() {
   $('t-dn-sub').textContent   = T.dnSub;
   $('t-later2').textContent   = T.later2;
   $('t-install').textContent  = T.install;
+  $('minimize').title = T.minimize;
   $('lang-en').classList.toggle('active', locale === 'en');
   $('lang-pt').classList.toggle('active', locale === 'pt');
   renderChangelog();
@@ -385,5 +388,9 @@ $('btn-install').onclick  = () => window.updateAPI?.install();
 $('btn-later').onclick    = () => window.updateAPI?.dismiss();
 $('btn-later2').onclick   = () => window.updateAPI?.dismiss();
 $('close').onclick        = () => window.updateAPI?.dismiss();
+// Minimizar nao e fechar: o download segue, e some so a janela. O botao da
+// barra de status continua sendo o caminho de volta, e dali em diante quem
+// conta o que esta acontecendo e o Windows, nao este card.
+$('minimize').onclick     = () => window.updateAPI?.minimize(locale);
 
 applyLocale();

@@ -26,6 +26,7 @@ const {
   spfDaJanela, registrarSpfDaJanela,
 } = require('./project_paths');
 const { entradaOcultaNaArvore } = require('./files_ops');
+const { prepararTempDoProjeto } = require('../project_temp');
 
 // ---- ProjectFile schema ----
 
@@ -321,6 +322,11 @@ function register() {
       if (!projectData.structure.folders) projectData.structure.folders = [];
 
       await escreverSpf(spfPath, projectData);
+
+      // A Temp deste projeto (<projeto>/.aurora/Temp): garante, esconde no
+      // Windows e poda o que envelheceu ou passou do teto. Fora do caminho
+      // da abertura, sem lancar; ver main/project_temp.js.
+      prepararTempDoProjeto(projectData.structure.basePath);
 
       const files = await fse.readdir(projectData.structure.basePath, { withFileTypes: true });
       const fileList = files

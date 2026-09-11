@@ -1,4 +1,5 @@
 import { electronAPI } from '../app/electron_api.js';
+import { projectTempDir } from '../project/project_temp.js';
 // wave_toolchain.js: resolve bundled toolchain paths for the wave/sim flow.
 //
 // Extracted from compilation_module.js (A2 god-file decomposition #3). Pure IO
@@ -20,7 +21,7 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
  * Resolve absolute paths to bundled toolchain executables and Aurora's
  * Temp / Scripts directories.
  *
- * Inputs:  componentsPath
+ * Inputs:  componentsPath, projectPath (opcional; decide onde fica tempBaseDir)
  * Returns: { tempBaseDir, gtkwaveBin, vvpBin, iverilogBin,
  *            iverilogBinDir, gtkwaveBinDir, fst2vcdBin, surferBin }, all absolute
  * Throws:  never (joinPath is total)
@@ -31,8 +32,13 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
  * and convert the FST it produces, that path uses the base tools object
  * directly (unlike Verilator, which merges in resolveVerilatorTools()).
  */
-export async function resolveWaveToolchain(componentsPath) {
-    const tempBaseDir = await electronAPI.joinPath(componentsPath, 'Temp');
+export async function resolveWaveToolchain(componentsPath, projectPath = null) {
+    // Os intermediarios vao para a Temp DO PROJETO (ver project_temp.js);
+    // components/Temp so quando nao ha projeto, que e o caso de quem abre
+    // um dump avulso pela API.
+    const tempBaseDir = projectPath
+        ? await projectTempDir(projectPath)
+        : await electronAPI.joinPath(componentsPath, 'Temp');
     const gtkwaveBin = await electronAPI.joinPath(
         componentsPath, 'Packages', 'gtkwave-nipscern', 'gtkwave.exe',
     );

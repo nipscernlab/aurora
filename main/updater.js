@@ -49,6 +49,7 @@ const log = require('electron-log');
 const state = require('./state');
 const { isDev } = require('./paths');
 const { createUpdateWindow } = require('./windows');
+const notificarSistema = require('./update_notify');
 const { urlExternaPermitida } = require('./ipc/files_ops');
 
 const {
@@ -316,6 +317,9 @@ function sendToUpdateWindow(channel, payload) {
 
 /** Open (or focus) the update window and deliver `pendingPayload`. */
 function presentUpdateWindow() {
+  // O card voltando para a tela desliga as notificacoes do sistema: quem
+  // esta olhando o card nao precisa que o Windows conte a mesma coisa.
+  notificarSistema.desativar();
   const win = createUpdateWindow();
   const deliver = () => sendToUpdateWindow('update:state', pendingPayload);
   if (win.webContents.isLoading()) {
@@ -432,6 +436,10 @@ function setupAutoUpdaterEvents() {
     // don't hold its failures against the next hiccup.
     downloadFailureStreak = 0;
     const bps = p.bytesPerSecond || 0;
+    // So pinta quando o card esta minimizado; com ele na tela a barra dele
+    // ja conta isso. `progresso` sozinho ja sabe disso, mas o total pode ser
+    // 0 numa primeira amostra e ai nao ha fracao nenhuma para pintar.
+    if (p.total > 0) notificarSistema.progresso(p.transferred / p.total);
     sendToUpdateWindow('update:progress', {
       percent: Math.min(100, Math.max(0, p.percent || 0)),
       transferredMB: (p.transferred / 1048576).toFixed(1),
@@ -460,6 +468,8 @@ function setupAutoUpdaterEvents() {
     };
     sendToUpdateWindow('update:state', pendingPayload);
     avisarBotaoDeUpdate();
+    notificarSistema.progresso(null);
+    notificarSistema.avisar('concluido', info.version, presentUpdateWindow);
   });
 
   autoUpdater.on('error', (error) => {
@@ -467,6 +477,9 @@ function setupAutoUpdaterEvents() {
     const wasDownloading = state.downloadInProgress;
     state.updateCheckInProgress = false;
     state.downloadInProgress = false;
+    // Uma barra de progresso parada no botao da barra de tarefas mentiria
+    // que ainda esta baixando.
+    notificarSistema.progresso(null);
 
     diagnostics.lastError = (error && error.message) || String(error);
     diagnostics.lastErrorAt = Date.now();
@@ -844,6 +857,31 @@ function registerIpc() {
   ipcMain.on('update:dismiss', () => {
     const w = state.updateWindow;
     if (w && !w.isDestroyed() && !state.downloadInProgress) w.close();
+  });
+
+  /**
+   * Minimizar: o card sai da tela e o Windows assume a narracao.
+   *
+   * Esconde em vez de minimizar de verdade. A janela nao tem moldura, e
+   * transparente e fica sempre no topo; minimizada ela viraria mais um botao
+   * na barra de tarefas, que e justamente o tipo de coisa que estorva quem
+   * pediu espaco. Escondida ela some por inteiro, e o caminho de volta e o
+   * botao de atualizacao na barra de status, que ja existia, mais o clique
+   * na propria notificacao.
+   *
+   * Vale durante o download, ao contrario do dismiss: nada e cancelado aqui,
+   * so a janela sai da frente.
+   */
+  ipcMain.on('update:minimize', (_e, locale) => {
+    const w = state.updateWindow;
+    if (!w || w.isDestroyed()) return;
+    notificarSistema.ativar(typeof locale === 'string' ? locale : '');
+    w.hide();
+    if (state.downloadInProgress) {
+      notificarSistema.avisar('baixando', pendingPayload?.newVersion, presentUpdateWindow);
+    } else if (state.updateDownloaded) {
+      notificarSistema.avisar('concluido', pendingPayload?.newVersion, presentUpdateWindow);
+    }
   });
 
   // Link clicado nas notas de release (o commit de cada item). A janela de

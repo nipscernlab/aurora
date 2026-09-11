@@ -129,9 +129,13 @@ function isAllowed(binaryPath) {
     };
   }
 
-  // Verilator-generated V<top>.exe under components/Temp/obj_dir_*/.
+  // Verilator-generated V<top>.exe. Vive em <projeto>/.aurora/Temp/obj_dir_*/
+  // desde que os intermediarios passaram a ser por projeto
+  // (js/project/project_temp.js); components/Temp fica como reserva para o
+  // que nao tem projeto. Nos dois casos a pasta tem que se chamar obj_dir* e
+  // o binario V<algo>, que e a forma que o Verilator gera e nada mais.
   if (
-    normalized.startsWith(VERILATOR_GENERATED_PREFIX) &&
+    (normalized.startsWith(VERILATOR_GENERATED_PREFIX) || /\/\.aurora\/Temp\//.test(normalized)) &&
     /\/obj_dir[^/]*\/V[^/]+(\.exe)?$/.test(normalized)
   ) {
     return { ok: true };

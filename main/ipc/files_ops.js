@@ -244,7 +244,11 @@ function ausenciaEsperada(erro) {
  * @param {string} name nome da entrada (sem caminho).
  */
 function entradaOcultaNaArvore(name) {
-  return String(name || '') === '.slang';
+  const n = String(name || '');
+  // .aurora: intermediarios de compilacao (Temp), registro de execucoes e
+  // memoria da IA. Nada ali e para editar pela arvore, e o Temp em especial
+  // e grande e muda a cada clique; na arvore ele so puxaria o olho.
+  return n === '.slang' || n === '.aurora';
 }
 
 module.exports = {

@@ -38,6 +38,8 @@ import { ProjectStore } from './project_store.js';
 import { SpfStore } from './spf_store.js';
 import { toNativeSeparators } from '../utils/path_utils.js';
 import { classifyVerilogContent } from './verilog_classifier.js';
+import { removerDoSpf, reporNoSpf } from './spf_paths.js';
+import { showCardNotification } from '../ui/notification.js';
 
 // i18n shim, falls back to the key path if i18n didn't boot yet
 // (rare; renderer hits these only after DOMContentLoaded).
@@ -318,6 +320,9 @@ export const ActionsMixin = {
             '# AURORA / SAPHO',
             'Temp/',
             'Backup/',
+            // Intermediarios de compilacao deste projeto (.vvp, obj_dir do
+            // Verilator, testbench instrumentado). Ver js/project/project_temp.js.
+            '.aurora/Temp/',
             // Config do slang-server, escrita pela AURORA quando o projeto
             // aponta para fontes fora da pasta dele. Sao caminhos absolutos
             // desta maquina, nao servem para mais ninguem.
@@ -594,14 +599,44 @@ async def basic_test(dut):
 
     // ----- path-keyed actions ------------------------------------------
 
-    /** Delete path-keyed, direto ao mutator, sem traduzir pra index. */
+    /**
+     * Tira o arquivo da arvore (o x da linha), com volta.
+     *
+     * Tirar da arvore nao apaga nada do disco, so a referencia no .spf, e
+     * mesmo assim era irreversivel: quem errava o x tinha que reimportar o
+     * arquivo e remarcar topo e testbench a mao. A remocao agora usa
+     * removerDoSpf, que devolve exatamente o que saiu (a entrada da lista e
+     * a marca de topo, se havia), e o card da notificacao ganha um botao de
+     * desfazer que repoe isso com reporNoSpf. O botao mora no card porque e
+     * ali que o gesto ainda esta na frente da pessoa; a visao de
+     * processadores nao tem pilha de Ctrl+Z, e inventar uma so para isto
+     * seria mais mecanismo do que o gesto pede.
+     */
     async _removeFileByPath(path) {
         const targetSpfPath = ProjectStore.getSpfPath();
         if (!targetSpfPath) return;
         const file = this.verilogFiles.find((f) => f.path === path);
         if (!file) return;
-        await this._dropFileFromSpf(targetSpfPath, path);
-        this.showNotification(tr('notification.tree.removed', { name: file.name }), 'success', 2000);
+
+        let retirado = null;
+        await SpfStore.update(targetSpfPath, (cfg) => {
+            retirado = removerDoSpf(cfg, [path]);
+        });
+
+        const desfazer = async () => {
+            if (!retirado || !retirado.total) return;
+            const guardado = retirado;
+            retirado = null;
+            await SpfStore.update(targetSpfPath, (cfg) => { reporNoSpf(cfg, guardado); });
+            showCardNotification(tr('notification.tree.restored', { name: file.name }), 'success', 2500);
+        };
+        // Seis segundos e nao dois: o card agora e um lugar onde se decide algo.
+        // Ele pausa quando o mouse esta em cima, entao ninguem perde o botao
+        // por estar lendo.
+        showCardNotification(
+            tr('notification.tree.removed', { name: file.name }), 'success', 6000, undefined,
+            { action: { label: tr('notification.tree.undo'), run: desfazer } },
+        );
     },
 
     /**

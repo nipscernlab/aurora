@@ -29,6 +29,9 @@ const MAX_FILES = 500;                    // …or after this many matching file
 // Directories we never descend into, VCS, deps, build output, vendored assets.
 const SKIP_DIRS = new Set([
   '.git', 'node_modules', 'dist', 'build', 'components', 'Temp', 'Backup', '.vite',
+  // Intermediarios do projeto (.vvp, obj_dir, testbench instrumentado): a
+  // busca acharia o $dumpvars injetado pela AURORA como se fosse do usuario.
+  '.aurora',
 ]);
 
 /** Escape a string so it matches literally inside a RegExp. */

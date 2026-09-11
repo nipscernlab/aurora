@@ -610,7 +610,9 @@
       "setAsTop": "\"{{name}}\" definido como Top Level",
       "topRemoved": "Top Level removido de \"{{name}}\"",
       "markedTb": "\"{{name}}\" marcado como Testbench",
-      "tbUnmarked": "Marca de Testbench removida de \"{{name}}\""
+      "tbUnmarked": "Marca de Testbench removida de \"{{name}}\"",
+      "undo": "Desfazer",
+      "restored": "\"{{name}}\" voltou para a arvore"
     },
     "fileMode": {
       "errorOpen": "Erro ao abrir arquivo: {{name}}"
@@ -757,7 +759,8 @@
       "progress": "Simulação",
       "progressBuild": "Compilação",
       "surferTabStateSaved": "Estado salvo no projeto e registrado como layout ativo, o próximo Wave abre com ele.",
-      "surferWindowByChoice": "Surfer em janela própria, como escolhido nas Configurações."
+      "surferWindowByChoice": "Surfer em janela própria, como escolhido nas Configurações.",
+      "noFinish": "Atencao: {{file}} tem um clock livre e nenhum $finish ou $stop, entao nada avisa a simulacao que ela acabou. Ela vai rodar ate voce apertar Cancelar, e a forma de onda pode sair truncada. Ponha um $finish onde o teste termina."
     },
     "openComponents": "Abrir Componentes",
     "compile": {

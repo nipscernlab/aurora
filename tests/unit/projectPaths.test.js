@@ -10,7 +10,8 @@
  */
 
 import path from 'node:path';
-import { describe, it, expect } from 'vitest';
+import { createRequire } from 'node:module';
+import { beforeEach, describe, it, expect } from 'vitest';
 
 import {
   parseSpfTolerant,
@@ -18,6 +19,11 @@ import {
   remapRootPath,
   deepRemapPaths,
 } from '../../main/ipc/project_paths.js';
+
+// O state pelo require nativo: e a instancia que project_paths.js usa por
+// dentro. O import ESM do vitest devolve outra copia do modulo, e limpar o
+// mapa dela nao limpa o mapa que as funcoes leem.
+const state = createRequire(import.meta.url)('../../main/state.js');
 
 const S = path.sep;
 const j = (...p) => p.join(S);
@@ -199,9 +205,11 @@ describe('spfDaJanela / registrarSpfDaJanela', () => {
     registrarSpfDaJanela({ sender: b }, '/proj/B/B.spf');
     expect(spfDaJanela({ sender: a })).toBe('/proj/A/A.spf');
     expect(spfDaJanela({ sender: b })).toBe('/proj/B/B.spf');
-    // Quem nao tem janela registrada cai no global, que e o mais recente.
+    // Sem janela no contexto, vale o global, que e o mais recente. Uma JANELA
+    // fora do mapa, nao: ela nao abriu nada, e herdar o projeto da vizinha
+    // era o que fazia uma janela compilar com o testbench da outra.
     expect(spfDaJanela(null)).toBe('/proj/B/B.spf');
-    expect(spfDaJanela({ sender: fakeSender(90) })).toBe('/proj/B/B.spf');
+    expect(spfDaJanela({ sender: fakeSender(90) })).toBe(null);
     registrarSpfDaJanela({ sender: a }, null);
     registrarSpfDaJanela({ sender: b }, null);
   });
@@ -220,8 +228,9 @@ describe('spfDaJanela / registrarSpfDaJanela', () => {
     registrarSpfDaJanela({ sender: a }, '/proj/A/A.spf');
     registrarSpfDaJanela({ sender: b }, '/proj/B/B.spf');
     a.destruir();
-    // Sem entrada propria, a consulta da janela morta cai no global.
-    expect(spfDaJanela({ sender: a })).toBe('/proj/B/B.spf');
+    // Sem entrada propria, a janela morta nao tem projeto; ela nao herda o
+    // da vizinha que continua viva.
+    expect(spfDaJanela({ sender: a })).toBe(null);
     registrarSpfDaJanela({ sender: b }, null);
   });
 
@@ -231,5 +240,48 @@ describe('spfDaJanela / registrarSpfDaJanela', () => {
     registrarSpfDaJanela({ sender: a }, '/proj/C/C.spf');
     expect(spfDaJanela({ sender: a })).toBe('/proj/C/C.spf');
     registrarSpfDaJanela({ sender: a }, null);
+  });
+});
+
+// O `.spf` de cada janela. A reserva antiga caia no "ultimo aberto em qualquer
+// lugar" sempre que a janela nao estava no mapa, e com duas janelas isso
+// entregava para a B o projeto da A: a compilacao de B lia o testbench de A.
+describe('spfDaJanela', () => {
+  const evento = (id) => ({ sender: { id, once() {} } });
+
+  beforeEach(() => {
+    state.currentOpenProjectPath = null;
+    state.projectPathsBySender.clear();
+  });
+
+  it('sem janela no contexto (LSP, IA), vale o ultimo aberto', () => {
+    registrarSpfDaJanela(evento(1), 'A.spf');
+    expect(spfDaJanela(null)).toBe('A.spf');
+    expect(spfDaJanela({})).toBe('A.spf');
+  });
+
+  it('cada janela recebe o que ela mesma abriu', () => {
+    registrarSpfDaJanela(evento(1), 'A.spf');
+    registrarSpfDaJanela(evento(2), 'B.spf');
+    expect(spfDaJanela(evento(1))).toBe('A.spf');
+    expect(spfDaJanela(evento(2))).toBe('B.spf');
+  });
+
+  it('janela sem projeto NAO herda o projeto da vizinha', () => {
+    registrarSpfDaJanela(evento(1), 'A.spf');
+    expect(spfDaJanela(evento(2))).toBeNull();
+  });
+
+  it('no arranque de uma janela so, antes de registrar, vale o global', () => {
+    state.currentOpenProjectPath = 'A.spf';
+    expect(spfDaJanela(evento(7))).toBe('A.spf');
+  });
+
+  it('fechar o projeto tira a janela do mapa e ela volta a nao ter nada', () => {
+    registrarSpfDaJanela(evento(1), 'A.spf');
+    registrarSpfDaJanela(evento(2), 'B.spf');
+    registrarSpfDaJanela(evento(2), null);
+    expect(spfDaJanela(evento(2))).toBeNull();
+    expect(spfDaJanela(evento(1))).toBe('A.spf');
   });
 });

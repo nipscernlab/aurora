@@ -22,6 +22,13 @@ class AuroraToast extends LitElement {
     message: { type: String },
     duration: { type: Number }, // ms; <= 0 = sticky
     phase: { type: String, reflect: true }, // enter | shown | exit
+    /**
+     * Rotulo do botao de acao, quando o card oferece um gesto de volta
+     * ("Desfazer"). Vazio = sem botao. O que o botao faz fica em `action`,
+     * uma funcao e nao um atributo: a CSP do renderer nao aceita onclick
+     * inline, e o card nao tem como saber o que desfazer.
+     */
+    actionLabel: { type: String },
   };
 
   constructor() {
@@ -31,6 +38,9 @@ class AuroraToast extends LitElement {
     this.message = '';
     this.duration = 5000;
     this.phase = 'enter';
+    this.actionLabel = '';
+    /** @type {(() => unknown) | null} chamado no clique do botao de acao. */
+    this.action = null;
     /** read by notification.js trimStack() */
     this.dismissing = false;
     this._timerId = null;
@@ -134,6 +144,26 @@ class AuroraToast extends LitElement {
       text-underline-offset: 2px;
     }
 
+    .action {
+      align-self: flex-start;
+      margin-top: 4px;
+      padding: 3px 10px;
+      border-radius: var(--radius-sm, 4px);
+      border: 1px solid var(--border-hairline);
+      background: transparent;
+      color: var(--accent);
+      font: inherit;
+      font-size: var(--text-sm, 13px);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color var(--motion-quick, 140ms) var(--ease-aurora, ease),
+        border-color var(--motion-quick, 140ms) var(--ease-aurora, ease);
+    }
+    .action:hover {
+      background: var(--overlay-hover);
+      border-color: var(--accent);
+    }
+
     .close {
       position: absolute;
       top: 8px;
@@ -224,6 +254,9 @@ class AuroraToast extends LitElement {
         <div class="text">
           <div class="title">${this.heading}</div>
           <div class="message">${unsafeHTML(this.message)}</div>
+          ${this.actionLabel
+            ? html`<button class="action" @click=${() => this._runAction()}>${this.actionLabel}</button>`
+            : null}
         </div>
       </div>
       <button class="close" aria-label="Dismiss" @click=${() => this.dismiss()}>&#x2715;</button>
@@ -280,6 +313,19 @@ class AuroraToast extends LitElement {
       const computed = getComputedStyle(bar).width;
       bar.style.transition = 'none';
       bar.style.width = computed;
+    }
+  }
+
+  /**
+   * O botao de acao: roda o gesto e fecha o card. Uma acao que lanca nao pode
+   * deixar o card preso na tela, entao o fechar vem antes do erro subir.
+   */
+  _runAction() {
+    if (this.dismissing) return;
+    const acao = this.action;
+    this.dismiss();
+    if (typeof acao === 'function') {
+      Promise.resolve().then(acao).catch((err) => console.error('toast action failed:', err));
     }
   }
 

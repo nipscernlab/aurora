@@ -19,6 +19,7 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { SpfStore } from '../project/spf_store.js';
+import { projectTempDir } from '../project/project_temp.js';
 import {
   buildCmmSpec,
   buildAsmPreSpec, buildAsmSpec,
@@ -131,7 +132,8 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
   const lang = (window.getYancLang?.() ?? 'pt') as 'pt' | 'en';
   const macrosPath  = await joinComponents('Macros');
   const hdlPath     = await joinComponents('HDL');
-  const tempBaseDir = await joinComponents('Temp');
+  // Intermediarios na Temp DO PROJETO, nunca na compartilhada (project_temp.js).
+  const tempBaseDir = await projectTempDir(projectPath);
 
   if (step === 'cmm') {
     const proc = await loadProcessorContext(processorName);

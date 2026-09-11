@@ -146,17 +146,29 @@ function deepRemapPaths(obj, oldRoot, newRoot) {
 const state = require('../state');
 
 /**
- * O `.spf` aberto NA JANELA que fez o pedido, ou o global como reserva
- * (arranque, chamadas fora de janela).
+ * O `.spf` aberto NA JANELA que fez o pedido.
+ *
+ * Sem janela no contexto (LSP, IA, chamadas de arranque), vale o global, "o
+ * ultimo aberto". Com janela, vale o que ELA abriu, e so isso: uma janela
+ * que ainda nao abriu projeto nenhum recebe null, nao o projeto da vizinha.
+ * A unica excecao e quando nenhuma janela registrou nada, que e o arranque
+ * de uma janela so, onde o global e a mesma coisa que ela.
+ *
+ * A reserva antiga caia no global sempre que a janela nao estava no mapa. Com
+ * duas janelas, isso entregava para a janela B o `.spf` da janela A: a
+ * compilacao de B lia o testbench de A, e o nome dele aparecia num projeto
+ * que nunca o teve. Foi um aluno quem achou.
+ *
  * @param {{ sender?: { id?: number } } | null} [event]
  * @returns {string | null}
  */
 function spfDaJanela(event) {
   const id = event?.sender?.id;
-  if (id != null && state.projectPathsBySender.has(id)) {
+  if (id == null) return state.currentOpenProjectPath;
+  if (state.projectPathsBySender.has(id)) {
     return state.projectPathsBySender.get(id) || null;
   }
-  return state.currentOpenProjectPath;
+  return state.projectPathsBySender.size === 0 ? state.currentOpenProjectPath : null;
 }
 
 /**

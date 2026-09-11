@@ -20,6 +20,7 @@ import { buildAliasMap } from './gtkw_proc_writer.js';
 import { hasUserDumpCalls } from './testbench_instrumenter.js';
 import { WaveStore } from './wave_state_store.js';
 import { ProjectStore } from '../project/project_store.js';
+import { projectTempDir } from '../project/project_temp.js';
 import { SpfStore } from '../project/spf_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
 import { switchTerminal } from '../terminal/terminal.js';
@@ -699,16 +700,15 @@ class WaveConfigManager {
             // pra que `// $dumpvars(0, tb);` NAO conte como user-defined.
             if (!hasUserDumpCalls(tbContent)) return null;
 
-            // VCD vive em components/Temp/<topModule>.vcd no fluxo
-            // no-processors. Outras configs podem ter outros paths
-            // mas esse e o caminho canonico do botao Wave.
-            const componentsPath = await electronAPI.getComponentsPath();
+            // O VCD vive na Temp do projeto, <projeto>/.aurora/Temp/<topModule>.vcd
+            // (project_temp.js). E o caminho canonico do botao Wave.
+            const tempBaseDir = await projectTempDir(projectPath);
             // Prefer the stashed pass-1 header (.header.vcd) because the
             // canonical .vcd is overwritten with FST binary by pass 2 of
             // the two-pass dump strategy. Fall back to .vcd if present
             // (legacy / single-pass runs).
-            const headerPath = await electronAPI.joinPath(componentsPath, 'Temp', `${topModule}.header.vcd`);
-            const legacyPath = await electronAPI.joinPath(componentsPath, 'Temp', `${topModule}.vcd`);
+            const headerPath = await electronAPI.joinPath(tempBaseDir, `${topModule}.header.vcd`);
+            const legacyPath = await electronAPI.joinPath(tempBaseDir, `${topModule}.vcd`);
             let vcdPath = null;
             if (await electronAPI.fileExists(headerPath)) vcdPath = headerPath;
             else if (await electronAPI.fileExists(legacyPath)) vcdPath = legacyPath;

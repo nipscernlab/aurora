@@ -34,6 +34,24 @@ const { ipcMain } = require('electron');
 const log = require('electron-log');
 
 const state = require('../state');
+
+/**
+ * Anota a pasta <projeto>/.aurora/Temp que este spawn usa, se usar alguma.
+ *
+ * A varredura que mata orfaos por prefixo de caminho (process_registry) so
+ * conhecia components/Temp. Com os intermediarios por projeto, o V<top>.exe
+ * do Verilator nasce dentro do projeto, e a varredura precisa saber em quais
+ * projetos olhar; o cwd e o binario do spec sao os dois lugares onde essa
+ * pasta aparece.
+ * @param {{ cwd?: string, binary?: string }} spec
+ */
+function anotarTempDoProjeto(spec) {
+  for (const p of [spec?.cwd, spec?.binary]) {
+    if (typeof p !== 'string') continue;
+    const m = /^(.*?[\\/]\.aurora[\\/]Temp)(?:[\\/]|$)/i.exec(p);
+    if (m) state.projectTempDirs.add(m[1]);
+  }
+}
 const { spawnTracked, GROUP } = require('../process_registry');
 const { mensagemDeErroDeSpawn } = require('./spawn_hint');
 
@@ -246,6 +264,7 @@ function register() {
       }, GROUP.RUN);
       state.currentVvpProcess = child;
       state.vvpProcessPid = child.pid ?? null;
+      anotarTempDoProjeto(spec);
       boostPriority(child.pid);
       // A tela nao pode apagar no meio de uma simulacao longa: em laptop, o
       // Windows pode levar a suspensao junto e matar a corrida. Segura so
@@ -327,6 +346,7 @@ function register() {
       }, GROUP.RUN);
       state.currentVvpProcess = child;
       state.vvpProcessPid = child.pid ?? null;
+      anotarTempDoProjeto(spec);
       boostPriority(child.pid);
 
       // A janela pode fechar com o filho vivo; um send em webContents destruido

@@ -604,6 +604,11 @@ function createSplashScreen() {
  */
 function createUpdateWindow() {
   if (state.updateWindow && !state.updateWindow.isDestroyed()) {
+    // Minimizar esconde a janela em vez de fecha-la (o download continua),
+    // entao ela pode estar viva e invisivel. Sem o show, clicar no botao de
+    // atualizacao da barra de status apenas focava uma janela que ninguem
+    // via, e o card parecia ter sumido de vez.
+    if (!state.updateWindow.isVisible()) state.updateWindow.show();
     state.updateWindow.focus();
     return state.updateWindow;
   }
@@ -646,6 +651,9 @@ function createUpdateWindow() {
 
   updateWindow.on('closed', () => {
     state.updateWindow = null;
+    // Sem janela nao ha o que minimizar: as notificacoes do sistema e a
+    // barra de progresso da barra de tarefas se desligam junto.
+    require('./update_notify').desativar();
   });
 
   // While a download is running the window must not be dismissed:

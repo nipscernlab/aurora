@@ -43,6 +43,17 @@ contextBridge.exposeInMainWorld('updateAPI', {
   dismiss: () => ipcRenderer.send('update:dismiss'),
 
   /**
+   * Tira a janela da tela sem cancelar nada.
+   *
+   * Diferente do dismiss em duas coisas: o download continua, e funciona no
+   * meio do download (fechar, ali, e barrado e a janela so treme). A partir
+   * daqui quem conta o andamento e o Windows, pelas notificacoes do sistema:
+   * o card saiu justamente para a pessoa poder usar o computador. O idioma
+   * vai junto porque o main nao tem i18n e a notificacao e escrita la.
+   */
+  minimize: (locale) => ipcRenderer.send('update:minimize', String(locale || '')),
+
+  /**
    * Abre um link das notas de release no navegador do sistema.
    *
    * A janela nao navega para lugar nenhum (main/windows.js bloqueia), entao

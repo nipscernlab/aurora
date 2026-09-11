@@ -220,6 +220,8 @@ async function stopToolchainRun() {
     tasks.push(killProcessesByName('vvp.exe'));
     tasks.push(killProcessesByName('gtkwave.exe'));
     tasks.push(killProcessesByPathPrefix(path.join(componentsPath, 'Temp') + path.sep));
+    // E as Temps dos projetos em que algo rodou nesta sessao (executor anota).
+    for (const dir of state.projectTempDirs) tasks.push(killProcessesByPathPrefix(dir + path.sep));
   }
 
   await Promise.all(tasks);
@@ -258,6 +260,8 @@ async function runStopAllToolchain() {
     tasks.push(killProcessesByName('vvp.exe'));
     tasks.push(killProcessesByName('gtkwave.exe'));
     tasks.push(killProcessesByPathPrefix(path.join(componentsPath, 'Temp') + path.sep));
+    // E as Temps dos projetos em que algo rodou nesta sessao (executor anota).
+    for (const dir of state.projectTempDirs) tasks.push(killProcessesByPathPrefix(dir + path.sep));
   }
 
   // 5) AI agent CLIs (Claude Code / Codex) own their own subprocess trees.

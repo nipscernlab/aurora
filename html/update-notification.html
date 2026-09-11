@@ -88,7 +88,8 @@
     .lang button:hover { color: var(--text-soft); }
     .lang button.active { color: var(--text); background: rgba(255,255,255,0.07); }
 
-    .close {
+    /* Fechar e minimizar: a mesma forma, lado a lado no topo do card. */
+    .close, .minimize {
       -webkit-app-region: no-drag;
       width: 26px; height: 26px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
@@ -96,9 +97,9 @@
       color: var(--text-dim);
       cursor: pointer; transition: all 160ms ease;
     }
-    .close:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+    .close:hover, .minimize:hover { background: rgba(255,255,255,0.08); color: var(--text); }
     .close.locked { opacity: 0.35; pointer-events: none; }
-    .close svg { width: 13px; height: 13px; }
+    .close svg, .minimize svg { width: 13px; height: 13px; }
 
     /* ====== Corpo ====== */
     .body {
@@ -254,6 +255,10 @@
         <button id="lang-en" data-lang="en">EN</button>
         <button id="lang-pt" data-lang="pt">PT</button>
       </div>
+      <button class="minimize" id="minimize" title="Minimize">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round"><path d="M6 12h12"/></svg>
+      </button>
       <button class="close" id="close" title="Later">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
              stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>

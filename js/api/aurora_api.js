@@ -2513,7 +2513,7 @@ const waveNs = {
     if (!cm || typeof cm._waveLaunchSurfer !== 'function') return err('compilation module unavailable');
     try {
       const componentsPath = await electronAPI.getComponentsPath();
-      const tools = await resolveWaveToolchain(componentsPath);
+      const tools = await resolveWaveToolchain(componentsPath, window.ProjectStore?.getProjectPath?.() || null);
       await cm._waveLaunchSurfer(vcd, layout || null, tools);
       return ok({ opened: vcd, layout: layout || null });
     } catch (e) {

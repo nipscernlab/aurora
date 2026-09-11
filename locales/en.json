@@ -610,7 +610,9 @@
       "setAsTop": "\"{{name}}\" set as Top Level",
       "topRemoved": "Top Level removed from \"{{name}}\"",
       "markedTb": "\"{{name}}\" marked as Testbench",
-      "tbUnmarked": "Testbench mark removed from \"{{name}}\""
+      "tbUnmarked": "Testbench mark removed from \"{{name}}\"",
+      "undo": "Undo",
+      "restored": "Restored \"{{name}}\" to the tree"
     },
     "fileMode": {
       "errorOpen": "Error opening file: {{name}}"
@@ -757,7 +759,8 @@
       "progress": "Simulation",
       "progressBuild": "Build",
       "surferTabStateSaved": "State saved in the project and registered as the active layout; the next Wave opens with it.",
-      "surferWindowByChoice": "Surfer in its own window, as chosen in Settings."
+      "surferWindowByChoice": "Surfer in its own window, as chosen in Settings.",
+      "noFinish": "Heads-up: {{file}} has a free-running clock and no $finish or $stop, so nothing tells the simulation when to end. It will keep running until you press Cancel, and the waveform may come out truncated. Add $finish where the test is done."
     },
     "openComponents": "Open Components",
     "compile": {

@@ -50,6 +50,8 @@ import { lerProgresso } from '../terminal/progress_line.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { nomesDeDumpEsperados, NOMES_DE_DUMP_COCOTB, dumpEstaFresco } from './dump_guard.js';
 import { SpfStore } from '../project/spf_store.js';
+import { ProjectStore } from '../project/project_store.js';
+import { projectTempDir } from '../project/project_temp.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw, detectProcessors, resolveScopeModules } from '../wave/gtkw_proc_writer.js';
 import { buildSurferLayout } from '../wave/surfer_layout_writer.js';
@@ -341,7 +343,7 @@ async generateProjectHierarchy() {
 
             const designTopModule = moduleStemFromPath(topLevelFilePath);
             const yosysPath = await electronAPI.joinPath(this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
-            const tempBaseDir = await electronAPI.joinPath(this.componentsPath, 'Temp');
+            const tempBaseDir = await projectTempDir(this.projectPath);
 
             // components/HDL/ tem a biblioteca SAPHO (myFIFO, processor,
             // core, ula, addr_dec, instr_dec, etc), modulos referenciados
@@ -447,8 +449,20 @@ async generateProjectHierarchy() {
 
 async loadConfig() {
     try {
-        const projectInfo = await electronAPI.getCurrentProject();
-        const currentProjectPath = projectInfo.projectPath || this.projectPath;
+        // O projeto e o DESTA janela, lido do ProjectStore, que e o que a
+        // interface mostra. O main so entra como reserva quando o store ainda
+        // esta vazio (arranque com a restauracao de sessao em voo). Perguntar
+        // ao main primeiro foi o que fez uma janela compilar com o testbench
+        // da outra: a resposta dele e por janela, mas com reserva no ultimo
+        // projeto aberto em qualquer lugar, e nessa reserva o `.spf` alheio
+        // chegava aqui sem erro nenhum.
+        let spfPath = ProjectStore.getSpfPath();
+        let currentProjectPath = ProjectStore.getProjectPath() || this.projectPath;
+        if (!spfPath) {
+            const projectInfo = await electronAPI.getCurrentProject();
+            spfPath = projectInfo.spfPath;
+            currentProjectPath = projectInfo.projectPath || currentProjectPath;
+        }
 
         if (!currentProjectPath) {
             throw new Error('No current project path available for loading configuration');
@@ -458,7 +472,6 @@ async loadConfig() {
         // processorConfig.json (legado) foram consolidados no .spf.
         // Defaults pra cmm/asm (cmmFile=`${proc}.cmm`, clk=100,
         // numClocks=2000) sao hardcoded em precompileAllProcessors.
-        const spfPath = projectInfo.spfPath;
         try {
             if (!spfPath) throw new Error('No spf path');
             this.projectConfig = await SpfStore.read(spfPath);
@@ -480,10 +493,10 @@ async loadConfig() {
             // que passou a ser baixada; em dev caia em Documents\components). A
             // linha so criava uma pasta vazia fora do lugar a cada compilacao,
             // e o guarda de escrita do main passou a recusa-la. A pasta que
-            // importa e a Temp sob this.componentsPath, logo abaixo.
-            const tempBaseDir = await electronAPI.joinPath(this.componentsPath, 'Temp');
+            // importa e a Temp do projeto, logo abaixo (project_temp.js).
+            const tempBaseDir = await projectTempDir(this.projectPath);
             await electronAPI.mkdir(tempBaseDir);
-            const tempProcessorDir = await electronAPI.joinPath(this.componentsPath, 'Temp', name);
+            const tempProcessorDir = await electronAPI.joinPath(tempBaseDir, name);
             await electronAPI.mkdir(tempProcessorDir);
             return tempProcessorDir;
         } catch (error) {
@@ -770,6 +783,29 @@ async _resolveWaveSelection({ config, simTopModule, filePaths }) {
     return resolveWaveSelection(this._instanceDeps(), { config, simTopModule, filePaths });
 }
 
+/**
+ * Avisa, uma vez por simulacao, que o testbench nao manda a simulacao parar.
+ *
+ * Nao ha timeout em lugar nenhum do caminho de simulacao: o vvp e o binario
+ * do Verilator sao spawnados sem limite de tempo, entao um testbench com
+ * clock livre e sem $finish roda ate a pessoa apertar Cancelar. Quem esta
+ * aprendendo le isso como "a AURORA travou" e mata o processo, e o dump sai
+ * truncado ou nem existe.
+ *
+ * So avisa quando as DUAS coisas valem (ver mayRunForever no instrumentador):
+ * ha gerador livre de eventos e nao ha $finish/$stop. Testbench que termina
+ * sozinho nao recebe nada, senao o aviso viraria ruido de toda execucao.
+ *
+ * Vale para o iverilog e para o Verilator: o main gerado pelo Verilator
+ * tambem roda o eval-loop ate o $finish.
+ */
+_avisarSeNaoTermina(testbenchPath, mayRunForever) {
+    if (!mayRunForever || this._avisouSemFinish) return;
+    this._avisouSemFinish = true;
+    const file = String(testbenchPath || '').split(/[\\/]/).pop();
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.noFinish', { file }), 'warning');
+}
+
 async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals = [], overrideUserDumpvars = false, monitorScopes = []) {
     const originalContent = await electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
     const result = instrumentTestbenchSource({
@@ -779,6 +815,7 @@ async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals 
         overrideUserDumpvars,
         monitorScopes,
     });
+    this._avisarSeNaoTermina(testbenchPath, result.mayRunForever);
     if (!result.needsWrite) return { path: testbenchPath, reason: result.reason };
 
     const basename = testbenchPath.split(/[\\/]/).pop();
@@ -911,7 +948,7 @@ async _prepareWaveBuildInputs(config, simTopModule, tempBaseDir) {
  * Side-effect: mkdir tempBaseDir.
  */
 async _resolveIverilogTools() {
-    const tempBaseDir = await electronAPI.joinPath(this.componentsPath, 'Temp');
+    const tempBaseDir = await projectTempDir(this.projectPath);
     const iveriCompPath = await electronAPI.joinPath(
         this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'iverilog.exe',
     );
@@ -1209,7 +1246,7 @@ async runGtkWave() {
         // testbench que vivia aqui.
         const config = this.validateForWave();
 
-        const tools = await resolveWaveToolchain(this.componentsPath);
+        const tools = await resolveWaveToolchain(this.componentsPath, this.projectPath);
         let simTopModule = this._waveDeriveSimTopModule(config);
         let vcdFile = null;
         // Ancora do teste de frescor la embaixo: qualquer dump legitimo desta
@@ -2353,7 +2390,7 @@ async runFastSim() {
 
 /** Fast Sim, caminho Verilog: Verilator binario sem trace (sem onda). */
 async _runFastVerilator(config) {
-    const tools = await resolveWaveToolchain(this.componentsPath);
+    const tools = await resolveWaveToolchain(this.componentsPath, this.projectPath);
     const simTopModule = this._waveDeriveSimTopModule(config);
 
     statusUpdater.startCompilation('verilator');
@@ -2374,7 +2411,7 @@ async _runFastVerilator(config) {
  * cocotb do runGtkWave, menos o pos-processamento de onda.
  */
 async _runFastCocotb(config) {
-    const tools = await resolveWaveToolchain(this.componentsPath);
+    const tools = await resolveWaveToolchain(this.componentsPath, this.projectPath);
     const cocotbCtx = await this._waveValidateCocotbConfig(config);
 
     if (cocotbCtx.toplevelSource === 'directive') {
@@ -2456,7 +2493,7 @@ async verilatorProcessorRun() {
     }
 
     const tools = await resolveVerilatorTools(this.componentsPath);
-    const tempBaseDir = await electronAPI.joinPath(this.componentsPath, 'Temp');
+    const tempBaseDir = await projectTempDir(this.projectPath);
     const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
     const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_proc_${procName}`);
     await electronAPI.mkdir(objDir);
@@ -3215,7 +3252,7 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools, opts = {}) {
 async abrirOndaExterna(vcdFile, rotulo, sinais = []) {
     try {
         await this.initializeComponentsPath();
-        const tools = await resolveWaveToolchain(this.componentsPath);
+        const tools = await resolveWaveToolchain(this.componentsPath, this.projectPath);
         this.terminalManager.appendToTerminal('twave',
             tr('terminal.wave.prismWave', { module: rotulo || basenameOfPath(vcdFile) }), 'info');
         const layout = await this._layoutDaOndaDoPrism(vcdFile, rotulo, sinais);

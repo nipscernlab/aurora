@@ -28,6 +28,7 @@
  * @property {string | null} currentOpenProjectPath
  * @property {Map<number, string>} projectPathsBySender - .spf aberto POR JANELA, chaveado pelo id do webContents. O global acima continua existindo como "o último aberto" para quem não tem janela no contexto (LSP, IA); handlers de IPC usam spfDaJanela(event) em main/ipc/project_paths.js, senão apagar um processador na janela A remove pasta do projeto da janela B.
  * @property {string | null} fileToOpen
+ * @property {Set<string>} projectTempDirs - pastas <projeto>/.aurora/Temp usadas por algum spawn nesta sessao; varridas ao cancelar e ao sair.
  * @property {ChildProcess | ChildProcessIO | null} currentVvpProcess
  * @property {number | null} vvpProcessPid
  * @property {Set<ChildProcess | ChildProcessIO>} currentGtkwaveProcesses
@@ -65,6 +66,11 @@ const state = {
   currentOpenProjectPath: null,
   projectPathsBySender: new Map(),
   fileToOpen: null,
+
+  // As pastas <projeto>/.aurora/Temp em que a toolchain rodou nesta sessao.
+  // O V<top>.exe do Verilator nasce dentro delas; a varredura que mata
+  // orfaos por prefixo de caminho (process_registry) precisa saber onde olhar.
+  projectTempDirs: new Set(),
 
   // Simulation processes
   currentVvpProcess: null,

@@ -35,6 +35,12 @@ export interface InstrumentResult {
     /** Instrumented (or original) Verilog. */
     content: string;
     reason: InstrumentReason;
+    /**
+     * True quando o testbench tem gerador de eventos livre e nenhum
+     * $finish/$stop. Sai daqui porque este e o unico ponto do fluxo que ja
+     * tem o texto do testbench na mao; quem chama decide como avisar.
+     */
+    mayRunForever: boolean;
 }
 
 export interface InstrumentInput {
@@ -131,6 +137,61 @@ export function hasUserDumpCalls(src: string): boolean {
 }
 
 /**
+ * Tira comentarios E o miolo das strings.
+ *
+ * stripVerilogComments preserva as strings inteiras de proposito (ele serve
+ * para reescrever o testbench, e apagar o texto de um $display mudaria o que
+ * a simulacao imprime). Para PROCURAR uma chamada, o miolo atrapalha: um
+ * $display("chame $finish no fim") daria um $finish que nao existe. Aqui a
+ * string vira "" e sobra so o codigo.
+ */
+function semComentariosNemTexto(src: string): string {
+    return stripVerilogComments(src).replace(/"(?:\\.|[^"\\])*"/g, '""');
+}
+
+/**
+ * True se o testbench manda a simulacao parar em algum ponto.
+ *
+ * $finish encerra; $stop devolve o controle ao simulador, que em lote tambem
+ * para. Qualquer um dos dois basta: o que se quer saber e se existe um fim
+ * escrito no testbench, nao qual dos dois o autor preferiu.
+ */
+export function hasSimulationEnd(src: string): boolean {
+    return /\$(finish|stop)\b/.test(semComentariosNemTexto(src));
+}
+
+/**
+ * True se o testbench gera eventos para sempre sozinho.
+ *
+ * O caso classico e o gerador de clock: `always #5 clk = ~clk;` (ou com o
+ * `begin` no meio, ou um `forever`). Enquanto ele existe a fila de eventos
+ * nunca esvazia, entao a simulacao so termina se alguem mandar parar. Um
+ * testbench SEM esse gerador termina por conta propria quando os eventos
+ * acabam, e ali a falta de $finish nao e problema nenhum: e por isso que a
+ * pergunta "tem $finish?" sozinha nao serve para avisar ninguem.
+ *
+ * `always @(posedge clk)` nao conta: ele so acorda quando outra coisa mexe
+ * no clk, entao nao se sustenta.
+ */
+export function hasFreeRunningClock(src: string): boolean {
+    const code = semComentariosNemTexto(src);
+    if (/\bforever\b/.test(code)) return true;
+    return /\balways\b\s*(?:begin\b\s*)?#/.test(code);
+}
+
+/**
+ * True quando vale a pena avisar que a simulacao pode nao terminar: ha um
+ * gerador livre de eventos e nenhum $finish/$stop para desliga-lo.
+ *
+ * As duas condicoes juntas, nunca uma so. Avisar todo testbench sem $finish
+ * encheria de alarme falso os que terminam sozinhos, e alarme falso repetido
+ * e como nao avisar.
+ */
+export function mayRunForever(src: string): boolean {
+    return hasFreeRunningClock(src) && !hasSimulationEnd(src);
+}
+
+/**
  * Indice do ULTIMO `endmodule` que e um TOKEN de verdade, fora de
  * comentario, fora de string, e delimitado por nao-identificadores (word
  * boundary). -1 se nao houver.
@@ -192,17 +253,27 @@ export function instrumentTestbenchSource({
     monitorScopes = [],
 }: InstrumentInput): InstrumentResult {
     const hasUserDump = hasUserDumpCalls(originalContent);
+    // Olha o texto ORIGINAL, e nao o instrumentado: o $dumpvars que o Aurora
+    // injeta nao muda quando a simulacao acaba, e a pergunta e sobre o
+    // testbench que a pessoa escreveu.
+    const semFim = mayRunForever(originalContent);
 
     if (hasUserDump && !overrideUserDumpvars) {
         // Sem override: cede o controle pro $dumpvars do testbench.
-        return { needsWrite: false, content: originalContent, reason: 'user-defined' };
+        return {
+            needsWrite: false, content: originalContent,
+            reason: 'user-defined', mayRunForever: semFim,
+        };
     }
 
     const lastEndmodule = lastEndmoduleIndex(originalContent);
     if (lastEndmodule === -1) {
         // Malformed testbench, bail and let iverilog produce its own
         // syntax error rather than us silently corrupting the file.
-        return { needsWrite: false, content: originalContent, reason: 'malformed' };
+        return {
+            needsWrite: false, content: originalContent,
+            reason: 'malformed', mayRunForever: semFim,
+        };
     }
 
     // Se for override, primeiro neutraliza o $dumpfile/$dumpvars do
@@ -275,5 +346,5 @@ ${monitorLine}end
     else if (selectedSignals.length > 0) reason = 'auto-selection';
     else reason = 'auto';
 
-    return { needsWrite: true, content, reason };
+    return { needsWrite: true, content, reason, mayRunForever: semFim };
 }

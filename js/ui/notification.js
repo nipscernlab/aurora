@@ -44,8 +44,13 @@ const TYPE_TITLES = {
  * @param {'success'|'error'|'warning'|'info'} [type='info']
  * @param {number} [duration=5000] - Auto-dismiss in ms. 0 = sticky.
  * @param {string} [title] - Optional override of the card title.
+ * @param {{ action?: { label: string, run: () => unknown } }} [options]
+ *   `action` poe um botao no card ("Desfazer"): o card e o unico lugar onde
+ *   o gesto que acabou de acontecer ainda esta na frente da pessoa, entao e
+ *   onde a volta dele tem que estar. O card fecha ao clicar.
+ * @returns {HTMLElement} o card, para quem precisar fecha-lo antes da hora.
  */
-export function showCardNotification(message, type = 'info', duration = 5000, title) {
+export function showCardNotification(message, type = 'info', duration = 5000, title, options) {
     createContainer();
     const validType = TYPE_TITLES[type] ? type : 'info';
 
@@ -54,9 +59,15 @@ export function showCardNotification(message, type = 'info', duration = 5000, ti
     card.heading = title || TYPE_TITLES[validType];
     card.message = message;
     card.duration = duration;
+    const acao = options?.action;
+    if (acao && acao.label && typeof acao.run === 'function') {
+        card.actionLabel = String(acao.label);
+        card.action = acao.run;
+    }
 
     notificationContainer.appendChild(card);
     trimStack();
+    return card;
 }
 
 /**

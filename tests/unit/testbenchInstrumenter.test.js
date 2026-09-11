@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
     instrumentTestbenchSource,
+    mayRunForever,
+    hasFreeRunningClock,
 } from '../../js/wave/testbench_instrumenter.ts';
 
 const TB_WITH_DUMP = `
@@ -153,5 +155,82 @@ describe('instrumentTestbenchSource: monitorScopes', () => {
             monitorScopes: [{ ref: 'p.core.sp.fl_full', mirror: 'aurora_sp_fl_full__p_core', kind: 'reg' }],
         });
         expect(r.needsWrite).toBe(false);
+    });
+});
+
+// A simulacao que nao termina. Nao ha timeout em lugar nenhum do caminho de
+// simulacao (vvp e o binario do Verilator sao spawnados sem limite), entao um
+// testbench com clock livre e sem $finish roda ate a pessoa apertar Cancelar.
+// O aviso so vale quando as DUAS coisas acontecem: gerador livre de eventos e
+// nenhum $finish/$stop. Sozinha, a falta de $finish nao e problema nenhum.
+describe('mayRunForever: clock livre sem $finish', () => {
+    const CLOCK_LIVRE = `
+module tb;
+    reg clk = 0;
+    always #5 clk = ~clk;
+    initial begin
+        #100;
+    end
+endmodule`;
+
+    it('clock livre e sem $finish: pode rodar para sempre', () => {
+        expect(mayRunForever(CLOCK_LIVRE)).toBe(true);
+    });
+
+    it('com $finish, termina', () => {
+        expect(mayRunForever(CLOCK_LIVRE.replace('#100;', '#100 $finish;'))).toBe(false);
+    });
+
+    it('com $stop, tambem termina', () => {
+        expect(mayRunForever(CLOCK_LIVRE.replace('#100;', '#100 $stop;'))).toBe(false);
+    });
+
+    it('$finish so em comentario nao conta', () => {
+        expect(mayRunForever(CLOCK_LIVRE.replace('#100;', '#100; // lembrar do $finish'))).toBe(true);
+        expect(mayRunForever(CLOCK_LIVRE.replace('#100;', '#100; /* $finish */'))).toBe(true);
+    });
+
+    it('$finish dentro de uma string de $display nao conta', () => {
+        const src = CLOCK_LIVRE.replace('#100;', '#100 $display("chame $finish aqui");');
+        expect(mayRunForever(src)).toBe(true);
+    });
+
+    it('sem gerador livre, o testbench termina sozinho: nada a avisar', () => {
+        const semClock = `
+module tb;
+    reg a = 0;
+    initial begin
+        #10 a = 1;
+        #10 a = 0;
+    end
+endmodule`;
+        expect(mayRunForever(semClock)).toBe(false);
+        expect(hasFreeRunningClock(semClock)).toBe(false);
+    });
+
+    it('always @(posedge clk) nao e gerador livre: so acorda quando o clk mexe', () => {
+        const so_sensivel = `
+module tb;
+    reg clk = 0;
+    always @(posedge clk) $display("tick");
+    initial #50 clk = 1;
+endmodule`;
+        expect(hasFreeRunningClock(so_sensivel)).toBe(false);
+    });
+
+    it('as outras grafias do gerador: always begin #, e forever', () => {
+        expect(hasFreeRunningClock('always begin #5 clk = ~clk; end')).toBe(true);
+        expect(hasFreeRunningClock('initial forever #5 clk = ~clk;')).toBe(true);
+        expect(hasFreeRunningClock('always\n  #10 clk <= !clk;')).toBe(true);
+    });
+
+    it('o resultado da instrumentacao carrega a flag, nos tres caminhos', () => {
+        const flag = (src) => instrumentTestbenchSource({ originalContent: src, tbModule: 'tb' }).mayRunForever;
+        expect(flag(CLOCK_LIVRE)).toBe(true);                                  // auto
+        expect(flag(CLOCK_LIVRE.replace('#100;', '#100 $finish;'))).toBe(false);
+        // user-defined: tem $dumpvars proprio e ainda assim nao termina
+        expect(flag(CLOCK_LIVRE.replace('#100;', '$dumpvars(0, tb); #100;'))).toBe(true);
+        // malformed: sem endmodule, a flag ainda sai
+        expect(flag(CLOCK_LIVRE.replace('endmodule', ''))).toBe(true);
     });
 });

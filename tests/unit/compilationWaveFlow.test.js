@@ -70,6 +70,10 @@ const COMP = 'C:/comp';
 const TB = PROJ + '/Simulation/mediamovel_tb.v';
 const TOP = PROJ + '/Hardware/mediamovel.v';
 const SIM_TOP = 'mediamovel_tb';
+// Os intermediarios ficam na Temp DO PROJETO, nunca em components/Temp: e o
+// que impede duas janelas com projetos diferentes de compilar uma em cima da
+// outra (js/project/project_temp.js).
+const TEMP = PROJ + '/.aurora/Temp';
 const DUMP = `${PROJ}/${SIM_TOP}.fst`;
 
 function makeTerminal() {
@@ -257,13 +261,13 @@ describe('runGtkWave, Icarus com GTKWave', () => {
         const build = passos[0].args.join(' ');
         expect(build).toContain('-s ' + SIM_TOP);
         expect(build).toContain('-y ' + COMP + '/HDL');
-        expect(build).toContain('-o ' + COMP + '/Temp/' + SIM_TOP + '.vvp');
+        expect(build).toContain('-o ' + TEMP + '/' + SIM_TOP + '.vvp');
         expect(build).toContain(TOP);
         expect(build).toContain(TB);
 
         // A simulacao roda o .vvp construido e pede FST, que e o formato que o
         // resto do fluxo espera achar.
-        expect(passos[1].args).toContain(COMP + '/Temp/' + SIM_TOP + '.vvp');
+        expect(passos[1].args).toContain(TEMP + '/' + SIM_TOP + '.vvp');
         expect(passos[1].args).toContain('-fst');
 
         // O cabecalho sai pelo caminho rapido: fst2vcd sem -o, lido pelo fluxo e
@@ -278,8 +282,8 @@ describe('runGtkWave, Icarus com GTKWave', () => {
         expect(api.launchGtkwaveOnly).toHaveBeenCalledTimes(1);
         const [chamada] = api.launchGtkwaveOnly.mock.calls[0];
         expect(chamada.args).toContain(DUMP);
-        expect(chamada.args).toContain(COMP + '/Temp/' + SIM_TOP + '.gtkw');
-        expect(api._arquivos.has(COMP + '/Temp/' + SIM_TOP + '.gtkw')).toBe(true);
+        expect(chamada.args).toContain(TEMP + '/' + SIM_TOP + '.gtkw');
+        expect(api._arquivos.has(TEMP + '/' + SIM_TOP + '.gtkw')).toBe(true);
 
         // Contagem: sem isto, um mundo falso incompleto passaria verde por
         // desistir cedo.

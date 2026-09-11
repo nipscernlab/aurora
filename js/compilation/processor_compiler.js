@@ -36,6 +36,7 @@ import { buildCmmSpec, buildAsmPreSpec, buildAsmSpec } from './builders/index.js
 import * as CommandSpec from './command_spec.js';
 import { moduleStemFromPath, insertChegueiToaqui } from './compilation_helpers.js';
 import { analisarVerilog, totaisDoVerilog } from './verilog_stats.js';
+import { projectTempDir } from '../project/project_temp.js';
 
 // i18n shim, falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -154,11 +155,12 @@ export async function cmmCompilation(deps, processor, chegueiInstrumentProc, set
         // 1. Caminhos
         const macrosPath = await electronAPI.joinPath(deps.componentsPath, 'Macros');
 
-        // Define o caminho da pasta temporária específica do processador: components/Temp/{name}
-        const tempPath = await electronAPI.joinPath(deps.componentsPath, 'Temp', name);
+        // A pasta temporaria do processador: <projeto>/.aurora/Temp/{name}
+        // (ver project_temp.js: por projeto, para duas janelas nao se pisarem).
+        const tempPath = await electronAPI.joinPath(await projectTempDir(deps.projectPath), name);
 
-        // 2. NOVA LÓGICA: Criar a pasta Temp/{name} se não existir
-        // O parâmetro { recursive: true } no backend garante que cria a pasta 'Temp' e a subpasta '{name}'
+        // Cria a pasta se nao existir; o { recursive: true } do backend cria
+        // .aurora, Temp e {name} de uma vez.
         await electronAPI.createDirectory(tempPath);
 
         const cmmCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'cmmcomp.exe');
@@ -259,7 +261,7 @@ export async function asmCompilation(deps, processor, preamble = null) {
 
     try {
         const projectPath = await electronAPI.joinPath(deps.projectPath, name);
-        const tempPath = await electronAPI.joinPath(deps.componentsPath, 'Temp', name);
+        const tempPath = await electronAPI.joinPath(await projectTempDir(deps.projectPath), name);
         const appCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'appcomp.exe');
         const asmCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'asmcomp.exe');
         const hdlPath = await electronAPI.joinPath(deps.componentsPath, 'HDL');

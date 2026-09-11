@@ -329,6 +329,10 @@ describe('entradaOcultaNaArvore', () => {
     expect(entradaOcultaNaArvore('.slang')).toBe(true);
   });
 
+  it('esconde a .aurora, onde ficam os intermediarios de compilacao do projeto', () => {
+    expect(entradaOcultaNaArvore('.aurora')).toBe(true);
+  });
+
   it('nao esconde por regra geral de ponto: .git, .vscode e .gitignore continuam', () => {
     for (const n of ['.git', '.vscode', '.gitignore', 'src', 'proc1', '']) {
       expect(entradaOcultaNaArvore(n)).toBe(false);

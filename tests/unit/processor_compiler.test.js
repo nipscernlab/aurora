@@ -174,8 +174,10 @@ describe('asmCompilation', () => {
         runSpec.mockResolvedValue({ code: 0 });
         await asmCompilation(d, proc, null);
         expect(window.electronAPI.copyFile).toHaveBeenCalledTimes(1);
+        // O tb gerado sai da Temp DO PROJETO, <projeto>/.aurora/Temp/<proc>/,
+        // nunca de components/Temp (js/project/project_temp.js).
         expect(window.electronAPI.copyFile).toHaveBeenCalledWith(
-            '/comp/Temp/ProcX/foo_tb.v', '/proj/ProcX/Simulation/foo_tb.v',
+            '/proj/.aurora/Temp/ProcX/foo_tb.v', '/proj/ProcX/Simulation/foo_tb.v',
         );
     });
 

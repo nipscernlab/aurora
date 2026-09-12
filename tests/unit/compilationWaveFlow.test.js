@@ -63,6 +63,7 @@ vi.mock('../../js/terminal/terminal_module.js', () => ({
 }));
 
 import { runSpec, runSpecStreamed } from '../../js/compilation/spec_runner.js';
+import { TabManager } from '../../js/tabs/tab_manager.js';
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
 
 const PROJ = 'C:/proj';
@@ -387,5 +388,52 @@ describe('depois de um Cancelar, a morte da ferramenta nao vira cartao de erro',
         await expect(mod.runGtkWave()).rejects.toThrow();
 
         expect(houveErro()).toBe(true);
+    });
+});
+
+// O que a pessoa acabou de digitar tem que estar no disco ANTES de o fluxo
+// ler o testbench.
+//
+// O testbench e lido cedo, duas vezes: para saber se ele ja tem $dumpvars
+// proprio e para instrumentar. O unico save do caminho ficava adiante, dentro
+// do passo do iverilog, entao a copia instrumentada nascia do arquivo COMO
+// ESTAVA NO DISCO. Sem o $dumpvars recem escrito nao sai dump, e a corrida
+// morre; o clique seguinte funcionava porque o anterior havia, enfim, salvado
+// o arquivo. E o "clico de novo e ele roda" que os alunos relatam. Um projeto
+// com processador SAPHO nao via isso, porque a pre-compilacao do C± salva
+// tudo antes; quem so tem Verilog pula essa etapa e caia direto no problema.
+describe('salvar antes de ler', () => {
+    /** Registra a ordem entre o save e a primeira leitura do testbench. */
+    function ordem(api) {
+        const eventos = [];
+        TabManager.saveAllFiles.mockImplementation(async () => { eventos.push('save'); });
+        const lerOriginal = api.readFile.getMockImplementation();
+        api.readFile.mockImplementation(async (p) => {
+            if (String(p).replace(/\\/g, '/') === TB) eventos.push('ler-tb');
+            return lerOriginal(p);
+        });
+        return eventos;
+    }
+
+    it('runGtkWave salva o editor antes da primeira leitura do testbench', async () => {
+        const mod = await novoModulo(CONFIG_PADRAO);
+        ligarExecutor(api);
+        const eventos = ordem(api);
+
+        await mod.runGtkWave();
+
+        expect(eventos[0]).toBe('save');
+        expect(eventos).toContain('ler-tb');
+        expect(eventos.indexOf('save')).toBeLessThan(eventos.indexOf('ler-tb'));
+    });
+
+    it('runFastSim tambem salva antes de ler', async () => {
+        const mod = await novoModulo(CONFIG_PADRAO);
+        ligarExecutor(api);
+        const eventos = ordem(api);
+
+        await mod.runFastSim().catch(() => { /* o Verilator nao esta no falso */ });
+
+        expect(eventos[0]).toBe('save');
     });
 });

@@ -1239,6 +1239,24 @@ async runGtkWave() {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.bannerSim'), 'info');
 
     try {
+    // Salva o que esta aberto no editor ANTES de qualquer leitura de disco.
+    //
+    // O testbench e lido cedo, duas vezes: uma para saber se ele ja tem
+    // $dumpvars proprio e outra para instrumentar. O unico saveAllFiles do
+    // caminho ficava la adiante, dentro de _runIverilogSpec, entao a copia
+    // instrumentada nascia do arquivo COMO ESTAVA NO DISCO, sem a edicao que
+    // a pessoa acabara de fazer. Sem o $dumpvars novo nao sai dump, e a
+    // corrida morre em "nenhum .fst foi produzido" ou no guarda de dump
+    // velho. O clique seguinte funcionava porque o clique anterior tinha,
+    // enfim, salvado o arquivo: e o "clico de novo e ele roda" que os alunos
+    // relatam.
+    //
+    // Um projeto com processador SAPHO nao via isso: a pre-compilacao do C±
+    // salva tudo antes. Quem so tem Verilog pula essa etapa inteira
+    // (compilation_flow.js recusa a lista vazia de processadores) e caia
+    // direto no problema.
+    await TabManager.saveAllFiles();
+
         // validateForWave exige testbench (sem ele, vvp nao tem o que
         // simular). Synth e top-level sao opcionais, um tb standalone
         // pode definir DUT inline. Esse validator substituiu o
@@ -2369,6 +2387,8 @@ async _fastSimBuildVerilator(simTopModule, tempBaseDir, config, tools) {
 async runFastSim() {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.fastBanner'), 'info');
     try {
+        // Mesmo motivo do runGtkWave: o testbench e lido do disco adiante.
+        await TabManager.saveAllFiles();
         const config = this.validateForWave();
         // Duas naturezas de testbench, dois caminhos, ambos SEM onda:
         //  - .py  -> cocotb headless (testes Python, qualquer engine);

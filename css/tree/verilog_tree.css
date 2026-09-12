@@ -78,9 +78,13 @@
   max-width: 280px;
 }
 
+/* O texto acima e o ESTADO ("nenhum arquivo sintetizavel"); este e a
+   instrucao. A instrucao estava maior e mais pesada do que o estado, entao a
+   arvore vazia gritava o que fazer antes de dizer o que ha. Mesmo tamanho do
+   estado, so com peso a mais. */
 .verilog-empty-text strong {
-  font-size: var(--text-md);
-  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   color: var(--text);
 }
 
@@ -113,7 +117,7 @@
 }
 
 .verilog-missing-head i {
-  font-size: var(--icon-sm, 14px);
+  font-size: var(--icon-sm);
 }
 
 /* Dismiss (×) button, pushed to the right of the warning headline. Pruning

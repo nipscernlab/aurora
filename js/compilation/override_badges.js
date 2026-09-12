@@ -42,7 +42,7 @@ function ensureStyle() {
       right: 2px;
       font-size: 10px;
       color: #ff9b3d;
-      font-weight: bold;
+      font-weight: 700;
       pointer-events: none;
       text-shadow: 0 0 2px rgba(0,0,0,0.6);
     }

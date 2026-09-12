@@ -57,10 +57,14 @@
   background-color: var(--bg-elev);
 }
 
+/* 10px em caixa alta, com o espacamento mais largo da escala, ja se destaca
+   sozinho. O peso 700 em cima disso engrossava o traco e deixava o rotulo
+   decorativo MAIS pesado do que o nome do projeto ao lado, que e a
+   informacao. 600 e o teto do que faz sentido neste tamanho. */
 .file-tree-header .file-tree-label,
 .file-tree-header > span:first-child {
   font-size: var(--text-2xs);
-  font-weight: var(--font-bold);
+  font-weight: var(--font-semibold);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: var(--tracking-widest);

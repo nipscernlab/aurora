@@ -174,11 +174,14 @@
   --text-2xl:  24px;
   --text-3xl:  32px;
 
+  /* Quatro pesos, e so estes quatro. O Inter vendorizado tem eixo 400..700
+     (css/base/fonts.css): pedir mais nao da mais peso, o navegador corta.
+     `--font-light` existia valendo 400, igual a `--font-normal`: um token que
+     prometia um peso que a fonte nao tem e entregava outro. Saiu. */
   --font-normal:   400;
   --font-medium:   500;
   --font-semibold: 600;
   --font-bold:     700;
-  --font-light:    400;
 
   --leading-none:    1;
   --leading-tight:   1.25;

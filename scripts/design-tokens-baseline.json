@@ -1,98 +1,176 @@
 {
   "css/base/controls.css": {
     "hex": 0,
-    "duration": 1
+    "duration": 1,
+    "fontSize": 1,
+    "fontWeight": 0
   },
   "css/base/layout.css": {
     "hex": 0,
-    "duration": 1
+    "duration": 1,
+    "fontSize": 0,
+    "fontWeight": 0
+  },
+  "css/base/styles.css": {
+    "hex": 0,
+    "duration": 0,
+    "fontSize": 1,
+    "fontWeight": 0
   },
   "css/base/theme_variables.css": {
     "hex": 0,
-    "duration": 4
+    "duration": 4,
+    "fontSize": 0,
+    "fontWeight": 0
   },
   "css/editor/editor.css": {
     "hex": 0,
-    "duration": 12
+    "duration": 12,
+    "fontSize": 3,
+    "fontWeight": 0
   },
   "css/feedback/notification.css": {
     "hex": 0,
-    "duration": 3
+    "duration": 3,
+    "fontSize": 0,
+    "fontWeight": 0
+  },
+  "css/modals/bug_report.css": {
+    "hex": 0,
+    "duration": 0,
+    "fontSize": 0,
+    "fontWeight": 3
   },
   "css/modals/close_project.css": {
     "hex": 0,
-    "duration": 1
+    "duration": 1,
+    "fontSize": 0,
+    "fontWeight": 0
   },
   "css/modals/modal_config.css": {
     "hex": 0,
-    "duration": 7
+    "duration": 7,
+    "fontSize": 1,
+    "fontWeight": 0
+  },
+  "css/modals/recent_projects.css": {
+    "hex": 0,
+    "duration": 0,
+    "fontSize": 1,
+    "fontWeight": 0
   },
   "css/modals/wave_config.css": {
     "hex": 1,
-    "duration": 2
+    "duration": 2,
+    "fontSize": 0,
+    "fontWeight": 2
   },
   "css/panels/ai_assistant.css": {
     "hex": 25,
-    "duration": 44
+    "duration": 44,
+    "fontSize": 27,
+    "fontWeight": 4
   },
   "css/panels/aurora_settings.css": {
     "hex": 3,
-    "duration": 4
+    "duration": 4,
+    "fontSize": 3,
+    "fontWeight": 4
   },
   "css/panels/git_panel.css": {
     "hex": 3,
-    "duration": 11
+    "duration": 11,
+    "fontSize": 31,
+    "fontWeight": 1
   },
   "css/panels/pylib_panel.css": {
     "hex": 0,
-    "duration": 1
+    "duration": 1,
+    "fontSize": 5,
+    "fontWeight": 0
   },
   "css/panels/run_history.css": {
     "hex": 0,
-    "duration": 1
+    "duration": 1,
+    "fontSize": 1,
+    "fontWeight": 0
   },
   "css/panels/search_panel.css": {
     "hex": 0,
-    "duration": 4
+    "duration": 4,
+    "fontSize": 1,
+    "fontWeight": 0
   },
   "css/shell/status_updater.css": {
     "hex": 0,
-    "duration": 7
+    "duration": 7,
+    "fontSize": 0,
+    "fontWeight": 0
   },
   "css/shell/toolbar.css": {
     "hex": 6,
-    "duration": 7
+    "duration": 7,
+    "fontSize": 3,
+    "fontWeight": 0
   },
   "css/shell/update_status.css": {
     "hex": 0,
-    "duration": 1
+    "duration": 1,
+    "fontSize": 0,
+    "fontWeight": 1
   },
   "css/terminal/terminal.css": {
     "hex": 5,
-    "duration": 9
+    "duration": 9,
+    "fontSize": 1,
+    "fontWeight": 2
   },
   "css/tree/file_tree.css": {
     "hex": 0,
-    "duration": 6
+    "duration": 6,
+    "fontSize": 3,
+    "fontWeight": 1
   },
   "css/tree/h_tree.css": {
     "hex": 0,
-    "duration": 4
+    "duration": 4,
+    "fontSize": 0,
+    "fontWeight": 0
   },
   "css/tree/verilog_tree.css": {
     "hex": 0,
-    "duration": 8
+    "duration": 8,
+    "fontSize": 2,
+    "fontWeight": 0
+  },
+  "html/design-lab.html": {
+    "hex": 0,
+    "duration": 0,
+    "fontSize": 0,
+    "fontWeight": 1
   },
   "html/docs-browser.html": {
     "hex": 8,
-    "duration": 3
+    "duration": 3,
+    "fontSize": 2,
+    "fontWeight": 3
+  },
+  "html/prism/prism.html": {
+    "hex": 0,
+    "duration": 0,
+    "fontSize": 1,
+    "fontWeight": 0
   },
   "html/splash.html": {
     "hex": 6,
-    "duration": 10
+    "duration": 10,
+    "fontSize": 5,
+    "fontWeight": 4
   },
   "html/update-notification.html": {
     "hex": 4,
-    "duration": 7
+    "duration": 7,
+    "fontSize": 15,
+    "fontWeight": 9
   }
 }

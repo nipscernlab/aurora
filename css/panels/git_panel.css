@@ -141,8 +141,6 @@
 
 .git-panel { position: relative; isolation: isolate; }
 .dagr-watermark {
-  /* Vira caixa de consulta para o `cqw` das duas linhas abaixo medirem ELA. */
-  container-type: inline-size;
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -157,24 +155,26 @@
   opacity: 0.06;
   color: var(--text-bright);
 }
-/* `cqw` e nao `vw`: a unidade mede o PAINEL (o .dagr-watermark declara
-   `container-type`), que era a intencao desde sempre, e sobrevive ao zoom.
-   Com `vw` a marca media o viewport em pixels de CSS, que ENCOLHE quando se
-   da zoom: medido, a runa caia de 210 para 150 px indo de 100% para 150%,
-   enquanto todo o resto da interface crescia. */
+/* Pixel fixo, e nao `vw` nem `cqw`.
+   O zoom da AURORA e `setZoomFactor`, que encolhe o pixel de CSS: qualquer
+   unidade relativa ao viewport OU ao container encolhe junto e depois e
+   repintada maior, entao a marca ficava do mesmo tamanho fisico enquanto
+   todo o resto crescia. `cqw` so troca o que se mede; nao resolve.
+   Em pixel ela cresce com o zoom como o resto, e numa janela estreita o
+   `overflow: hidden` do .dagr-watermark corta, que e o que uma marca-dagua
+   de fundo deve fazer mesmo. */
 .dagr-wm-rune {
   font-family: 'Noto Sans Runic', 'Segoe UI Historic', 'Segoe UI Symbol', sans-serif;
-  font-size: clamp(120px, 32cqw, 210px);
+  font-size: 180px;
   line-height: 0.9;
 }
 /* Menor que a runa, e de proposito: a runa e a marca, a palavra so acompanha.
-   Antes as duas competiam. Aqui tambem `cqw`, pelo mesmo motivo da runa: com
-   `vw` a palavra media o viewport, crescia alem do que o painel comporta numa
-   tela larga e encolhia com o zoom. O overflow:hidden do .dagr-watermark
-   segue como rede. */
+   Antes as duas competiam, e a palavra media o viewport: numa tela larga ela
+   crescia alem do que o painel comporta. Pixel fixo pelo mesmo motivo da
+   runa, e o overflow:hidden segue como rede. */
 .dagr-wm-name {
   font-family: 'Metamorphous', var(--font-sans, 'Inter'), serif;
-  font-size: clamp(44px, 12cqw, 84px);
+  font-size: 72px;
   letter-spacing: 0.14em;
   line-height: 1.1;
   white-space: nowrap;

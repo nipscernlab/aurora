@@ -723,7 +723,7 @@ class TerminalManager {
 
         let processedText = this.makeLineNumbersClickable(text);
         processedText = processedText.replace(
-            /^(Atenção|Erro|Sucesso|Info)(:)?/i, (_, word, colon) => `<strong style="font-weight:900">${word}</strong>${colon || ''}`
+            /^(Atenção|Erro|Sucesso|Info)(:)?/i, (_, word, colon) => `<strong style="font-weight:700">${word}</strong>${colon || ''}`
         );
 
         messageDiv.innerHTML = processedText;

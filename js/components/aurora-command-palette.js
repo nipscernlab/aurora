@@ -123,7 +123,7 @@ class AuroraCommandPalette extends LitElement {
     }
     .input-icon {
       color: var(--text-muted);
-      font-size: var(--text-md, 16px);
+      font-size: var(--text-md);
     }
     .input {
       flex: 1 1 0;
@@ -133,7 +133,7 @@ class AuroraCommandPalette extends LitElement {
       outline: none;
       color: var(--text-default);
       font-family: var(--font-sans);
-      font-size: var(--text-md, 15px);
+      font-size: var(--text-md);
       letter-spacing: var(--tracking-tight);
     }
     .input::placeholder {
@@ -186,7 +186,7 @@ class AuroraCommandPalette extends LitElement {
       border-left: 2px solid transparent;
     }
     .item-icon {
-      font-size: var(--text-base, 16px);
+      font-size: var(--text-base);
       color: var(--text-muted);
       width: 18px;
       display: inline-flex;
@@ -194,7 +194,7 @@ class AuroraCommandPalette extends LitElement {
       flex-shrink: 0;
     }
     .item-title {
-      font-size: var(--text-sm, 13px);
+      font-size: var(--text-sm);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -229,7 +229,7 @@ class AuroraCommandPalette extends LitElement {
       padding: var(--space-5, 24px);
       text-align: center;
       color: var(--text-muted);
-      font-size: var(--text-sm, 13px);
+      font-size: var(--text-sm);
     }
 
     @media (prefers-reduced-motion: reduce) {

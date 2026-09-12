@@ -139,13 +139,13 @@ class AuroraToast extends LitElement {
     }
     .title {
       font-weight: 600;
-      font-size: var(--text-sm, 13px);
+      font-size: var(--text-sm);
       color: var(--text-default);
       letter-spacing: var(--tracking-tight);
       line-height: 1.3;
     }
     .message {
-      font-size: var(--text-sm, 13px);
+      font-size: var(--text-sm);
       color: var(--text-muted);
       line-height: 1.45;
       word-break: break-word;
@@ -165,7 +165,7 @@ class AuroraToast extends LitElement {
       background: transparent;
       color: var(--accent);
       font: inherit;
-      font-size: var(--text-sm, 13px);
+      font-size: var(--text-sm);
       font-weight: 600;
       cursor: pointer;
       transition: background-color var(--motion-quick, 140ms) var(--ease-aurora, ease),

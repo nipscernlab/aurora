@@ -100,7 +100,7 @@
 
 .update-panel .up-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.update-panel .up-link i { font-size: var(--icon-sm, 15px); }
+.update-panel .up-link i { font-size: var(--icon-sm); }
 .update-panel .up-link svg { width: 15px; height: 15px; flex-shrink: 0; }
 
 @keyframes updateSpin {

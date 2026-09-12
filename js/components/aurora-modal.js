@@ -234,7 +234,7 @@ class AuroraModal extends LitElement {
     .title {
       flex: 1 1 auto;
       min-width: 0;
-      font-size: var(--text-md, 15px);
+      font-size: var(--text-md);
       font-weight: var(--font-semibold, 600);
       color: var(--text-bright);
       letter-spacing: var(--tracking-tight);
@@ -256,7 +256,7 @@ class AuroraModal extends LitElement {
       border-radius: var(--radius-md, 6px);
       background: transparent;
       color: var(--text-muted);
-      font-size: var(--text-md, 16px);
+      font-size: var(--text-md);
       cursor: pointer;
       transition: background-color var(--motion-quick, 140ms) ease,
         color var(--motion-quick, 140ms) ease;

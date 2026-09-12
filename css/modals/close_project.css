@@ -6,7 +6,7 @@
   padding: 10px 20px;
   border-radius: 0;
   color: white;
-  font-weight: bold;
+  font-weight: var(--font-bold);
   z-index: var(--z-overlay);
   animation: slideIn 0.3s ease;
 }

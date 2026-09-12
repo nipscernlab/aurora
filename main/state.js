@@ -25,6 +25,7 @@
  * @property {boolean} updateDownloaded
  * @property {unknown} updateInfo - electron-updater's UpdateInfo; opaque here.
  * @property {boolean} updateSystemInitialized
+ * @property {Map<number, string>} ultimoProjetoFechado - .spf que cada janela acabou de fechar; autoriza a exclusao. Ver main/ipc/project_trash.js.
  * @property {number | null} prismDono - webContents.id da janela principal que abriu o PRISM; ver main/ipc/prism.js.
  * @property {Set<any>} mainWindows - toda janela principal viva; `mainWindow` e so a mais recente. Ver main/main_windows.js.
  * @property {string | null} currentOpenProjectPath
@@ -74,6 +75,12 @@ const state = {
   // a onda da simulacao) e o remetente dela nao e janela principal nenhuma;
   // e por aqui que essas mensagens voltam para quem abriu.
   prismDono: null,
+
+  // O .spf que cada janela (webContents.id) acabou de FECHAR. E o que autoriza
+  // `project:trash`: excluir um projeto e fecha-lo e depois mandar a pasta
+  // para a Lixeira, e no segundo passo a janela ja nao tem projeto
+  // registrado. Vale para um pedido e e consumido; ver main/ipc/project_trash.js.
+  ultimoProjetoFechado: new Map(),
 
   // Project
   currentOpenProjectPath: null,

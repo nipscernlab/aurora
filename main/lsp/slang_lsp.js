@@ -913,6 +913,10 @@ function register() {
 // do processador que o C± ainda nao gerou.
 module.exports = {
   register,
+  // Excluir um projeto precisa derrubar o servidor: o processo nasce com o
+  // diretorio de trabalho na pasta do projeto, e no Windows isso a prende.
+  // Ele sobe de novo sozinho no proximo arquivo aberto (ensureReady).
+  stop,
   extraSourceDirs,
   indexExtraDirs,
   syncSlangConfig,

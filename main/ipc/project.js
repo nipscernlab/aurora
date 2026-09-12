@@ -12,7 +12,7 @@
 const path = require('path');
 const fse = require('fs-extra');
 const os = require('os');
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const log = require('electron-log');
 
 const state = require('../state');
@@ -28,6 +28,7 @@ const {
 const { entradaOcultaNaArvore } = require('./files_ops');
 const { prepararTempDoProjeto } = require('../project_temp');
 const janelas = require('../main_windows');
+const { autorizarExclusao, criarLixeiraDeProjeto, dentroDe } = require('./project_trash');
 
 // ---- ProjectFile schema ----
 
@@ -390,13 +391,77 @@ function register() {
     }
   });
 
+  /**
+   * Solta o que prende a pasta de um projeto antes de move-la.
+   *
+   * No Windows uma pasta com descritor aberto ou com um processo cujo
+   * diretorio de trabalho esta nela nao se move. Sao tres donos conhecidos:
+   * os vigias de pasta e de arquivo deste processo, o servidor de linguagem
+   * do slang (nasce com cwd no projeto) e o PowerShell do TCMD (idem). O
+   * renderer ja fechou as abas antes de pedir; aqui vai o que so o main
+   * alcanca. Tudo melhor esforco: o que nao soltar, a lixeira tenta de novo
+   * e por fim diz que nao conseguiu.
+   * @param {string} dir
+   */
+  function soltarAPasta(dir) {
+    for (const [caminho, info] of [...state.activeDirectoryWatchers.entries()]) {
+      if (!dentroDe(caminho, dir)) continue;
+      try { info?.watcher?.close?.(); } catch (_) { /* ja caiu */ }
+      state.activeDirectoryWatchers.delete(caminho);
+    }
+    for (const [caminho, info] of [...(state.activeWatchers?.entries?.() || [])]) {
+      if (!dentroDe(caminho, dir)) continue;
+      try { (info?.watcher || info)?.close?.(); } catch (_) { /* ja caiu */ }
+      state.activeWatchers.delete(caminho);
+    }
+    try { require('../lsp/slang_lsp').stop(false); } catch (e) { log.debug('[project:trash] slang stop:', e instanceof Error ? e.message : e); }
+    try { require('./shell').matarSessoesEm(dir); } catch (e) { log.debug('[project:trash] shell:', e instanceof Error ? e.message : e); }
+  }
+
+  const mandarParaLixeira = criarLixeiraDeProjeto({ trashItem: (p) => shell.trashItem(p) });
+
+  /**
+   * Manda a pasta do projeto que ESTA JANELA ACABOU DE FECHAR para a Lixeira.
+   *
+   * Nunca apaga de vez: `shell.trashItem` tem volta pelo Windows. A ordem
+   * inteira (confirmar com contagem, fechar, esta chamada, recentes) mora em
+   * js/project/delete_project.js; a autorizacao mora em project_trash.js e
+   * vale para um pedido: so o projeto que esta janela acabou de fechar.
+   */
+  ipcMain.handle('project:trash', async (event, spfPedido) => {
+    const auth = autorizarExclusao(state.ultimoProjetoFechado, event?.sender?.id, spfPedido);
+    if (!auth.ok) {
+      log.warn('[project:trash] recusado:', auth.motivo);
+      return { success: false, message: auth.motivo };
+    }
+    const dir = path.dirname(auth.spf);
+    if (!fse.existsSync(dir)) return { success: false, message: 'project folder not found on disk' };
+    soltarAPasta(dir);
+    const r = await mandarParaLixeira(dir);
+    if (r.success) {
+      log.info(`[project:trash] ${dir} foi para a Lixeira (tentativa ${r.tentativas})`);
+      // Requeridos aqui, como no `project:open`: o modulo de janelas importa
+      // de volta este, e o require no topo fecharia o ciclo.
+      try {
+        require('../recents').remove(auth.spf);
+        require('../windows').rebuildJumpList();
+      } catch (e) { log.warn('[project:trash] recentes:', e); }
+    } else {
+      log.warn(`[project:trash] nao consegui mover ${dir}: ${r.message}`);
+    }
+    return { success: r.success, message: r.message };
+  });
+
   ipcMain.handle('project:close', async (event) => {
     try {
-      if (!spfDaJanela(event)) {
+      const spfFechado = spfDaJanela(event);
+      if (!spfFechado) {
         return { success: true, message: 'No project to close' };
       }
 
       registrarSpfDaJanela(event, null);
+      // Lembra o que fechou: e isto que autoriza `project:trash` em seguida.
+      if (event?.sender?.id != null) state.ultimoProjetoFechado.set(event.sender.id, spfFechado);
 
       // Para a janela que pediu, nao para a que tem foco: fechar projeto com
       // outra janela em primeiro plano limpava a arvore errada.

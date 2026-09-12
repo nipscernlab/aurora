@@ -127,6 +127,15 @@
       "thtest": "Teste",
       "prism": "PRISM",
       "cmd": "Shell"
+    },
+    "termTabTooltip": {
+      "cmm": "TCMM, terminal C±",
+      "asm": "TASM, terminal ASM",
+      "veri": "TVERI, terminal Verilog",
+      "wave": "TWAVE, terminal Wave",
+      "thtest": "THTEST, terminal de teste de hardware",
+      "prism": "TPRISM, terminal do PRISM (sintese do esquematico)",
+      "cmd": "TCMD, terminal de shell (PowerShell)"
     }
   },
   "windowControls": {
@@ -205,7 +214,8 @@
     "projectGoneTitle": "A pasta do projeto sumiu",
     "projectGone": "A pasta do projeto nao esta mais no disco. Ela foi apagada, movida, ou a unidade dela foi desconectada. Nada aqui foi fechado e nenhum trabalho nao salvo foi descartado, mas salvar vai falhar ate voce reabrir o projeto.",
     "moreActions": "Mais",
-    "closeProject": "Fechar projeto"
+    "closeProject": "Fechar projeto",
+    "deleteProject": "Excluir projeto..."
   },
   "modal": {
     "help": "Abrir o manual neste assunto",
@@ -522,6 +532,12 @@
       "fallbackPrompt": "Remover as referências de arquivos faltantes deste projeto? Esta ação não pode ser desfeita.",
       "cancel": "Manter aviso",
       "confirm": "Remover referências"
+    },
+    "deleteProject": {
+      "title": "Mandar este projeto para a Lixeira?",
+      "message": "A pasta inteira do projeto vai para a Lixeira:<br><code>{{path}}</code><br><br>Nada e apagado de vez: da para restaurar pela Lixeira. Os arquivos abertos sao fechados antes; o que neles nao foi salvo se perde.",
+      "cancel": "Manter o projeto",
+      "confirm": "Mandar para a Lixeira"
     }
   },
   "statusBar": {
@@ -629,6 +645,12 @@
     },
     "fileMode": {
       "errorOpen": "Erro ao abrir arquivo: {{name}}"
+    },
+    "project": {
+      "trashed": "Projeto enviado para a Lixeira: {{path}}",
+      "trashFailed": "Nao foi possivel mandar o projeto para a Lixeira: {{reason}}",
+      "couldNotClose": "o projeto nao pode ser fechado",
+      "noneToDelete": "Abra um projeto antes de exclui-lo."
     }
   },
   "terminal": {

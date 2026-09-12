@@ -370,7 +370,8 @@
                 <span class="toggle-text">Files</span>
             </button>
 
-            <!-- Tres gestos frequentes a vista; o resto no menu de reticencias.
+            <!-- Quatro gestos frequentes a vista (o refresh por ultimo, pedido do
+                 usuario em 12/09/2026); o resto no menu de reticencias.
                  Eram sete icones do mesmo peso lado a lado, com "fechar projeto"
                  ao lado de "atualizar", que e a vizinhanca que produz clique
                  errado. Os ids nao mudam: cada acao continua ligada por eles
@@ -387,14 +388,14 @@
             <span id="toggle-file-tree" class="tree-action" data-tooltip="Collapse / expand all">
                 <i class="ph ph-minus-square"></i>
             </span>
+            <span id="refresh-button" class="tree-action" data-tooltip="Refresh file tree">
+                <i class="ph ph-arrows-clockwise"></i>
+            </span>
             <span id="tree-more" class="tree-action" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false"
                   data-tooltip="More" data-i18n-tooltip="fileTree.moreActions">
                 <i class="ph ph-dots-three"></i>
             </span>
             <div id="tree-more-menu" class="tree-more-menu" role="menu" hidden>
-                <span id="refresh-button" class="tree-more-item" role="menuitem" tabindex="-1">
-                    <i class="ph ph-arrows-clockwise"></i><span data-i18n="fileTree.crud.refresh">Refresh</span>
-                </span>
                 <span id="open-folder-button" class="tree-more-item" role="menuitem" tabindex="-1">
                     <i class="ph ph-folder-notch-open"></i><span data-i18n="fileTree.crud.reveal">Reveal in File Explorer</span>
                 </span>
@@ -403,6 +404,9 @@
                 </span>
                 <span id="close-button" class="tree-more-item tree-more-danger" role="menuitem" tabindex="-1">
                     <i class="ph ph-x-circle"></i><span data-i18n="fileTree.closeProject">Close project</span>
+                </span>
+                <span id="delete-project" class="tree-more-item tree-more-danger" role="menuitem" tabindex="-1">
+                    <i class="ph ph-trash"></i><span data-i18n="fileTree.deleteProject">Delete project...</span>
                 </span>
             </div>
         </div>
@@ -456,7 +460,7 @@
                 </div>
 
                 <div class="terminal-tabs-list">
-                  <button class="tab active" data-terminal="tcmm" data-tooltip="C± terminal" data-i18n-tooltip="toolbar.termTab.cmm">
+                  <button class="tab active" data-terminal="tcmm" data-tooltip="TCMM" data-i18n-tooltip="toolbar.termTabTooltip.cmm">
                       <span class="glyph glyph-cpm" aria-hidden="true">
                         <svg viewBox="0 0 24 16">
                           <path class="cpm-c" d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
@@ -466,7 +470,7 @@
                       </span>
                       <span class="tab-label" data-i18n="toolbar.termTabLabel.cmm">C±</span>
                   </button>
-                  <button class="tab" data-terminal="tasm" data-tooltip="ASM terminal" data-i18n-tooltip="toolbar.termTab.asm">
+                  <button class="tab" data-terminal="tasm" data-tooltip="TASM" data-i18n-tooltip="toolbar.termTabTooltip.asm">
                       <span class="glyph glyph-asm" aria-hidden="true">
                         <svg viewBox="0 0 16 16">
                           <rect x="4.5" y="4.5" width="7" height="7" rx="0.8"/>
@@ -476,7 +480,7 @@
                       </span>
                       <span class="tab-label" data-i18n="toolbar.termTabLabel.asm">ASM</span>
                   </button>
-                  <button class="tab" data-terminal="tveri" data-tooltip="Verilog terminal" data-i18n-tooltip="toolbar.termTab.veri">
+                  <button class="tab" data-terminal="tveri" data-tooltip="TVERI" data-i18n-tooltip="toolbar.termTabTooltip.veri">
                       <span class="glyph glyph-veri" aria-hidden="true">
                         <svg viewBox="0 0 16 16">
                           <path d="M13.2 2.8c0 5.6-3.9 9.5-9.5 10.5"/>
@@ -487,7 +491,7 @@
                       </span>
                       <span class="tab-label" data-i18n="toolbar.termTabLabel.veri">Verilog</span>
                   </button>
-                  <button class="tab" data-terminal="twave" data-tooltip="Wave terminal" data-i18n-tooltip="toolbar.termTab.wave">
+                  <button class="tab" data-terminal="twave" data-tooltip="TWAVE" data-i18n-tooltip="toolbar.termTabTooltip.wave">
                       <span class="glyph glyph-wave" aria-hidden="true">
                         <svg viewBox="0 0 16 16">
                           <path d="M1 11 L4 11 L4 5 L8 5 L8 11 L12 11 L12 5 L15 5"/>
@@ -495,7 +499,7 @@
                       </span>
                       <span class="tab-label" data-i18n="toolbar.termTabLabel.wave">Wave</span>
                   </button>
-                  <button class="tab" data-terminal="thtest" data-tooltip="Hardware test terminal" data-i18n-tooltip="toolbar.termTab.thtest">
+                  <button class="tab" data-terminal="thtest" data-tooltip="THTEST" data-i18n-tooltip="toolbar.termTabTooltip.thtest">
                       <span class="glyph glyph-thtest" aria-hidden="true">
                         <svg viewBox="0 0 16 16">
                           <rect x="4.5" y="4.5" width="7" height="7" rx="1"/>
@@ -513,11 +517,11 @@
                        esquematico, intercalados, sem dizer de quem era cada
                        linha. Aba propria e o mesmo remedio que os outros seis
                        terminais ja usam. -->
-                  <button class="tab" data-terminal="tprism" data-tooltip="PRISM terminal" data-i18n-tooltip="toolbar.termTab.prism">
+                  <button class="tab" data-terminal="tprism" data-tooltip="TPRISM" data-i18n-tooltip="toolbar.termTabTooltip.prism">
                       <img class="glyph glyph-tprism" src="./assets/icons/aurora_prism.svg" alt="" aria-hidden="true">
                       <span class="tab-label" data-i18n="toolbar.termTabLabel.prism">PRISM</span>
                   </button>
-                  <button class="tab" data-terminal="tcmd" data-tooltip="Shell terminal (PowerShell)" data-i18n-tooltip="toolbar.termTab.cmd">
+                  <button class="tab" data-terminal="tcmd" data-tooltip="TCMD" data-i18n-tooltip="toolbar.termTabTooltip.cmd">
                       <span class="glyph glyph-tcmd" aria-hidden="true">
                         <svg viewBox="0 0 16 16">
                           <path d="M3.5 4.5 L6.5 8 L3.5 11.5"/>
@@ -1763,6 +1767,7 @@
 <script src="./js/utils/resize.js" type="module"></script>
 <script src="./js/ui/notification.js" type="module"></script>
 <script src="./js/project/close_project.js" type="module"></script>
+<script src="./js/project/delete_project.js" type="module"></script>
 <script src="./js/editor/monaco_editor.js" type="module"></script>
 <script src="./js/tabs/tab_manager.js" type="module"></script>
 <script src="./js/compilation/compilation_module.js" type="module"></script>

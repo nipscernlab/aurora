@@ -223,11 +223,20 @@ function abrirTerminal() {
   terminalContainer.style.height = constrainTerminalHeight(bruto) + 'px';
 }
 
-/** Recolhe o terminal, guardando antes a altura para a volta. */
+/**
+ * Recolhe o terminal, guardando antes a altura para a volta.
+ *
+ * Recolhe ate o PISO, nao ate zero: o piso e a altura da fila de abas, e e
+ * nela que mora o proprio botao de recolher. Com altura zero a fila sumia
+ * junto, o botao virava a seta para cima e nao havia mais onde clica-la;
+ * a volta ficava so pela paleta e pelo duplo clique no divisor, que ninguem
+ * adivinha. Recolhido continua sendo "nao mostra conteudo" (terminalRecolhido
+ * aceita qualquer altura ate o piso), entao abrir e fechar seguem iguais.
+ */
 function fecharTerminal() {
   if (!terminalContainer || terminalRecolhido()) return;
   persistTerminalHeight(terminalContainer.offsetHeight);
-  terminalContainer.style.height = '0px';
+  terminalContainer.style.height = PANE.MIN_TERMINAL + 'px';
 }
 
 function toggleTerminal() {

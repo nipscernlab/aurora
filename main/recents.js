@@ -79,4 +79,17 @@ function prune() {
   return kept;
 }
 
-module.exports = { read, push, prune };
+/**
+ * Tira `spfPath` da lista: o projeto foi para a Lixeira e um recente que
+ * aponta para ele so serviria para falhar ao clicar.
+ * @param {string} spfPath
+ */
+function remove(spfPath) {
+  if (!spfPath || typeof spfPath !== 'string') return read();
+  const normalized = path.resolve(spfPath).toLowerCase();
+  const next = read().filter((p) => path.resolve(p).toLowerCase() !== normalized);
+  write(next);
+  return next;
+}
+
+module.exports = { read, push, prune, remove };

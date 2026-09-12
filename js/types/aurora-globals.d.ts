@@ -34,6 +34,8 @@ interface AuroraElectronAPI {
   getComponentsPath(): Promise<string>;
   /** Pasta do usuario; a lista de recentes a resolve uma vez e encurta caminhos com ela. */
   getHomePath(): Promise<string>;
+  /** Manda a pasta do projeto que esta janela acabou de fechar para a Lixeira. */
+  trashProject(spfPath: string): Promise<{ success: boolean, message?: string }>;
   getPythonStatus(): Promise<PythonStatus>;
   execSpec(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;
   execSpecStreamed(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;

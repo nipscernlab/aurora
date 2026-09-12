@@ -104,8 +104,18 @@ describe('E2E — o cabecalho do modal fora da regiao de arrasto', () => {
     window = await waitForMainWindow(app);
     await window.waitForLoadState('load');
     await window.waitForFunction(() => !!window.monaco, null, { timeout: 30_000 });
-    // A area util da captura do defeito: 1280x820 a 120%.
-    await window.setViewportSize({ width: 1067, height: 683 });
+    // A largura e a da captura do defeito (1280 a 120% = 1067 px de CSS): e
+    // ela que dobra a barra em duas linhas. A ALTURA e menor do que a da
+    // captura (683) de proposito. O painel do modal tem altura maxima de 86vh
+    // e e centrado; a 683 px o teto e 587 e o conteudo da secao General no
+    // runner do CI fica um pouco ABAIXO disso, entao o painel vira do tamanho
+    // do conteudo e qualquer linha que chegue por IPC antes ou depois da
+    // medicao move o cabecalho alguns pixels. Foi assim que o "?" caiu em
+    // y=88, dois pixels abaixo da faixa de 86, e a pre-condicao reprovou sem
+    // o produto ter mudado. A 600 px o teto e 518, abaixo do conteudo em
+    // qualquer ambiente conhecido, o painel fica preso ao teto e o cabecalho
+    // cai sempre no mesmo lugar (medido: botoes em y=66, nas duas versoes).
+    await window.setViewportSize({ width: 1067, height: 600 });
     await window.waitForTimeout(600);
   }, 90_000);
 

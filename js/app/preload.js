@@ -176,6 +176,9 @@ const fileWatchingOperations = {
 const projectOperations = {
   openProject:    (p) => ipcRenderer.invoke('project:open', p),
   closeProject:   () => ipcRenderer.invoke('project:close'),
+  // Manda a pasta do projeto que esta janela ACABOU DE FECHAR para a Lixeira.
+  // So esse: o main confere contra o que a janela fechou por ultimo.
+  trashProject:   (spf) => ipcRenderer.invoke('project:trash', spf),
   renameProject:  (newName) => ipcRenderer.invoke('rename-project', newName),
   createProjectStructure: (projectPath, spfPath) =>
     ipcRenderer.invoke('project:createStructure', projectPath, spfPath),

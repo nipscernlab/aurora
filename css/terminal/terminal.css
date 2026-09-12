@@ -184,6 +184,18 @@
   opacity: 0.75;
 }
 
+/* O historico de compilacao ganha o roxo claro da marca, como o botao de
+   atualizacao na barra de status: e o unico botao desta fila que convida
+   em vez de responder, e sem cor nenhuma ele desaparecia entre o exportar
+   log e o recarregar. Suave de proposito: cor no icone e um fundo de dez
+   por cento, sem sublinhado nem movimento, porque aqui nao ha nada pendente
+   a resolver, so um lugar para olhar para tras. */
+#run-history i { color: var(--aurora-purple); }
+#run-history:hover {
+  background-color: rgba(185, 138, 224, 0.14);
+  color: var(--aurora-purple);
+}
+
 /* O glifo da aba C± ja e o proprio nome escrito; com o rotulo ao lado lia-se
    "C± C±". Nesta aba o glifo faz as vezes do rotulo. */
 .terminal-tabs .tab[data-terminal="tcmm"] .tab-label { display: none; }

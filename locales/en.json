@@ -127,6 +127,15 @@
       "thtest": "Test",
       "prism": "PRISM",
       "cmd": "Shell"
+    },
+    "termTabTooltip": {
+      "cmm": "TCMM, c± terminal",
+      "asm": "TASM, aSM terminal",
+      "veri": "TVERI, verilog terminal",
+      "wave": "TWAVE, wave terminal",
+      "thtest": "THTEST, hardware test terminal",
+      "prism": "TPRISM, pRISM terminal (schematic synthesis)",
+      "cmd": "TCMD, shell terminal (PowerShell)"
     }
   },
   "windowControls": {
@@ -205,7 +214,8 @@
     "projectGoneTitle": "Project folder gone",
     "projectGone": "The project folder is no longer on disk. It was deleted, moved, or its drive was disconnected. Nothing here was closed and no unsaved work was discarded, but saving will fail until you reopen the project.",
     "moreActions": "More",
-    "closeProject": "Close project"
+    "closeProject": "Close project",
+    "deleteProject": "Delete project..."
   },
   "modal": {
     "help": "Open the manual on this topic",
@@ -522,6 +532,12 @@
       "fallbackPrompt": "Remove the missing-file references from this project? This cannot be undone.",
       "cancel": "Keep warning",
       "confirm": "Remove references"
+    },
+    "deleteProject": {
+      "title": "Move this project to the Recycle Bin?",
+      "message": "The whole project folder will be moved to the Recycle Bin:<br><code>{{path}}</code><br><br>Nothing is deleted for good: you can restore it from the Recycle Bin. Open files are closed first; unsaved changes in them are lost.",
+      "cancel": "Keep the project",
+      "confirm": "Move to Recycle Bin"
     }
   },
   "statusBar": {
@@ -629,6 +645,12 @@
     },
     "fileMode": {
       "errorOpen": "Error opening file: {{name}}"
+    },
+    "project": {
+      "trashed": "Project moved to the Recycle Bin: {{path}}",
+      "trashFailed": "Could not move the project to the Recycle Bin: {{reason}}",
+      "couldNotClose": "the project could not be closed",
+      "noneToDelete": "Open a project first to delete it."
     }
   },
   "terminal": {

@@ -138,7 +138,7 @@ function register() {
       try { onData.dispose(); } catch (_) { /* noop */ }
       try { onExit.dispose(); } catch (_) { /* noop */ }
     };
-    sessions.set(id, { proc, dispose });
+    sessions.set(id, { proc, dispose, cwd });
 
     // Don't leak the shell (or its python children) if the renderer goes away.
     wc.once('destroyed', () => killSession(id));
@@ -192,4 +192,28 @@ function register() {
   });
 }
 
-module.exports = { register };
+/**
+ * Mata as sessoes que NASCERAM dentro de `dir`.
+ *
+ * Excluir um projeto manda a pasta para a Lixeira, e no Windows uma pasta com
+ * um processo cujo diretorio de trabalho esta nela nao se move: o PowerShell
+ * do TCMD nasce na pasta do projeto. So sabemos onde cada sessao nasceu (a
+ * pessoa pode ter dado `cd` depois), e e isso que se usa; se ainda assim a
+ * pasta estiver presa, a lixeira insiste e por fim diz que nao conseguiu.
+ *
+ * @param {string} dir
+ * @returns {number} quantas sessoes foram encerradas
+ */
+function matarSessoesEm(dir) {
+  const n = (/** @type {string} */ p) => String(p || '').replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
+  const base = n(dir);
+  if (!base) return 0;
+  let mortas = 0;
+  for (const [id, s] of [...sessions.entries()]) {
+    const c = n(s.cwd);
+    if (c && (c === base || c.startsWith(base + '\\'))) { killSession(id); mortas++; }
+  }
+  return mortas;
+}
+
+module.exports = { register, matarSessoesEm };

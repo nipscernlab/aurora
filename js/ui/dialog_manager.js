@@ -31,6 +31,16 @@ const VARIANT_ICONS = {
     success: 'ph ph-check-circle'
 };
 
+/**
+ * O rotulo de um botao que ainda conta: "Excluir (5)" ... "Excluir (1)" e, no
+ * fim, o rotulo limpo. Puro, para o teste.
+ * @param {string} label
+ * @param {number} restante
+ */
+export function rotuloComContador(label, restante) {
+    return restante > 0 ? `${label} (${restante})` : label;
+}
+
 function inferVariant(buttons) {
     if (buttons?.some(b => b.type === 'danger')) return 'warning';
     return 'info';
@@ -56,7 +66,12 @@ export function showDialog({ title, message, buttons, variant, ajuda }) {
             // `iconHtml` e opcional e vem de quem chama (hoje so o relatorio de
             // problema, que mostra a marca de cada provedor de e-mail).
             const icone = btn.iconHtml ? `${btn.iconHtml}` : '';
-            return `<button class="confirm-btn ${safeType}" data-action="${btn.action}">${icone}${btn.label}</button>`;
+            // `countdown` (segundos): o botao nasce travado e conta 5, 4, 3, 2, 1
+            // antes de liberar. Para acoes sem volta facil, como mandar a
+            // pasta do projeto para a Lixeira: e o tempo de ler e desistir.
+            const seg = Number.isInteger(btn.countdown) && btn.countdown > 0 ? btn.countdown : 0;
+            const travado = seg > 0 ? ` data-countdown="${seg}" disabled` : '';
+            return `<button class="confirm-btn ${safeType}" data-action="${btn.action}"${travado}>${icone}<span class="confirm-btn-label">${rotuloComContador(btn.label, seg)}</span></button>`;
         }).join('');
 
         const modal = document.createElement('div');
@@ -83,7 +98,27 @@ export function showDialog({ title, message, buttons, variant, ajuda }) {
         `;
         document.body.appendChild(modal);
 
+        // Os relogios dos botoes com contagem. Um por botao; todos morrem no
+        // cleanup, para um cancelar no meio nao deixar intervalo contando.
+        const relogios = [];
+        for (const b of modal.querySelectorAll('button[data-countdown]')) {
+            const rotulo = (buttons || []).find((x) => x.action === b.getAttribute('data-action'))?.label || '';
+            let restante = Number(b.getAttribute('data-countdown')) || 0;
+            const span = b.querySelector('.confirm-btn-label');
+            const id = setInterval(() => {
+                restante -= 1;
+                if (span) span.textContent = rotuloComContador(rotulo, restante);
+                if (restante <= 0) {
+                    clearInterval(id);
+                    b.disabled = false;
+                    b.removeAttribute('data-countdown');
+                }
+            }, 1000);
+            relogios.push(id);
+        }
+
         const cleanup = (action) => {
+            for (const id of relogios) clearInterval(id);
             document.removeEventListener('keydown', onKey);
             modal.classList.remove('show');
             setTimeout(() => {
@@ -97,7 +132,8 @@ export function showDialog({ title, message, buttons, variant, ajuda }) {
                 cleanup('cancel');
             } else if (e.key === 'Enter') {
                 const primary = modal.querySelector('.confirm-btn.save, .confirm-btn.danger');
-                if (primary) {
+                // Travado pela contagem, o Enter nao atravessa.
+                if (primary && !primary.disabled) {
                     cleanup(primary.getAttribute('data-action'));
                 }
             }
@@ -111,6 +147,7 @@ export function showDialog({ title, message, buttons, variant, ajuda }) {
             }
             const btn = e.target.closest('button[data-action]');
             if (btn) {
+                if (btn.disabled) return;   // ainda contando
                 cleanup(btn.getAttribute('data-action'));
                 return;
             }

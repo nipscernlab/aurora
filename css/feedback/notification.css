@@ -188,6 +188,12 @@
 }
 
 .confirm-btn:active { transform: scale(0.98); }
+/* Contando (ver dialog_manager, `countdown`): esmaecido e sem clique. */
+.confirm-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
 
 .confirm-btn.cancel {
   background-color: transparent;

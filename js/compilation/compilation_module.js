@@ -100,7 +100,7 @@ import * as CommandSpec from './command_spec.js';
 import {
   basenameOfPath, moduleStemFromPath, isPythonFile,
   decideCocotbDut,
-  isVerilogLikeFile, assertPythonModuleName, safeNamePart,
+  isVerilogLikeFile, assertPythonModuleName, safeNamePart, escolherTestbench,
 } from './compilation_helpers.js';
 import { COCOTB_RUNNER_SOURCE, COCOTB_TESTS_FAILED } from './cocotb_runner_source.js';
 
@@ -181,6 +181,8 @@ class CompilationModule {
         this.hierarchyGenerated = false;
         this._hierarchyGenerationInProgress = false;
         this.componentsPath = null;
+        this._componentsPathPronto = null;
+        // Dispara agora e e esperado nas entradas publicas (ver o metodo).
         this.initializeComponentsPath();
 
         // Pin this instance as "the latest", the file-tree view
@@ -292,10 +294,29 @@ class CompilationModule {
         };
     }
 
+    /**
+     * Resolve a pasta de componentes, uma vez so, e devolve sempre a mesma
+     * promessa.
+     *
+     * O construtor dispara isto SEM esperar, e por anos ninguem esperou no
+     * caminho de quem so tem Verilog: a pre-compilacao dos processadores era
+     * o unico ponto que aguardava, e ela desiste antes disso quando a lista
+     * de processadores esta vazia. Com `componentsPath` ainda nulo, o
+     * primeiro `joinPath` do fluxo estoura com "All arguments to join-path
+     * must be strings", que nao diz nada a quem clicou.
+     *
+     * Guardar a promessa e o que torna barato esperar: quem chama de novo nao
+     * dispara outro IPC, so pega a resposta que ja esta a caminho.
+     */
     async initializeComponentsPath() {
-        if (!this.componentsPath) {
-            this.componentsPath = await electronAPI.getComponentsPath();
+        if (this.componentsPath) return this.componentsPath;
+        if (!this._componentsPathPronto) {
+            this._componentsPathPronto = electronAPI.getComponentsPath().then((caminho) => {
+                this.componentsPath = caminho;
+                return caminho;
+            });
         }
+        return this._componentsPathPronto;
     }
 
 
@@ -533,21 +554,19 @@ _buildConfigShape() {
     const synth = this.projectConfig.synthesizableFiles || [];
     const topEntry = this._pickSingleTop(synth, 'synthesizable');
 
-    // testbenchFile (legacy single field) vence sobre testbenchFiles[]
-    // (lista nova). Se nenhum, procura starred entry; ultimo recurso:
-    // primeira entry valida.
-    let foundTb = null;
-    if (this.projectConfig.testbenchFile && this.projectConfig.testbenchFile.trim() !== '') {
-        foundTb = this.projectConfig.testbenchFile;
-    } else if (Array.isArray(this.projectConfig.testbenchFiles) && this.projectConfig.testbenchFiles.length > 0) {
-        const tbs = this.projectConfig.testbenchFiles.filter((f) => f.path && f.path.trim() !== '');
-        const starred = this._pickSingleTop(tbs, 'testbench');
-        if (starred) {
-            foundTb = starred.path;
-        } else if (tbs.length > 0) {
-            foundTb = tbs[0].path;
-        }
-    }
+    // A MESMA funcao que decide se o botao de onda acende
+    // (compilation_helpers.escolherTestbench). Enquanto eram duas regras, um
+    // projeto com o testbench so na forma de lista tinha o botao apagado e a
+    // compilacao funcionando.
+    const foundTb = escolherTestbench(this.projectConfig, (marcadas) => {
+        const nome = (f) => f.name || f.path?.split(/[\\/]/).pop() || '?';
+        this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.multipleTops', {
+            count: marcadas.length,
+            category: 'testbench',
+            picked: nome(marcadas[0]),
+            ignored: marcadas.slice(1).map(nome).join(', '),
+        }), 'warning');
+    });
 
     return {
         topLevelFile:       topEntry ? topEntry.path : null,
@@ -1239,6 +1258,10 @@ async runGtkWave() {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.bannerSim'), 'info');
 
     try {
+    // A pasta de componentes tem que estar resolvida antes do primeiro
+    // joinPath; o construtor a dispara sem esperar.
+    await this.initializeComponentsPath();
+
     // Salva o que esta aberto no editor ANTES de qualquer leitura de disco.
     //
     // O testbench e lido cedo, duas vezes: uma para saber se ele ja tem
@@ -2387,7 +2410,8 @@ async _fastSimBuildVerilator(simTopModule, tempBaseDir, config, tools) {
 async runFastSim() {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.fastBanner'), 'info');
     try {
-        // Mesmo motivo do runGtkWave: o testbench e lido do disco adiante.
+        // Mesmos dois motivos do runGtkWave.
+        await this.initializeComponentsPath();
         await TabManager.saveAllFiles();
         const config = this.validateForWave();
         // Duas naturezas de testbench, dois caminhos, ambos SEM onda:

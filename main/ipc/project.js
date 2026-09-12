@@ -393,6 +393,41 @@ function register() {
     }
   });
 
+  /**
+   * Grava o `.spf` do projeto desta janela, de forma atomica.
+   *
+   * O renderer e o dono da escrita do `.spf` e gravava pelo `write-file`
+   * generico, que trunca e escreve: uma leitura que caisse no meio pegava
+   * JSON pela metade, o parser tolerante desistia, e o `SpfStore` devolvia a
+   * estrutura vazia EM SILENCIO. Na tela isso aparecia como "nenhum testbench
+   * definido" num projeto que tinha um, e o clique seguinte funcionava porque
+   * a escrita ja tinha terminado. O `escreverSpf` daqui grava num `.tmp` e
+   * renomeia por cima, e o rename e atomico: nao existe meio-arquivo para
+   * ninguem ler.
+   *
+   * So aceita o `.spf` que ESTA JANELA abriu. E mais estreito do que o
+   * `write-file` generico de proposito: este canal escreve um arquivo que o
+   * projeto inteiro depende, e nao precisa de mais alcance do que esse.
+   */
+  ipcMain.handle('project:write-spf', async (event, spfPath, doc) => {
+    try {
+      const aberto = spfDaJanela(event);
+      const mesmo = typeof spfPath === 'string' && aberto
+        && path.resolve(spfPath).toLowerCase() === path.resolve(aberto).toLowerCase();
+      if (!mesmo) {
+        return { success: false, message: 'spf path is not the project open in this window' };
+      }
+      if (!doc || typeof doc !== 'object') {
+        return { success: false, message: 'spf document must be an object' };
+      }
+      await escreverSpf(aberto, doc);
+      return { success: true };
+    } catch (error) {
+      log.error('project:write-spf failed:', error);
+      return { success: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
   ipcMain.handle('get-current-project', async (event) => {
     const spfPath = spfDaJanela(event);
     if (!spfPath) return { projectOpen: false };

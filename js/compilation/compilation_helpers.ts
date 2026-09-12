@@ -132,3 +132,51 @@ export function safeNamePart(name: string): string {
         .replace(/[^A-Za-z0-9_-]+/g, '_')
         .replace(/^_+|_+$/g, '') || 'cocotb';
 }
+
+/** Uma entrada de arquivo do `.spf`. */
+export interface EntradaDeArquivo {
+  path?: string;
+  name?: string;
+  isTopLevel?: boolean;
+}
+
+/** A parte do `.spf` de onde sai o testbench. */
+export interface FonteDeTestbench {
+  testbenchFile?: string | null;
+  testbenchFiles?: EntradaDeArquivo[] | null;
+}
+
+/**
+ * Qual testbench a simulacao vai usar, ou null se nao ha nenhum.
+ *
+ * A regra: o campo escalar `testbenchFile` ganha; sem ele, vale a entrada
+ * marcada como topo na lista `testbenchFiles`; sem marca, a primeira entrada
+ * valida da lista.
+ *
+ * Esta funcao existe para que o BOTAO e o ALVO respondam a mesma pergunta. O
+ * botao de onda olhava so o campo escalar, e o alvo ja aceitava a lista: um
+ * projeto que guardasse o testbench apenas na forma de lista ficava com o
+ * botao apagado para sempre, sem nada explicando por que, enquanto a
+ * compilacao por outro caminho encontrava o arquivo sem dificuldade.
+ *
+ * `aoEmpatar` recebe as entradas marcadas quando ha mais de uma: quem esta
+ * compilando avisa no terminal qual venceu, e quem so precisa habilitar um
+ * botao nao avisa nada.
+ */
+export function escolherTestbench(
+  fonte: FonteDeTestbench | null | undefined,
+  aoEmpatar?: (marcadas: EntradaDeArquivo[]) => void,
+): string | null {
+  if (!fonte) return null;
+
+  const escalar = typeof fonte.testbenchFile === 'string' ? fonte.testbenchFile.trim() : '';
+  if (escalar) return fonte.testbenchFile as string;
+
+  const lista = Array.isArray(fonte.testbenchFiles) ? fonte.testbenchFiles : [];
+  const validas = lista.filter((f) => f && typeof f.path === 'string' && f.path.trim() !== '');
+  if (validas.length === 0) return null;
+
+  const marcadas = validas.filter((f) => f.isTopLevel === true);
+  if (marcadas.length > 1 && aoEmpatar) aoEmpatar(marcadas);
+  return (marcadas[0] || validas[0]).path as string;
+}

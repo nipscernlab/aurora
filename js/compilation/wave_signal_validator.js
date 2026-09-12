@@ -167,7 +167,20 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
         tbModule: tbKey,
         hadOriginalDumpvars,
     });
-    const state = await WaveStore.read(deps.projectPath, tbKey);
+    let state = await WaveStore.read(deps.projectPath, tbKey);
+
+    // A marca era tirada UMA vez e nunca mais revista. Se a primeira visita a
+    // tirou errada (acontecia: o testbench era lido antes de o editor salvar),
+    // ela ficava errada para sempre, e a unica saida era apagar o arquivo de
+    // estado daquele testbench a mao. Agora ela se corrige quando o testbench
+    // muda de ideia, com uma condicao: se a pessoa ja customizou a Wave
+    // Configuration, a escolha dela e mais recente do que qualquer anotacao
+    // nossa e fica de pe.
+    if (state && !state.wcCustomized && state.hadOriginalDumpvars !== hadOriginalDumpvars) {
+        state = await WaveStore.update(deps.projectPath, tbKey, (cfg) => {
+            cfg.hadOriginalDumpvars = hadOriginalDumpvars;
+        });
+    }
 
     // Parse de source on-demand, so se precisarmos validar um conjunto
     // de signals (vem do .gtkw ou do WC).

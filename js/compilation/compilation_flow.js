@@ -30,6 +30,7 @@ import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { getSimulator } from '../wave/simulator_preference.js';
+import { escolherTestbench } from './compilation_helpers.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { addRunObserver } from './spec_runner.js';
 import { abrirExecucao, anotarPasso, fecharExecucao, resumo } from './run_log.js';
@@ -984,10 +985,15 @@ async function syncToolbarEnabledState() {
         try {
             const s = await window.SpfStore.read(spfPath);
             hasTop = !!s.topLevelFile;
-            hasTb = !!s.testbenchFile;
+            // A MESMA regra do alvo (compilation_helpers.escolherTestbench):
+            // olhar so o campo escalar deixava o botao apagado para sempre num
+            // projeto que guardasse o testbench apenas na lista, enquanto a
+            // compilacao encontrava o arquivo sem dificuldade.
+            const tb = escolherTestbench(s);
+            hasTb = !!tb;
             // .py = testbench cocotb (Python). O Fast Sim e Verilator-binary e
             // compila o tb como Verilog, entao .py nao se aplica (vai pelo Wave).
-            isPyTb = /\.py$/i.test(s.testbenchFile || '');
+            isPyTb = /\.py$/i.test(tb || '');
         } catch (_e) { /* sem projeto / leitura falhou → tudo desabilitado */ }
     }
 

@@ -232,3 +232,50 @@ describe('parseProjectSources', () => {
         expect(modules.has('core_tb')).toBe(false);  // *_tb excluido
     });
 });
+
+// A marca "o testbench ja tinha $dumpvars proprio" era tirada UMA vez e nunca
+// mais revista. Se a primeira visita a tirou errada, e isso acontecia, porque
+// o testbench era lido antes de o editor salvar, ela ficava errada para
+// sempre: o Aurora cedia o controle do dump a um $dumpvars que nao existia
+// mais, ou o tomava de um que passou a existir. A unica saida era apagar o
+// arquivo de estado daquele testbench a mao.
+describe('a marca do $dumpvars se corrige', () => {
+    it('deixa de valer quando o usuario tirou o $dumpvars do testbench', async () => {
+        const deps = makeDeps();
+        window.electronAPI._files.set(TB, TB_WITH_DUMP);
+        await resolveWaveSelection(deps, { config: { testbenchFile: TB }, simTopModule: 'tb_counter', filePaths: [TB] });
+        expect((await WaveStore.read('/proj', 'tb_counter')).hadOriginalDumpvars).toBe(true);
+
+        // A pessoa apaga o $dumpvars e roda de novo.
+        window.electronAPI._files.set(TB, TB_V);
+        const d = await resolveWaveSelection(deps, { config: { testbenchFile: TB }, simTopModule: 'tb_counter', filePaths: [TB] });
+
+        expect((await WaveStore.read('/proj', 'tb_counter')).hadOriginalDumpvars).toBe(false);
+        expect(d.source).not.toBe('tb');
+    });
+
+    it('passa a valer quando o usuario escreveu um $dumpvars proprio', async () => {
+        const deps = makeDeps();
+        window.electronAPI._files.set(TB, TB_V);
+        await resolveWaveSelection(deps, { config: { testbenchFile: TB }, simTopModule: 'tb_counter', filePaths: [TB] });
+        expect((await WaveStore.read('/proj', 'tb_counter')).hadOriginalDumpvars).toBe(false);
+
+        window.electronAPI._files.set(TB, TB_WITH_DUMP);
+        const d = await resolveWaveSelection(deps, { config: { testbenchFile: TB }, simTopModule: 'tb_counter', filePaths: [TB] });
+
+        expect((await WaveStore.read('/proj', 'tb_counter')).hadOriginalDumpvars).toBe(true);
+        expect(d).toMatchObject({ source: 'tb' });
+    });
+
+    it('quem ja customizou a Wave Configuration manda: a marca nao mexe', async () => {
+        const deps = makeDeps();
+        window.electronAPI._files.set(TB, TB_WITH_DUMP);
+        await resolveWaveSelection(deps, { config: { testbenchFile: TB }, simTopModule: 'tb_counter', filePaths: [TB] });
+        await WaveStore.update('/proj', 'tb_counter', (cfg) => { cfg.wcCustomized = true; });
+
+        window.electronAPI._files.set(TB, TB_V);
+        await resolveWaveSelection(deps, { config: { testbenchFile: TB }, simTopModule: 'tb_counter', filePaths: [TB] });
+
+        expect((await WaveStore.read('/proj', 'tb_counter')).hadOriginalDumpvars).toBe(true);
+    });
+});

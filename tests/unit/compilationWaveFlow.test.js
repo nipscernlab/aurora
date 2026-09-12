@@ -107,7 +107,15 @@ function makeFakeApi() {
             arquivos.set(norm(p), { conteudo, mtime });
         },
         _travado: null,             // { nome, code } quando o dump esta bloqueado
-        joinPath: vi.fn(async (...partes) => partes.filter(Boolean).join('/').replace(/\/+/g, '/')),
+        // Como o real (main/utils.js): recusa argumento que nao seja string.
+        // Um falso permissivo aqui aceitava `componentsPath` nulo e o teste
+        // atravessava a defesa sem aciona-la, que e a armadilha 2 la de cima.
+        joinPath: vi.fn(async (...partes) => {
+            if (!partes.every((p) => typeof p === 'string')) {
+                throw new TypeError('All arguments to join-path must be strings');
+            }
+            return partes.filter(Boolean).join('/').replace(/\/+/g, '/');
+        }),
         dirname: vi.fn(async (p) => norm(p).split('/').slice(0, -1).join('/')),
         fileExists: vi.fn(async (p) => arquivos.has(norm(p))),
         readFile: vi.fn(async (p) => {
@@ -435,5 +443,45 @@ describe('salvar antes de ler', () => {
         await mod.runFastSim().catch(() => { /* o Verilator nao esta no falso */ });
 
         expect(eventos[0]).toBe('save');
+    });
+});
+
+// A pasta de componentes tem que estar resolvida antes do primeiro joinPath.
+//
+// O construtor a dispara SEM esperar, e por anos ninguem esperou no caminho de
+// quem so tem Verilog: a pre-compilacao dos processadores era o unico ponto
+// que aguardava, e ela desiste antes disso quando nao ha processador nenhum.
+// Com o caminho ainda nulo, o primeiro joinPath estoura com uma mensagem que
+// nao diz nada a quem clicou.
+describe('esperar a pasta de componentes', () => {
+    it('runGtkWave espera, mesmo se o construtor ainda nao resolveu', async () => {
+        let soltar;
+        api.getComponentsPath = vi.fn(() => new Promise((r) => { soltar = r; }));
+        const mod = new CompilationModule(PROJ);
+        mod.projectConfig = CONFIG_PADRAO;
+        expect(mod.componentsPath).toBeNull();
+        const passos = ligarExecutor(api);
+
+        // Sai na frente com a pasta AINDA nao resolvida e deixa varias voltas
+        // do laco de eventos passarem: sem a espera, o fluxo seguiria e
+        // estouraria no primeiro joinPath com o caminho nulo.
+        const corrida = mod.runGtkWave();
+        for (let i = 0; i < 20; i++) await Promise.resolve();
+        expect(passos).toHaveLength(0);
+        expect(houveErro()).toBe(false);
+
+        soltar(COMP);
+        await corrida;
+
+        expect(mod.componentsPath).toBe(COMP);
+        expect(passos.length).toBeGreaterThan(0);
+        expect(houveErro()).toBe(false);
+    });
+
+    it('resolver duas vezes nao dispara dois pedidos', async () => {
+        const mod = await novoModulo(CONFIG_PADRAO);
+        const antes = api.getComponentsPath.mock.calls.length;
+        await Promise.all([mod.initializeComponentsPath(), mod.initializeComponentsPath()]);
+        expect(api.getComponentsPath.mock.calls.length).toBe(antes);
     });
 });

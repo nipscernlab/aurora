@@ -21,6 +21,10 @@ const fileOperations = {
   readFile:        (p) => ipcRenderer.invoke('read-file', p),
   readFileBuffer:  (p) => ipcRenderer.invoke('read-file-buffer', p),
   writeFile:       (p, content) => ipcRenderer.invoke('write-file', p, content),
+  // O `.spf` tem canal proprio porque a escrita dele e atomica (tmp + rename)
+  // no processo principal: uma leitura no meio de um write-file generico
+  // pegava JSON truncado. Ver main/ipc/project.js.
+  writeSpf:        (p, doc) => ipcRenderer.invoke('project:write-spf', p, doc),
   copyFile:        (src, dest) => ipcRenderer.invoke('copy-file', src, dest),
 
   getFileStats:    (p) => ipcRenderer.invoke('get-file-stats', p),

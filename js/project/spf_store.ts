@@ -280,7 +280,25 @@ function readRaw(spfPath: string): Promise<SpfDocument> {
   return promise;
 }
 
+/**
+ * Grava o `.spf` inteiro.
+ *
+ * Pelo canal proprio, que no processo principal escreve num `.tmp` e renomeia
+ * por cima. O `write-file` generico trunca e escreve, e uma leitura que
+ * caisse no meio pegava JSON pela metade: o parser tolerante desistia e a
+ * leitura devolvia a estrutura vazia em silencio, o que na tela virava
+ * "nenhum testbench definido" num projeto que tinha um. Cai no caminho antigo
+ * se a ponte nao tiver o canal (renderer antigo carregado com main novo).
+ */
 async function writeRaw(spfPath: string, fullDoc: SpfDocument): Promise<void> {
+  const ponte = electronAPI as unknown as {
+    writeSpf?: (p: string, doc: unknown) => Promise<{ success?: boolean, message?: string }>,
+  };
+  if (typeof ponte.writeSpf === 'function') {
+    const r = await ponte.writeSpf(spfPath, fullDoc);
+    if (r && r.success) return;
+    console.warn('.spf atomic write refused; falling back to write-file.', r && r.message);
+  }
   await electronAPI.writeFile(spfPath, JSON.stringify(fullDoc, null, 2));
 }
 

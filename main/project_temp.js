@@ -162,6 +162,10 @@ const GITIGNORE_DA_AURORA = [
  * @param {string} projectDir
  */
 function garantirGitignoreDaAurora(projectDir) {
+  // Sem raiz absoluta nao ha o que garantir: um caminho relativo (ou vazio)
+  // resolveria contra o diretorio de trabalho do processo e criaria a pasta
+  // no lugar errado.
+  if (!projectDir || !path.isAbsolute(projectDir)) return;
   const alvo = path.join(projectDir, SEGMENTOS[0], '.gitignore');
   try {
     if (fs.existsSync(alvo) && fs.readFileSync(alvo, 'utf8').trim() !== '') return;

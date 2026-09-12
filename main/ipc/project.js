@@ -249,13 +249,6 @@ function register() {
         }
       }
 
-      // A4: the open .spf in state is the SINGLE source of truth for "which
-      // project is open". The project DIRECTORY is derived from it on demand
-      // (path.dirname), no duplicated global.currentProject* to keep in sync.
-      // Indexado tambem pela janela que abriu (event.sender), porque cada
-      // janela principal tem o seu projeto; ver project_paths.spfDaJanela.
-      registrarSpfDaJanela(event, spfPath);
-
       // Track in our own recents store + refresh the Windows jumplist.
       // We don't use Windows' shell-managed `frequent`/`recent` lists
       // anymore (they surfaced stale "Electron" entries from earlier
@@ -279,6 +272,33 @@ function register() {
       }
       const spfContent = await fse.readFile(spfPath, 'utf8');
       const projectData = parseSpfTolerant(spfContent);
+
+      // Um `.spf` tem `structure`. Qualquer JSON valido passa pelo parse
+      // tolerante, e sem esta conferencia um `package.json`, um `.vscode` ou
+      // qualquer objeto do disco seria aceito como projeto ate o primeiro
+      // campo faltante estourar, ja com a janela registrada nele.
+      if (!projectData || typeof projectData.structure !== 'object' || !projectData.structure) {
+        throw new Error('Not a SAPHO project file: no "structure" section.');
+      }
+      if (!projectData.metadata || typeof projectData.metadata !== 'object') {
+        projectData.metadata = {};
+      }
+
+      // A4: the open .spf in state is the SINGLE source of truth for "which
+      // project is open". The project DIRECTORY is derived from it on demand
+      // (path.dirname), no duplicated global.currentProject* to keep in sync.
+      // Indexado tambem pela janela que abriu (event.sender), porque cada
+      // janela principal tem o seu projeto; ver project_paths.spfDaJanela.
+      //
+      // O registro acontece DEPOIS de o arquivo ser lido e reconhecido como
+      // `.spf`. Antes ele vinha logo apos o teste de existencia, e um arquivo
+      // que existisse mas nao fosse um projeto deixava a janela registrada
+      // assim mesmo: o `catch` la embaixo relanca sem desfazer nada. Isso
+      // importa porque a pasta do `.spf` registrado e uma das areas gravaveis
+      // do guarda de escrita (main/ipc/fs_guard.js), entao apontar a janela
+      // para um arquivo qualquer abria a pasta dele para escrita.
+      registrarSpfDaJanela(event, spfPath);
+
       projectData.metadata.lastOpened = new Date().toISOString();
 
       // basePath SEMPRE alinha com dirname(spfPath). Antes checavamos so
@@ -361,6 +381,10 @@ function register() {
 
       return { projectData, files: fileList, spfPath };
     } catch (error) {
+      // Abrir falhou depois do registro (disco, permissao, `.spf` que o parse
+      // aceitou mas o resto recusou): a janela nao pode ficar com um projeto
+      // meio aberto, porque a pasta dele e area gravavel.
+      registrarSpfDaJanela(event, null);
       log.error('Error opening project file:', error);
       throw error;
     }

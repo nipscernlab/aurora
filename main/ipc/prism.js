@@ -1119,7 +1119,16 @@ function superficieDoPrism(donoId) {
   return null;
 }
 
-/** id → resolve. Um comando em voo espera a resposta da pagina por este id. */
+/**
+ * id -> { encerrar, alvoId }. Um comando em voo espera a resposta da pagina
+ * por este id, e so a aceita de QUEM RECEBEU o comando.
+ *
+ * O id era a unica credencial: qualquer renderer que falasse
+ * `prism:command-result` com o id certo respondia pelo comando de outra
+ * janela. O id e dificil de adivinhar, mas isso e obscuridade, nao controle,
+ * e a AuroraAPI (e por ela a Aurora Intelligence) decide o que fazer com a
+ * resposta. Guardar o webContents que recebeu o comando fecha isso.
+ */
 const comandosPendentes = new Map();
 let seqComando = 0;
 
@@ -1154,7 +1163,7 @@ function comandarPrism(cmd, donoId = null) {
     };
     const morreu = () => encerrar({ ok: false, error: 'the PRISM page was closed while the command was running' });
     const prazo = setTimeout(() => encerrar({ ok: false, error: 'the PRISM page did not answer in time' }), 120000);
-    comandosPendentes.set(id, encerrar);
+    comandosPendentes.set(id, { encerrar, alvoId: alvo.id });
     alvo.once('destroyed', morreu);
     try {
       alvo.send('prism:command', id, cmd);
@@ -1167,9 +1176,15 @@ function comandarPrism(cmd, donoId = null) {
 // ---------- IPC ----------
 
 function register() {
-  ipcMain.on('prism:command-result', (_event, id, result) => {
-    const encerrar = comandosPendentes.get(id);
-    if (encerrar) encerrar(result);
+  ipcMain.on('prism:command-result', (event, id, result) => {
+    const pendente = comandosPendentes.get(id);
+    if (!pendente) return;
+    // So a pagina que RECEBEU o comando responde por ele.
+    if (event?.sender?.id !== pendente.alvoId) {
+      log.warn('[prism] resposta de comando recusada: remetente nao e a pagina que recebeu');
+      return;
+    }
+    pendente.encerrar(result);
   });
 
   // A AuroraAPI (e por ela a Aurora Intelligence) operando o Simular. O

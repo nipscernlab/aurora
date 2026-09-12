@@ -1,10 +1,15 @@
 // @ts-check
 /**
  * git.js: source-control IPC, backed by simple-git (a thin wrapper over the
- * native `git` binary). Operates on the OPEN PROJECT'S directory (derived from
- * state.currentOpenProjectPath, the single source of truth, see A4). Because
- * it drives real `git`, .gitignore, diffs, merges and credentials all behave
+ * native `git` binary). Operates on the directory of the project open IN THE
+ * WINDOW THAT ASKED (spfDaJanela, em main/ipc/project_paths.js). Because it
+ * drives real `git`, .gitignore, diffs, merges and credentials all behave
  * exactly as they do on the command line.
+ *
+ * A janela importa: com duas abertas, resolver contra o ultimo projeto aberto
+ * em qualquer lugar punha o commit e o push da janela B no repositorio da
+ * janela A, sem nada na tela dizendo isso. Por isso `safe` entrega o evento a
+ * todo handler, e todo handler o repassa aos resolvedores.
  *
  * Auth: push/pull use git's own credential helper by default. A GitHub token
  * stored via Aurora's secure storage (main/ipc/github_auth.js) is injected as
@@ -17,7 +22,7 @@ const log = require('electron-log');
 const { ipcMain } = require('electron');
 const simpleGit = require('simple-git');
 
-const state = require('../state');
+const { spfDaJanela } = require('./project_paths');
 const {
   limitarDiff,
   acumularNumstat,
@@ -72,17 +77,29 @@ function abortAll() {
   abortos = new AbortController();
 }
 
-/** The open project's directory, or null when no project is open. */
-function projectDir() {
-  return state.currentOpenProjectPath ? path.dirname(state.currentOpenProjectPath) : null;
+/**
+ * A pasta do projeto aberto NA JANELA que pediu, ou null.
+ *
+ * Era `state.currentOpenProjectPath`, o ultimo projeto aberto em qualquer
+ * janela. Como reabrir a AURORA cria outra janela no mesmo processo, isso
+ * fazia todo o git da janela B agir no repositorio da janela A: o commit, o
+ * push, o descartar, o trocar de ramo. Nada avisava, porque do ponto de vista
+ * do git estava tudo certo; so era o repositorio errado.
+ *
+ * @param {any} [ev] evento de IPC de quem pediu
+ */
+function projectDir(ev) {
+  const spf = spfDaJanela(ev);
+  return spf ? path.dirname(spf) : null;
 }
 
 /**
  * A simple-git instance bound to the project dir, or throw a clean error.
+ * @param {any} [ev]
  * @returns {import('simple-git').SimpleGit}
  */
-function gitForProject() {
-  const dir = projectDir();
+function gitForProject(ev) {
+  const dir = projectDir(ev);
   if (!dir) throw new Error('No project is open.');
   if (!fs.existsSync(dir)) throw new Error(`Project directory not found: ${dir}`);
   return simpleGit(opcoesGit({ baseDir: dir }));
@@ -93,25 +110,40 @@ function gitForProject() {
  * panel to browse a cloned repo that has no open .spf) when it exists, else the
  * open project's dir. Only read handlers honour this, mutations always act on
  * the open project.
+ * @param {any} opts
+ * @param {any} [ev]
  */
-function resolveDir(opts) {
+function resolveDir(opts, ev) {
   const d = opts && typeof opts === 'object' && typeof opts.dir === 'string' ? opts.dir : null;
   if (d && fs.existsSync(d)) return d;
-  return projectDir();
+  return projectDir(ev);
 }
-/** @returns {import('simple-git').SimpleGit} */
-function gitFor(opts) {
-  const dir = resolveDir(opts);
+/**
+ * @param {any} opts
+ * @param {any} [ev]
+ * @returns {import('simple-git').SimpleGit}
+ */
+function gitFor(opts, ev) {
+  const dir = resolveDir(opts, ev);
   if (!dir) throw new Error('No project is open.');
   if (!fs.existsSync(dir)) throw new Error(`Directory not found: ${dir}`);
   return simpleGit(opcoesGit({ baseDir: dir }));
 }
 
-/** Wrap a handler so it always resolves to { ok, ... } instead of throwing across IPC. */
+/**
+ * Wrap a handler so it always resolves to { ok, ... } instead of throwing
+ * across IPC.
+ *
+ * O `event` chega ao handler como PRIMEIRO argumento, a forma do proprio
+ * Electron. Antes ele era descartado aqui, e era por isso que nenhum handler
+ * de git sabia de que janela vinha o pedido: todos caiam no ultimo projeto
+ * aberto em qualquer janela. Passar por ultimo nao serviria, porque um
+ * handler chamado sem argumentos receberia o evento no lugar de `opts`.
+ */
 function safe(fn) {
-  return async (/** @type {any} */ _event, /** @type {any} */ ...args) => {
+  return async (/** @type {any} */ ev, /** @type {any} */ ...args) => {
     try {
-      return envelopeOk(await fn(...args));
+      return envelopeOk(await fn(ev, ...args));
     } catch (e) {
       return envelopeErro(e);
     }
@@ -125,8 +157,8 @@ function safe(fn) {
  * simple-git's editor-safety guard ("Use of EDITOR is not permitted"), which is
  * exactly what broke fetch/pull/push. git inherits the real env on its own.
  */
-async function remoteGit() {
-  const dir = projectDir();
+async function remoteGit(ev) {
+  const dir = projectDir(ev);
   if (!dir) throw new Error('No project is open.');
   let config = [];
   try {
@@ -165,15 +197,15 @@ async function workNumstat(git) {
 
 function register() {
   // --- inspection ---------------------------------------------------------
-  ipcMain.handle('git:is-repo', safe(async (opts) => {
-    const dir = resolveDir(opts);
+  ipcMain.handle('git:is-repo', safe(async (ev, opts) => {
+    const dir = resolveDir(opts, ev);
     if (!dir || !fs.existsSync(dir)) return { isRepo: false, dir: dir || null };
     const isRepo = await simpleGit(opcoesGit({ baseDir: dir })).checkIsRepo();
     return { isRepo, dir };
   }));
 
-  ipcMain.handle('git:status', safe(async (opts) => {
-    const git = gitFor(opts);
+  ipcMain.handle('git:status', safe(async (ev, opts) => {
+    const git = gitFor(opts, ev);
     if (!(await git.checkIsRepo())) return { isRepo: false };
     const s = await git.status();
     // opts.stats: attach per-file +/- (the Changes list wants it; the badge poll
@@ -204,8 +236,8 @@ function register() {
   // folder to a single "<dir>/" entry instead of listing all its contents; the
   // renderer rolls that prefix down when muting rows. `-z` => NUL-separated so
   // paths with spaces/newlines are safe. Paths are repo-relative, forward-slashed.
-  ipcMain.handle('git:ignored', safe(async (opts) => {
-    const git = gitFor(opts);
+  ipcMain.handle('git:ignored', safe(async (ev, opts) => {
+    const git = gitFor(opts, ev);
     if (!(await git.checkIsRepo())) return { isRepo: false, paths: [] };
     const raw = await git.raw(['ls-files', '-o', '-i', '--exclude-standard', '--directory', '-z']);
     const paths = separarCaminhosNUL(raw);
@@ -213,8 +245,8 @@ function register() {
   }));
 
   // Unified diff for one file (or the whole worktree when file omitted). Capped.
-  ipcMain.handle('git:diff', safe(async (/** @type {{file?:string, staged?:boolean, dir?:string}} */ opts = {}) => {
-    const git = gitFor(opts);
+  ipcMain.handle('git:diff', safe(async (ev, /** @type {{file?:string, staged?:boolean, dir?:string}} */ opts = {}) => {
+    const git = gitFor(opts, ev);
     const args = opts && opts.staged ? ['--staged'] : [];
     if (opts && opts.file) args.push('--', opts.file);
     const raw = await git.diff(args);
@@ -226,9 +258,9 @@ function register() {
   // GitHub-Desktop-style file list, then lazy-load each file's diff on demand,
   // instead of rendering one giant diff up front (which froze the UI).
   // numstat prints "<add>\t<del>\t<path>"; a binary file shows "-\t-\t<path>".
-  ipcMain.handle('git:commit-files', safe(async (/** @type {{hash:string, dir?:string}} */ opts) => {
+  ipcMain.handle('git:commit-files', safe(async (ev, /** @type {{hash:string, dir?:string}} */ opts) => {
     if (!opts || !opts.hash) throw new Error('hash required');
-    const raw = await gitFor(opts).raw(
+    const raw = await gitFor(opts, ev).raw(
       ['show', '--numstat', '--no-renames', '--format=', '--no-color', String(opts.hash)],
     );
     const files = [];
@@ -251,16 +283,16 @@ function register() {
   // Diff of ONE file within a commit (lazy-loaded when the user expands it), or
   // the whole commit when `file` is omitted. `--format=` drops the commit header
   // (the renderer shows the message separately). Capped to avoid freezes.
-  ipcMain.handle('git:show', safe(async (/** @type {{hash:string, file?:string, dir?:string}} */ opts) => {
+  ipcMain.handle('git:show', safe(async (ev, /** @type {{hash:string, file?:string, dir?:string}} */ opts) => {
     if (!opts || !opts.hash) throw new Error('hash required');
     const args = ['show', '--no-color', '--format=', String(opts.hash)];
     if (opts.file) args.push('--', String(opts.file));
-    const raw = await gitFor(opts).raw(args);
+    const raw = await gitFor(opts, ev).raw(args);
     return limitarDiff(raw);
   }));
 
-  ipcMain.handle('git:log', safe(async (/** @type {{maxCount?:number, dir?:string}} */ opts = {}) => {
-    const git = gitFor(opts);
+  ipcMain.handle('git:log', safe(async (ev, /** @type {{maxCount?:number, dir?:string}} */ opts = {}) => {
+    const git = gitFor(opts, ev);
     const logResult = await git.log({ maxCount: (opts && opts.maxCount) || 50 });
     return {
       commits: logResult.all.map((c) => ({
@@ -270,8 +302,8 @@ function register() {
     };
   }));
 
-  ipcMain.handle('git:branches', safe(async (opts) => {
-    const git = gitFor(opts);
+  ipcMain.handle('git:branches', safe(async (ev, opts) => {
+    const git = gitFor(opts, ev);
     // -a = local AND remote-tracking branches. Split them; surface remote-only
     // branches (no matching local) so the user can check them out (git creates
     // the local tracking branch on checkout).
@@ -291,19 +323,19 @@ function register() {
     return { current: b.current, branches: local, remoteBranches };
   }));
 
-  ipcMain.handle('git:remotes', safe(async () => {
-    const git = gitForProject();
+  ipcMain.handle('git:remotes', safe(async (ev) => {
+    const git = gitForProject(ev);
     const remotes = await git.getRemotes(true);
     return { remotes: remotes.map((r) => ({ name: r.name, fetch: r.refs.fetch, push: r.refs.push })) };
   }));
 
   // Display info: a repo name (owner/repo from origin, else the folder) + origin.
-  ipcMain.handle('git:info', safe(async (opts) => {
-    const dir = resolveDir(opts);
+  ipcMain.handle('git:info', safe(async (ev, opts) => {
+    const dir = resolveDir(opts, ev);
     const folder = dir ? path.basename(dir) : null;
     let originUrl = null;
     try {
-      const git = gitFor(opts);
+      const git = gitFor(opts, ev);
       if (await git.checkIsRepo()) {
         const origin = (await git.getRemotes(true)).find((r) => r.name === 'origin');
         originUrl = origin ? (origin.refs.push || origin.refs.fetch) : null;
@@ -317,33 +349,33 @@ function register() {
     return { name, folder, originUrl, hasOrigin: !!originUrl };
   }));
 
-  ipcMain.handle('git:add-remote', safe(async (/** @type {{name?:string, url:string}} */ opts) => {
+  ipcMain.handle('git:add-remote', safe(async (ev, /** @type {{name?:string, url:string}} */ opts) => {
     if (!opts || !opts.url) throw new Error('remote url required');
-    await gitForProject().addRemote(opts.name || 'origin', opts.url);
+    await gitForProject(ev).addRemote(opts.name || 'origin', opts.url);
     return {};
   }));
 
   // --- mutations ----------------------------------------------------------
-  ipcMain.handle('git:init', safe(async () => {
-    const git = gitForProject();
+  ipcMain.handle('git:init', safe(async (ev) => {
+    const git = gitForProject(ev);
     await git.init();
     return { initialized: true };
   }));
 
-  ipcMain.handle('git:stage', safe(async (/** @type {string[]|string} */ files) => {
-    const git = gitForProject();
+  ipcMain.handle('git:stage', safe(async (ev, /** @type {string[]|string} */ files) => {
+    const git = gitForProject(ev);
     await git.add(normalizarArquivos(files));
     return {};
   }));
 
-  ipcMain.handle('git:stage-all', safe(async () => {
-    const git = gitForProject();
+  ipcMain.handle('git:stage-all', safe(async (ev) => {
+    const git = gitForProject(ev);
     await git.add(['-A']);
     return {};
   }));
 
-  ipcMain.handle('git:unstage', safe(async (/** @type {string[]|string} */ files) => {
-    const git = gitForProject();
+  ipcMain.handle('git:unstage', safe(async (ev, /** @type {string[]|string} */ files) => {
+    const git = gitForProject(ev);
     await git.reset(['HEAD', '--', ...normalizarArquivos(files)]);
     return {};
   }));
@@ -359,8 +391,8 @@ function register() {
   // chamada so; quando ela falha, refazemos arquivo a arquivo para que o que
   // da para descartar seja descartado e o resto volte NOMEADO para o painel,
   // que e quem sabe explicar a diferenca a quem clicou.
-  ipcMain.handle('git:discard', safe(async (/** @type {string[]|string} */ files) => {
-    const git = gitForProject();
+  ipcMain.handle('git:discard', safe(async (ev, /** @type {string[]|string} */ files) => {
+    const git = gitForProject(ev);
     const alvos = normalizarArquivos(files);
     if (!alvos.length) return { descartados: [], ignorados: [] };
     try {
@@ -376,10 +408,10 @@ function register() {
     }
   }));
 
-  ipcMain.handle('git:commit', safe(async (/** @type {{message:string, amend?:boolean}} */ opts) => {
+  ipcMain.handle('git:commit', safe(async (ev, /** @type {{message:string, amend?:boolean}} */ opts) => {
     const message = opts && opts.message;
     if (!message || !message.trim()) throw new Error('Commit message is empty.');
-    const git = gitForProject();
+    const git = gitForProject(ev);
     if (opts && opts.amend) {
       await git.raw(['commit', '--amend', '-m', message]);
       return { commit: 'amended' };
@@ -389,8 +421,8 @@ function register() {
   }));
 
   // Undo the last commit, keeping its changes staged (soft reset).
-  ipcMain.handle('git:undo-last-commit', safe(async () => {
-    await gitForProject().raw(['reset', '--soft', 'HEAD~1']);
+  ipcMain.handle('git:undo-last-commit', safe(async (ev) => {
+    await gitForProject(ev).raw(['reset', '--soft', 'HEAD~1']);
     return {};
   }));
 
@@ -427,7 +459,7 @@ function register() {
   // Scan a directory tree for SAPHO project files (*.spf), shallow (depth <= 5),
   // skipping VCS/build/dependency folders. Used by the clone flow to find a
   // project to open after a fresh clone.
-  ipcMain.handle('git:scan-spf', safe(async (opts) => {
+  ipcMain.handle('git:scan-spf', safe(async (ev, opts) => {
     const root = opts && opts.dir;
     if (!root) throw new Error('dir required');
     const found = [];
@@ -447,8 +479,8 @@ function register() {
     return { spfs: found };
   }));
 
-  ipcMain.handle('git:checkout', safe(async (/** @type {{branch:string, create?:boolean, track?:boolean}} */ opts) => {
-    const git = gitForProject();
+  ipcMain.handle('git:checkout', safe(async (ev, /** @type {{branch:string, create?:boolean, track?:boolean}} */ opts) => {
+    const git = gitForProject(ev);
     if (opts && opts.create) await git.checkoutLocalBranch(opts.branch);
     // Remote-only branch: create a local tracking branch explicitly. Relying on
     // git's DWIM (`git checkout name`) failed with "pathspec did not match" when
@@ -461,50 +493,50 @@ function register() {
   // --- stash (so switching branches with a dirty tree just works) ---------
   // Push a stash including untracked files, so the working tree goes fully clean
   // (a checkout that would be "overwritten by checkout" then succeeds).
-  ipcMain.handle('git:stash', safe(async (/** @type {{message?:string}} */ opts = {}) => {
+  ipcMain.handle('git:stash', safe(async (ev, /** @type {{message?:string}} */ opts = {}) => {
     const args = ['stash', 'push', '--include-untracked'];
     if (opts && opts.message) args.push('-m', String(opts.message));
-    const out = await gitForProject().raw(args);
+    const out = await gitForProject(ev).raw(args);
     return { summary: typeof out === 'string' ? out.trim() : '' };
   }));
-  ipcMain.handle('git:stash-list', safe(async () => {
-    const out = await gitForProject().raw(['stash', 'list']);
+  ipcMain.handle('git:stash-list', safe(async (ev) => {
+    const out = await gitForProject(ev).raw(['stash', 'list']);
     const stashes = String(out || '').split('\n').map((s) => s.trim()).filter(Boolean);
     return { stashes };
   }));
-  ipcMain.handle('git:stash-pop', safe(async () => {
-    const out = await gitForProject().raw(['stash', 'pop']);
+  ipcMain.handle('git:stash-pop', safe(async (ev) => {
+    const out = await gitForProject(ev).raw(['stash', 'pop']);
     return { summary: typeof out === 'string' ? out.trim() : '' };
   }));
-  ipcMain.handle('git:stash-drop', safe(async () => {
-    await gitForProject().raw(['stash', 'drop']);
+  ipcMain.handle('git:stash-drop', safe(async (ev) => {
+    await gitForProject(ev).raw(['stash', 'drop']);
     return {};
   }));
 
   // Merge another branch INTO the current one (--no-edit so no $EDITOR popup).
-  ipcMain.handle('git:merge', safe(async (/** @type {{branch:string}} */ opts) => {
+  ipcMain.handle('git:merge', safe(async (ev, /** @type {{branch:string}} */ opts) => {
     if (!opts || !opts.branch) throw new Error('branch required');
-    const out = await gitForProject().raw(['merge', '--no-edit', opts.branch]);
+    const out = await gitForProject(ev).raw(['merge', '--no-edit', opts.branch]);
     return { summary: typeof out === 'string' ? out.trim() : '' };
   }));
 
   // --- remote (needs credentials/token) -----------------------------------
-  ipcMain.handle('git:fetch', safe(async () => {
-    await (await remoteGit()).fetch();
+  ipcMain.handle('git:fetch', safe(async (ev) => {
+    await (await remoteGit(ev)).fetch();
     return {};
   }));
 
-  ipcMain.handle('git:pull', safe(async () => {
+  ipcMain.handle('git:pull', safe(async (ev) => {
     // --no-edit so a merge commit never opens $EDITOR; --autostash so an
     // uncommitted local file (e.g. fractal_proc.spf) is stashed before the pull
     // and re-applied after, instead of aborting with "local changes would be
     // overwritten by merge".
-    const out = await (await remoteGit()).raw(['pull', '--no-edit', '--autostash']);
+    const out = await (await remoteGit(ev)).raw(['pull', '--no-edit', '--autostash']);
     return { summary: typeof out === 'string' ? out.trim() : '' };
   }));
 
-  ipcMain.handle('git:push', safe(async (/** @type {{setUpstream?:boolean}} */ opts = {}) => {
-    const git = await remoteGit();
+  ipcMain.handle('git:push', safe(async (ev, /** @type {{setUpstream?:boolean}} */ opts = {}) => {
+    const git = await remoteGit(ev);
     const status = await git.status();
     // Only set upstream when there isn't one yet (a fresh branch); otherwise a
     // plain push.

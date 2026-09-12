@@ -172,6 +172,20 @@ function spfDaJanela(event) {
 }
 
 /**
+ * O `.spf` de um `webContents`, quando quem pergunta nao tem um `event`.
+ *
+ * O servidor de linguagem e os agentes de IA guardam o webContents de quem os
+ * acionou, nao o evento. Mesma regra do `spfDaJanela`, so muda a forma de
+ * entrar.
+ *
+ * @param {{ id?: number } | null | undefined} sender
+ * @returns {string | null}
+ */
+function spfDoSender(sender) {
+  return spfDaJanela(sender ? { sender } : null);
+}
+
+/**
  * Registra o `.spf` aberto pela janela do `event` (null = fechou o projeto).
  * Mantem o global em dia e limpa a entrada quando o webContents morre.
  * @param {{ sender?: any } | null} event
@@ -194,5 +208,5 @@ function registrarSpfDaJanela(event, spfPath) {
 
 module.exports = {
   parseSpfTolerant, remapProcessorPath, remapRootPath, deepRemapPaths,
-  spfDaJanela, registrarSpfDaJanela,
+  spfDaJanela, spfDoSender, registrarSpfDaJanela,
 };

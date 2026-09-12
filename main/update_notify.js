@@ -25,7 +25,7 @@
 const { Notification } = require('electron');
 const log = require('electron-log');
 
-const state = require('./state');
+const janelas = require('./main_windows');
 
 /** Ligado pelo minimizar, desligado quando o card volta para a tela. */
 let ligado = false;
@@ -125,18 +125,18 @@ function avisar(chave, versao, aoClicar) {
  * notificacoes estao ligadas: com o card na tela a barra dele ja conta
  * isso, e duas barras para o mesmo download so confundem.
  *
- * Vai na janela PRINCIPAL de proposito. E o botao dela que fica na barra de
- * tarefas enquanto a pessoa trabalha; a janela de atualizacao esta escondida
- * justamente por ter sido minimizada.
+ * Vai nas janelas PRINCIPAIS de proposito. Sao os botoes delas que ficam na
+ * barra de tarefas enquanto a pessoa trabalha; a janela de atualizacao esta
+ * escondida justamente por ter sido minimizada.
  */
 function progresso(fracao) {
-  const w = state.mainWindow;
-  if (!w || w.isDestroyed()) return;
-  try {
-    if (fracao === null || !ligado) w.setProgressBar(-1);
-    else w.setProgressBar(Math.max(0, Math.min(1, fracao)));
-  } catch (e) {
-    log.warn('[updater] nao consegui pintar a barra de progresso:', e);
+  const valor = fracao === null || !ligado ? -1 : Math.max(0, Math.min(1, fracao));
+  // Cada janela principal tem o seu botao na barra de tarefas, entao a barra
+  // vai em todas: pintar so uma deixaria a outra sem sinal nenhum de que uma
+  // atualizacao esta andando.
+  for (const w of janelas.todas()) {
+    try { w.setProgressBar(valor); }
+    catch (e) { log.warn('[updater] nao consegui pintar a barra de progresso:', e); }
   }
 }
 

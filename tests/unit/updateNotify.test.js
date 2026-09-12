@@ -42,6 +42,7 @@ req.cache[electronPath] = {
 };
 
 const state = req('../../main/state.js');
+const janelas = req('../../main/main_windows.js');
 const notificar = req('../../main/update_notify.js');
 
 let barra;
@@ -49,10 +50,15 @@ beforeEach(() => {
     criadas.length = 0;
     suportado = true;
     barra = [];
-    state.mainWindow = {
+    // A barra pinta o botao de TODA janela principal: a atualizacao e do
+    // aplicativo, e uma janela sem barra nenhuma nao diria que algo anda.
+    state.mainWindows.clear();
+    janelas.registrar({
         isDestroyed: () => false,
+        on: () => {},
+        webContents: { id: 1, isDestroyed: () => false, send: () => {} },
         setProgressBar: (v) => barra.push(v),
-    };
+    });
     notificar.desativar();
     barra.length = 0;
 });

@@ -29,7 +29,7 @@ const fs = require('fs');
 const { ipcMain } = require('electron');
 const log = require('electron-log');
 
-const state = require('../state');
+const janelas = require('../main_windows');
 const { componentsPath } = require('../paths');
 const { spawnTracked } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
@@ -101,11 +101,23 @@ function binInstalled() {
   try { return fs.existsSync(LS_BIN); } catch { return false; }
 }
 
-function sendMain(/** @type {string} */ channel, /** @type {any} */ payload) {
-  const w = state.mainWindow;
-  if (w && !w.isDestroyed()) {
-    try { w.webContents.send(channel, payload); } catch { /* window tearing down */ }
-  }
+/**
+ * Manda o resultado para a janela DONA do documento.
+ *
+ * Mesma historia do slang: ia para `state.mainWindow`, a janela criada por
+ * ultimo, entao com duas abertas os marcadores de um arquivo editado numa
+ * apareciam na outra. O dono e anotado em `openDocs` no didOpen, o unico
+ * ponto do fluxo onde a janela e conhecida; sem dono, nao manda, porque
+ * marcador na janela errada e pior do que marcador nenhum.
+ *
+ * @param {string} uri
+ * @param {string} channel
+ * @param {any} payload
+ */
+function sendToOwner(uri, channel, payload) {
+  const dono = openDocs.get(uri)?.owner;
+  if (dono == null) return;
+  janelas.mandar({ origem: { id: dono }, reserva: false }, channel, payload);
 }
 
 function writeMessage(/** @type {any} */ msg) {
@@ -151,7 +163,7 @@ function handleMessage(/** @type {any} */ msg) {
   }
   // Server → client notification.
   if (msg.method === 'textDocument/publishDiagnostics' && msg.params) {
-    sendMain('lsp:diagnostics', {
+    sendToOwner(msg.params.uri, 'lsp:diagnostics', {
       uri: msg.params.uri,
       diagnostics: Array.isArray(msg.params.diagnostics) ? msg.params.diagnostics : [],
     });
@@ -273,26 +285,29 @@ async function ensureReady() {
 
 // ── Document lifecycle (renderer-driven) ──────────────────────────────────────
 
-async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /** @type {string} */ languageId) {
+async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /** @type {string} */ languageId, /** @type {number | null} */ dono = null) {
   if (typeof uri !== 'string' || typeof text !== 'string') return;
   const lang = languageId || 'verilog';
   if (!(await ensureReady())) return;
   if (openDocs.has(uri)) {
     // Already open (e.g. renderer reload), refresh the buffer instead of
-    // re-opening, which some servers reject.
-    return didChange(uri, text);
+    // re-opening, which some servers reject. Abrir o mesmo arquivo em outra
+    // janela passa a dona a ser ela, que e onde a pessoa esta olhando.
+    const doc = openDocs.get(uri);
+    if (doc && dono != null) doc.owner = dono;
+    return didChange(uri, text, dono);
   }
-  openDocs.set(uri, { version: 1, text, languageId: lang });
+  openDocs.set(uri, { version: 1, text, languageId: lang, owner: dono });
   notify('textDocument/didOpen', { textDocument: { uri, languageId: lang, version: 1, text } });
 }
 
-async function didChange(/** @type {string} */ uri, /** @type {string} */ text) {
+async function didChange(/** @type {string} */ uri, /** @type {string} */ text, /** @type {number | null} */ dono = null) {
   if (typeof uri !== 'string' || typeof text !== 'string') return;
   if (!(await ensureReady())) return;
   const doc = openDocs.get(uri);
   if (!doc) {
     // Server (re)started or change arrived before open, open it.
-    openDocs.set(uri, { version: 1, text, languageId: 'verilog' });
+    openDocs.set(uri, { version: 1, text, languageId: 'verilog', owner: dono });
     notify('textDocument/didOpen', { textDocument: { uri, languageId: 'verilog', version: 1, text } });
     return;
   }
@@ -309,10 +324,10 @@ async function didChange(/** @type {string} */ uri, /** @type {string} */ text) 
 
 async function didClose(/** @type {string} */ uri) {
   if (typeof uri !== 'string') return;
+  // Limpa ANTES de esquecer o documento: o dono esta anotado nele.
+  sendToOwner(uri, 'lsp:diagnostics', { uri, diagnostics: [] });
   openDocs.delete(uri);
   if (ready) notify('textDocument/didClose', { textDocument: { uri } });
-  // Drop any markers the renderer is still showing for this buffer.
-  sendMain('lsp:diagnostics', { uri, diagnostics: [] });
 }
 
 // ── On-demand requests ────────────────────────────────────────────────────────
@@ -355,8 +370,10 @@ function references(/** @type {string} */ uri, /** @type {any} */ position) {
 
 function register() {
   ipcMain.handle('lsp:status', () => ({ installed: binInstalled(), ready }));
-  ipcMain.handle('lsp:did-open', (_e, { uri, text, languageId } = {}) => didOpen(uri, text, languageId));
-  ipcMain.handle('lsp:did-change', (_e, { uri, text } = {}) => didChange(uri, text));
+  // O id da janela acompanha o documento: e por ele que o diagnostico volta
+  // para quem esta editando, e nao para a janela criada por ultimo.
+  ipcMain.handle('lsp:did-open', (e, { uri, text, languageId } = {}) => didOpen(uri, text, languageId, e?.sender?.id ?? null));
+  ipcMain.handle('lsp:did-change', (e, { uri, text } = {}) => didChange(uri, text, e?.sender?.id ?? null));
   ipcMain.handle('lsp:did-close', (_e, { uri } = {}) => didClose(uri));
   ipcMain.handle('lsp:format', (_e, { uri } = {}) => format(uri));
   ipcMain.handle('lsp:document-symbols', (_e, { uri } = {}) => documentSymbols(uri));

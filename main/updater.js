@@ -50,6 +50,7 @@ const state = require('./state');
 const { isDev } = require('./paths');
 const { createUpdateWindow } = require('./windows');
 const notificarSistema = require('./update_notify');
+const janelas = require('./main_windows');
 const { urlExternaPermitida } = require('./ipc/files_ops');
 
 const {
@@ -299,12 +300,15 @@ function onSilentCheckSettled(failed) {
  * usada pela confirmacao depois de uma atualizacao.
  */
 function notifyMainWindow(kind, titleKey, bodyKey, vars) {
-  const w = state.mainWindow;
-  if (!w || w.isDestroyed()) return;
-  try {
-    w.webContents.send('updates:notice', { kind, titleKey, bodyKey, vars: vars || {} });
-  } catch (e) {
-    log.warn('[updater] nao consegui avisar a janela principal:', e);
+  // TODA janela principal, e nao so a criada por ultimo: a atualizacao e do
+  // aplicativo inteiro, entao quem estava na primeira janela tambem precisa
+  // saber. Antes o aviso ia para uma so, escolhida por acidente de ordem.
+  for (const w of janelas.todas()) {
+    try {
+      w.webContents.send('updates:notice', { kind, titleKey, bodyKey, vars: vars || {} });
+    } catch (e) {
+      log.warn('[updater] nao consegui avisar uma janela principal:', e);
+    }
   }
 }
 
@@ -351,12 +355,15 @@ function resumoParaBotao() {
 }
 
 function avisarBotaoDeUpdate() {
-  const w = state.mainWindow;
-  if (!w || w.isDestroyed()) return;
-  try {
-    w.webContents.send('updates:available', resumoParaBotao());
-  } catch (e) {
-    log.warn('[updater] nao consegui acender o botao de update:', e);
+  // O botao acende em TODA janela: a versao nova serve as duas, e uma delas
+  // ficar sem o aviso so faz a pessoa achar que a atualizacao nao chegou.
+  const resumo = resumoParaBotao();
+  for (const w of janelas.todas()) {
+    try {
+      w.webContents.send('updates:available', resumo);
+    } catch (e) {
+      log.warn('[updater] nao consegui acender o botao de update:', e);
+    }
   }
 }
 

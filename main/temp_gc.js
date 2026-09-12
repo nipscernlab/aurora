@@ -35,7 +35,10 @@ function pruneMcpConfigs(maxAgeMs = 60 * 60 * 1000) {
   let names;
   try { names = fs.readdirSync(dir); } catch (_) { return; }
   for (const name of names) {
-    if (!/^aurora-mcp-\d+\.json$/.test(name)) continue;
+    // `aurora-mcp-<pid>.json` e o nome antigo; o de hoje leva tambem a janela
+    // (`-<webContents.id>`), porque a URL do servidor carrega qual janela
+    // executa as ferramentas e duas janelas nao podem dividir o arquivo.
+    if (!/^aurora-mcp-\d+(-\w+)?\.json$/.test(name)) continue;
     const f = path.join(dir, name);
     try {
       if (now - fs.statSync(f).mtimeMs >= maxAgeMs) fs.unlinkSync(f);

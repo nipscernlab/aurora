@@ -387,7 +387,7 @@ async function start(payload, webContents) {
   // Codex just won't have Aurora's tools (degraded, shell-only).
   let mcpReady = false;
   try {
-    const url = await auroraMcp.ensureStarted();
+    const url = await auroraMcp.ensureStarted(webContents);
     args.push('-c', `mcp_servers.aurora.url="${url}"`);
     // MCP tool-call read timeout (Codex's counterpart of Claude Code's
     // MCP_TOOL_TIMEOUT). Codex defaults `tool_timeout_sec` to 120, then

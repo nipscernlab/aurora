@@ -57,7 +57,6 @@ const { ListToolsRequestSchema, CallToolRequestSchema } = require('@modelcontext
 
 const tools = require('./tools');
 const toolBridge = require('./tool_bridge');
-const state = require('../state');
 
 /** @type {http.Server | null} */
 let httpServer = null;
@@ -69,38 +68,64 @@ let sessionToken = null;
 let starting = null;
 
 /**
- * Resolve the renderer that should execute the tool call. Aurora keeps
- * the chat panel inside `state.mainWindow`; if the user closed it
- * mid-turn we fall back to the most-recently-focused BrowserWindow so
- * the call can still land somewhere sensible instead of dying.
+ * Resolve the renderer that should execute the tool call.
  *
+ * `donoId` e o webContents da janela que PEDIU o turno, carimbado na URL que
+ * o agente recebeu (ver ensureStarted). Sem ele, toda ferramenta de todo
+ * agente rodava em `state.mainWindow`, que e a janela criada por ultimo: o
+ * agente da janela A abria arquivo, compilava e escrevia no projeto da janela
+ * B, porque e o renderer dela que resolve o projeto.
+ *
+ * A reserva existe para o turno que sobrevive ao fechamento da janela que o
+ * pediu, e hoje ela so aceita JANELA PRINCIPAL: a lista de todas as janelas
+ * do Electron traz tambem a de atualizacao e a do Design Lab, que nao tem
+ * AuroraAPI nenhuma e responderiam com erro.
+ *
+ * @param {number | null} [donoId] webContents.id de quem pediu o turno
  * @returns {Electron.WebContents | null}
  */
-function getActiveWebContents() {
-  const main = state.mainWindow;
-  if (main && !main.isDestroyed()) {
-    const wc = main.webContents;
-    if (wc && !wc.isDestroyed()) return wc;
+function getActiveWebContents(donoId) {
+  const janelas = require('../main_windows');
+  const viva = (/** @type {any} */ w) => {
+    const wc = w && w.webContents;
+    return wc && !wc.isDestroyed() ? wc : null;
+  };
+
+  if (donoId != null) {
+    const dona = janelas.todas().find((w) => w.webContents?.id === donoId);
+    const wc = viva(dona);
+    if (wc) return wc;
   }
-  try {
-    const { BrowserWindow } = require('electron');
-    const focused = BrowserWindow.getFocusedWindow();
-    if (focused && !focused.isDestroyed()) {
-      const wc = focused.webContents;
-      if (wc && !wc.isDestroyed()) return wc;
-    }
-    const all = BrowserWindow.getAllWindows();
-    for (const w of all) {
-      if (w && !w.isDestroyed() && w.webContents && !w.webContents.isDestroyed()) {
-        return w.webContents;
-      }
-    }
-  } catch (_) { /* electron not ready yet */ }
+  const wc = viva(janelas.principal());
+  if (wc) return wc;
+  for (const w of janelas.todas()) {
+    const outra = viva(w);
+    if (outra) return outra;
+  }
   return null;
 }
 
-/** Build a fresh MCP server with every Aurora tool registered. */
-function buildMcpServer() {
+/**
+ * O `?w=<id>` que `ensureStarted` carimbou na URL do agente, ou null.
+ *
+ * Vai na busca e nao no caminho para nao mexer na conferencia do token, que
+ * compara o caminho inteiro contra `/mcp/<token>`.
+ *
+ * @param {string | undefined} url
+ * @returns {number | null}
+ */
+function donoDaUrl(url) {
+  const busca = String(url || '').split('?')[1];
+  if (!busca) return null;
+  const m = /(?:^|&)w=(\d+)(?:&|$)/.exec(busca);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Build a fresh MCP server with every Aurora tool registered.
+ * @param {number | null} [donoId] janela que pediu o turno; ver getActiveWebContents
+ */
+function buildMcpServer(donoId) {
   const srv = new Server(
     { name: 'aurora', version: '1.0.0' },
     { capabilities: { tools: {} } },
@@ -124,7 +149,7 @@ function buildMcpServer() {
         isError: true,
       };
     }
-    const wc = getActiveWebContents();
+    const wc = getActiveWebContents(donoId);
     if (!wc) {
       return {
         content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'Aurora window is not available' }) }],
@@ -199,7 +224,7 @@ function readRequestBody(/** @type {any} */ req) {
 }
 
 /** Serve one POST /mcp call. */
-async function handleMcpRequest(/** @type {any} */ req, /** @type {any} */ res) {
+async function handleMcpRequest(/** @type {any} */ req, /** @type {any} */ res, /** @type {number | null} */ donoId) {
   let body;
   try {
     body = await readRequestBody(req);
@@ -213,7 +238,7 @@ async function handleMcpRequest(/** @type {any} */ req, /** @type {any} */ res) 
     return;
   }
 
-  const mcpServer = buildMcpServer();
+  const mcpServer = buildMcpServer(donoId);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
 
   // Tear down the per-request server+transport whichever way the
@@ -245,11 +270,20 @@ async function handleMcpRequest(/** @type {any} */ req, /** @type {any} */ res) 
  * subsequent calls, and dedupes concurrent calls during startup so we
  * don't bind two ports.
  *
+ * `webContents` e a janela que pediu o turno: ela vai carimbada na URL como
+ * `?w=<id>`, e e assim que uma ferramenta chamada pelo agente volta a rodar no
+ * renderer certo quando ha mais de uma janela aberta.
+ *
+ * @param {any} [webContents] quem pediu o turno
  * @returns {Promise<string>} URL the CLI can put in `--mcp-config`
  */
-function ensureStarted() {
-  if (serverUrl) return Promise.resolve(serverUrl);
-  if (starting) return starting;
+function ensureStarted(webContents) {
+  const carimbar = (/** @type {string} */ url) => {
+    const id = webContents && !webContents.isDestroyed?.() ? webContents.id : null;
+    return id == null ? url : `${url}?w=${id}`;
+  };
+  if (serverUrl) return Promise.resolve(carimbar(serverUrl));
+  if (starting) return starting.then(carimbar);
 
   starting = new Promise((resolve, reject) => {
     // Per-session capability token (V7). Required on every request, either in
@@ -289,7 +323,7 @@ function ensureStarted() {
         }));
         return;
       }
-      handleMcpRequest(req, res).catch((e) => {
+      handleMcpRequest(req, res, donoDaUrl(req.url)).catch((e) => {
         log.warn('[ai.aurora-mcp] request crashed:', e?.message || e);
         if (!res.headersSent) {
           res.writeHead(500);
@@ -320,7 +354,9 @@ function ensureStarted() {
     });
   });
 
-  return starting;
+  // Carimbada tambem aqui: quem chegou primeiro espera por esta promessa, e
+  // a URL sem o `?w=` mandaria as ferramentas dele para a janela errada.
+  return starting.then(carimbar);
 }
 
 /** Stop the HTTP server (called from before-quit). */

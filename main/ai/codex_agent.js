@@ -189,7 +189,7 @@ async function tryStart(p, webContents, host) {
   const config = {};
   let mcpReady = false;
   try {
-    const url = await auroraMcp.ensureStarted();
+    const url = await auroraMcp.ensureStarted(webContents);
     // Same values as the legacy `-c` overrides; the SDK flattens this
     // object into --config key=value TOML literals.
     config.mcp_servers = { aurora: { url, tool_timeout_sec: MCP_TOOL_CALL_MS / 1000 } };

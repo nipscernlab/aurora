@@ -18,6 +18,7 @@ const os = require('os');
 const state = require('../state');
 const { debounce, safePath, formatTimestamp } = require('../utils');
 const { spfDaJanela } = require('./project_paths');
+const janelas = require('../main_windows');
 const { escritaPermitida } = require('./fs_guard');
 const { componentsPath } = require('../paths');
 const {
@@ -462,16 +463,19 @@ function register() {
     return result.filePaths[0];
   });
 
-  ipcMain.handle('dialog:show-open-import', async (_event, options = {}) => {
+  ipcMain.handle('dialog:show-open-import', async (event, options = {}) => {
     try {
       const opts = {
         properties: options.properties || ['openFile'],
         filters: options.filters || [{ name: 'All Files', extensions: ['*'] }],
       };
-      // Pass the main window as parent only if it exists; the no-parent
-      // overload is fine and avoids passing `null` (undefined behavior).
-      const result = await (state.mainWindow
-        ? dialog.showOpenDialog(state.mainWindow, opts)
+      // O dialogo pertence a JANELA QUE O ABRIU, e nao a criada por ultimo:
+      // com duas janelas, o modal nascia preso na outra, e quem clicou ficava
+      // olhando para uma janela que nao respondia. A forma sem pai continua
+      // valendo quando o pedido nao veio de uma janela principal.
+      const janela = janelas.doSender(event);
+      const result = await (janela
+        ? dialog.showOpenDialog(janela, opts)
         : dialog.showOpenDialog(opts));
       // Arquivo avulso aberto por dialogo: salvar de volta e legitimo.
       if (!result.canceled) (result.filePaths || []).forEach(concederEscrita);

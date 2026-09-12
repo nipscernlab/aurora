@@ -17,6 +17,8 @@ const netlistsvgLib = require('@silimate/netlistsvg');
 const { buildPrismYosysScript } = require('./prism_yosys_script');
 
 const state = require('../state');
+const janelas = require('../main_windows');
+const { spfDaJanela } = require('./project_paths');
 const { componentsPath } = require('../paths');
 const { sanitizeFileName } = require('../utils');
 const { spawnTracked, GROUP } = require('../process_registry');
@@ -31,7 +33,16 @@ const { validarIdentificadorVerilog, caminhoParaScript } = require('./prism_yosy
 // Onde a sintese do PRISM escreve e qual yosys ela roda. Sao os UNICOS
 // caminhos que os handlers aceitam: o renderer manda os seus, por historico,
 // mas eles nao viram caminho aqui (ver caminhosConfiaveis).
-const PRISM_TEMP_DIR = path.join(componentsPath, 'Temp', 'PRISM');
+/**
+ * Onde a sintese do PRISM escreve, agora POR PROJETO.
+ *
+ * Era `components/Temp/PRISM`, uma pasta so para o aplicativo inteiro: duas
+ * janelas sintetizando desenhos diferentes gravavam o mesmo `hierarchy.json`,
+ * o mesmo `yosys_script.ys` e o mesmo `<modulo>.svg`, e quem terminasse por
+ * ultimo ganhava. Ver js/project/project_temp.js para a mesma decisao no
+ * resto da compilacao.
+ */
+const TEMP_DO_PROJETO = ['.aurora', 'Temp'];
 const YOSYS_EXE = path.join(componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
 
 /**
@@ -48,8 +59,16 @@ const YOSYS_EXE = path.join(componentsPath, 'Packages', 'msys', 'mingw64', 'bin'
  * abre, e `yosysOverride`, que ainda passa pelo `protectedFlags` e pelo filtro
  * de ambiente antes do spawn.
  */
-function caminhosConfiaveis(/** @type {any} */ recebido) {
-  const spfPath = state.currentOpenProjectPath;
+function caminhosConfiaveis(/** @type {any} */ recebido, /** @type {any} */ event) {
+  // O projeto e o da JANELA que pediu. Era o ultimo aberto em qualquer lugar,
+  // entao com duas janelas o PRISM da segunda sintetizava o projeto da
+  // primeira e mostrava o esquematico dele, sem nada dizer que era outro.
+  //
+  // Quando o pedido vem da PAGINA do PRISM (ela exporta onda, ela pede o
+  // SVG de um modulo), o remetente nao e janela principal nenhuma e nao tem
+  // projeto no mapa; ali vale o projeto de quem mandou o PRISM abrir.
+  const spfPath = spfDaJanela(event)
+    || (state.prismDono != null ? spfDaJanela({ sender: { id: state.prismDono } }) : null);
   const projectPath = spfPath ? path.dirname(spfPath) : null;
   if (!projectPath) throw new Error('No project path available');
   const ov = recebido && recebido.yosysOverride && typeof recebido.yosysOverride === 'object'
@@ -59,7 +78,7 @@ function caminhosConfiaveis(/** @type {any} */ recebido) {
     projectPath,
     componentsPath,
     hdlPath: path.join(componentsPath, 'HDL'),
-    tempPath: PRISM_TEMP_DIR,
+    tempPath: path.join(projectPath, ...TEMP_DO_PROJETO, 'PRISM'),
     yosysPath: YOSYS_EXE,
     spfPath,
     topLevelPath: path.join(projectPath, 'TopLevel'),
@@ -138,8 +157,65 @@ function isClickableModule(/** @type {any} */ moduleName) {
  * @property {string} [tempDir]
  */
 
-/** @param {PrismCompilationResult | null} [compilationData] */
-async function createPrismWindow(compilationData = null) {
+/**
+ * Manda para a janela que abriu ESTE projeto.
+ *
+ * Tudo o que o PRISM escrevia na interface ia para `state.mainWindow`, a
+ * janela criada por ultimo: a linha "Top-level", o erro do yosys, o progresso
+ * da sintese. Quem sintetizava na primeira janela via o terminal da segunda
+ * encher. Sem janela dona, nao manda: saida de um projeto na janela de outro
+ * e pior do que saida nenhuma.
+ *
+ * @param {string | null | undefined} spfPath
+ * @param {string} canal
+ * @param {...any} args
+ */
+function paraOProjeto(spfPath, canal, ...args) {
+  return janelas.mandar({ spf: spfPath, reserva: false }, canal, ...args);
+}
+
+/**
+ * Manda para a janela que ABRIU o PRISM.
+ *
+ * A pagina do PRISM tambem fala com a interface (um clique no esquematico
+ * pede para abrir o arquivo, o monitor de simulacao pede para abrir a onda),
+ * e ali o `event.sender` e a propria pagina do PRISM, nao uma janela
+ * principal. `state.prismDono` guarda quem mandou o PRISM abrir.
+ *
+ * @param {string} canal
+ * @param {...any} args
+ */
+function paraQuemAbriuOPrism(canal, ...args) {
+  return janelas.mandar({ origem: { id: state.prismDono }, reserva: false }, canal, ...args);
+}
+
+/** A janela que abriu o PRISM, para restaurar e focar junto com o envio. */
+function janelaDoPrism() {
+  return /** @type {any} */ (janelas.doSender({ id: state.prismDono }));
+}
+
+/**
+ * Marca a janela que mandou o PRISM abrir.
+ *
+ * E para ela que a pagina do PRISM devolve o clique num modulo e o pedido de
+ * abrir a onda. Chamado na COMPILACAO, e nao na criacao da janela, porque no
+ * modo aba nenhuma janela e criada: quem mostra o PRISM ali e o proprio
+ * renderer, num <webview>, e sem isto a dona ficaria nula e tudo o que a
+ * pagina devolvesse morreria pelo caminho.
+ *
+ * @param {any} event
+ */
+function marcarDonoDoPrism(event) {
+  const dono = janelas.doSender(event);
+  if (dono) state.prismDono = dono.webContents?.id ?? null;
+}
+
+/**
+ * @param {PrismCompilationResult | null} [compilationData]
+ * @param {any} [event] quem pediu a abertura; vira o dono do PRISM
+ */
+async function createPrismWindow(compilationData = null, event = undefined) {
+  marcarDonoDoPrism(event);
   if (state.prismWindow && !state.prismWindow.isDestroyed()) {
     state.prismWindow.focus();
     if (compilationData) {
@@ -211,9 +287,7 @@ async function createPrismWindow(compilationData = null) {
     prismWindow.maximize();
     prismWindow.show();
 
-    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send('prism-status', true);
-    }
+    paraQuemAbriuOPrism('prism-status', true);
 
     if (compilationData) {
       // loadPage resolved on did-finish-load, which comes after the
@@ -242,9 +316,8 @@ async function createPrismWindow(compilationData = null) {
 
   prismWindow.on('closed', () => {
     state.prismWindow = null;
-    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send('prism-status', false);
-    }
+    paraQuemAbriuOPrism('prism-status', false);
+    state.prismDono = null;
   });
 
   prismWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
@@ -372,13 +445,11 @@ async function runYosysCompilationWithPaths(
   const yosysScriptPath = path.join(tempDir, 'yosys_script.ys');
   await fse.writeFile(yosysScriptPath, yosysScript);
 
-  if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-    // 'tips' (azul), mesmo tipo usado pela compilacao do botao Verilog
-    // para a linha contextual "Top-level". Mantem a UX consistente entre
-    // os dois fluxos (PRISM e iverilog).
-    state.mainWindow.webContents.send('terminal-log', 'tprism', `Top-level: ${topLevelModule}.v`, 'tips');
-    state.mainWindow.webContents.send('terminal-log', 'tprism', 'Running Yosys synthesis...', 'info');
-  }
+  // 'tips' (azul), mesmo tipo usado pela compilacao do botao Verilog para a
+  // linha contextual "Top-level". Mantem a UX consistente entre os dois
+  // fluxos (PRISM e iverilog).
+  paraOProjeto(spfPath, 'terminal-log', 'tprism', `Top-level: ${topLevelModule}.v`, 'tips');
+  paraOProjeto(spfPath, 'terminal-log', 'tprism', 'Running Yosys synthesis...', 'info');
 
   // PRISM yosys pode receber overrides da AI via compilationPaths.yosysOverride.
   // O renderer (compilation_flow.handlePrismStep) consulta o command_overrides
@@ -423,9 +494,7 @@ async function runYosysCompilationWithPaths(
 
     yosysProcess.on('close', async (code) => {
       if (code !== 0) {
-        if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-          state.mainWindow.webContents.send('terminal-log', 'tprism', `Yosys error: ${stderr}`, 'error');
-        }
+        paraOProjeto(spfPath, 'terminal-log', 'tprism', `Yosys error: ${stderr}`, 'error');
         reject(new Error(`Yosys exited with code ${code}`));
       } else if (await fse.pathExists(hierarchyJsonPath)) {
         resolve(hierarchyJsonPath);
@@ -716,9 +785,7 @@ async function generateModuleSVGWithPaths(/** @type {any} */ moduleName, /** @ty
 
 async function performPrismCompilationWithPaths(/** @type {any} */ compilationPaths) {
   try {
-    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send('terminal-log', 'tprism', 'Starting PRISM compilation process', 'info');
-    }
+    paraOProjeto(compilationPaths.spfPath, 'terminal-log', 'tprism', 'Starting PRISM compilation process', 'info');
 
     const tempDir = compilationPaths.tempPath;
     await fse.ensureDir(tempDir);
@@ -741,14 +808,8 @@ async function performPrismCompilationWithPaths(/** @type {any} */ compilationPa
 
     const svgPath = await generateModuleSVGWithPaths(topLevelModule, tempDir);
 
-    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send(
-        'terminal-log',
-        'tprism',
-        'PRISM compilation completed successfully',
-        'success',
-      );
-    }
+    paraOProjeto(compilationPaths.spfPath, 'terminal-log', 'tprism',
+      'PRISM compilation completed successfully', 'success');
 
     return {
       success: true,
@@ -759,9 +820,7 @@ async function performPrismCompilationWithPaths(/** @type {any} */ compilationPa
     };
   } catch (error) {
     log.error('PRISM compilation error:', error);
-    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send('terminal-log', 'tprism', `Compilation failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
-    }
+    paraOProjeto(compilationPaths.spfPath, 'terminal-log', 'tprism', `Compilation failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
     return { success: false, message: error instanceof Error ? error.message : String(error) };
   }
 }
@@ -848,9 +907,7 @@ async function buildDigitalJSCircuit(
   // Per-phase progress to the terminal so a slow/stuck build is diagnosable
   // (which phase, yosys, convert, or the renderer, is the bottleneck).
   const tlog = (/** @type {string} */ m, /** @type {string} */ t = 'info') => {
-    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send('terminal-log', 'tprism', m, t);
-    }
+    paraOProjeto(compilationPaths.spfPath, 'terminal-log', 'tprism', m, t);
   };
   const t0 = Date.now();
 
@@ -1042,10 +1099,23 @@ function stripYosysLabels(/** @type {any} */ circuit) {
 /**
  * Onde o PRISM esta agora: a janela propria, ou o <webview> da aba. A pagina e
  * a mesma nos dois casos, e quem chama nao precisa saber em qual deles caiu.
+ *
+ * `donoId` e a janela que fez o pedido. A aba dela ganha da janela propria e
+ * da aba de qualquer outra: era um lugar so, e um comando da AuroraAPI feito
+ * na segunda janela ia parar na pagina do PRISM da primeira.
+ *
+ * @param {number | null} [donoId] webContents.id da janela que pediu
  */
-function superficieDoPrism() {
+function superficieDoPrism(donoId) {
+  const daAba = donoId != null ? state.prismTabContents.get(donoId) : null;
+  if (daAba && !daAba.isDestroyed()) return daAba;
   if (state.prismWindow && !state.prismWindow.isDestroyed()) return state.prismWindow.webContents;
-  if (state.prismTabContents && !state.prismTabContents.isDestroyed()) return state.prismTabContents;
+  // Sem dona conhecida, a unica aba que houver: com uma janela so, que e o
+  // caso comum, isto e exatamente a aba dela.
+  if (state.prismTabContents.size === 1) {
+    const [unica] = state.prismTabContents.values();
+    if (unica && !unica.isDestroyed()) return unica;
+  }
   return null;
 }
 
@@ -1061,10 +1131,13 @@ let seqComando = 0;
  * `prism:command-result` traz a resposta com o mesmo id. O prazo e generoso
  * porque um dos comandos (entrar na simulacao) roda o yosys, e um so: uma
  * pagina que morra no meio resolve na hora, pelo evento, sem esperar relogio.
+ *
+ * @param {any} cmd
+ * @param {number | null} [donoId] janela que pediu, para achar a aba dela
  */
-function comandarPrism(cmd) {
+function comandarPrism(cmd, donoId = null) {
   return new Promise((resolve) => {
-    const alvo = superficieDoPrism();
+    const alvo = superficieDoPrism(donoId);
     if (!alvo) {
       resolve({ ok: false, error: 'PRISM is not open: run the prism compile step first' });
       return;
@@ -1102,19 +1175,21 @@ function register() {
   // A AuroraAPI (e por ela a Aurora Intelligence) operando o Simular. O
   // conteudo do comando e conferido do outro lado, na pagina, que e quem sabe
   // o que existe no circuito; aqui so se garante que ha para quem mandar.
-  ipcMain.handle('prism:command', async (_event, cmd) => {
+  ipcMain.handle('prism:command', async (event, cmd) => {
     if (!cmd || typeof cmd !== 'object') return { ok: false, error: 'prism:command requires a command object' };
-    return comandarPrism(cmd);
+    // A aba do PRISM da JANELA que pediu; ver superficieDoPrism.
+    return comandarPrism(cmd, event?.sender?.id ?? null);
   });
-  ipcMain.handle('prism-compile-with-paths', async (_event, compilationPaths) => {
+  ipcMain.handle('prism-compile-with-paths', async (event, compilationPaths) => {
     try {
-      compilationPaths = caminhosConfiaveis(compilationPaths);
+      compilationPaths = caminhosConfiaveis(compilationPaths, event);
+      marcarDonoDoPrism(event);
       const result = await performPrismCompilationWithPaths(compilationPaths);
       if (!result.success) return result;
       // Na aba, quem mostra e o renderer: ele cria o <webview> e entrega o
       // resultado a pagina. A janela so existe no modo janela.
       if (compilationPaths && compilationPaths.prismMode === 'tab') return result;
-      await createPrismWindow(result);
+      await createPrismWindow(result, event);
       return result;
     } catch (error) {
       log.error('Fatal error in prism-compile-with-paths:', error);
@@ -1130,11 +1205,8 @@ function register() {
   // que e onde a pessoa procura o motivo.
   ipcMain.handle('prism:log', (_event, message, type) => {
     const tipo = ['info', 'warning', 'error', 'success', 'tips'].includes(type) ? type : 'info';
-    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send('terminal-log', 'tprism', `PRISM: ${String(message).slice(0, 2000)}`, tipo);
-      return { ok: true };
-    }
-    return { ok: false, error: 'main window not available' };
+    const foi = paraQuemAbriuOPrism('terminal-log', 'tprism', `PRISM: ${String(message).slice(0, 2000)}`, tipo);
+    return foi ? { ok: true } : { ok: false, error: 'main window not available' };
   });
 
   ipcMain.handle('prism-tab:page', () => {
@@ -1143,11 +1215,11 @@ function register() {
     const preload = require('url').pathToFileURL(path.join(app.getAppPath(), 'js', 'app', 'preload_prism.js')).href;
     return { ok: true, url: `${pagina.url}?embedded=1`, preload };
   });
-  ipcMain.handle('generate-svg-from-module', async (_event, moduleName, _tempDir) => {
+  ipcMain.handle('generate-svg-from-module', async (event, moduleName, _tempDir) => {
     try {
-      // A pasta e sempre a do PRISM em components/Temp; o que a pagina manda
-      // como tempDir nao vira caminho.
-      const tempDir = PRISM_TEMP_DIR;
+      // A pasta e a do PRISM DENTRO DO PROJETO; o que a pagina manda como
+      // tempDir nao vira caminho.
+      const tempDir = caminhosConfiaveis(null, event).tempPath;
       const cleanName = sanitizeFileName(moduleName);
       const moduleJsonPath = path.join(tempDir, `${cleanName}.json`);
       if (!(await fse.pathExists(moduleJsonPath))) {
@@ -1162,11 +1234,11 @@ function register() {
     }
   });
 
-  ipcMain.handle('get-prism-compilation-paths', async () => {
+  ipcMain.handle('get-prism-compilation-paths', async (event) => {
     try {
       // A4: tudo deriva do .spf aberto (fonte unica), pela mesma funcao que os
       // handlers de sintese usam para ignorar o que o renderer manda de volta.
-      return caminhosConfiaveis(null);
+      return caminhosConfiaveis(null, event);
     } catch (error) {
       log.error('Failed to get compilation paths:', error);
       throw error;
@@ -1189,12 +1261,13 @@ function register() {
       if (!(await fse.pathExists(filePath))) {
         return { success: false, message: `source not found: ${filePath}` };
       }
-      if (!state.mainWindow || state.mainWindow.isDestroyed()) {
+      const janela = janelaDoPrism();
+      if (!janela) {
         return { success: false, message: 'main window not available' };
       }
-      state.mainWindow.webContents.send('aurora:open-file-at', { filePath, line, column });
-      if (state.mainWindow.isMinimized()) state.mainWindow.restore();
-      state.mainWindow.focus();
+      paraQuemAbriuOPrism('aurora:open-file-at', { filePath, line, column });
+      if (janela.isMinimized()) janela.restore();
+      janela.focus();
       return { success: true };
     } catch (error) {
       log.error('Failed to open source file from Prism:', error);
@@ -1202,10 +1275,11 @@ function register() {
     }
   });
 
-  ipcMain.handle('prism-recompile', async (_event, compilationPaths) => {
+  ipcMain.handle('prism-recompile', async (event, compilationPaths) => {
     try {
       if (!compilationPaths) throw new Error('Compilation paths are required for re-compilation.');
-      compilationPaths = caminhosConfiaveis(compilationPaths);
+      compilationPaths = caminhosConfiaveis(compilationPaths, event);
+      marcarDonoDoPrism(event);
 
       const compilationResult = await performPrismCompilationWithPaths(compilationPaths);
       if (!compilationResult.success) throw new Error(compilationResult.message);
@@ -1241,7 +1315,7 @@ function register() {
   // GTKWave ou Surfer conforme a preferencia. O nome do arquivo sai do modulo
   // que esta na tela, passado pelo mesmo filtro dos outros arquivos do Temp;
   // nada do que o renderer manda vira caminho.
-  ipcMain.handle('prism:export-wave', async (_event, payload) => {
+  ipcMain.handle('prism:export-wave', async (event, payload) => {
     try {
       const cru = payload && typeof payload.modulo === 'string' ? payload.modulo : '';
       const modulo = cleanModuleName(cru) || 'simulacao';
@@ -1250,11 +1324,14 @@ function register() {
         presente: payload ? payload.presente : 0,
         sinais: payload && Array.isArray(payload.sinais) ? payload.sinais : [],
       });
-      const dir = path.join(componentsPath, 'Temp', 'PRISM');
-      await fse.ensureDir(dir);
-      const vcdPath = path.join(dir, `${sanitizeFileName(modulo) || 'simulacao'}.sim.vcd`);
+      // Na Temp DO PROJETO, como o resto da sintese: dois projetos com um
+      // modulo de mesmo nome gravavam o mesmo `.sim.vcd`.
+      const caminhos = caminhosConfiaveis(null, event);
+      await fse.ensureDir(caminhos.tempPath);
+      const vcdPath = path.join(caminhos.tempPath, `${sanitizeFileName(modulo) || 'simulacao'}.sim.vcd`);
       await fse.writeFile(vcdPath, texto, 'utf8');
-      if (!state.mainWindow || state.mainWindow.isDestroyed()) {
+      const janela = janelaDoPrism();
+      if (!janela) {
         return { ok: false, vcdPath, error: 'main window not available' };
       }
       // O retrato dos sinais vai junto, sem as mudancas: e com ele que o
@@ -1268,9 +1345,9 @@ function register() {
           base: typeof s.base === 'string' ? s.base : null,
           papel: typeof s.papel === 'string' ? s.papel : null,
         }));
-      state.mainWindow.webContents.send('aurora:open-wave', { vcdPath, modulo, sinais });
-      if (state.mainWindow.isMinimized()) state.mainWindow.restore();
-      state.mainWindow.focus();
+      paraQuemAbriuOPrism('aurora:open-wave', { vcdPath, modulo, sinais });
+      if (janela.isMinimized()) janela.restore();
+      janela.focus();
       return { ok: true, vcdPath };
     } catch (error) {
       log.error('PRISM wave export failed:', error);
@@ -1288,10 +1365,10 @@ function register() {
   //
   // A falha volta CLASSIFICADA (reason, e os numeros que a explicam), alem da
   // mensagem: e o renderer, que sabe o idioma da pessoa, quem escreve o aviso.
-  ipcMain.handle('prism:build-digitaljs', async (_event, compilationPaths, moduleName) => {
+  ipcMain.handle('prism:build-digitaljs', async (event, compilationPaths, moduleName) => {
     try {
       if (!compilationPaths) throw new Error('Compilation paths are required.');
-      compilationPaths = caminhosConfiaveis(compilationPaths);
+      compilationPaths = caminhosConfiaveis(compilationPaths, event);
       const tempDir = compilationPaths.tempPath;
       await fse.ensureDir(tempDir);
 
@@ -1309,7 +1386,7 @@ function register() {
       if (!alvo) throw new Error('No module to simulate: nothing is open in PRISM and the .spf has no top-level');
 
       const tlog = (/** @type {string} */ m, /** @type {string} */ t = 'info') => {
-        if (state.mainWindow && !state.mainWindow.isDestroyed()) state.mainWindow.webContents.send('terminal-log', 'tprism', m, t);
+        paraOProjeto(compilationPaths.spfPath, 'terminal-log', 'tprism', m, t);
       };
       const params = alvoInfo.chparams.map(([k, v]) => `${k}=${v}`).join(', ');
       tlog(`DigitalJS: simulating ${alvo}${params ? ` (${params})` : ''}…`);
@@ -1323,10 +1400,8 @@ function register() {
       // O erro vai ao terminal da AURORA, e nao so ao log: e la que a pessoa
       // olha quando algo falha, e "timed out" enterrado num arquivo de log
       // nao ajuda ninguem na hora.
-      if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-        state.mainWindow.webContents.send('terminal-log', 'tprism',
-          `DigitalJS: ${error instanceof Error ? error.message : String(error)}`, 'error');
-      }
+      paraOProjeto(compilationPaths.spfPath, 'terminal-log', 'tprism',
+        `DigitalJS: ${error instanceof Error ? error.message : String(error)}`, 'error');
       const e = /** @type {any} */ (error);
       return {
         ok: false,

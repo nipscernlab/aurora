@@ -17,7 +17,7 @@
  * @property {BrowserWindow | null} splashWindow
  * @property {BrowserWindow | null} updateWindow
  * @property {BrowserWindow | null} prismWindow
- * @property {import('electron').WebContents | null} prismTabContents - O <webview> do PRISM quando ele abre numa aba do editor, para os comandos da AuroraAPI acharem a pagina nos dois modos.
+ * @property {Map<number, import('electron').WebContents>} prismTabContents - O <webview> do PRISM de CADA janela (chave: webContents.id da anfitria), para os comandos da AuroraAPI acharem a pagina nos dois modos sem uma janela roubar a aba da outra.
  * @property {boolean} isQuitting
  * @property {boolean} downloadInProgress
  * @property {boolean} updateCheckInProgress
@@ -25,6 +25,8 @@
  * @property {boolean} updateDownloaded
  * @property {unknown} updateInfo - electron-updater's UpdateInfo; opaque here.
  * @property {boolean} updateSystemInitialized
+ * @property {number | null} prismDono - webContents.id da janela principal que abriu o PRISM; ver main/ipc/prism.js.
+ * @property {Set<any>} mainWindows - toda janela principal viva; `mainWindow` e so a mais recente. Ver main/main_windows.js.
  * @property {string | null} currentOpenProjectPath
  * @property {Map<number, string>} projectPathsBySender - .spf aberto POR JANELA, chaveado pelo id do webContents. O global acima continua existindo como "o último aberto" para quem não tem janela no contexto (LSP, IA); handlers de IPC usam spfDaJanela(event) em main/ipc/project_paths.js, senão apagar um processador na janela A remove pasta do projeto da janela B.
  * @property {string | null} fileToOpen
@@ -48,7 +50,7 @@ const state = {
   splashWindow: null,
   updateWindow: null,
   prismWindow: null,
-  prismTabContents: null,
+  prismTabContents: new Map(),
 
   // Updater
   isQuitting: false,
@@ -61,6 +63,17 @@ const state = {
   updateDownloaded: false,
   updateInfo: null,
   updateSystemInitialized: false,
+
+  // TODAS as janelas principais vivas. `mainWindow` acima e a mais recente e
+  // continua existindo para quem so precisa de "uma janela"; o conjunto e
+  // quem sabe responder "qual delas", em main/main_windows.js.
+  mainWindows: new Set(),
+
+  // O webContents.id da janela principal que mandou o PRISM abrir. A pagina
+  // do PRISM tambem fala com a interface (abrir o fonte de um modulo, abrir
+  // a onda da simulacao) e o remetente dela nao e janela principal nenhuma;
+  // e por aqui que essas mensagens voltam para quem abriu.
+  prismDono: null,
 
   // Project
   currentOpenProjectPath: null,

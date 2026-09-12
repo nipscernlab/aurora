@@ -186,7 +186,7 @@ async function tryStart(p, webContents, host) {
   let mcpServers = {};
   let mcpReady = false;
   try {
-    const url = await auroraMcp.ensureStarted();
+    const url = await auroraMcp.ensureStarted(webContents);
     mcpServers = { aurora: { type: 'http', url } };
     mcpReady = true;
   } catch (e) {
@@ -211,7 +211,9 @@ async function tryStart(p, webContents, host) {
   if (!env.MCP_TOOL_TIMEOUT) env.MCP_TOOL_TIMEOUT = String(MCP_TOOL_CALL_MS); // see legacy note
   if (!env.MCP_TIMEOUT) env.MCP_TIMEOUT = String(MCP_STARTUP_MS);
 
-  const projectDir = workspaceDir();
+  // A janela que pediu o turno decide o projeto: `workspaceDir` sem ela cai no
+  // ultimo projeto aberto em qualquer janela (ver claude_code.workspaceDir).
+  const projectDir = workspaceDir(webContents);
   const cwd = agentScratchDir();
   try { fs.mkdirSync(attachments.ATT_DIR, { recursive: true }); } catch (_) { /* best-effort */ }
   const additionalDirectories = [projectDir, attachments.ATT_DIR];

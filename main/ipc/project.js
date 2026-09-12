@@ -27,6 +27,7 @@ const {
 } = require('./project_paths');
 const { entradaOcultaNaArvore } = require('./files_ops');
 const { prepararTempDoProjeto } = require('../project_temp');
+const janelas = require('../main_windows');
 
 // ---- ProjectFile schema ----
 
@@ -412,7 +413,7 @@ function register() {
 
   // ---- processors ----
 
-  ipcMain.handle('create-processor-project', async (_event, formData) => {
+  ipcMain.handle('create-processor-project', async (event, formData) => {
     try {
       if (!formData.projectLocation) throw new Error('Project location is required');
 
@@ -484,18 +485,21 @@ void main()
 
         await escreverSpf(spfPath, spfData);
 
-        if (state.mainWindow) {
-          // Channel `processor:created`, preload.js (onProcessorCreated)
-          // escuta com esse nome (colon-separated, mesmo padrao de
-          // `project:opened` e `project:processors`). O nome anterior
-          // `processor-created` era um typo: o listener nunca disparava,
-          // entao um novo processador so era refletido em
-          // window.availableProcessors / file tree apos restart do app.
-          state.mainWindow.webContents.send('processor:created', {
-            processorName: formData.processorName,
-            projectPath: formData.projectLocation,
-          });
-        }
+        // Channel `processor:created`, preload.js (onProcessorCreated)
+        // escuta com esse nome (colon-separated, mesmo padrao de
+        // `project:opened` e `project:processors`). O nome anterior
+        // `processor-created` era um typo: o listener nunca disparava,
+        // entao um novo processador so era refletido em
+        // window.availableProcessors / file tree apos restart do app.
+        //
+        // Vai para a JANELA QUE PEDIU, e nao para `state.mainWindow`, que e
+        // apenas a criada por ultimo: com duas janelas abertas, criar um
+        // processador numa delas fazia a arvore da OUTRA atualizar, e a que
+        // pediu so via o processador novo depois de reabrir o projeto.
+        janelas.mandar({ origem: event, reserva: false }, 'processor:created', {
+          processorName: formData.processorName,
+          projectPath: formData.projectLocation,
+        });
 
         return { success: true, path: processorPath };
       }

@@ -34,6 +34,7 @@ const fs = require('fs');
 const log = require('electron-log');
 
 const state = require('../state');
+const { spfDoSender } = require('../ipc/project_paths');
 const auroraMcp = require('./aurora_mcp_server');
 const cliLocator = require('./cli_locator');
 const { locateClaude } = cliLocator;
@@ -187,9 +188,18 @@ function permissionFlag(/** @type {any} */ _mode) {
   return 'bypassPermissions';
 }
 
-/** Directory the CLI should treat as the workspace (the open project). */
-function workspaceDir() {
-  const spf = state.currentOpenProjectPath;
+/**
+ * Directory the CLI should treat as the workspace (the open project).
+ *
+ * O projeto e o da JANELA que pediu o turno. Resolver contra o ultimo projeto
+ * aberto em qualquer janela dava ao agente da janela B a pasta do projeto da
+ * janela A em `--add-dir`: ele lia e escrevia no projeto errado, e com
+ * permissao concedida, porque a pasta estava mesmo autorizada.
+ *
+ * @param {any} [webContents] quem pediu o turno (ai.js ja o tem em maos)
+ */
+function workspaceDir(webContents) {
+  const spf = spfDoSender(webContents) || state.currentOpenProjectPath;
   if (spf) {
     try {
       const stat = fs.statSync(spf);
@@ -286,11 +296,19 @@ const { NATIVE_TOOLS, DISALLOWED_TOOLS } = require('./native_tools');
  * the app's lifetime, but we rewrite each turn so a deleted temp file
  * or a restarted server self-heals.
  *
+ * A janela que pediu o turno entra na URL do servidor: e por ela que as
+ * ferramentas do agente voltam a rodar no renderer certo com mais de uma
+ * janela aberta. Como o arquivo carrega a URL, ele passa a ser POR JANELA
+ * tambem, senao a segunda janela reescreveria o arquivo da primeira e as
+ * ferramentas das duas iriam para a mesma.
+ *
+ * @param {any} [webContents] quem pediu o turno
  * @returns {Promise<string>} absolute path to the mcp-config JSON
  */
-async function ensureMcpConfig() {
-  const url = await auroraMcp.ensureStarted();
-  const cfgPath = path.join(os.tmpdir(), `aurora-mcp-${process.pid}.json`);
+async function ensureMcpConfig(webContents) {
+  const url = await auroraMcp.ensureStarted(webContents);
+  const dono = webContents && !webContents.isDestroyed?.() ? webContents.id : 'x';
+  const cfgPath = path.join(os.tmpdir(), `aurora-mcp-${process.pid}-${dono}.json`);
   const config = { mcpServers: { aurora: { type: 'http', url } } };
   fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2), 'utf-8');
   return cfgPath;
@@ -447,7 +465,7 @@ async function start(payload, webContents) {
   // turn just degrades to the old (shell-based) behaviour.
   let mcpReady = false;
   try {
-    const cfgPath = await ensureMcpConfig();
+    const cfgPath = await ensureMcpConfig(webContents);
     args.push('--mcp-config', cfgPath, '--strict-mcp-config');
     // --tools is the allowlist: the built-in surface is exactly this, and the
     // CLI's future additions stay off until someone adds them deliberately.
@@ -488,7 +506,7 @@ async function start(payload, webContents) {
   // process whose cwd is a folder LOCKS it, so a project rename couldn't complete
   // until the turn ended. Run the agent from a neutral scratch dir; the project
   // stays readable via --add-dir, and every Aurora tool uses absolute paths.
-  const projectDir = workspaceDir();
+  const projectDir = workspaceDir(webContents);
   const cwd = agentScratchDir();
   args.push('--add-dir', projectDir);            // project files stay readable (native Read)
   if (cwd !== projectDir) args.push('--add-dir', cwd);

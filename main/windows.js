@@ -290,7 +290,11 @@ function createMainWindow(opts = {}) {
     show: false,
   });
 
+  // `mainWindow` e a MAIS RECENTE; o conjunto e quem sabe que existem varias.
+  // Abrir a AURORA de novo cria outra janela neste mesmo processo, e por anos
+  // tudo o que o main mandava para a interface foi para a ultima criada.
   state.mainWindow = mainWindow;
+  require('./main_windows').registrar(mainWindow);
 
   // So a pagina do PRISM, so com o preload do PRISM, e sempre isolada. Qualquer
   // outro <webview> que apareca no renderer e barrado aqui, antes de existir.
@@ -319,10 +323,16 @@ function createMainWindow(opts = {}) {
   // A pagina do PRISM na aba tem webContents proprio, e do renderer principal
   // nao da para alcanca-lo por IPC. Guardado aqui, os comandos da AuroraAPI
   // (main/ipc/prism.js) acham a pagina nos dois modos, aba e janela.
+  // Chaveado pela janela ANFITRIA: era um lugar so, e a segunda janela que
+  // abrisse a aba do PRISM roubava a da primeira, entao um comando da
+  // AuroraAPI feito numa ia parar na pagina da outra.
   mainWindow.webContents.on('did-attach-webview', (_event, contents) => {
-    state.prismTabContents = contents;
+    const anfitria = mainWindow.webContents.id;
+    state.prismTabContents.set(anfitria, contents);
     contents.once('destroyed', () => {
-      if (state.prismTabContents === contents) state.prismTabContents = null;
+      if (state.prismTabContents.get(anfitria) === contents) {
+        state.prismTabContents.delete(anfitria);
+      }
     });
   });
 

@@ -74,6 +74,7 @@ const log = require('electron-log');
 const chokidar = require('chokidar');
 
 const state = require('../state');
+const janelas = require('../main_windows');
 const { componentsPath } = require('../paths');
 const { spawnTracked } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
@@ -368,11 +369,27 @@ function syncSlangConfig(/** @type {string} */ projectDir, /** @type {string[]} 
   }
 }
 
-function sendMain(/** @type {string} */ channel, /** @type {any} */ payload) {
-  const w = state.mainWindow;
-  if (w && !w.isDestroyed()) {
-    try { w.webContents.send(channel, payload); } catch { /* tearing down */ }
-  }
+/**
+ * Manda o resultado para a janela DONA do documento.
+ *
+ * Ia para `state.mainWindow`, que e apenas a janela criada por ultimo: com
+ * duas abertas, os sublinhados de erro de um arquivo editado na primeira
+ * apareciam na segunda, num arquivo que ela nem tinha aberto. O dono de cada
+ * URI e anotado em `openDocs` no didOpen, que e o unico ponto do fluxo em que
+ * a janela e conhecida.
+ *
+ * Sem dono anotado (um documento que sobreviveu a um recarregamento da
+ * janela), a mensagem nao vai para lugar nenhum: um marcador de erro na
+ * janela errada e pior do que marcador nenhum.
+ *
+ * @param {string} uri documento a que a mensagem se refere
+ * @param {string} channel
+ * @param {any} payload
+ */
+function sendToOwner(uri, channel, payload) {
+  const dono = openDocs.get(uri)?.owner;
+  if (dono == null) return;
+  janelas.mandar({ origem: { id: dono }, reserva: false }, channel, payload);
 }
 
 function writeMessage(/** @type {any} */ msg) {
@@ -549,7 +566,7 @@ function handleMessage(/** @type {any} */ msg) {
       // O .spf so e lido quando ha um `unknown module` para julgar: no caso
       // comum (nenhum) a publicacao nao toca no disco.
       const temDesconhecido = diagnostics.some((d) => d && typeof d.message === 'string' && RE_UNKNOWN_MODULE.test(d.message));
-      sendMain('slang:diagnostics', {
+      sendToOwner(msg.params.uri, 'slang:diagnostics', {
         uri: msg.params.uri,
         diagnostics: temDesconhecido
           ? suavizarProcessadorNaoCompilado(diagnostics, processadoresSemHardware(projectDirNow()))
@@ -708,7 +725,7 @@ async function ensureReady() {
 /** Kill the live server. clearDiag drops the markers the renderer shows. */
 function stop(clearDiag) {
   if (clearDiag) {
-    for (const uri of openDocs.keys()) sendMain('slang:diagnostics', { uri, diagnostics: [] });
+    for (const uri of openDocs.keys()) sendToOwner(uri, 'slang:diagnostics', { uri, diagnostics: [] });
   }
   // Servidor novo, contagem nova: as falhas eram daquele processo, e carrega-las
   // adiante deixaria o proximo comecar ja calado.
@@ -742,21 +759,27 @@ function maybeRestartForProject() {
 
 // ── Document lifecycle (renderer-driven) ──────────────────────────────────────
 
-async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /** @type {string} */ languageId) {
+async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /** @type {string} */ languageId, /** @type {number | null} */ dono = null) {
   if (!enabled || typeof uri !== 'string' || typeof text !== 'string') return;
   maybeRestartForProject();
   if (!(await ensureReady())) return;
-  if (openDocs.has(uri)) return didChange(uri, text);
-  openDocs.set(uri, { version: 1, text, languageId: languageId || 'systemverilog' });
+  if (openDocs.has(uri)) {
+    // Reabrir o mesmo arquivo em OUTRA janela passa a dona a ser ela: e onde
+    // a pessoa esta olhando, e e para la que os sublinhados devem ir.
+    const doc = openDocs.get(uri);
+    if (doc && dono != null) doc.owner = dono;
+    return didChange(uri, text);
+  }
+  openDocs.set(uri, { version: 1, text, languageId: languageId || 'systemverilog', owner: dono });
   notify('textDocument/didOpen', { textDocument: { uri, languageId: languageId || 'systemverilog', version: 1, text } });
 }
 
-async function didChange(/** @type {string} */ uri, /** @type {string} */ text) {
+async function didChange(/** @type {string} */ uri, /** @type {string} */ text, /** @type {number | null} */ dono = null) {
   if (!enabled || typeof uri !== 'string' || typeof text !== 'string') return;
   if (!(await ensureReady())) return;
   const doc = openDocs.get(uri);
   if (!doc) {
-    openDocs.set(uri, { version: 1, text, languageId: 'systemverilog' });
+    openDocs.set(uri, { version: 1, text, languageId: 'systemverilog', owner: dono });
     notify('textDocument/didOpen', { textDocument: { uri, languageId: 'systemverilog', version: 1, text } });
     return;
   }
@@ -767,9 +790,11 @@ async function didChange(/** @type {string} */ uri, /** @type {string} */ text) 
 
 function didClose(/** @type {string} */ uri) {
   if (typeof uri !== 'string') return;
+  // Limpa ANTES de esquecer o documento: sendToOwner descobre a janela pelo
+  // dono anotado nele, e depois do delete nao haveria para quem mandar.
+  sendToOwner(uri, 'slang:diagnostics', { uri, diagnostics: [] });
   openDocs.delete(uri);
   if (ready) notify('textDocument/didClose', { textDocument: { uri } });
-  sendMain('slang:diagnostics', { uri, diagnostics: [] });
 }
 
 /**
@@ -829,8 +854,10 @@ function setEnabled(/** @type {boolean} */ on) {
 function register() {
   ipcMain.handle('slang:status', () => ({ installed: binInstalled(), ready, enabled }));
   ipcMain.handle('slang:set-enabled', (_e, on) => setEnabled(on));
-  ipcMain.handle('slang:did-open', (_e, { uri, text, languageId } = {}) => didOpen(uri, text, languageId));
-  ipcMain.handle('slang:did-change', (_e, { uri, text } = {}) => didChange(uri, text));
+  // O id da janela acompanha o documento: e por ele que o diagnostico volta
+  // para quem esta editando, e nao para a janela criada por ultimo.
+  ipcMain.handle('slang:did-open', (e, { uri, text, languageId } = {}) => didOpen(uri, text, languageId, e?.sender?.id ?? null));
+  ipcMain.handle('slang:did-change', (e, { uri, text } = {}) => didChange(uri, text, e?.sender?.id ?? null));
   ipcMain.handle('slang:did-close', (_e, { uri } = {}) => didClose(uri));
   ipcMain.handle('slang:completion', (_e, { uri, position } = {}) => completion(uri, position));
 }

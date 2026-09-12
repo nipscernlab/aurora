@@ -133,6 +133,46 @@ function podarTemp(dir, opts = {}) {
 }
 
 /**
+ * O que dentro de `.aurora` o git deve ignorar, escrito DENTRO dela.
+ *
+ * Um `.gitignore` aninhado vale para a propria pasta, entao isto resolve o
+ * projeto que ja existia sem tocar no `.gitignore` da raiz, que e do usuario.
+ * O botao "New .gitignore" tambem escreve a linha na raiz, mas so em projeto
+ * novo; quem ja tinha um ficaria com a Temp aparecendo no `git status` para
+ * sempre.
+ *
+ * `memory/` fica de FORA da lista de proposito: e a memoria de projeto da
+ * Aurora Intelligence, escrita por gente, e uma equipe pode querer versiona-la.
+ * Ignorado e so o que a maquina gera.
+ */
+const GITIGNORE_DA_AURORA = [
+  '# Gerado pela AURORA. Intermediarios de compilacao e registro de execucoes:',
+  '# saem da maquina de quem compilou e nao valem para mais ninguem.',
+  '# A pasta memory/ NAO entra aqui, ela e conteudo e pode ser versionada.',
+  'Temp/',
+  'execucoes/',
+  '',
+].join('\n');
+
+/**
+ * Garante o `.gitignore` de dentro da `.aurora`.
+ *
+ * Nao sobrescreve um que ja exista com conteudo: se alguem editou aquilo a
+ * mao, a edicao vale mais do que o nosso padrao.
+ * @param {string} projectDir
+ */
+function garantirGitignoreDaAurora(projectDir) {
+  const alvo = path.join(projectDir, SEGMENTOS[0], '.gitignore');
+  try {
+    if (fs.existsSync(alvo) && fs.readFileSync(alvo, 'utf8').trim() !== '') return;
+    fs.mkdirSync(path.dirname(alvo), { recursive: true });
+    fs.writeFileSync(alvo, GITIGNORE_DA_AURORA, 'utf8');
+  } catch (e) {
+    log.debug('[project-temp] nao consegui escrever o .gitignore da .aurora:', e instanceof Error ? e.message : e);
+  }
+}
+
+/**
  * Marca `<projectDir>/.aurora` como oculta no Windows. Melhor esforco, fora
  * do Windows nao faz nada (o ponto no nome ja esconde nos outros sistemas).
  * @param {string} projectDir
@@ -159,6 +199,7 @@ function prepararTempDoProjeto(projectDir) {
   setImmediate(() => {
     const dir = tempDoProjeto(projectDir);
     try { fs.mkdirSync(dir, { recursive: true }); } catch (_) { /* disco so leitura: a compilacao vai reclamar no lugar certo */ }
+    garantirGitignoreDaAurora(projectDir);
     ocultarNoWindows(projectDir).catch(() => {});
     try {
       const r = podarTemp(dir);
@@ -173,6 +214,6 @@ function prepararTempDoProjeto(projectDir) {
 }
 
 module.exports = {
-  SEGMENTOS, IDADE_MAXIMA_MS, TETO_BYTES,
-  tempDoProjeto, podarTemp, prepararTempDoProjeto,
+  SEGMENTOS, IDADE_MAXIMA_MS, TETO_BYTES, GITIGNORE_DA_AURORA,
+  tempDoProjeto, podarTemp, garantirGitignoreDaAurora, prepararTempDoProjeto,
 };

@@ -418,11 +418,17 @@ function register() {
     folderPath = safePath(folderPath, 'folderPath');
     try {
       const files = await fse.readdir(folderPath, { withFileTypes: true });
-      return files.map((file) => ({
-        name: file.name,
-        isDirectory: file.isDirectory(),
-        path: path.join(folderPath, file.name),
-      }));
+      // A MESMA regra do outro listador (buildTree, logo acima): `.aurora` e
+      // `.slang` sao nossos, nao do usuario. Este handler serve a visao de
+      // PASTAS e nao filtrava nada, entao as duas apareciam la mesmo depois de
+      // terem sido escondidas na outra visao.
+      return files
+        .filter((file) => !entradaOcultaNaArvore(file.name))
+        .map((file) => ({
+          name: file.name,
+          isDirectory: file.isDirectory(),
+          path: path.join(folderPath, file.name),
+        }));
     } catch (error) {
       log.error('Error reading folder:', error);
       throw new Error('Failed to read folder', { cause: error });

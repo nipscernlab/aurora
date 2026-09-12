@@ -75,6 +75,7 @@ const chokidar = require('chokidar');
 
 const state = require('../state');
 const janelas = require('../main_windows');
+const { spfDoSender } = require('../ipc/project_paths');
 const { componentsPath } = require('../paths');
 const { spawnTracked } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
@@ -160,10 +161,32 @@ function binInstalled() {
   try { return fs.existsSync(LS_BIN); } catch { return false; }
 }
 
-/** The open project's root dir (parent of the .spf), or null. */
-function projectDirNow() {
-  const spf = state.currentOpenProjectPath;
+/**
+ * A raiz do projeto que o servidor deve indexar.
+ *
+ * Com `donoId`, e o projeto DAQUELA janela: o servidor segue quem esta
+ * digitando. Sem ele, vale o global, "o ultimo aberto em qualquer lugar",
+ * que e o que o arranque e as chamadas sem janela tem a mao.
+ *
+ * O servidor e UM so para o aplicativo inteiro e indexa um projeto de cada
+ * vez. Com duas janelas em projetos diferentes ele troca de lado quando a
+ * pessoa passa a editar na outra, e ate trocar os documentos do outro projeto
+ * ficam sem diagnostico: a publicacao e barrada em handleMessage, porque um
+ * aviso calculado contra o indice do projeto errado e pior do que aviso
+ * nenhum. Um servidor por projeto e o conserto de verdade e fica anotado.
+ *
+ * @param {number | null} [donoId] webContents.id da janela
+ * @returns {string | null}
+ */
+function projectDirNow(donoId = null) {
+  const spf = (donoId != null ? spfDoSender({ id: donoId }) : null) || state.currentOpenProjectPath;
   return spf ? path.dirname(spf) : null;
+}
+
+/** A raiz do projeto a que um documento aberto pertence, ou null. */
+function projetoDoDocumento(/** @type {string} */ uri) {
+  const dono = openDocs.get(uri)?.owner;
+  return dono == null ? null : projectDirNow(dono);
 }
 
 /** Caminho comparavel no Windows: barras iguais, sem barra final, minusculo. */
@@ -562,6 +585,12 @@ function handleMessage(/** @type {any} */ msg) {
   // Server → client notification.
   if (typeof msg.method === 'string' && (msg.id === undefined || msg.id === null)) {
     if (msg.method === 'textDocument/publishDiagnostics' && msg.params) {
+      // O documento pertence ao projeto que ESTE servidor indexou? Se nao,
+      // cala: o servidor e um so e ja trocou de lado, e um `unknown module`
+      // calculado contra o indice do projeto errado e um aviso falso, que
+      // custa mais caro do que a ausencia do aviso certo.
+      const doDoc = projetoDoDocumento(msg.params.uri);
+      if (doDoc && currentProjectDir && chave(doDoc) !== chave(currentProjectDir)) return;
       const diagnostics = Array.isArray(msg.params.diagnostics) ? msg.params.diagnostics : [];
       // O .spf so e lido quando ha um `unknown module` para julgar: no caso
       // comum (nenhum) a publicacao nao toca no disco.
@@ -569,7 +598,7 @@ function handleMessage(/** @type {any} */ msg) {
       sendToOwner(msg.params.uri, 'slang:diagnostics', {
         uri: msg.params.uri,
         diagnostics: temDesconhecido
-          ? suavizarProcessadorNaoCompilado(diagnostics, processadoresSemHardware(projectDirNow()))
+          ? suavizarProcessadorNaoCompilado(diagnostics, processadoresSemHardware(currentProjectDir))
           : diagnostics,
       });
     }
@@ -607,13 +636,22 @@ function handleProcessGone() {
   pending.clear();
 }
 
+/**
+ * A janela que provocou o arranque, para o servidor subir indexando o projeto
+ * dela e nao o ultimo aberto em qualquer lugar. Vale so durante o arranque.
+ * @type {number | null}
+ */
+let projetoPedidoPor = null;
+
 function doStart() {
   return new Promise((resolve, reject) => {
     if (!binInstalled()) { reject(new Error('slang-server not installed')); return; }
     const verdict = isAllowed(LS_BIN);
     if (!verdict.ok) { reject(new Error(verdict.error)); return; }
 
-    const dir = projectDirNow();
+    // O projeto de quem pediu (ensureReady o carrega do didOpen/didChange);
+    // sem pedido identificado, o global.
+    const dir = projectDirNow(projetoPedidoPor);
     const rootUri = dir ? pathToFileURL(dir).toString() : null;
 
     // Antes de subir: a config do indice so e lida no boot do servidor.
@@ -715,7 +753,8 @@ function start() {
   return startPromise;
 }
 
-async function ensureReady() {
+async function ensureReady(/** @type {number | null} */ donoId = null) {
+  projetoPedidoPor = donoId;
   if (!enabled) return false;
   if (ready) return true;
   try { await start(); } catch { return false; }
@@ -748,8 +787,8 @@ function restart() {
 }
 
 /** If the open project changed under us, restart so slang re-indexes it. */
-function maybeRestartForProject() {
-  if (ready && projectDirNow() !== currentProjectDir) {
+function maybeRestartForProject(/** @type {number | null} */ donoId = null) {
+  if (ready && projectDirNow(donoId) !== currentProjectDir) {
     // Keep openDocs, the renderer disposes old-project models (didClose) and
     // opens the new ones, so openDocs already reflects the new set; doStart
     // re-seeds them against the new root.
@@ -761,8 +800,9 @@ function maybeRestartForProject() {
 
 async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /** @type {string} */ languageId, /** @type {number | null} */ dono = null) {
   if (!enabled || typeof uri !== 'string' || typeof text !== 'string') return;
-  maybeRestartForProject();
-  if (!(await ensureReady())) return;
+  // O servidor segue a janela em que se esta editando; ver projectDirNow.
+  maybeRestartForProject(dono);
+  if (!(await ensureReady(dono))) return;
   if (openDocs.has(uri)) {
     // Reabrir o mesmo arquivo em OUTRA janela passa a dona a ser ela: e onde
     // a pessoa esta olhando, e e para la que os sublinhados devem ir.
@@ -776,7 +816,7 @@ async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /*
 
 async function didChange(/** @type {string} */ uri, /** @type {string} */ text, /** @type {number | null} */ dono = null) {
   if (!enabled || typeof uri !== 'string' || typeof text !== 'string') return;
-  if (!(await ensureReady())) return;
+  if (!(await ensureReady(dono))) return;
   const doc = openDocs.get(uri);
   if (!doc) {
     openDocs.set(uri, { version: 1, text, languageId: 'systemverilog', owner: dono });

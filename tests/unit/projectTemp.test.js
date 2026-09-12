@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { podarTemp, tempDoProjeto, SEGMENTOS } from '../../main/project_temp.js';
+import { podarTemp, tempDoProjeto, garantirGitignoreDaAurora, SEGMENTOS } from '../../main/project_temp.js';
 
 const DIA = 24 * 60 * 60 * 1000;
 
@@ -109,5 +109,46 @@ describe('podarTemp', () => {
         const r = podarTemp(raiz, { agora, idadeMaximaMs: 30 * DIA, tetoBytes: 100 });
         expect(r.removidos).toEqual([objDir]);
         expect(fs.existsSync(objDir)).toBe(false);
+    });
+});
+
+// O `.gitignore` de dentro da `.aurora`.
+//
+// O botao "New .gitignore" escreve a linha na raiz do projeto, mas so em
+// projeto NOVO: quem ja tinha um `.gitignore` ficaria com a Temp aparecendo
+// no `git status` para sempre. Um `.gitignore` aninhado resolve isso sem
+// tocar no arquivo da raiz, que e do usuario.
+describe('garantirGitignoreDaAurora', () => {
+    it('escreve o arquivo dentro da .aurora quando nao ha nenhum', () => {
+        garantirGitignoreDaAurora(raiz);
+        const txt = fs.readFileSync(path.join(raiz, '.aurora', '.gitignore'), 'utf8');
+        expect(txt).toContain('Temp/');
+        expect(txt).toContain('execucoes/');
+    });
+
+    it('NAO ignora memory/, que e conteudo e pode ser versionado', () => {
+        garantirGitignoreDaAurora(raiz);
+        const txt = fs.readFileSync(path.join(raiz, '.aurora', '.gitignore'), 'utf8');
+        expect(txt).not.toMatch(/^memory\//m);
+    });
+
+    it('nao sobrescreve um arquivo que alguem editou a mao', () => {
+        const alvo = path.join(raiz, '.aurora', '.gitignore');
+        fs.mkdirSync(path.dirname(alvo), { recursive: true });
+        fs.writeFileSync(alvo, 'meu proprio conteudo\n');
+        garantirGitignoreDaAurora(raiz);
+        expect(fs.readFileSync(alvo, 'utf8')).toBe('meu proprio conteudo\n');
+    });
+
+    it('um arquivo vazio conta como ausente e e preenchido', () => {
+        const alvo = path.join(raiz, '.aurora', '.gitignore');
+        fs.mkdirSync(path.dirname(alvo), { recursive: true });
+        fs.writeFileSync(alvo, '   \n');
+        garantirGitignoreDaAurora(raiz);
+        expect(fs.readFileSync(alvo, 'utf8')).toContain('Temp/');
+    });
+
+    it('pasta que nao da para escrever nao lanca', () => {
+        expect(() => garantirGitignoreDaAurora('')).not.toThrow();
     });
 });

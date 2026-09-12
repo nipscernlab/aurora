@@ -339,3 +339,15 @@ describe('entradaOcultaNaArvore', () => {
     }
   });
 });
+
+// A visao de PASTAS usa outro listador (`getFolderFiles`) e ele nao filtrava
+// nada: `.aurora` e `.slang` continuavam aparecendo la depois de terem sido
+// escondidas na visao de processadores. O que se trava aqui e que a regra e
+// UMA so, e nao uma por listador.
+describe('a regra de esconder vale para os dois listadores', () => {
+  it('as duas pastas nossas somem, e as do usuario ficam', () => {
+    const entradas = ['.aurora', '.slang', '.git', '.gitignore', 'Testbench', 'mediamovel'];
+    expect(entradas.filter((n) => !entradaOcultaNaArvore(n)))
+      .toEqual(['.git', '.gitignore', 'Testbench', 'mediamovel']);
+  });
+});

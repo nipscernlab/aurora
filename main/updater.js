@@ -946,16 +946,37 @@ function initializeUpdateSystem() {
 
   // Set explicitly so checks work even if the packaged app-update.yml
   // ever drifts from package.json#build.publish.
-  autoUpdater.setFeedURL({
-    provider: 'github',
-    owner: REPO_OWNER,
-    repo: REPO_NAME,
-    releaseType: 'release',
-  });
+  //
+  // `AURORA_UPDATE_FEED` troca o feed por um endereco qualquer, e existe para
+  // UM proposito: testar o fluxo de atualizacao de ponta a ponta sem publicar
+  // nada para a turma. O card de atualizacao e desenhado pela versao que esta
+  // RODANDO, entao a unica forma de ver uma mudanca nele e instalar a versao
+  // nova e oferecer a ela uma mais nova ainda; com um feed local isso se faz
+  // em dois minutos, e sem ele so publicando duas releases de verdade.
+  //
+  // Variavel de ambiente e valor confiavel (nenhum renderer a define), e o
+  // `forceDevUpdateConfig` vem junto porque em desenvolvimento o
+  // electron-updater recusa checar sem ele. Ver scripts/feed-local.js.
+  const feedDeTeste = process.env.AURORA_UPDATE_FEED;
+  if (feedDeTeste) {
+    log.warn(`[updater] FEED DE TESTE: ${feedDeTeste} (nao e o canal de distribuicao)`);
+    autoUpdater.forceDevUpdateConfig = true;
+    autoUpdater.setFeedURL({ provider: 'generic', url: feedDeTeste });
+  } else {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: REPO_OWNER,
+      repo: REPO_NAME,
+      releaseType: 'release',
+    });
+  }
 
   setupAutoUpdaterEvents();
 
-  if (isDev) {
+  // Em dev nao se agenda verificacao, para a AURORA de quem desenvolve nao
+  // ficar batendo no GitHub. Com o feed de teste isso se inverte: e
+  // exatamente ali que se quer checar.
+  if (isDev && !feedDeTeste) {
     log.info('Skipping update scheduling — dev mode');
     return;
   }

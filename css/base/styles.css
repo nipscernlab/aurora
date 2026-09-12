@@ -29,6 +29,34 @@ body {
   font-size: var(--text-base);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Controles herdam a fonte, como todo o resto
+ *
+ *  `button`, `input`, `select` e `textarea` NAO herdam font-family nem
+ *  font-size: o navegador impoe a fonte do sistema, que no Windows e Arial a
+ *  13.33px. Metade da interface da AURORA e botao, e cada um que nao
+ *  declarasse familia por conta propria aparecia em Arial no meio do Inter,
+ *  com metrica diferente. Foi medido na casca: o nome do modelo no painel de
+ *  IA saia em Arial mesmo com os tokens certos, porque o <span> herdava do
+ *  <button> ao redor.
+ *
+ *  `font: inherit` zera os quatro de uma vez (familia, tamanho, peso, estilo)
+ *  e deixa cada componente declarar o que quiser em cima, que e o que eles ja
+ *  fazem. `line-height` fica de fora de proposito: os controles tem altura
+ *  propria e herdar a entrelinha do corpo desalinharia o texto dentro deles.
+ * ------------------------------------------------------------------------- */
+button,
+input,
+select,
+textarea,
+optgroup {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  font-style: inherit;
+  letter-spacing: inherit;
+}
+
 /* Frameless window: drop default OS chrome offsets when maximized so Aero
    snap fills cleanly. */
 body.window-maximized {

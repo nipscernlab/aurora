@@ -135,6 +135,18 @@ class AuroraModal extends LitElement {
   }
 
   static styles = css`
+    /* Controles nao herdam fonte nem dentro do Shadow DOM, e aqui o reset
+       global de css/base/styles.css nao alcanca: o navegador impoe a fonte do
+       sistema (Arial a 13.33px no Windows) em todo button/input. Medido: o
+       fechar deste componente saia em Arial no meio do Inter. */
+    button, input, select, textarea {
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: inherit;
+      font-style: inherit;
+      letter-spacing: inherit;
+    }
+
     :host {
       position: fixed;
       inset: 0;

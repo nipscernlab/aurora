@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.16.0](https://github.com/nipscernlab/aurora/compare/v6.15.0...v6.16.0) (2026-09-12)
+
+
+### Features
+
+* card de update minimizavel, aviso de testbench sem $finish, Temp por projeto e desfazer na arvore ([4a31dd1](https://github.com/nipscernlab/aurora/commit/4a31dd15e18c91081a2732c9a37c61cf990ae2eb))
+* **project:** excluir projeto para a Lixeira, com contagem de 5 antes de liberar ([4f52d09](https://github.com/nipscernlab/aurora/commit/4f52d09b714ff966de1f47fb1494cae24c897dab))
+* **project:** perceber que a pasta do projeto sumiu, em vez de fingir que nao ([19730f4](https://github.com/nipscernlab/aurora/commit/19730f471168a08e789e88014926a18d03051e1e))
+* **ui:** tres leituras da casca que pediam so coerencia ([66704da](https://github.com/nipscernlab/aurora/commit/66704dae36970bd840e552af551aeb981f28bf5b))
+
+
+### Bug Fixes
+
+* **main:** cada janela fala com o proprio projeto, e nao com o da vizinha ([95ca8c4](https://github.com/nipscernlab/aurora/commit/95ca8c40e50d85929c64ed84a98c2ac75c5a5369))
+* **preload:** so 'electron' entra num preload em sandbox; a interface tinha travado ([6dd2a04](https://github.com/nipscernlab/aurora/commit/6dd2a048e98266704def963f7b70e65aca7fed39))
+* **prism:** o afastamento do layout chega a tela, e o digito de valor para de fugir do bloco ([af59239](https://github.com/nipscernlab/aurora/commit/af592398968767f569237e23d1a3e99ce1c594aa))
+* **project-temp:** recusar raiz relativa ao garantir o .gitignore da .aurora ([fe86cf3](https://github.com/nipscernlab/aurora/commit/fe86cf34155b7c6494bada06eb54ae734ac78879))
+* **project:** .aurora e .slang nascem ocultas, e nao so na abertura ([46fa562](https://github.com/nipscernlab/aurora/commit/46fa562fd8bd1666f22181f7f55a80cc7504e46e))
+* **security:** fechar as duas portas que a revisao encontrou ([e26a909](https://github.com/nipscernlab/aurora/commit/e26a909a3848351be2188b18bb3ca605298bd7b5))
+* **security:** o binario do Verilator so vale dentro de um projeto ABERTO ([fa97a81](https://github.com/nipscernlab/aurora/commit/fa97a81ec6552fadf28b9dbff2b7dbc550802bd8))
+* **tree:** botao direito repetido deixa um card de menu, nao uma pilha ([aa8d450](https://github.com/nipscernlab/aurora/commit/aa8d450e676ecbd123e5e391b57c302be8a71feb))
+* **tree:** esconder a .aurora tambem na visao de pastas, e cobrir projeto antigo ([12b636e](https://github.com/nipscernlab/aurora/commit/12b636e514dc35e5b9e7723195c858771e27ec77))
+* **ui:** a fonte do aplicativo chega aos controles, e a marca-dagua para de encolher no zoom ([7b1e838](https://github.com/nipscernlab/aurora/commit/7b1e83864da63d6d15bc5813f49d32d011a6d35d))
+* **ui:** a tipografia volta a seguir a propria escala, e a catraca passa a vigia-la ([cde4431](https://github.com/nipscernlab/aurora/commit/cde44315993c743914f3f7b02906888ab73d593e))
+* **ui:** tres padroes que decidiam o que o aluno via na primeira vez ([a94172e](https://github.com/nipscernlab/aurora/commit/a94172ef1d7bfb77fbf94afcb98f799111b8c0fb))
+* **wave:** as quatro arestas que a investigacao da corrida deixou a mostra ([8b33552](https://github.com/nipscernlab/aurora/commit/8b33552acfd2457c0be65f17266c3aa1afa8e7a2))
+* **wave:** salvar o editor antes de ler o testbench, e nao depois ([344bba4](https://github.com/nipscernlab/aurora/commit/344bba475f2886d5a564809408f9739730cdb99f))
+
 ## [6.15.0](https://github.com/nipscernlab/aurora/compare/v6.14.0...v6.15.0) (2026-09-04)
 
 

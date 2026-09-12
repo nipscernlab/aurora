@@ -656,12 +656,42 @@ function register() {
 
       const watcherId = `dir_watcher_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       /** @type {{ id: string, watcher: import('chokidar').FSWatcher, path: string, senders: Set<any> }} */
-      const info = { id: watcherId, watcher: /** @type {any} */ (null), path: directoryPath, senders: new Set([event.sender]) };
+      const info = {
+        id: watcherId, watcher: /** @type {any} */ (null), path: directoryPath,
+        senders: new Set([event.sender]),
+        /** Ja avisamos que esta pasta sumiu? Uma vez basta. */
+        sumiu: false,
+      };
 
       const debouncedChangeHandler = debounce(async () => {
         try {
           const vivos = assinantesVivos(info);
           if (!vivos.length) return;
+
+          // A pasta inteira sumiu do disco: apagada, movida, renomeada, uma
+          // unidade removida, uma pasta sincronizada que o cliente levou. Ate
+          // aqui o scanDirectory estourava ENOENT, o erro morria neste catch,
+          // e a arvore seguia mostrando arquivos que nao existiam mais. Pior,
+          // qualquer escrita seguinte recriava a pasta com um arquivo dentro,
+          // e o projeto virava um fantasma de um arquivo so.
+          //
+          // Nao travamos a pasta para impedir isso, de proposito: segurar um
+          // descritor aberto numa pasta no Windows e o que faz "nao foi
+          // possivel excluir, o arquivo esta em uso", e a AURORA ja teve esse
+          // problema com o diretorio de trabalho do agente. A pasta e do
+          // usuario. O que cabe a nos e perceber e dizer.
+          if (!fse.existsSync(directoryPath)) {
+            if (info.sumiu) return;
+            info.sumiu = true;
+            log.warn(`[watch-directory] a pasta vigiada sumiu do disco: ${directoryPath}`);
+            for (const wc of vivos) {
+              if (!wc.isDestroyed()) wc.send('directory-gone', directoryPath);
+            }
+            return;
+          }
+          // Voltou (renomeada de volta, unidade reconectada): volta a avisar.
+          info.sumiu = false;
+
           const files = await scanDirectory(directoryPath);
           for (const wc of vivos) {
             if (!wc.isDestroyed()) wc.send('directory-changed', directoryPath, files);
@@ -688,6 +718,9 @@ function register() {
       watcher.on('unlinkDir', () => debouncedChangeHandler());
 
       watcher.on('error', (error) => {
+        // Uma raiz que some costuma chegar como erro do vigia, e nao como
+        // evento de remocao: a checagem de existencia roda aqui tambem.
+        debouncedChangeHandler();
         log.error(`Directory watcher error for ${directoryPath}:`, error);
         const message = error instanceof Error ? error.message : String(error);
         for (const wc of assinantesVivos(info)) {

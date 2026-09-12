@@ -1,4 +1,12 @@
 import { electronAPI } from '../app/electron_api.js';
+import { showCardNotification } from '../ui/notification.js';
+
+// i18n com reserva em ingles, o mesmo padrao do standard_tree_crud.js: a
+// mensagem vale mesmo que as traducoes ainda nao tenham carregado.
+const tt = (k, fb) => {
+    const v = window.t ? window.t(k) : null;
+    return v && v !== k ? v : fb;
+};
 import '../components/aurora-tree.js';
 // file_tree_manager.js
 //
@@ -222,6 +230,24 @@ class FileTreeManager {
             // Verilog view: re-le o .spf pra pegar processor creation/
             // deletion que reescreve o arquivo.
             window.projectTreeManager?.refreshTree?.();
+        });
+
+        // A pasta do projeto sumiu do disco enquanto ele estava aberto.
+        //
+        // A AURORA NAO trava a pasta, de proposito: segurar um descritor
+        // aberto numa pasta no Windows e o que produz "nao foi possivel
+        // excluir, o arquivo esta em uso", e a pasta e do usuario. O que cabe
+        // aqui e parar de fingir que a arvore vale e dizer o que aconteceu,
+        // uma vez, num card que nao some sozinho. Nada e fechado e nenhum
+        // buffer e descartado: quem tiver trabalho nao salvo ainda pode
+        // salva-lo noutro lugar.
+        electronAPI.onDirectoryGone?.((dir) => {
+            if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
+            console.warn('project folder is gone:', dir);
+            showCardNotification(
+                tt('fileTree.projectGone', 'The project folder is no longer on disk.'),
+                'error', 0, tt('fileTree.projectGoneTitle', 'Project folder gone'),
+            );
         });
 
         // Directory watcher errors used to be emitted by main but never

@@ -147,6 +147,15 @@ const fileWatchingOperations = {
   onFileWatcherError: (cb) => {
     ipcRenderer.on('file-watcher-error', (_e, filePath, error) => cb(filePath, error));
   },
+  /**
+   * A pasta vigiada sumiu do disco. Chega uma vez por desaparecimento; a
+   * AURORA nao trava a pasta do usuario, entao apagar o projeto com ele
+   * aberto e possivel e o que resta e perceber.
+   */
+  onDirectoryGone: (cb) => {
+    ipcRenderer.on('directory-gone', (_e, directoryPath) => cb(directoryPath));
+  },
+
   onDirectoryChanged: (cb) => {
     ipcRenderer.on('directory-changed', (_e, directoryPath, files) => cb(directoryPath, files));
   },

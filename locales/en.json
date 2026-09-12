@@ -191,7 +191,9 @@
       "headlineOther": "{{count}} files listed in the project are missing on disk",
       "notification": "{{count}} project file(s) are missing on disk. See the file tree for the list.",
       "dismissTitle": "Dismiss this warning"
-    }
+    },
+    "projectGoneTitle": "Project folder gone",
+    "projectGone": "The project folder is no longer on disk. It was deleted, moved, or its drive was disconnected. Nothing here was closed and no unsaved work was discarded, but saving will fail until you reopen the project."
   },
   "modal": {
     "help": "Open the manual on this topic",

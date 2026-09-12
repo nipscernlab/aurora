@@ -193,6 +193,7 @@
           </button>
           <div id="gtkwPicker" class="gtkw-picker" data-tooltip="Active wave layout (.gtkw for GTKWave, .surf.ron or .sucl for Surfer), used when launching the viewer" data-i18n-tooltip="toolbar.gtkwPicker.tooltip">
             <button id="gtkwPickerButton" type="button" class="gtkw-picker-button">
+              <span class="gtkw-picker-kind" data-i18n="toolbar.gtkwPicker.kind" aria-hidden="true">layout</span>
               <span class="gtkw-picker-label" data-i18n="toolbar.gtkwPicker.default">default</span>
               <i class="ph ph-caret-down gtkw-picker-caret" aria-hidden="true"></i>
             </button>
@@ -369,29 +370,41 @@
                 <span class="toggle-text">Files</span>
             </button>
 
+            <!-- Tres gestos frequentes a vista; o resto no menu de reticencias.
+                 Eram sete icones do mesmo peso lado a lado, com "fechar projeto"
+                 ao lado de "atualizar", que e a vizinhanca que produz clique
+                 errado. Os ids nao mudam: cada acao continua ligada por eles
+                 (renderer.js, file_tree_manager.js, project_manager.js,
+                 file_tree_toggler.js, close_project.js), so mudou onde moram. -->
             <span id="new-file" class="tree-action tree-action-new" data-tooltip="New file" data-i18n-tooltip="toolbar.newFile.tooltip">
                 <i class="ph ph-file-plus"></i>
             </span>
-            <span id="refresh-button" class="tree-action" data-tooltip="Refresh file tree">
-                <i class="ph ph-arrows-clockwise"></i>
-            </span>
             <span id="searchButton" class="tree-action" data-tooltip="Find in files (Ctrl+Shift+F)" data-i18n-tooltip="search.tooltip">
                 <i class="ph ph-magnifying-glass"></i>
-            </span>
-            <span id="open-folder-button" class="tree-action" data-tooltip="Open in system explorer">
-                <i class="ph ph-folder-notch-open"></i>
-            </span>
-            <span id="close-button" class="tree-action tree-action-danger" data-tooltip="Close project">
-                <i class="ph ph-x-circle"></i>
             </span>
             <!-- Smart collapse/expand-all toggle for the hierarchy and
                  folder views; tooltip set by file_tree_toggler.js. -->
             <span id="toggle-file-tree" class="tree-action" data-tooltip="Collapse / expand all">
                 <i class="ph ph-minus-square"></i>
             </span>
-            <span id="backup-project" class="tree-action" data-tooltip="Backup project" data-i18n-tooltip="toolbar.backupProject.tooltip">
-                <i class="ph ph-floppy-disk"></i>
+            <span id="tree-more" class="tree-action" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false"
+                  data-tooltip="More" data-i18n-tooltip="fileTree.moreActions">
+                <i class="ph ph-dots-three"></i>
             </span>
+            <div id="tree-more-menu" class="tree-more-menu" role="menu" hidden>
+                <span id="refresh-button" class="tree-more-item" role="menuitem" tabindex="-1">
+                    <i class="ph ph-arrows-clockwise"></i><span data-i18n="fileTree.crud.refresh">Refresh</span>
+                </span>
+                <span id="open-folder-button" class="tree-more-item" role="menuitem" tabindex="-1">
+                    <i class="ph ph-folder-notch-open"></i><span data-i18n="fileTree.crud.reveal">Reveal in File Explorer</span>
+                </span>
+                <span id="backup-project" class="tree-more-item" role="menuitem" tabindex="-1">
+                    <i class="ph ph-floppy-disk"></i><span data-i18n="toolbar.backupProject.tooltip">Backup project</span>
+                </span>
+                <span id="close-button" class="tree-more-item tree-more-danger" role="menuitem" tabindex="-1">
+                    <i class="ph ph-x-circle"></i><span data-i18n="fileTree.closeProject">Close project</span>
+                </span>
+            </div>
         </div>
 
         <div class="file-tree-actions">
@@ -451,7 +464,7 @@
                           <path class="cpm-pm" d="M16.2 11.2 h3.6"/>
                         </svg>
                       </span>
-                      TCMM
+                      <span class="tab-label" data-i18n="toolbar.termTabLabel.cmm">C±</span>
                   </button>
                   <button class="tab" data-terminal="tasm" data-tooltip="ASM terminal" data-i18n-tooltip="toolbar.termTab.asm">
                       <span class="glyph glyph-asm" aria-hidden="true">
@@ -461,7 +474,7 @@
                           <path d="M7 7h2v2H7z" fill="currentColor" stroke="none"/>
                         </svg>
                       </span>
-                      TASM
+                      <span class="tab-label" data-i18n="toolbar.termTabLabel.asm">ASM</span>
                   </button>
                   <button class="tab" data-terminal="tveri" data-tooltip="Verilog terminal" data-i18n-tooltip="toolbar.termTab.veri">
                       <span class="glyph glyph-veri" aria-hidden="true">
@@ -472,7 +485,7 @@
                           <path d="M11.7 4.6 8.5 4.6 M10.2 6.6 7 6.6 M8.6 8.7 5.4 8.7"/>
                         </svg>
                       </span>
-                      TVERI
+                      <span class="tab-label" data-i18n="toolbar.termTabLabel.veri">Verilog</span>
                   </button>
                   <button class="tab" data-terminal="twave" data-tooltip="Wave terminal" data-i18n-tooltip="toolbar.termTab.wave">
                       <span class="glyph glyph-wave" aria-hidden="true">
@@ -480,7 +493,7 @@
                           <path d="M1 11 L4 11 L4 5 L8 5 L8 11 L12 11 L12 5 L15 5"/>
                         </svg>
                       </span>
-                      TWAVE
+                      <span class="tab-label" data-i18n="toolbar.termTabLabel.wave">Wave</span>
                   </button>
                   <button class="tab" data-terminal="thtest" data-tooltip="Hardware test terminal" data-i18n-tooltip="toolbar.termTab.thtest">
                       <span class="glyph glyph-thtest" aria-hidden="true">
@@ -491,7 +504,7 @@
                           <path d="M4.5 6.5 2 6.5 M4.5 9.5 2 9.5 M11.5 6.5 14 6.5 M11.5 9.5 14 9.5"/>
                         </svg>
                       </span>
-                      THTEST
+                      <span class="tab-label" data-i18n="toolbar.termTabLabel.thtest">Test</span>
                   </button>
                   <!-- PRISM tem terminal proprio desde 29/08/2026. Ele
                        escrevia no TVERI, e as duas coisas mais compridas do
@@ -502,7 +515,7 @@
                        terminais ja usam. -->
                   <button class="tab" data-terminal="tprism" data-tooltip="PRISM terminal" data-i18n-tooltip="toolbar.termTab.prism">
                       <img class="glyph glyph-tprism" src="./assets/icons/aurora_prism.svg" alt="" aria-hidden="true">
-                      TPRISM
+                      <span class="tab-label" data-i18n="toolbar.termTabLabel.prism">PRISM</span>
                   </button>
                   <button class="tab" data-terminal="tcmd" data-tooltip="Shell terminal (PowerShell)" data-i18n-tooltip="toolbar.termTab.cmd">
                       <span class="glyph glyph-tcmd" aria-hidden="true">
@@ -511,7 +524,7 @@
                           <path d="M8.5 11.5 H12.5"/>
                         </svg>
                       </span>
-                      TCMD
+                      <span class="tab-label" data-i18n="toolbar.termTabLabel.cmd">Shell</span>
                   </button>
                 </div>
 
@@ -538,31 +551,31 @@
                 </div>
             </div>
             <div class="terminal-content" id="terminal-tcmm">
-                <div class="terminal-header">TCMM Terminal</div>
+                <div class="terminal-header" data-i18n="toolbar.termTab.cmm">TCMM Terminal</div>
                 <div class="terminal-body"><span class="terminal-welcome" data-i18n="terminalWelcome.tcmm">Welcome to the terminal TCMM!</span></div>
             </div>
             <div class="terminal-content hidden" id="terminal-tasm">
-                <div class="terminal-header">TASM Terminal</div>
+                <div class="terminal-header" data-i18n="toolbar.termTab.asm">TASM Terminal</div>
                 <div class="terminal-body"><span class="terminal-welcome" data-i18n="terminalWelcome.tasm">Welcome to the terminal TASM!</span></div>
             </div>
             <div class="terminal-content hidden" id="terminal-tveri">
-                <div class="terminal-header">TVERI Terminal</div>
+                <div class="terminal-header" data-i18n="toolbar.termTab.veri">TVERI Terminal</div>
                 <div class="terminal-body"><span class="terminal-welcome" data-i18n="terminalWelcome.tveri">Welcome to the terminal TVERI!</span></div>
             </div>
             <div class="terminal-content hidden" id="terminal-twave">
-                <div class="terminal-header">TWAVE Terminal</div>
+                <div class="terminal-header" data-i18n="toolbar.termTab.wave">TWAVE Terminal</div>
                 <div class="terminal-body"><span class="terminal-welcome" data-i18n="terminalWelcome.twave">Welcome to the terminal TWAVE!</span></div>
             </div>
             <div class="terminal-content hidden" id="terminal-thtest">
-                <div class="terminal-header">THTEST Terminal</div>
+                <div class="terminal-header" data-i18n="toolbar.termTab.thtest">THTEST Terminal</div>
                 <div class="terminal-body"><span class="terminal-welcome" data-i18n="terminalWelcome.thtest">Welcome to the terminal THTEST!</span></div>
             </div>
             <div class="terminal-content hidden" id="terminal-tprism">
-                <div class="terminal-header">TPRISM Terminal</div>
+                <div class="terminal-header" data-i18n="toolbar.termTab.prism">TPRISM Terminal</div>
                 <div class="terminal-body"><span class="terminal-welcome" data-i18n="terminalWelcome.tprism">Welcome to the terminal TPRISM!</span></div>
             </div>
             <div class="terminal-content hidden" id="terminal-tcmd">
-                <div class="terminal-header">TCMD Terminal</div>
+                <div class="terminal-header" data-i18n="toolbar.termTab.cmd">TCMD Terminal</div>
                 <div class="tcmd-xterm"></div>
             </div>
         </aurora-terminal>

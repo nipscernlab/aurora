@@ -58,7 +58,8 @@
       "folderAdded": "{{found}} layout(s) in \"{{name}}\", {{count}} new in the list",
       "noProject": "No project loaded",
       "noTestbench": "No testbench selected",
-      "removeTooltip": "Remove from list"
+      "removeTooltip": "Remove from list",
+      "kind": "layout"
     },
     "cancel": {
       "tooltip": "Cancel"
@@ -117,6 +118,15 @@
     },
     "format": {
       "tooltip": "Format this file"
+    },
+    "termTabLabel": {
+      "cmm": "C±",
+      "asm": "ASM",
+      "veri": "Verilog",
+      "wave": "Wave",
+      "thtest": "Test",
+      "prism": "PRISM",
+      "cmd": "Shell"
     }
   },
   "windowControls": {
@@ -193,7 +203,9 @@
       "dismissTitle": "Dismiss this warning"
     },
     "projectGoneTitle": "Project folder gone",
-    "projectGone": "The project folder is no longer on disk. It was deleted, moved, or its drive was disconnected. Nothing here was closed and no unsaved work was discarded, but saving will fail until you reopen the project."
+    "projectGone": "The project folder is no longer on disk. It was deleted, moved, or its drive was disconnected. Nothing here was closed and no unsaved work was discarded, but saving will fail until you reopen the project.",
+    "moreActions": "More",
+    "closeProject": "Close project"
   },
   "modal": {
     "help": "Open the manual on this topic",

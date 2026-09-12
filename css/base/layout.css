@@ -282,6 +282,61 @@ body.ai-collapsed  .edge-rail-right { display: flex; }
 .overlay-title .tree-action          { cursor: pointer; }
 .overlay-title .tree-action-new:hover    { color: var(--accent-hover); }
 .overlay-title .tree-action-danger:hover { color: var(--status-error); }
+.overlay-title { position: relative; }
+.overlay-title .tree-action[aria-expanded="true"] { color: var(--text); }
+
+/* O menu de reticencias do cabecalho da arvore. Mesma casca dos menus de
+   contexto (elevacao, borda, raio), ancorado abaixo do cabecalho. */
+.tree-more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: var(--space-2);
+  min-width: 200px;
+  padding: var(--space-1);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-overlay);
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+}
+.tree-more-menu[hidden] { display: none; }
+.overlay-title .tree-more-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.overlay-title .tree-more-item:hover,
+.overlay-title .tree-more-item:focus-visible { background: var(--overlay-hover); color: var(--text); outline: none; }
+.overlay-title .tree-more-item.tree-more-danger:hover { color: var(--status-error); }
+.overlay-title .tree-more-item .ph { font-size: var(--icon-sm); }
+/* A regra base de `.overlay-title span` faz de todo span um botao de icone de
+   24 por 24. Os itens do menu sao spans (os ids que as acoes escutam ja eram
+   spans) e precisam voltar a ser linhas de texto. */
+.overlay-title .tree-more-item,
+.overlay-title .tree-more-item > span {
+  width: auto;
+  height: auto;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+.overlay-title .tree-more-item > span {
+  display: inline;
+  padding: 0;
+  cursor: inherit;
+  color: inherit;
+  font-size: var(--text-sm);
+}
+.overlay-title .tree-more-item > span:hover { background: none; }
+.overlay-title .tree-more-item:active { transform: none; }
 
 .file-tree-actions {
   flex: 1 1 0;

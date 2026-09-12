@@ -399,6 +399,13 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   border-left: 1px solid var(--border);
 }
 
+/* Dois grupos de alternancia lado a lado (simulador, visualizador) com o
+   mesmo desenho liam-se como um so de quatro icones: ninguem sabia quais
+   eram os dois pares. Um respiro entre eles devolve a leitura. */
+.simulator-switch + .simulator-switch {
+  margin-left: var(--space-3);
+}
+
 .sim-seg:hover {
   opacity: 0.75;
   filter: grayscale(0.2);
@@ -488,6 +495,14 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 170px;
+}
+/* O que o seletor seleciona. Sozinho, "default" nao dizia de que era. */
+.gtkw-picker-kind {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-weight: var(--font-normal);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
 }
 
 .gtkw-picker-caret {

@@ -8,6 +8,7 @@ const tt = (k, fb) => {
     return v && v !== k ? v : fb;
 };
 import '../components/aurora-tree.js';
+import { ligarMenuDoCabecalho } from './tree_header_menu.js';
 // file_tree_manager.js
 //
 // Owns the file-tree view bootstrap: the TreeViewState façade over the
@@ -256,6 +257,8 @@ class FileTreeManager {
         electronAPI.onDirectoryWatcherError?.((dir, error) => {
             console.error(`Directory watcher error for ${dir}:`, error);
         });
+
+        ligarMenuDoCabecalho();
 
         // Initialize tree based on saved mode
         this.initializeTreeBasedOnMode();

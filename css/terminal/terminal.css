@@ -184,6 +184,10 @@
   opacity: 0.75;
 }
 
+/* O glifo da aba C± ja e o proprio nome escrito; com o rotulo ao lado lia-se
+   "C± C±". Nesta aba o glifo faz as vezes do rotulo. */
+.terminal-tabs .tab[data-terminal="tcmm"] .tab-label { display: none; }
+
 .terminal-tabs .tab .glyph.glyph-cpm {
   width: 21px;
   height: 14px;

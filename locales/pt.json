@@ -58,7 +58,8 @@
       "folderAdded": "{{found}} layout(s) em \"{{name}}\", {{count}} novo(s) na lista",
       "noProject": "Nenhum projeto carregado",
       "noTestbench": "Nenhum testbench selecionado",
-      "removeTooltip": "Remover da lista"
+      "removeTooltip": "Remover da lista",
+      "kind": "layout"
     },
     "cancel": {
       "tooltip": "Cancelar"
@@ -117,6 +118,15 @@
     },
     "format": {
       "tooltip": "Formatar este arquivo"
+    },
+    "termTabLabel": {
+      "cmm": "C±",
+      "asm": "ASM",
+      "veri": "Verilog",
+      "wave": "Onda",
+      "thtest": "Teste",
+      "prism": "PRISM",
+      "cmd": "Shell"
     }
   },
   "windowControls": {
@@ -193,7 +203,9 @@
       "dismissTitle": "Dispensar este aviso"
     },
     "projectGoneTitle": "A pasta do projeto sumiu",
-    "projectGone": "A pasta do projeto nao esta mais no disco. Ela foi apagada, movida, ou a unidade dela foi desconectada. Nada aqui foi fechado e nenhum trabalho nao salvo foi descartado, mas salvar vai falhar ate voce reabrir o projeto."
+    "projectGone": "A pasta do projeto nao esta mais no disco. Ela foi apagada, movida, ou a unidade dela foi desconectada. Nada aqui foi fechado e nenhum trabalho nao salvo foi descartado, mas salvar vai falhar ate voce reabrir o projeto.",
+    "moreActions": "Mais",
+    "closeProject": "Fechar projeto"
   },
   "modal": {
     "help": "Abrir o manual neste assunto",

@@ -2675,7 +2675,23 @@ class PRISMViewer {
     }
   }
 
-  /** Afasta os elementos entre si, mantendo a forma do layout. Uma vez por grafo. */
+  /**
+   * Afasta os elementos entre si, mantendo a forma do layout. Uma vez por grafo.
+   *
+   * O `updateViews` no fim NAO e zelo: o paper do DigitalJS e assincrono, e
+   * mover uma celula so agenda o redesenho dela. Sem descarregar a fila aqui,
+   * nada disto chegava a tela: as vistas ficavam nas posicoes que o dagre deu,
+   * o afastamento existia so no modelo, e o `fitToContent` logo abaixo media
+   * um conteudo que ainda nao tinha mudado de tamanho.
+   *
+   * Pior do que nao afastar: os digitos de valor que a AURORA poe sobre as
+   * entradas e saidas (_buildValueOverlays) sao posicionados pelo MODELO, e
+   * passavam a cair em `x * fx`, cada vez mais para a direita quanto mais
+   * longe da origem. Num circuito de verdade o digito de um bloco pousava em
+   * cima do bloco vizinho, e o vizinho aparecia com a marca dele mais um
+   * numero que nao era dele. Foi assim que um aluno viu "um x e um zero" no
+   * mesmo bloco.
+   */
   _expandirLayout(nivel, fx, fy) {
     const graph = nivel && nivel.graph;
     if (!graph || graph.get('prismExpandido')) return;
@@ -2688,6 +2704,8 @@ class PRISMViewer {
       const vs = l.vertices ? l.vertices() : [];
       if (vs && vs.length) l.vertices(vs.map((v) => ({ x: v.x * fx, y: v.y * fy })));
     }
+    // Antes do fitToContent, que mede o que estiver desenhado.
+    try { nivel.paper.updateViews(); } catch (_) { /* versao sem updateViews */ }
     try { nivel.paper.fitToContent({ padding: 40, allowNewOrigin: 'any' }); } catch (_) { /* versao sem fitToContent */ }
   }
 

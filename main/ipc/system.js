@@ -13,6 +13,8 @@ const { joinAppPath } = require('../utils');
 
 function register() {
   ipcMain.handle('get-components-path', () => componentsPath);
+  // A pasta do usuario, para a lista de recentes escrever `~` no lugar dela.
+  ipcMain.handle('get-home-path', () => require('os').homedir());
 
   // A maquina esta na bateria? O powerMonitor responde direto e sem
   // permissao especial; num desktop ele devolve false e o aviso nunca sai.

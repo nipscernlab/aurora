@@ -13,7 +13,12 @@
  */
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
-const os = require('os');
+// NADA alem de 'electron' entra aqui. A janela principal roda com
+// `sandbox: true` (main/windows.js), e no preload em sandbox o `require` e um
+// substituto que so conhece electron, events, timers e url. Um `require('os')`
+// que passou por aqui estourou na primeira linha, a ponte inteira deixou de
+// existir e nenhum botao da interface tinha mais quem o escutasse. O que
+// precisar do Node vai por IPC, como tudo o mais neste arquivo.
 
 /* ============================================================================
  *  FILE OPERATIONS
@@ -376,11 +381,10 @@ const terminalAPI = {};   // (terminalAPI separado mantido para compat futuro)
  * ========================================================================= */
 const updateOperations = {
   getComponentsPath: () => ipcRenderer.invoke('get-components-path'),
-  // Valor, nao funcao: a lista de recentes encurta caminhos com ele de forma
-  // sincrona ao desenhar. Antes o codigo lia `electronAPI.homePath` sem que
-  // isso existisse, entao o `~` nunca aparecia e as seis linhas mostravam o
-  // mesmo prefixo longo e cortavam justamente a parte que as distinguia.
-  homePath: os.homedir(),
+  // A lista de recentes encurta caminhos trocando a pasta do usuario por `~`.
+  // Ela resolve isto uma vez, ao nascer, e guarda; por IPC porque o preload
+  // em sandbox nao tem `os`.
+  getHomePath:       () => ipcRenderer.invoke('get-home-path'),
   getAppVersion:     () => ipcRenderer.invoke('get-app-version'),
 
   // Manual control for the in-app "Check for updates" affordance. The

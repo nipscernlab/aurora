@@ -5,12 +5,31 @@ import { ProjectStore } from './project_store.js';
 import '../components/aurora-welcome.js';
 import { motivoDe } from '../app/api_reply.js';
 
+/**
+ * A pasta do usuario, resolvida uma vez por IPC e guardada aqui: truncatePath
+ * roda a cada desenho da lista e precisa dela de forma sincrona. Enquanto a
+ * resposta nao chega, os caminhos saem inteiros, que e o comportamento
+ * antigo e nao e errado.
+ * @type {string | null}
+ */
+let pastaDoUsuario = null;
+function resolverPastaDoUsuario() {
+  if (pastaDoUsuario !== null) return;
+  try {
+    const r = electronAPI?.getHomePath?.();
+    if (r && typeof r.then === 'function') {
+      r.then((h) => { if (typeof h === 'string' && h) pastaDoUsuario = h; }).catch(() => {});
+    }
+  } catch (_) { /* sem ponte (teste, pagina isolada): caminhos inteiros */ }
+}
+
 // ADDED: Export the class to make it importable
 export class RecentProjectsManager {
   constructor(loadProjectCallback, showErrorDialogCallback) {
     // openProject = injected function that actually opens a .spf in the IDE.
     // Kept under a distinct name so it does not shadow loadFromStorage().
     this.openProject = loadProjectCallback;
+    resolverPastaDoUsuario();
     // O segundo parametro e opcional, e o unico chamador (renderer.js) nunca
     // o passou: showErrorDialog ficava undefined e explodia com "is not a
     // function" exatamente na hora de AVISAR o usuario, clicar num recente
@@ -400,18 +419,18 @@ export class RecentProjectsManager {
    * O `~` sempre foi a intencao, mas o codigo lia `electronAPI.homePath` e
    * isso nao existia na ponte: a comparacao falhava em silencio e as seis
    * linhas de recentes mostravam o mesmo `C:\\Users\\...` inteiro, cortado
-   * pelo CSS justamente na parte que as distinguia. A ponte passou a expor
-   * o valor (js/app/preload.js), e a comparacao ignora caixa porque no
-   * Windows `c:\\users` e `C:\\Users` sao a mesma pasta.
+   * pelo CSS justamente na parte que as distinguia. A pasta agora chega por
+   * IPC uma vez (resolverPastaDoUsuario), e a comparacao ignora caixa porque
+   * no Windows `c:\\users` e `C:\\Users` sao a mesma pasta.
    *
    * @param {string} path
    * @param {number} [max] largura a partir da qual so o fim e mostrado
+   * @param {string | null} [home] a pasta do usuario; por padrao a resolvida por IPC
    */
-  truncatePath(path, max = 56) {
+  truncatePath(path, max = 56, home = pastaDoUsuario) {
     if (!path) return '';
     // Drop the .spf filename, VS Code shows the parent folder, not the file.
     let display = path.replace(/[\\/][^\\/]+\.spf$/i, '');
-    const home = typeof electronAPI?.homePath === 'string' ? electronAPI.homePath : null;
     if (home && display.toLowerCase().startsWith(home.toLowerCase())) {
       display = '~' + display.slice(home.length);
     }

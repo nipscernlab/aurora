@@ -24,7 +24,8 @@ vi.mock('../../js/components/aurora-welcome.js', () => ({}));
 import { TerminalManager } from '../../js/terminal/terminal_module.js';
 import { RecentProjectsManager } from '../../js/project/recent_projects.js';
 
-const truncar = (p, max) => RecentProjectsManager.prototype.truncatePath.call({}, p, max);
+const HOME = 'C:\\Users\\chrys';
+const truncar = (p, max, home = HOME) => RecentProjectsManager.prototype.truncatePath.call({}, p, max, home);
 
 describe('terminal verboso', () => {
     beforeEach(() => localStorage.clear());
@@ -50,9 +51,6 @@ describe('terminal verboso', () => {
 });
 
 describe('caminho dos recentes', () => {
-    beforeEach(() => {
-        window.electronAPI = { homePath: 'C:\\Users\\chrys' };
-    });
 
     it('tira o nome do .spf e troca a pasta do usuario por ~', () => {
         expect(truncar('C:\\Users\\chrys\\Desktop\\sapho_procs\\exemplos-sapho\\contador\\contador.spf'))
@@ -67,11 +65,11 @@ describe('caminho dos recentes', () => {
         expect(truncar('D:\\alunos\\turma\\somador\\somador.spf')).toBe('D:\\alunos\\turma\\somador');
     });
 
-    it('sem ponte, nao quebra e nao inventa ~', () => {
-        window.electronAPI = {};
-        expect(truncar('C:\\Users\\chrys\\p\\p.spf')).toBe('C:\\Users\\chrys\\p');
-        delete window.electronAPI;
-        expect(truncar('C:\\Users\\chrys\\p\\p.spf')).toBe('C:\\Users\\chrys\\p');
+    it('sem a pasta do usuario resolvida, nao quebra e nao inventa ~', () => {
+        expect(truncar('C:\\Users\\chrys\\p\\p.spf', 56, null)).toBe('C:\\Users\\chrys\\p');
+        // O padrao do parametro e a pasta resolvida por IPC; sem ponte, nula.
+        expect(RecentProjectsManager.prototype.truncatePath.call({}, 'C:\\Users\\chrys\\p\\p.spf'))
+            .toBe('C:\\Users\\chrys\\p');
     });
 
     it('vazio devolve vazio', () => {

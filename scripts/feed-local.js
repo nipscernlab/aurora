@@ -82,6 +82,14 @@ function main() {
     console.log('ok');
   }
 
+  // O `.blockmap` ao lado, quando existir. O electron-updater o procura para
+  // baixar so o que mudou; sem ele a tentativa falha e o download recomeca
+  // inteiro, o que funciona mas polui o log com um erro que nao e erro.
+  const blockmapOrigem = `${origem}.blockmap`;
+  if (fs.existsSync(blockmapOrigem)) {
+    fs.copyFileSync(blockmapOrigem, `${destino}.blockmap`);
+  }
+
   const sha512 = sha512De(destino);
   const size = fs.statSync(destino).size;
   const yml = [

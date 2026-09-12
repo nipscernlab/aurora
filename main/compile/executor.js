@@ -30,10 +30,30 @@
 'use strict';
 
 const os = require('os');
+const path = require('path');
 const { ipcMain } = require('electron');
 const log = require('electron-log');
 
 const state = require('../state');
+
+/**
+ * As pastas dos projetos abertos nas janelas agora.
+ *
+ * A allowlist aceita o V<top>.exe que o Verilator gera dentro da Temp de um
+ * projeto, e precisa saber quais sao: aceitar qualquer caminho com
+ * `/.aurora/Temp/` no meio deixaria passar um binario escrito na pasta
+ * temporaria do sistema, ou trazido dentro de um projeto de terceiro.
+ * @returns {string[]}
+ */
+function raizesDeProjetosAbertos() {
+  const spfs = new Set(state.projectPathsBySender.values());
+  if (state.currentOpenProjectPath) spfs.add(state.currentOpenProjectPath);
+  const raizes = [];
+  for (const spf of spfs) {
+    if (typeof spf === 'string' && spf) raizes.push(path.dirname(spf));
+  }
+  return raizes;
+}
 
 /**
  * Anota a pasta <projeto>/.aurora/Temp que este spawn usa, se usar alguma.
@@ -198,7 +218,7 @@ function validateSpecForExec(spec, baseSpecForProtection) {
   if (typeof spec.cwd !== 'string' || !spec.cwd) {
     return { ok: false, error: 'spec.cwd must be a non-empty string' };
   }
-  const allowed = isAllowed(spec.binary);
+  const allowed = isAllowed(spec.binary, raizesDeProjetosAbertos());
   if (!allowed.ok) return allowed;
 
   // A allowlist diz qual binario pode nascer; para perl e python o argumento

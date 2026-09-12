@@ -105,9 +105,13 @@ function toPosix(/** @type {string} */ p) {
 
 /**
  * @param {string} binaryPath  absolute path to the candidate binary
+ * @param {string[]} [raizesDeProjeto] pastas dos projetos abertos agora; so
+ *   dentro delas o V<top>.exe gerado pelo Verilator e aceito. Vazio por
+ *   padrao, de proposito: quem nao souber dizer quais projetos estao abertos
+ *   fica com a regra estreita, a de components/Temp.
  * @returns {{ok:true} | {ok:false, error:string}}
  */
-function isAllowed(binaryPath) {
+function isAllowed(binaryPath, raizesDeProjeto = []) {
   if (typeof binaryPath !== 'string' || !binaryPath) {
     return { ok: false, error: 'binary path must be a non-empty string' };
   }
@@ -134,8 +138,23 @@ function isAllowed(binaryPath) {
   // (js/project/project_temp.js); components/Temp fica como reserva para o
   // que nao tem projeto. Nos dois casos a pasta tem que se chamar obj_dir* e
   // o binario V<algo>, que e a forma que o Verilator gera e nada mais.
+  //
+  // As raizes vem de fora, e a lista e dos projetos ABERTOS AGORA. A primeira
+  // versao disto aceitava qualquer caminho que CONTIVESSE `/.aurora/Temp/`, o
+  // que e largo demais: a pasta temporaria do sistema e area gravavel pelo
+  // renderer (main/ipc/fs_guard.js), entao bastava escrever
+  // `%TEMP%/.aurora/Temp/obj_dir_x/Vx.exe` para ter um binario arbitrario
+  // aceito aqui. Pior, um projeto BAIXADO de terceiro chegaria com a pasta
+  // pronta, e abrir o projeto de um colega passaria a ser um gesto perigoso.
+  // Amarrando as raizes aos projetos abertos, o caminho tem que estar dentro
+  // de um projeto que a propria pessoa abriu.
+  const dentroDeProjetoAberto = raizesDeProjeto.some((raiz) => {
+    const base = toPosix(path.resolve(String(raiz || '')));
+    if (!base) return false;
+    return normalized.toLowerCase().startsWith(`${base.toLowerCase()}/.aurora/temp/`);
+  });
   if (
-    (normalized.startsWith(VERILATOR_GENERATED_PREFIX) || /\/\.aurora\/Temp\//.test(normalized)) &&
+    (normalized.startsWith(VERILATOR_GENERATED_PREFIX) || dentroDeProjetoAberto) &&
     /\/obj_dir[^/]*\/V[^/]+(\.exe)?$/.test(normalized)
   ) {
     return { ok: true };

@@ -23,8 +23,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFile } = require('child_process');
 const log = require('electron-log');
+
+const { ocultarPasta } = require('./pastas_ocultas');
 
 /** Os mesmos segmentos de js/project/project_temp.js. */
 const SEGMENTOS = ['.aurora', 'Temp'];
@@ -177,20 +178,16 @@ function garantirGitignoreDaAurora(projectDir) {
 }
 
 /**
- * Marca `<projectDir>/.aurora` como oculta no Windows. Melhor esforco, fora
- * do Windows nao faz nada (o ponto no nome ja esconde nos outros sistemas).
+ * Marca `<projectDir>/.aurora` como oculta no Windows.
+ *
+ * A marcacao mora em main/pastas_ocultas.js porque ela nao e so daqui: quem
+ * cria a pasta pela primeira vez pode ser o registro de execucoes ou a
+ * memoria de projeto, e a abertura do projeto e apenas a rede.
  * @param {string} projectDir
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>}
  */
 function ocultarNoWindows(projectDir) {
-  if (process.platform !== 'win32') return Promise.resolve();
-  const alvo = path.join(projectDir, SEGMENTOS[0]);
-  return new Promise((resolve) => {
-    execFile('attrib', ['+h', alvo], { windowsHide: true, timeout: 3000 }, (err) => {
-      if (err) log.debug('[project-temp] attrib +h falhou:', err.message);
-      resolve();
-    });
-  });
+  return ocultarPasta(path.join(projectDir, SEGMENTOS[0]));
 }
 
 /**

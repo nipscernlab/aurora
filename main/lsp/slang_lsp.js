@@ -75,6 +75,7 @@ const chokidar = require('chokidar');
 
 const state = require('../state');
 const janelas = require('../main_windows');
+const { ocultarPastaDeSistemaEm } = require('../pastas_ocultas');
 const { spfDoSender } = require('../ipc/project_paths');
 const { componentsPath } = require('../paths');
 const { spawnTracked } = require('../process_registry');
@@ -381,6 +382,8 @@ function syncSlangConfig(/** @type {string} */ projectDir, /** @type {string[]} 
       return;
     }
     fs.mkdirSync(dir, { recursive: true });
+    // A `.slang` e nossa, nao do usuario: some do Explorer como a `.aurora`.
+    ocultarPastaDeSistemaEm(dir);
     // `index` SUBSTITUI o default (varrer o workspace), entao a raiz do projeto
     // precisa entrar na lista junto com as pastas de fora.
     const body = { index: [{ dirs: [projectDir, ...extraDirs] }] };

@@ -19,6 +19,7 @@ const state = require('../state');
 const { debounce, safePath, formatTimestamp } = require('../utils');
 const { spfDaJanela } = require('./project_paths');
 const janelas = require('../main_windows');
+const { ocultarPastaDeSistemaEm } = require('../pastas_ocultas');
 const { escritaPermitida } = require('./fs_guard');
 const { componentsPath } = require('../paths');
 const {
@@ -241,14 +242,22 @@ function register() {
     }
   });
 
-  ipcMain.handle('mkdir', (event, dirPath) =>
-    fs.mkdir(exigirEscritaPermitida(event, safePath(dirPath, 'dirPath'), 'mkdir'), { recursive: true }),
-  );
+  // Os dois criadores de pasta do renderer marcam `.aurora`/`.slang` como
+  // ocultas assim que as criam. Marcar so na abertura do projeto nao bastava:
+  // a Temp da compilacao, o registro de execucoes e a memoria de projeto
+  // passam por aqui e podem criar a pasta primeiro, e ela ficava a vista no
+  // Explorer ate a proxima abertura. Ver main/pastas_ocultas.js.
+  ipcMain.handle('mkdir', async (event, dirPath) => {
+    const alvo = exigirEscritaPermitida(event, safePath(dirPath, 'dirPath'), 'mkdir');
+    await fs.mkdir(alvo, { recursive: true });
+    ocultarPastaDeSistemaEm(alvo);
+  });
 
   ipcMain.handle('create-directory', async (event, dirPath) => {
     dirPath = exigirEscritaPermitida(event, safePath(dirPath, 'dirPath'), 'create-directory');
     try {
       await fse.ensureDir(dirPath);
+      ocultarPastaDeSistemaEm(dirPath);
       return { success: true };
     } catch (error) {
       log.error('Error creating directory:', error);

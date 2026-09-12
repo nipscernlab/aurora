@@ -22,6 +22,7 @@ const { ipcMain } = require('electron');
 const log = require('electron-log');
 
 const { podar } = require('../../js/compilation/run_log.js');
+const { ocultarPastaDeSistemaEm } = require('../pastas_ocultas');
 
 const PASTA = path.join('.aurora', 'execucoes');
 /** O mesmo formato que `idDe` produz: data, hora e o pedido. */
@@ -39,6 +40,9 @@ async function gravar(projeto, exec) {
     return { ok: false, erro: 'projeto ou id invalido' };
   }
   await fs.promises.mkdir(dir, { recursive: true });
+  // A `.aurora` pode nascer aqui, antes de qualquer abertura de projeto
+  // marca-la; ver main/pastas_ocultas.js.
+  ocultarPastaDeSistemaEm(dir);
   await fs.promises.writeFile(
     path.join(dir, `${exec.id}.json`),
     JSON.stringify(exec, null, 2),

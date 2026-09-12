@@ -90,9 +90,20 @@ class TerminalManager {
         this.updateCounterDisplay();
     }
 
+    /**
+     * Desligado de fabrica.
+     *
+     * Ligado, o terminal mostra a linha de comando inteira de cada passo,
+     * cinco linhas de caminhos absolutos antes de qualquer mensagem util. E
+     * o que todo aluno via na primeira compilacao. O que importa (erros,
+     * avisos, sucesso, dicas e a saida da propria ferramenta) nunca passa
+     * pelo filtro; o que ele esconde e so o eco do comando e as notas de
+     * fase, que existem para quem esta depurando a AURORA, e essa pessoa
+     * sabe onde fica o interruptor. Quem ja escolheu mantem a escolha.
+     */
     loadVerboseMode() {
         const saved = localStorage.getItem('terminal-verbose-mode');
-        return saved !== null ? JSON.parse(saved) : true;
+        return saved !== null ? JSON.parse(saved) : false;
     }
 
     createCounterBadges() {

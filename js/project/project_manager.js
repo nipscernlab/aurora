@@ -211,11 +211,24 @@ function enableCompileButtons() {
             icon.className = 'ph ph-plugs-connected';
         }
 
-        // 4. Troca o texto imediatamente. Reapontamos data-i18n também
-        // pra que o scanner do i18n re-traduza no proximo locale flip.
+        // 4. O rotulo passa a ser o NOME DO PROJETO, nao "Ready".
+        //
+        // "Ready" queria dizer "ha projeto aberto", mas ao lado do progresso
+        // da compilacao lia-se "Pronto" e "Compilando" na mesma barra, ao
+        // mesmo tempo. O nome do projeto diz o que aquele item sempre quis
+        // dizer, e diz mais: qual projeto. A cor (verde/vermelho via
+        // #ready.is-ready) continua sendo o sinal de aberto/fechado. O
+        // data-i18n sai porque nome de projeto nao se traduz; close_project
+        // o devolve ao fechar.
         if (statusText) {
-            statusText.setAttribute('data-i18n', 'statusBar.ready');
-            statusText.textContent = window.t ? window.t('statusBar.ready') : 'Ready';
+            const spf = window.currentSpfPath || window.ProjectStore?.getSpfPath?.() || '';
+            const nome = String(spf).split(/[\\/]/).pop().replace(/\.spf$/i, '');
+            statusText.removeAttribute('data-i18n');
+            statusText.textContent = nome || (window.t ? window.t('statusBar.notReady') : 'No project');
+            // O caminho inteiro fica no balao, para quem tem dois projetos
+            // de mesmo nome em pastas diferentes.
+            if (spf) statusElement.setAttribute('data-tooltip', spf);
+            else statusElement.removeAttribute('data-tooltip');
         }
     }
 }

@@ -46,8 +46,9 @@ function disableCompileButtons() {
         }
         if (statusText) {
             statusText.setAttribute('data-i18n', 'statusBar.notReady');
-            statusText.textContent = window.t ? window.t('statusBar.notReady') : 'Not Ready';
+            statusText.textContent = window.t ? window.t('statusBar.notReady') : 'No project';
         }
+        statusElement.removeAttribute('data-tooltip');
         
         statusElement.classList.remove('is-ready');
         statusElement.classList.remove('fading');

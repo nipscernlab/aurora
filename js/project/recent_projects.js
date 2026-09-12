@@ -393,14 +393,37 @@ export class RecentProjectsManager {
   // collapsing the home directory to ~ on Unix. Visual overflow is also
   // handled by CSS (text-overflow: ellipsis), so this keeps the textual
   // form readable but doesn't have to be ultra-short.
-  truncatePath(path) {
+  /**
+   * O caminho como a lista mostra: sem o nome do .spf, com a pasta do usuario
+   * virando `~`, e, se ainda assim nao couber, so o fim.
+   *
+   * O `~` sempre foi a intencao, mas o codigo lia `electronAPI.homePath` e
+   * isso nao existia na ponte: a comparacao falhava em silencio e as seis
+   * linhas de recentes mostravam o mesmo `C:\\Users\\...` inteiro, cortado
+   * pelo CSS justamente na parte que as distinguia. A ponte passou a expor
+   * o valor (js/app/preload.js), e a comparacao ignora caixa porque no
+   * Windows `c:\\users` e `C:\\Users` sao a mesma pasta.
+   *
+   * @param {string} path
+   * @param {number} [max] largura a partir da qual so o fim e mostrado
+   */
+  truncatePath(path, max = 56) {
     if (!path) return '';
     // Drop the .spf filename, VS Code shows the parent folder, not the file.
     let display = path.replace(/[\\/][^\\/]+\.spf$/i, '');
-    // Collapse the user's home dir to ~ for compactness.
-    const home = (typeof window !== 'undefined' && electronAPI?.homePath) || null;
-    if (home && display.startsWith(home)) {
+    const home = typeof electronAPI?.homePath === 'string' ? electronAPI.homePath : null;
+    if (home && display.toLowerCase().startsWith(home.toLowerCase())) {
       display = '~' + display.slice(home.length);
+    }
+    // O que distingue dois projetos esta no FIM do caminho. Se mesmo com o
+    // `~` nao couber, corta o comeco e nao o fim, que e o que o CSS faria.
+    if (display.length > max) {
+      const partes = display.split(/[\\/]/);
+      let fim = partes.pop() || '';
+      while (partes.length && (fim.length + partes[partes.length - 1].length + 1) <= max - 1) {
+        fim = partes.pop() + '\\' + fim;
+      }
+      display = '\u2026\\' + fim;
     }
     return display;
   }

@@ -32,6 +32,8 @@ interface AuroraElectronAPI {
   copyAnyPath(src: string, dest: string, opts?: { overwrite?: boolean }):
     Promise<{ success: boolean; code?: string; error?: string; path?: string }>;
   getComponentsPath(): Promise<string>;
+  /** Pasta do usuario, sincrona; a lista de recentes encurta caminhos com ela. */
+  homePath: string;
   getPythonStatus(): Promise<PythonStatus>;
   execSpec(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;
   execSpecStreamed(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;

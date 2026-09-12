@@ -513,8 +513,7 @@
     }
   },
   "statusBar": {
-    "notReady": "Não Pronto",
-    "ready": "Pronto",
+    "notReady": "Sem projeto",
     "noActiveProcessor": "Nenhum processador ativo",
     "startCompilation": "Iniciar Compilação",
     "noTopLevel": "Sem top-level",

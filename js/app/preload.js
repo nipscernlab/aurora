@@ -13,6 +13,7 @@
  */
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const os = require('os');
 
 /* ============================================================================
  *  FILE OPERATIONS
@@ -375,6 +376,11 @@ const terminalAPI = {};   // (terminalAPI separado mantido para compat futuro)
  * ========================================================================= */
 const updateOperations = {
   getComponentsPath: () => ipcRenderer.invoke('get-components-path'),
+  // Valor, nao funcao: a lista de recentes encurta caminhos com ele de forma
+  // sincrona ao desenhar. Antes o codigo lia `electronAPI.homePath` sem que
+  // isso existisse, entao o `~` nunca aparecia e as seis linhas mostravam o
+  // mesmo prefixo longo e cortavam justamente a parte que as distinguia.
+  homePath: os.homedir(),
   getAppVersion:     () => ipcRenderer.invoke('get-app-version'),
 
   // Manual control for the in-app "Check for updates" affordance. The

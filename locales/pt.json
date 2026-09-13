@@ -879,10 +879,10 @@
       "allcomp": "Executa o fluxo de compilação completo: C± ➔ ASM ➔ Verilog ➔ Forma de Onda, construindo o processador inteiro.",
       "processorHub": "Abre o Hub de Processadores para projetar e configurar novos processadores, definindo portas, tamanho de memória e opções de arquitetura.",
       "aiButton": "Abre o assistente de IA: pergunte ao Claude, ao ChatGPT ou ao Gemini sobre o seu processador, a saída do compilador ou a forma de onda, sem sair da IDE.",
-      "aurora-settings": "Abre as configurações do AURORA IDE para configurar preferências e comportamento da aplicação.",
+      "aurora-settings": "Abre as configurações da AURORA para ajustar preferências e comportamento.",
       "current-spf-name": "Exibe o nome do projeto atualmente carregado.",
       "verilog-block": "Navega e insere um módulo Verilog pré-construído no seu projeto. A maioria dos módulos é genérica e independente de FPGA, mas sempre revise antes de integrar.",
-      "change-icon-btn": "Altera o ícone do AURORA IDE. Você pode selecionar qualquer arquivo de imagem do seu computador.",
+      "change-icon-btn": "Altera o ícone da AURORA. Você pode escolher qualquer arquivo de imagem do seu computador.",
       "cancel-everything": "Cancela todos os processos e para a simulação. Não fecha o programa, mas para todos os processos e a simulação.",
       "clear-terminal": "Limpa todo o conteúdo da aba de terminal atual.",
       "goup-terminal": "Rola para cima na saída do terminal.",
@@ -979,7 +979,8 @@
     "noUpdateBody": "A versão {{version}} é a mais recente.",
     "checkFailedTitle": "Não foi possível verificar atualizações",
     "devDisabledTitle": "Verificação de atualização desligada",
-    "devDisabledBody": "Atualizações ficam desligadas rodando a partir do código."
+    "devDisabledBody": "Atualizações ficam desligadas rodando a partir do código.",
+    "updatePanelSiteTip": "Abrir o site do NIPS-CERN"
   },
   "ai": {
     "offline": {
@@ -1427,5 +1428,55 @@
     "manual": "marcado à mão",
     "markTooltip": "Marcar ponto de restauração",
     "tooltip": "Voltar o código a um ponto"
+  },
+  "palette": {
+    "compileCmm": "Compilar C±",
+    "compileVerilog": "Sintetizar Verilog",
+    "compileWave": "Analisar Verilog (forma de onda)",
+    "compileFast": "Execução rápida (Verilator)",
+    "compileProc": "Teste do processador sintetizado",
+    "compileAll": "Compilação completa",
+    "openPrism": "Abrir o PRISM",
+    "cancelCompile": "Cancelar a compilação",
+    "newProject": "Novo projeto…",
+    "openProject": "Abrir projeto…",
+    "newFile": "Novo arquivo",
+    "backupProject": "Backup do projeto",
+    "viewFiles": "Mostrar a árvore de arquivos",
+    "viewHierarchy": "Mostrar a árvore de hierarquia",
+    "viewFolders": "Mostrar a árvore de pastas",
+    "clearTerminal": "Limpar o terminal",
+    "toggleTerminal": "Mostrar ou esconder o terminal",
+    "processorHub": "Central de processadores",
+    "procSettings": "Ajustes de simulação do processador",
+    "markPoint": "Marcar ponto de restauração",
+    "rewind": "Voltar o código a um ponto…",
+    "settings": "Configurações da AURORA",
+    "designLab": "Abrir o Design Lab",
+    "toggleSlang": "Ligar ou desligar o slang, análise semântica de SystemVerilog (Ctrl+Alt+S)",
+    "jankOverlay": "Ligar ou desligar o medidor de travadas",
+    "groups": {
+      "Compile": "Compilar",
+      "Project": "Projeto",
+      "View": "Ver",
+      "Tools": "Ferramentas",
+      "Dev": "Dev"
+    },
+    "keywords": {
+      "compileCmm": "cmm build asm assemble compilar montar",
+      "compileVerilog": "veri synth hardware sintetizar sintese",
+      "compileWave": "wave gtkwave simulate onda simular forma",
+      "compileFast": "fast verilator simulate no waveform rapido veloz",
+      "compileAll": "all everything build run tudo completo",
+      "openPrism": "prism netlist schematic diagram esquematico diagrama",
+      "cancelCompile": "stop abort kill parar abortar cancelar",
+      "newProject": "create criar novo",
+      "openProject": "load abrir carregar",
+      "newFile": "create add criar adicionar arquivo",
+      "backupProject": "save zip export salvar exportar copia",
+      "markPoint": "checkpoint snapshot save state rewind ponto marcar restauracao",
+      "rewind": "undo revert checkpoint snapshot back voltar desfazer reverter",
+      "settings": "preferences options config preferencias opcoes ajustes"
+    }
   }
 }

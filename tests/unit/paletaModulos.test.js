@@ -229,3 +229,68 @@ describe('paleta: digitar rapido', () => {
     expect(tela.items).toEqual(['marcador']);
   });
 });
+
+/**
+ * A paleta na lingua da interface.
+ *
+ * Ela era inteira fixa em ingles, e e a unica tela em que a pessoa PROCURA por
+ * nome: com a AURORA em portugues, digitar "compilar" nao achava nada. Agora
+ * cada comando tem uma chave de traducao, e o titulo escrito no registro virou
+ * a reserva de quando a traducao falta.
+ *
+ * O que este bloco fixa e a parte que se erra sem perceber: a BUSCA tem de
+ * olhar o titulo traduzido (senao a lista mostra portugues e so casa ingles) e
+ * ao mesmo tempo continuar casando o vocabulario da ferramenta, que ninguem
+ * traduz na cabeca. Quem digita "wave" ou "build" nao pode ficar sem resposta
+ * por a interface estar em portugues.
+ */
+describe('paleta: a lingua da interface', () => {
+  const PT = {
+    palette: {
+      compileCmm: 'Compilar C\u00b1',
+      compileWave: 'Analisar Verilog (forma de onda)',
+      groups: { Compile: 'Compilar' },
+      keywords: { compileWave: 'wave gtkwave simulate onda simular forma' },
+    },
+  };
+
+  beforeEach(() => {
+    window.t = (k) => k.split('.').reduce((o, p) => (o || {})[p], PT) ?? k;
+  });
+
+  it('mostra o titulo e o grupo traduzidos', async () => {
+    paleta.open();
+    await assentar();
+
+    const cmm = tela.items.find((i) => i.id === 'compile.cmm');
+    expect(cmm.title).toBe('Compilar C\u00b1');
+    expect(cmm.group).toBe('Compilar');
+  });
+
+  it('acha pelo que esta escrito na tela', async () => {
+    paleta.open();
+    paleta._refilter('compilar');
+    await assentar();
+
+    expect(tela.items.length).toBeGreaterThan(0);
+    expect(tela.items[0].title).toMatch(/Compilar/);
+  });
+
+  it('continua achando pelo vocabulario da ferramenta, em ingles', async () => {
+    paleta.open();
+    paleta._refilter('wave');
+    await assentar();
+
+    expect(tela.items.some((i) => i.id === 'compile.wave')).toBe(true);
+  });
+
+  it('sem traducao, cai no titulo em ingles do registro', async () => {
+    window.t = (k) => k;   // e o que o i18n devolve quando a chave falta
+    paleta.open();
+    await assentar();
+
+    const cmm = tela.items.find((i) => i.id === 'compile.cmm');
+    expect(cmm.title).toBe('Compile C\u00b1');
+    expect(cmm.group).toBe('Compile');
+  });
+});

@@ -879,10 +879,10 @@
       "allcomp": "Performs a full compilation workflow: C± ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.",
       "processorHub": "Opens the Processor Hub to design and configure new processors, setting ports, memory size, and architectural options.",
       "aiButton": "Opens the AI assistant: ask Claude, ChatGPT or Gemini about your processor, the compiler output or the waveform, without leaving the IDE.",
-      "aurora-settings": "Opens AURORA IDE settings to configure preferences and application behavior.",
+      "aurora-settings": "Opens AURORA settings to adjust preferences and behaviour.",
       "current-spf-name": "Displays the name of the currently loaded project.",
       "verilog-block": "Browse and insert a prebuilt Verilog module into your project. Most modules are generic and FPGA-agnostic, but always review before integrating.",
-      "change-icon-btn": "Change the icon of the AURORA IDE. You can select any image file from your computer.",
+      "change-icon-btn": "Changes the AURORA icon. You can pick any image file from your computer.",
       "cancel-everything": "Cancel all processes and stop the simulation. This will not stop the program, but it will stop all processes and the simulation.",
       "clear-terminal": "Clear all content from the current terminal tab.",
       "goup-terminal": "Scroll up in the terminal output.",
@@ -979,7 +979,8 @@
     "noUpdateBody": "Version {{version}} is the latest.",
     "checkFailedTitle": "Could not check for updates",
     "devDisabledTitle": "Update checks are off",
-    "devDisabledBody": "Updates are disabled when running from source."
+    "devDisabledBody": "Updates are disabled when running from source.",
+    "updatePanelSiteTip": "Open the NIPS-CERN website"
   },
   "ai": {
     "offline": {
@@ -1427,5 +1428,55 @@
     "manual": "marked by hand",
     "markTooltip": "Mark restore point",
     "tooltip": "Rewind code to a restore point"
+  },
+  "palette": {
+    "compileCmm": "Compile C±",
+    "compileVerilog": "Synthesize Verilog",
+    "compileWave": "Analyse Verilog (waveform)",
+    "compileFast": "Fast run (Verilator)",
+    "compileProc": "Synthesized processor test",
+    "compileAll": "Full build",
+    "openPrism": "Open PRISM",
+    "cancelCompile": "Cancel compilation",
+    "newProject": "New Project…",
+    "openProject": "Open Project…",
+    "newFile": "New File",
+    "backupProject": "Backup Project",
+    "viewFiles": "Show Files tree",
+    "viewHierarchy": "Show Hierarchy tree",
+    "viewFolders": "Show Folders tree",
+    "clearTerminal": "Clear terminal",
+    "toggleTerminal": "Toggle terminal panel",
+    "processorHub": "Processor Hub",
+    "procSettings": "Processor simulation settings",
+    "markPoint": "Mark restore point",
+    "rewind": "Rewind code to a restore point…",
+    "settings": "Aurora settings",
+    "designLab": "Open Design Lab",
+    "toggleSlang": "Toggle slang, SystemVerilog semantic analysis (Ctrl+Alt+S)",
+    "jankOverlay": "Toggle Jank Overlay",
+    "groups": {
+      "Compile": "Compile",
+      "Project": "Project",
+      "View": "View",
+      "Tools": "Tools",
+      "Dev": "Dev"
+    },
+    "keywords": {
+      "compileCmm": "cmm build asm assemble compilar montar",
+      "compileVerilog": "veri synth hardware sintetizar sintese",
+      "compileWave": "wave gtkwave simulate onda simular forma",
+      "compileFast": "fast verilator simulate no waveform rapido veloz",
+      "compileAll": "all everything build run tudo completo",
+      "openPrism": "prism netlist schematic diagram esquematico diagrama",
+      "cancelCompile": "stop abort kill parar abortar cancelar",
+      "newProject": "create criar novo",
+      "openProject": "load abrir carregar",
+      "newFile": "create add criar adicionar arquivo",
+      "backupProject": "save zip export salvar exportar copia",
+      "markPoint": "checkpoint snapshot save state rewind ponto marcar restauracao",
+      "rewind": "undo revert checkpoint snapshot back voltar desfazer reverter",
+      "settings": "preferences options config preferencias opcoes ajustes"
+    }
   }
 }

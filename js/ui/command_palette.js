@@ -50,50 +50,88 @@ function clickFirst(ids) {
 // Command registry. group orders the list; keywords widen fuzzy matches.
 const COMMANDS = [
   // Compilation
-  { id: 'compile.cmm', acao: 'compileCmm',     group: 'Compile', icon: 'ph ph-play-circle',   title: 'Compile C±',                    keywords: 'cmm build asm assemble', run: () => clickById('cmmcomp') },
-  { id: 'compile.verilog', acao: 'compileVerilog', group: 'Compile', icon: 'ph ph-cpu',           title: 'Synthesize Verilog',            keywords: 'veri synth hardware',    run: () => clickById('vericomp') },
-  { id: 'compile.wave', acao: 'compileWave',    group: 'Compile', icon: 'ph ph-waveform',      title: 'Analyse Verilog (waveform)',    keywords: 'wave gtkwave simulate',  run: () => clickById('wavecomp') },
-  { id: 'compile.fast', acao: 'compileFast',    group: 'Compile', icon: 'ph ph-lightning',     title: 'Fast run (Verilator)',          keywords: 'fast verilator simulate no waveform', run: () => clickById('fastsim') },
-  { id: 'compile.proc',    group: 'Compile', icon: 'ph ph-circuitry',     title: 'Synthesized processor test',    keywords: 'verilator proc io',      run: () => clickById('verilatorproc') },
-  { id: 'compile.all', acao: 'compileAll',     group: 'Compile', icon: 'ph ph-hammer',        title: 'Full build',                    keywords: 'all everything build run', run: () => clickById('allcomp') },
-  { id: 'compile.prism', acao: 'openPrism',   group: 'Compile', icon: 'ph ph-graph',         title: 'Open PRISM',                    keywords: 'prism netlist schematic diagram', run: () => clickById('prismcomp') },
-  { id: 'compile.cancel', acao: 'cancelCompilation',  group: 'Compile', icon: 'ph ph-x-circle',      title: 'Cancel compilation',            keywords: 'stop abort kill',        run: () => clickById('cancel-everything') },
+  { id: 'compile.cmm', chave: 'compileCmm', acao: 'compileCmm',     group: 'Compile', icon: 'ph ph-play-circle',   title: 'Compile C±',                    keywords: 'cmm build asm assemble', run: () => clickById('cmmcomp') },
+  { id: 'compile.verilog', chave: 'compileVerilog', acao: 'compileVerilog', group: 'Compile', icon: 'ph ph-cpu',           title: 'Synthesize Verilog',            keywords: 'veri synth hardware',    run: () => clickById('vericomp') },
+  { id: 'compile.wave', chave: 'compileWave', acao: 'compileWave',    group: 'Compile', icon: 'ph ph-waveform',      title: 'Analyse Verilog (waveform)',    keywords: 'wave gtkwave simulate',  run: () => clickById('wavecomp') },
+  { id: 'compile.fast', chave: 'compileFast', acao: 'compileFast',    group: 'Compile', icon: 'ph ph-lightning',     title: 'Fast run (Verilator)',          keywords: 'fast verilator simulate no waveform', run: () => clickById('fastsim') },
+  { id: 'compile.proc', chave: 'compileProc',    group: 'Compile', icon: 'ph ph-circuitry',     title: 'Synthesized processor test',    keywords: 'verilator proc io',      run: () => clickById('verilatorproc') },
+  { id: 'compile.all', chave: 'compileAll', acao: 'compileAll',     group: 'Compile', icon: 'ph ph-hammer',        title: 'Full build',                    keywords: 'all everything build run', run: () => clickById('allcomp') },
+  { id: 'compile.prism', chave: 'openPrism', acao: 'openPrism',   group: 'Compile', icon: 'ph ph-graph',         title: 'Open PRISM',                    keywords: 'prism netlist schematic diagram', run: () => clickById('prismcomp') },
+  { id: 'compile.cancel', chave: 'cancelCompile', acao: 'cancelCompilation',  group: 'Compile', icon: 'ph ph-x-circle',      title: 'Cancel compilation',            keywords: 'stop abort kill',        run: () => clickById('cancel-everything') },
 
   // Project
-  { id: 'project.new', acao: 'newProject',     group: 'Project', icon: 'ph ph-folder-simple-plus', title: 'New Project…',            keywords: 'create',                 run: () => clickFirst(['newProjectBtn', 'newProjectBtnWelcome']) },
-  { id: 'project.open', acao: 'openProject',    group: 'Project', icon: 'ph ph-folder-open',   title: 'Open Project…',                 keywords: 'load',                   run: () => clickFirst(['openProjectBtn', 'openProjectBtnWelcome']) },
-  { id: 'project.newFile', acao: 'newFile', group: 'Project', icon: 'ph ph-file-plus',     title: 'New File',                      keywords: 'create add',             run: () => clickById('new-file') },
-  { id: 'project.backup', acao: 'backupProject',  group: 'Project', icon: 'ph ph-archive',       title: 'Backup Project',                keywords: 'save zip export',        run: () => clickById('backup-project') },
+  { id: 'project.new', chave: 'newProject', acao: 'newProject',     group: 'Project', icon: 'ph ph-folder-simple-plus', title: 'New Project…',            keywords: 'create',                 run: () => clickFirst(['newProjectBtn', 'newProjectBtnWelcome']) },
+  { id: 'project.open', chave: 'openProject', acao: 'openProject',    group: 'Project', icon: 'ph ph-folder-open',   title: 'Open Project…',                 keywords: 'load',                   run: () => clickFirst(['openProjectBtn', 'openProjectBtnWelcome']) },
+  { id: 'project.newFile', chave: 'newFile', acao: 'newFile', group: 'Project', icon: 'ph ph-file-plus',     title: 'New File',                      keywords: 'create add',             run: () => clickById('new-file') },
+  { id: 'project.backup', chave: 'backupProject', acao: 'backupProject',  group: 'Project', icon: 'ph ph-archive',       title: 'Backup Project',                keywords: 'save zip export',        run: () => clickById('backup-project') },
 
   // View
-  { id: 'view.files',      group: 'View',    icon: 'ph ph-list-bullets',  title: 'Show Files tree',               keywords: 'verilog picker sidebar', run: () => window.fileTreeViewController?.showFileMode?.() },
-  { id: 'view.hierarchy',  group: 'View',    icon: 'ph ph-tree-structure', title: 'Show Hierarchy tree',          keywords: 'modules netlist sidebar', run: () => window.fileTreeViewController?.showHierarchyMode?.() },
-  { id: 'view.folders',    group: 'View',    icon: 'ph ph-folders',       title: 'Show Folders tree',             keywords: 'filesystem standard explorer sidebar', run: () => window.fileTreeViewController?.showStandardMode?.() },
-  { id: 'view.clearTerm', acao: 'clearTerminal',  group: 'View',    icon: 'ph ph-broom',         title: 'Clear terminal',                keywords: 'clean console output',   run: () => clickById('clear-terminal') },
+  { id: 'view.files', chave: 'viewFiles',      group: 'View',    icon: 'ph ph-list-bullets',  title: 'Show Files tree',               keywords: 'verilog picker sidebar', run: () => window.fileTreeViewController?.showFileMode?.() },
+  { id: 'view.hierarchy', chave: 'viewHierarchy',  group: 'View',    icon: 'ph ph-tree-structure', title: 'Show Hierarchy tree',          keywords: 'modules netlist sidebar', run: () => window.fileTreeViewController?.showHierarchyMode?.() },
+  { id: 'view.folders', chave: 'viewFolders',    group: 'View',    icon: 'ph ph-folders',       title: 'Show Folders tree',             keywords: 'filesystem standard explorer sidebar', run: () => window.fileTreeViewController?.showStandardMode?.() },
+  { id: 'view.clearTerm', chave: 'clearTerminal', acao: 'clearTerminal',  group: 'View',    icon: 'ph ph-broom',         title: 'Clear terminal',                keywords: 'clean console output',   run: () => clickById('clear-terminal') },
   // O painel recolhido nao tinha caminho de volta, e a paleta so oferecia
   // limpar o terminal, que exige um painel aberto para servir de alguma coisa.
-  { id: 'view.toggleTerm', group: 'View',   icon: 'ph ph-caret-up-down', title: 'Toggle terminal panel',         keywords: 'terminal panel show hide collapse expand open console', run: () => window.toggleTerminal?.() },
+  { id: 'view.toggleTerm', chave: 'toggleTerminal', group: 'View',   icon: 'ph ph-caret-up-down', title: 'Toggle terminal panel',         keywords: 'terminal panel show hide collapse expand open console', run: () => window.toggleTerminal?.() },
 
   // Tools
-  { id: 'tools.hub', acao: 'processorHub',       group: 'Tools',   icon: 'ph ph-graph',         title: 'Processor Hub',                 keywords: 'generate processor create', run: () => clickById('processorHub') },
-  { id: 'tools.procCfg',   group: 'Tools',   icon: 'ph ph-gear-six',      title: 'Processor simulation settings', keywords: 'clock clocks config',    run: () => clickById('procConfigToggle') },
-  { id: 'tools.markPoint', group: 'Tools',   icon: 'ph ph-bookmark-simple', title: 'Mark restore point',      keywords: 'checkpoint snapshot save state rewind', run: () => window.auroraRewind?.marcar?.() },
-  { id: 'tools.rewind',    group: 'Tools',   icon: 'ph ph-arrow-counter-clockwise', title: 'Rewind code to a restore point…', keywords: 'undo revert checkpoint snapshot back', run: () => window.auroraRewind?.escolher?.() },
-  { id: 'tools.settings', acao: 'openSettings',  group: 'Tools',   icon: 'ph ph-gear',          title: 'Aurora settings',               keywords: 'preferences options config', run: () => clickById('aurora-settings') },
-  { id: 'tools.designLab', group: 'Tools',   icon: 'ph ph-flask',         title: 'Open Design Lab',               keywords: 'components gallery design lab dev showcase lit', run: () => electronAPI?.openDesignLab?.() },
-  { id: 'tools.slang', acao: 'toggleSlang',     group: 'Tools',   icon: 'ph ph-brackets-angle', title: 'Toggle slang — SystemVerilog semantic analysis (Ctrl+Alt+S)', keywords: 'slang systemverilog verilog semantic lsp lint diagnostics elaboration toggle ctrl alt s', run: () => window.AuroraSlang?.toggle?.() },
+  { id: 'tools.hub', chave: 'processorHub', acao: 'processorHub',       group: 'Tools',   icon: 'ph ph-graph',         title: 'Processor Hub',                 keywords: 'generate processor create', run: () => clickById('processorHub') },
+  { id: 'tools.procCfg', chave: 'procSettings',   group: 'Tools',   icon: 'ph ph-gear-six',      title: 'Processor simulation settings', keywords: 'clock clocks config',    run: () => clickById('procConfigToggle') },
+  { id: 'tools.markPoint', chave: 'markPoint', group: 'Tools',   icon: 'ph ph-bookmark-simple', title: 'Mark restore point',      keywords: 'checkpoint snapshot save state rewind', run: () => window.auroraRewind?.marcar?.() },
+  { id: 'tools.rewind', chave: 'rewind',    group: 'Tools',   icon: 'ph ph-arrow-counter-clockwise', title: 'Rewind code to a restore point…', keywords: 'undo revert checkpoint snapshot back', run: () => window.auroraRewind?.escolher?.() },
+  { id: 'tools.settings', chave: 'settings', acao: 'openSettings',  group: 'Tools',   icon: 'ph ph-gear',          title: 'Aurora settings',               keywords: 'preferences options config', run: () => clickById('aurora-settings') },
+  { id: 'tools.designLab', chave: 'designLab', group: 'Tools',   icon: 'ph ph-flask',         title: 'Open Design Lab',               keywords: 'components gallery design lab dev showcase lit', run: () => electronAPI?.openDesignLab?.() },
+  { id: 'tools.slang', chave: 'toggleSlang', acao: 'toggleSlang',     group: 'Tools',   icon: 'ph ph-brackets-angle', title: 'Toggle slang — SystemVerilog semantic analysis (Ctrl+Alt+S)', keywords: 'slang systemverilog verilog semantic lsp lint diagnostics elaboration toggle ctrl alt s', run: () => window.AuroraSlang?.toggle?.() },
 
   // Dev
-  { id: 'dev.jankOverlay', group: 'Dev',   icon: 'ph ph-chart-line',    title: 'Toggle Jank Overlay',           keywords: 'performance fps jank perf debug dev p99 rAF TTI', run: () => import('../dev/jank_overlay.js').then(m => m.toggleJankOverlay()) },
+  { id: 'dev.jankOverlay', chave: 'jankOverlay', group: 'Dev',   icon: 'ph ph-chart-line',    title: 'Toggle Jank Overlay',           keywords: 'performance fps jank perf debug dev p99 rAF TTI', run: () => import('../dev/jank_overlay.js').then(m => m.toggleJankOverlay()) },
 ];
+
+/**
+ * O texto traduzido, ou a reserva em ingles.
+ *
+ * A paleta era inteira fixa em ingles, e ela e a unica tela em que a pessoa
+ * PROCURA por nome: com a interface em portugues, digitar "compilar" nao
+ * achava nada. Cada comando agora tem `chave`, e o titulo escrito aqui vira a
+ * reserva de quando a traducao falta.
+ */
+function tr(chave, reserva) {
+  const f = typeof window !== 'undefined' ? window.t : null;
+  if (typeof f !== 'function') return reserva;
+  const v = f(chave);
+  return (v && v !== chave) ? v : reserva;
+}
+
+/** O titulo do comando na lingua da interface. */
+function tituloDe(cmd) {
+  return cmd.chave ? tr(`palette.${cmd.chave}`, cmd.title) : cmd.title;
+}
+
+/**
+ * As palavras de busca: as do comando MAIS as da lingua.
+ *
+ * Somadas, e nao trocadas: o titulo em portugues nao pode fazer perder quem
+ * digita "build" ou "wave", que e o vocabulario da ferramenta.
+ */
+function palavrasDe(cmd) {
+  const daLingua = cmd.chave ? tr(`palette.keywords.${cmd.chave}`, '') : '';
+  return `${cmd.keywords || ''} ${daLingua === `palette.keywords.${cmd.chave}` ? '' : daLingua}`.trim();
+}
+
+/** O nome do grupo na lingua da interface. */
+function grupoDe(nome) {
+  return tr(`palette.groups.${nome}`, nome);
+}
 
 const GROUP_ORDER = ['Compile', 'Project', 'View', 'Tools', 'Dev'];
 
 /** Subsequence score: every query term must appear in the haystack. Higher is
  *  better; title hits beat keyword hits, prefix beats mid-string. -1 = no match. */
 function scoreCommand(cmd, query) {
-  const title = cmd.title.toLowerCase();
-  const hay = `${title} ${cmd.keywords} ${cmd.group}`.toLowerCase();
+  // O titulo TRADUZIDO, senao a busca continuaria casando so o ingles enquanto
+  // a lista mostra portugues, e digitar o que se ve nao acharia nada.
+  const title = tituloDe(cmd).toLowerCase();
+  const hay = `${title} ${cmd.title} ${palavrasDe(cmd)} ${cmd.group} ${grupoDe(cmd.group)}`.toLowerCase();
   const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (!terms.length) return 0;
   let score = 0;
@@ -256,7 +294,7 @@ class CommandPalette {
       scored = COMMANDS.map((cmd) => ({ cmd, score: 0 }));
       scored.sort((a, b) => {
         const g = GROUP_ORDER.indexOf(a.cmd.group) - GROUP_ORDER.indexOf(b.cmd.group);
-        return g !== 0 ? g : a.cmd.title.localeCompare(b.cmd.title);
+        return g !== 0 ? g : tituloDe(a.cmd).localeCompare(tituloDe(b.cmd));
       });
     } else {
       scored = COMMANDS
@@ -311,7 +349,12 @@ class CommandPalette {
   /** Push the current filtered list + selection to the view. */
   _sync() {
     if (!this._el) return;
-    this._el.items = this._items.map((s) => ({ ...s.cmd, atalho: atalhoDe(s.cmd.acao) }));
+    this._el.items = this._items.map((s) => ({
+      ...s.cmd,
+      title: tituloDe(s.cmd),
+      group: grupoDe(s.cmd.group),
+      atalho: atalhoDe(s.cmd.acao),
+    }));
     this._el.selected = this._sel;
   }
 

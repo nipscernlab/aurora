@@ -1378,5 +1378,12 @@
   },
   "procConfig": {
     "help": "Abrir o capítulo do manual sobre os jeitos de rodar"
+  },
+  "problems": {
+    "title": "Problemas",
+    "tooltip": "Problemas da última compilação",
+    "none": "Nenhum problema",
+    "count": "Erros: {{errors}}  Avisos: {{warnings}}",
+    "emptyBody": "A última compilação não reclamou de nada."
   }
 }

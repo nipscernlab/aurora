@@ -1,0 +1,135 @@
+/* problems_panel.css: o que a ultima compilacao reclamou.
+   Segue a lista de resultados da busca (search_panel.css) de proposito: sao o
+   mesmo gesto, "uma lista de lugares no codigo em que clicar", e aprender duas
+   aparencias para a mesma coisa nao ajuda ninguem. */
+
+.problems-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.problems-list {
+  display: flex;
+  flex-direction: column;
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  min-width: 0;
+}
+/* `display` de autor VENCE o `[hidden]` do navegador: sem esta regra, esconder
+   a lista pelo JavaScript nao a esconderia. O invariante e do repo inteiro e
+   tem teste proprio (tests/unit/hiddenRespeitado.test.js). */
+.problems-list[hidden] { display: none; }
+
+/* vazio: a compilacao passou */
+.problems-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.problems-empty i {
+  font-size: var(--text-lg);
+  color: var(--status-success);
+}
+
+/* cabecalho de arquivo */
+.problems-file {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.problems-file-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  position: sticky;
+  top: 0;
+  background: var(--bg-elev);
+  z-index: 1;
+}
+.problems-file-path {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.problems-file-count {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* uma ocorrencia */
+.problems-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-5);
+  cursor: pointer;
+  min-width: 0;
+}
+.problems-row:hover,
+.problems-row:focus-visible {
+  background: var(--bg-elev-1, var(--bg-elev));
+  outline: none;
+}
+.problems-icon {
+  flex: 0 0 auto;
+  font-size: var(--text-sm);
+  align-self: center;
+}
+.problems-row.erro .problems-icon { color: var(--status-error); }
+.problems-row.aviso .problems-icon { color: var(--status-warning); }
+/* A linha em fonte mono e tabular: a coluna de numeros fica alinhada e o olho
+   desce por ela sem reler. */
+.problems-line {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 3.5em;
+}
+.problems-msg {
+  flex: 1 1 auto;
+  font-size: var(--text-sm);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+/* Qual ferramenta reclamou. Apagado e por ultimo: e o que menos importa na
+   hora de consertar, e o primeiro a ceder espaco quando a mensagem e longa. */
+.problems-tool {
+  flex: 0 1 auto;
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* O contador no botao da barra do terminal.
+   Nao some quando zerado (o texto e que fica vazio): botao que aparece e
+   desaparece muda o lugar dos vizinhos e faz a pessoa procurar. */
+#problems-panel { position: relative; }
+#problems-panel .problems-count {
+  margin-left: var(--space-1);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+#problems-panel.tem-erro i,
+#problems-panel.tem-erro .problems-count { color: var(--status-error); }
+#problems-panel.tem-aviso i,
+#problems-panel.tem-aviso .problems-count { color: var(--status-warning); }

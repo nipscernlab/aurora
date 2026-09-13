@@ -1378,5 +1378,12 @@
   },
   "procConfig": {
     "help": "Open the manual chapter about the ways to run"
+  },
+  "problems": {
+    "title": "Problems",
+    "tooltip": "Problems from the last build",
+    "none": "No problems",
+    "count": "Errors: {{errors}}  Warnings: {{warnings}}",
+    "emptyBody": "The last build reported nothing."
   }
 }

@@ -452,7 +452,7 @@ function pastaDePontos(projeto) {
  * @param {string} projeto
  * @param {{ rotulo?: string|null, mensagemId?: string|null, agora?: number }} [meta]
  */
-function criarPonto(projeto, { rotulo = null, mensagemId = null, manual = false, agora = Date.now() } = {}) {
+function criarPonto(projeto, { rotulo = null, motivo = null, mensagemId = null, manual = false, agora = Date.now() } = {}) {
   const dir = pastaDePontos(projeto);
   if (!dir) return { ok: false, erro: 'projeto invalido' };
 
@@ -513,6 +513,21 @@ function criarPonto(projeto, { rotulo = null, mensagemId = null, manual = false,
     id,
     assinatura,
     quando: agora,
+    /*
+     * `motivo` e uma CHAVE, e `rotulo` e texto livre.
+     *
+     * A primeira versao guardava so `rotulo`, ja traduzido, no instante em que
+     * o ponto nascia. O resultado apareceu na tela do Chrysthofer: um ponto
+     * criado com a interface em ingles mostrava "marked by hand" para sempre,
+     * e o "antes de voltar" estava escrito em portugues aqui dentro, entao
+     * aparecia em portugues ate para quem usa em ingles. Rotulo de tela nao
+     * pode ser gravado em disco.
+     *
+     * Agora o disco guarda o MOTIVO ('manual', 'compilar', 'voltar', 'pedido')
+     * e quem mostra traduz. `rotulo` fica para o unico texto que e mesmo do
+     * usuario e nao se traduz: o comeco do pedido que ele escreveu para a IA.
+     */
+    motivo: motivo || null,
     rotulo: rotulo ? String(rotulo).slice(0, 200) : null,
     mensagemId: mensagemId ? String(mensagemId).slice(0, 64) : null,
     arquivos,
@@ -540,7 +555,7 @@ function listarPontos(projeto) {
   for (const nome of fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort().reverse()) {
     try {
       const d = JSON.parse(fs.readFileSync(path.join(dir, nome), 'utf8'));
-      pontos.push({ id: d.id, quando: d.quando, rotulo: d.rotulo || null, mensagemId: d.mensagemId || null, arquivos: (d.arquivos || []).length });
+      pontos.push({ id: d.id, quando: d.quando, motivo: d.motivo || null, rotulo: d.rotulo || null, mensagemId: d.mensagemId || null, arquivos: (d.arquivos || []).length });
     } catch { /* ponto ilegivel: nao derruba a lista */ }
   }
   return { ok: true, pontos };
@@ -620,7 +635,7 @@ async function rebobinar(projeto, id, { trashItem = null } = {}) {
   const previa = previaDoPonto(projeto, id);
   if (!previa.ok) return previa;
 
-  criarPonto(projeto, { rotulo: 'antes de voltar', agora: Date.now() });
+  criarPonto(projeto, { motivo: 'voltar', manual: true, agora: Date.now() });
 
   let restaurados = 0;
   const falhas = [];

@@ -311,7 +311,7 @@ function startCompilation(terminalsToClear) {
     // Um ponto antes de compilar: e o que permite voltar "para o que
     // compilava", que e a pergunta mais frequente depois de uma mudanca que
     // quebrou tudo. Nao se espera por ele.
-    marcarPonto({ rotulo: tr('rewind.beforeBuild') });
+    marcarPonto({ motivo: 'compilar' });
 }
 
 function endCompilation() {

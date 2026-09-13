@@ -1440,7 +1440,10 @@
     "pickEmpty": "No restore point yet. One is marked before each message to Aurora Intelligence and before each build.",
     "manual": "marked by hand",
     "markTooltip": "Mark restore point",
-    "tooltip": "Rewind code to a restore point"
+    "tooltip": "Rewind code to a restore point",
+    "beforeRewind": "before rewinding",
+    "beforePrompt": "before a request",
+    "point": "restore point"
   },
   "palette": {
     "compileCmm": "Compile C±",

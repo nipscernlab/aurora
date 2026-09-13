@@ -1692,7 +1692,7 @@ class AIAssistantManager {
     // que a pessoa nao viu o que ia acontecer antes de acontecer. Nao se
     // espera por ele: marcar o instante nao pode atrasar o envio.
     const idDaMensagem = `msg-${Date.now()}`;
-    marcarPonto({ rotulo: rotuloDoPedido(text), mensagemId: idDaMensagem });
+    marcarPonto({ motivo: 'pedido', rotulo: rotuloDoPedido(text), mensagemId: idDaMensagem });
     const userBubble = this.appendBubble('user', text);
     userBubble?.setAttribute('data-ponto', idDaMensagem);
     if (atts.length) this._renderBubbleAttachments(userBubble, atts);

@@ -35,6 +35,30 @@ function tt(key, fallback) {
   return (v && v !== key) ? v : fallback;
 }
 
+/**
+ * O nome do ponto na lingua de AGORA.
+ *
+ * O disco guarda um MOTIVO (uma chave) e, so para o ponto vindo de uma
+ * mensagem, o comeco do que a pessoa escreveu. Traduzir aqui, e nao ao criar,
+ * e o que faz um ponto criado com a interface em ingles aparecer em portugues
+ * quando ela troca de lingua. Gravar o rotulo ja traduzido congelava a lingua
+ * do instante, e foi assim que "marked by hand" apareceu numa tela em
+ * portugues.
+ *
+ * Ponto antigo, gravado antes desta mudanca, so tem `rotulo`: ele e mostrado
+ * como esta, porque inventar um motivo para ele seria adivinhar.
+ */
+export function nomeDoPonto(p) {
+  const porMotivo = {
+    manual: tt('rewind.manual', 'marked by hand'),
+    compilar: tt('rewind.beforeBuild', 'before compiling'),
+    voltar: tt('rewind.beforeRewind', 'before rewinding'),
+  };
+  if (p.motivo === 'pedido') return p.rotulo || tt('rewind.beforePrompt', 'before a request');
+  if (p.motivo && porMotivo[p.motivo]) return porMotivo[p.motivo];
+  return p.rotulo || tt('rewind.point', 'restore point');
+}
+
 /** `13/09 14:22`, o mesmo formato curto do resto da interface. */
 export function quando(ms) {
   const d = new Date(ms);
@@ -197,7 +221,7 @@ export async function escolherPonto() {
     variant: 'info',
     buttons: [
       ...pontos.slice(0, 10).map((p) => ({
-        label: `${quando(p.quando)}${p.rotulo ? `  ${p.rotulo}` : ''}`,
+        label: `${quando(p.quando)}  ${nomeDoPonto(p)}`,
         // O id do ponto viaja como `action`: e o que o dialogo devolve.
         action: `ponto:${p.id}`,
         type: 'cancel',
@@ -213,7 +237,7 @@ export async function escolherPonto() {
 export async function marcarPontoManual() {
   // `manual: true`: um ponto pedido de proposito aparece na lista mesmo que o
   // estado ainda seja o mesmo. Quem clicou espera ver o resultado do clique.
-  const r = await marcarPonto({ rotulo: tt('rewind.manual', 'marked by hand'), manual: true });
+  const r = await marcarPonto({ motivo: 'manual', manual: true });
   try {
     window.showNotification?.(
       r ? tt('rewind.marked', 'Restore point marked.') : tt('rewind.failed', 'Could not mark it.'),

@@ -1440,7 +1440,10 @@
     "pickEmpty": "Ainda não há ponto. Um é marcado antes de cada mensagem à Aurora Intelligence e antes de cada compilação.",
     "manual": "marcado à mão",
     "markTooltip": "Marcar ponto de restauração",
-    "tooltip": "Voltar o código a um ponto"
+    "tooltip": "Voltar o código a um ponto",
+    "beforeRewind": "antes de voltar",
+    "beforePrompt": "antes de um pedido",
+    "point": "ponto de restauração"
   },
   "palette": {
     "compileCmm": "Compilar C±",

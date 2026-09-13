@@ -156,7 +156,11 @@ describe('ponto: voltar', () => {
 
     const depois = hist.listarPontos(raiz).pontos;
     expect(depois.length).toBe(antes + 1);
-    expect(depois[0].rotulo).toBe('antes de voltar');
+    // O disco guarda o MOTIVO, e nao a frase: quem mostra traduz na hora.
+    // Antes daqui a frase ia gravada em portugues e aparecia assim ate para
+    // quem usa a AURORA em ingles. Ver tests/unit/rotuloDoPonto.test.js.
+    expect(depois[0].motivo).toBe('voltar');
+    expect(depois[0].rotulo).toBeNull();
   });
 
   it('o rotulo do ponto sobrevive na lista, para a pessoa reconhecer o instante', () => {

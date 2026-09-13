@@ -2055,10 +2055,16 @@ class AIAssistantManager {
     // o que fazer com a separacao e cada runner: o caminho de API poe a marca
     // entre os dois, as CLIs juntam de novo (main/ai/prompt_cache.js).
     const systemPrompt = SYSTEM_PROMPT;
-    const systemContext = buildProjectContext(projectPath, spfPath, memories, componentes)
-      // So na conversa de tutorial; newChat limpa. Vai por ultimo para o
-      // contexto do projeto continuar onde o resto do codigo espera.
-      + (this.tutorialBlock || '');
+    const systemContext = buildProjectContext(projectPath, spfPath, memories, componentes);
+    // O bloco do tutorial vai SEPARADO, e nao mais colado no fim do contexto.
+    //
+    // Ele nao muda do primeiro ao ultimo turno da conversa de tutorial, e o
+    // contexto do projeto muda a cada turno. Colados, o bloco inteiro era
+    // reescrito toda vez, sem cache: medido em 13/09/2026, 36.423 caracteres de
+    // paginas do manual (mais 37.424 de manifesto de ferramentas, que saiu por
+    // ser copia do que o modelo ja recebe). Separado, ele leva marca propria de
+    // uma hora e e lido do cache nos turnos seguintes.
+    const systemFixo = this.tutorialBlock || undefined;
 
     try {
       const r = await window.aiAPI.startChat({
@@ -2069,6 +2075,7 @@ class AIAssistantManager {
         messages: apiMessages,
         system: systemPrompt,
         systemContext,
+        systemFixo,
         // Shared effort selection, sent to any bridge that declares
         // hasEffort (Claude Code --effort; Codex -c model_reasoning_effort).
         effort: (SUB_META[this.currentProvider]?.hasEffort || this.currentProvider === 'anthropic') ? this.claudeCodeEffort : undefined,

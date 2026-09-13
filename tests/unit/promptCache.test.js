@@ -163,10 +163,92 @@ describe('cache: o bloco estavel nao e invalidado pelo variavel', () => {
 describe('cache: a proporcao que o log reporta', () => {
   it('mede a fatia estavel em caracteres', () => {
     expect(proporcaoEstavel('a'.repeat(976), 'b'.repeat(24)))
-      .toEqual({ estavel: 976, variavel: 24, total: 1000, pctEstavel: 97.6 });
+      .toEqual({ estavel: 976, variavel: 24, daConversa: 0, total: 1000, pctEstavel: 97.6 });
+  });
+
+  it('conta tambem o bloco fixo da conversa, que entra no total', () => {
+    // O tutorial da API e o unico hoje. Sem ele no total, o log diria que o
+    // system tem 1.000 caracteres num turno em que ele tem 1.500, e a fatia
+    // estavel pareceria maior do que e.
+    expect(proporcaoEstavel('a'.repeat(750), 'b'.repeat(250), 'c'.repeat(1000)))
+      .toEqual({ estavel: 750, variavel: 250, daConversa: 1000, total: 2000, pctEstavel: 37.5 });
   });
 
   it('nao divide por zero quando nao ha nada', () => {
-    expect(proporcaoEstavel('', '')).toEqual({ estavel: 0, variavel: 0, total: 0, pctEstavel: 0 });
+    expect(proporcaoEstavel('', '')).toEqual({ estavel: 0, variavel: 0, daConversa: 0, total: 0, pctEstavel: 0 });
+  });
+});
+
+describe('cache: o bloco fixo DESTA conversa', () => {
+  // Ele nao muda do primeiro ao ultimo turno, mas so existe nesta conversa.
+  // Colado no estavel criaria um prefixo diferente para quem esta no tutorial,
+  // e o prefixo comum deixaria de servir aos dois; colado no variavel seria
+  // reescrito inteiro todo turno, que era o que acontecia ate 13/09/2026.
+  const FIXO = 'TUTORIAL: '.repeat(200);
+
+  it('vai em mensagem propria, ENTRE a estavel e a variavel', () => {
+    const { instructionsArg } = montarComCache({
+      providerName: 'anthropic',
+      system: SYSTEM,
+      systemFixoDaConversa: FIXO,
+      systemVariavel: 'contexto do projeto',
+      messages: conversa,
+    });
+    expect(instructionsArg).toHaveLength(3);
+    expect(instructionsArg[0].content).toBe(SYSTEM);
+    expect(instructionsArg[1].content).toBe(FIXO);
+    expect(instructionsArg[2].content).toBe('contexto do projeto');
+  });
+
+  it('leva marca de uma hora, como o estavel', () => {
+    const { instructionsArg } = montarComCache({
+      providerName: 'anthropic',
+      system: SYSTEM,
+      systemFixoDaConversa: FIXO,
+      systemVariavel: 'ctx',
+      messages: conversa,
+    });
+    expect(instructionsArg[1].providerOptions.anthropic.cacheControl).toEqual({ type: 'ephemeral', ttl: '1h' });
+    // E o variavel continua SEM marca: ele e recobrado todo turno de qualquer
+    // jeito, e marca-lo gastaria uma das quatro que a API permite.
+    expect(instructionsArg[2].providerOptions).toBeUndefined();
+  });
+
+  it('sem bloco fixo, nada muda: continuam duas mensagens', () => {
+    const { instructionsArg } = montarComCache({
+      providerName: 'anthropic', system: SYSTEM, systemVariavel: 'ctx', messages: conversa,
+    });
+    expect(instructionsArg).toHaveLength(2);
+  });
+
+  it('sao QUATRO marcas no total, que e exatamente o teto da API', () => {
+    // ferramentas (fora daqui) + estavel + fixo da conversa + ultima do usuario.
+    // A quinta o provedor descarta com um aviso, sem erro: quem acrescentar
+    // outra nao vai ver nada quebrar, vai ver a conta subir.
+    const { instructionsArg, messagesArg } = montarComCache({
+      providerName: 'anthropic',
+      system: SYSTEM,
+      systemFixoDaConversa: FIXO,
+      systemVariavel: 'ctx',
+      messages: conversa,
+    });
+    const noSystem = instructionsArg.filter((m) => m.providerOptions).length;
+    const naConversa = messagesArg.filter(
+      (m) => Array.isArray(m.content) && m.content.some((c) => c.providerOptions),
+    ).length;
+    expect(noSystem + naConversa).toBe(3);   // a quarta e a da ultima ferramenta
+  });
+
+  it('quem nao cacheia recebe os tres juntos, na mesma ordem', () => {
+    // O texto que o modelo le nao pode mudar por causa de cache. Este teste e o
+    // que garante que a CLI de assinatura continua vendo o mesmo prompt.
+    const { instructionsArg } = montarComCache({
+      providerName: 'openai',
+      system: 'ESTAVEL',
+      systemFixoDaConversa: 'FIXO',
+      systemVariavel: 'VARIAVEL',
+      messages: conversa,
+    });
+    expect(instructionsArg).toBe('ESTAVELFIXOVARIAVEL');
   });
 });

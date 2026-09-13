@@ -258,7 +258,7 @@ async function start(payload, webContents) {
   // A CLI recebe o system prompt INTEIRO. A separacao entre a parte estavel e a
   // que muda a cada turno existe para o cache da API da Anthropic; aqui ela so
   // precisa ser desfeita, para o comportamento ficar identico ao de antes.
-  const system = (payload?.system || '') + (payload?.systemContext || '');
+  const system = (payload?.system || '') + (payload?.systemFixo || '') + (payload?.systemContext || '');
 
   if (!sessionId || typeof sessionId !== 'string') {
     throw new Error('sessionId is required');

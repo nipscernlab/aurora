@@ -10,11 +10,20 @@
  * todo turno, e uma pausa de mais de 5 minutos para compilar ou pensar jogava o
  * cache fora.
  *
- * AS TRES MARCAS (a API aceita ate quatro):
+ * AS QUATRO MARCAS, que e o teto da API:
  *   1. a ultima ferramenta, que fecha o prefixo de ferramentas inteiro;
  *   2. a parte ESTAVEL do system prompt;
- *   3. a ultima mensagem do usuario, que anda a cada turno: tudo antes dela e
+ *   3. o bloco FIXO DESTA CONVERSA, quando existe (hoje so o tutorial da API).
+ *      Ele nao muda do primeiro ao ultimo turno, mas nao serve para o prefixo
+ *      global porque so existe nessa conversa: marca propria, entre o estavel
+ *      e o que muda por turno;
+ *   4. a ultima mensagem do usuario, que anda a cada turno: tudo antes dela e
  *      identico ao turno anterior, entao a conversa toda vem do cache.
+ *
+ * QUATRO E O TETO, E ESTAMOS NELE. O provedor conta as marcas e DESCARTA a
+ * quinta com um aviso, sem erro nenhum (@ai-sdk/anthropic, MAX_CACHE_BREAKPOINTS
+ * = 4). Quem acrescentar uma quinta nao vai ver nada quebrar: vai ver a conta
+ * subir. Por isso chat.js registra no log os avisos que o SDK devolve.
  *
  * POR QUE A PARTE ESTAVEL, E NAO O SYSTEM PROMPT INTEIRO. O que a AURORA manda
  * como system e a soma de duas coisas com vidas diferentes: o prompt derivado
@@ -79,36 +88,48 @@ function cacheia(providerName) {
  * @param {object} p
  * @param {string} p.providerName
  * @param {string} [p.system] a parte ESTAVEL: e ela que leva a marca de 1h
+ * @param {string} [p.systemFixoDaConversa] o que nao muda DENTRO desta
+ *   conversa mas nao vale para as outras (o tutorial da API). Vai entre o
+ *   estavel e o variavel, com marca propria de 1 hora.
  * @param {string} [p.systemVariavel] o que muda a cada turno (contexto do
- *   projeto, memorias, componentes). Vai DEPOIS do estavel e SEM marca, para
- *   nao arrastar o prefixo grande junto quando mudar.
+ *   projeto, memorias, componentes). Vai por ULTIMO e SEM marca, para nao
+ *   arrastar os prefixos grandes junto quando mudar.
  * @param {Array<{role:string, content:any}>} p.messages mensagens ja no formato do SDK
  * @param {number} [p.minimoChars] abaixo disto o system prompt nao vale a marca
  * @returns {{ instructionsArg: any, messagesArg: Array<any>, comCache: boolean }}
  *   `instructionsArg` vai direto em `instructions` do streamText: string sem
  *   cache, ou a mensagem de sistema marcada.
  */
-function montarComCache({ providerName, system, systemVariavel, messages, minimoChars = 1024 }) {
+function montarComCache({ providerName, system, systemFixoDaConversa, systemVariavel, messages, minimoChars = 1024 }) {
   const msgs = Array.isArray(messages) ? messages : [];
   const estavel = system || '';
+  const daConversa = systemFixoDaConversa || '';
   const variavel = systemVariavel || '';
 
   if (!cacheia(providerName)) {
-    // Sem cache, os dois viram de novo uma string so: e exatamente o que os
-    // outros provedores recebiam antes desta separacao existir.
-    const inteiro = estavel + variavel;
+    // Sem cache, os tres viram de novo uma string so: e exatamente o que os
+    // outros provedores recebiam antes desta separacao existir. A ORDEM e a
+    // mesma de sempre, entao o texto que o modelo le nao muda.
+    const inteiro = estavel + daConversa + variavel;
     return { instructionsArg: inteiro || undefined, messagesArg: msgs, comCache: false };
   }
 
   /** @type {Array<any>} */
   const out = [];
   let comCache = false;
-  let instructionsArg = (estavel + variavel) || undefined;
+  let instructionsArg = (estavel + daConversa + variavel) || undefined;
   if (estavel && estavel.length > minimoChars) {
     // A marca fica no FIM DO ESTAVEL, e nao no fim de tudo. O bloco variavel
-    // vem depois e sem marca: ele e recobrado a cada turno de qualquer jeito, e
-    // marca-lo so gastaria uma das quatro que a API permite.
+    // vem por ultimo e sem marca: ele e recobrado a cada turno de qualquer
+    // jeito, e marca-lo so gastaria uma das quatro que a API permite.
     instructionsArg = [{ role: 'system', content: estavel, providerOptions: marca('1h') }];
+    // O bloco fixo DESTA conversa entra no meio, com marca propria. Marca
+    // propria, e nao coladinho no estavel, porque o estavel e o mesmo em TODA
+    // conversa: junta-lo criaria um prefixo diferente para quem esta no
+    // tutorial e o prefixo comum deixaria de servir aos dois.
+    if (daConversa) {
+      instructionsArg.push({ role: 'system', content: daConversa, providerOptions: marca('1h') });
+    }
     if (variavel) instructionsArg.push({ role: 'system', content: variavel });
     comCache = true;
   }
@@ -134,11 +155,18 @@ function montarComCache({ providerName, system, systemVariavel, messages, minimo
  * @param {string} [estavel]
  * @param {string} [variavel]
  */
-function proporcaoEstavel(estavel, variavel) {
+function proporcaoEstavel(estavel, variavel, daConversa) {
   const e = (estavel || '').length;
   const v = (variavel || '').length;
-  const total = e + v;
-  return { estavel: e, variavel: v, total, pctEstavel: total ? Math.round((e / total) * 1000) / 10 : 0 };
+  const c = (daConversa || '').length;
+  const total = e + v + c;
+  return {
+    estavel: e,
+    variavel: v,
+    daConversa: c,
+    total,
+    pctEstavel: total ? Math.round((e / total) * 1000) / 10 : 0,
+  };
 }
 
 /**

@@ -330,7 +330,7 @@ async function ensureMcpConfig(webContents) {
 async function start(payload, webContents) {
   const {
     sessionId, conversationId, messages,
-    system, systemContext, effort, modelId, permission,
+    system, systemContext, systemFixo, effort, modelId, permission,
   } = payload || {};
 
   if (!sessionId || typeof sessionId !== 'string') {
@@ -388,7 +388,18 @@ async function start(payload, webContents) {
       // entre estavel e variavel existe para o cache da API da Anthropic, e o
       // processo da CLI tem o cache dele. Juntar aqui mantem o comportamento
       // identico ao de antes da separacao.
-      { sessionId, conversationId, messages, system: (system || '') + (systemContext || ''), modelId, effort, bin },
+      // A CLI recebe o system prompt INTEIRO, na mesma ordem em que ele e
+      // montado para a API. A separacao em tres blocos existe para as marcas de
+      // cache do caminho de API; aqui ela so precisa ser desfeita.
+      {
+        sessionId,
+        conversationId,
+        messages,
+        system: (system || '') + (systemFixo || '') + (systemContext || ''),
+        modelId,
+        effort,
+        bin,
+      },
       webContents,
       {
         sendEvent,

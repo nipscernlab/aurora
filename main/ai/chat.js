@@ -138,6 +138,7 @@ async function start(payload, webContents) {
     messages,
     system,
     systemContext,
+    systemFixo,
     effort,
     operacao,
   } = payload || {};
@@ -203,13 +204,18 @@ async function start(payload, webContents) {
     // prompt_cache.js; aqui so se monta o pedido. As ferramentas ja vem com a
     // marca da ultima (tools.buildTools).
     const { instructionsArg, messagesArg, comCache } = promptCache.montarComCache({
-      providerName, system, systemVariavel: systemContext, messages: sdkMessages,
+      providerName,
+      system,
+      systemFixoDaConversa: systemFixo,
+      systemVariavel: systemContext,
+      messages: sdkMessages,
     });
     if (comCache) {
-      const p = promptCache.proporcaoEstavel(system, systemContext);
+      const p = promptCache.proporcaoEstavel(system, systemContext, systemFixo);
       log.info(
         `[ai.chat] prompt cache armado para ${modelKey} (estavel 1h, ferramentas 1h, conversa 5m); `
-        + `system ${p.total} chars = ${p.estavel} estaveis (${p.pctEstavel}%) + ${p.variavel} por turno`,
+        + `system ${p.total} chars = ${p.estavel} estaveis (${p.pctEstavel}%) + ${p.variavel} por turno`
+        + (p.daConversa ? ` + ${p.daConversa} fixos desta conversa (1h)` : ''),
       );
     }
 
@@ -317,6 +323,21 @@ async function start(payload, webContents) {
       }
       return { calls, recusadas };
     }
+
+    // O QUE O SDK RECLAMOU, que ate agora sumia.
+    //
+    // O provedor nao lanca erro quando a gente pede alguma coisa que ele nao
+    // pode dar: ele junta um aviso e segue. O caso que motiva isto e a quinta
+    // marca de cache, que ele DESCARTA em silencio (MAX_CACHE_BREAKPOINTS = 4).
+    // Hoje usamos quatro, no teto; quem acrescentar a quinta nao veria nada
+    // quebrar, veria a conta subir e nao saberia por que.
+    Promise.resolve(result.warnings)
+      .then((avisos) => {
+        for (const a of (avisos || [])) {
+          log.warn(`[ai.chat] o SDK avisou: ${a && (a.details || a.message || a.type)}`);
+        }
+      })
+      .catch(() => { /* aviso e diagnostico, nunca atrapalha o turno */ });
 
     let fullText = '';
     /** As citacoes que este turno produziu, para o log do fim. */

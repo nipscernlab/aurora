@@ -7,14 +7,25 @@
  * proprias ferramentas se o passo deu certo antes de seguir. A pessoa aprende
  * a API vendo a API acontecer.
  *
- * DE ONDE VEM O CONTEUDO. De dois lugares, e de nenhum outro. O manifesto das
- * ferramentas, gerado do proprio codigo (docs/aurora-intelligence-tools.md),
- * entra inteiro: e a lista do que existe, com a descricao que o modelo ja le.
- * O manual do SAPHO entra pelas paginas que a busca do manual instalado
- * devolve para alguns temas, lidas em tempo de execucao: o manual e mantido
- * num repositorio proprio e chega a AURORA pronto, entao nada dele e copiado
- * para ca. Sem manual instalado, o tutorial segue so com o manifesto e diz
- * isso a assistente.
+ * DE ONDE VEM O CONTEUDO. Do manual do SAPHO, pelas paginas que a busca do
+ * manual instalado devolve para alguns temas, lidas em tempo de execucao: o
+ * manual e mantido num repositorio proprio e chega a AURORA pronto, entao nada
+ * dele e copiado para ca. Sem manual instalado, o tutorial segue assim mesmo e
+ * diz isso a assistente.
+ *
+ * O MANIFESTO DE FERRAMENTAS SAIU DAQUI, e ele era METADE do bloco. O arquivo
+ * docs/aurora-intelligence-tools.md era colado inteiro, 37.424 caracteres, e
+ * ele e uma TABELA das mesmas 124 ferramentas que o modelo ja recebe no campo
+ * `tools` do pedido, com a mesma `description`, palavra por palavra: conferido
+ * em 13/09/2026, 124 de 124 descricoes aparecem verbatim no md. O proprio
+ * cabecalho do arquivo gerado diz isso ("e o mesmo texto que o modelo le ao
+ * decidir se a chama").
+ *
+ * Era a lista inteira de ferramentas mandada DUAS VEZES no mesmo pedido, e a
+ * segunda em prosa, que e a forma mais cara de dizer o que o campo proprio ja
+ * diz. Sair nao tira informacao nenhuma do modelo: ele continua com as 124
+ * ferramentas e com a descricao de cada uma, pelo caminho que a API tem para
+ * isso.
  *
  * POR QUE INJETAR NO PROMPT, e nao so deixar as ferramentas de busca. A
  * assistente ja consegue procurar no manual quando quer. Num tutorial ela
@@ -54,8 +65,6 @@
  * esbarra na mesma questao de ordem descrita no fim de prompt_cache.js, e por
  * isso e frente propria e nao um remendo.
  */
-
-import manifesto from '../../docs/aurora-intelligence-tools.md?raw';
 
 /** O que se busca no manual, na ordem em que o tutorial vai usar. */
 const TEMAS = [
@@ -124,8 +133,18 @@ export function montarBlocoTutorial(locale, manual) {
           + 'already have open (read the project state before proposing the sequence). Cite the manual '
           + 'chapter each topic comes from, by title. Never invent tools: if something is not in the list, '
           + 'say it does not exist. No emoji, no em dash, prose instead of decorative lists.');
-    partes.push('\n\n--- THE TOOL MANIFEST (generated from main/ai/tools.js) ---\n');
-    partes.push(String(manifesto || ''));
+    // Nao vai lista de ferramenta aqui: o modelo ja recebeu as 124 no campo
+    // `tools`, com a mesma descricao. O que ele precisa e saber que SAO ELAS o
+    // assunto da aula, e isso cabe numa frase.
+    partes.push(pt
+        ? '\n\nAS FERRAMENTAS DA AULA sao exatamente as que voce recebeu neste pedido, '
+          + 'com a descricao de cada uma. Nao ha lista separada, e nao precisa haver: '
+          + 'consulte as suas proprias ferramentas para montar a sequencia, e ensine '
+          + 'pelas que existem de verdade.\n'
+        : '\n\nTHE TOOLS OF THIS LESSON are exactly the ones you were given in this '
+          + 'request, each with its description. There is no separate list, and there '
+          + 'need not be: look at your own tools to plan the sequence, and teach the '
+          + 'ones that actually exist.\n');
     if (manual.paginas.length) {
         partes.push('\n\n--- PAGES FROM THE INSTALLED SAPHO MANUAL (read at tutorial start) ---\n');
         for (const p of manual.paginas) {
@@ -133,8 +152,8 @@ export function montarBlocoTutorial(locale, manual) {
         }
     } else {
         partes.push(pt
-            ? `\n\n(O manual do SAPHO nao pode ser lido nesta maquina: ${manual.motivo || 'motivo desconhecido'}. Avise a pessoa no comeco e ensine so pelo manifesto.)`
-            : `\n\n(The SAPHO manual could not be read on this machine: ${manual.motivo || 'unknown reason'}. Tell the person at the start and teach from the manifest only.)`);
+            ? `\n\n(O manual do SAPHO nao pode ser lido nesta maquina: ${manual.motivo || 'motivo desconhecido'}. Avise a pessoa no comeco e ensine so pelas ferramentas que voce tem.)`
+            : `\n\n(The SAPHO manual could not be read on this machine: ${manual.motivo || 'unknown reason'}. Tell the person at the start and teach from your own tools only.)`);
     }
     partes.push('\n=== END OF TUTORIAL MODE ===\n');
     return partes.join('');

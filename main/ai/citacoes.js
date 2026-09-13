@@ -10,9 +10,21 @@
  * pagina do manual que a sustenta, com o indice do caractere onde ele comeca.
  * Nao e o modelo dizendo de onde acha que tirou: e o pedaco do texto.
  *
- * ONDE ISTO NAO ENTRA. Quando a assistente OPERA a IDE. Compilar, abrir onda,
- * criar arquivo: nao ha documento a citar, e enfiar um so para ter citacao
- * seria encenacao.
+ * ONDE ISTO NAO ENTRA, e sao dois lugares.
+ *
+ * O primeiro: quando a assistente OPERA a IDE. Compilar, abrir onda, criar
+ * arquivo: nao ha documento a citar, e enfiar um so para ter citacao seria
+ * encenacao.
+ *
+ * O segundo, e este pega quem for testar: SO O CAMINHO DE API CITA. Os
+ * provedores de assinatura (Claude Code e Codex) falam com a API por dentro da
+ * propria CLI; a AURORA entrega a eles um system prompt e um servidor MCP
+ * (main/ai/aurora_mcp_server.js), e nao monta o corpo do pedido. Nao ha onde
+ * por o bloco de documento. Numa conversa por assinatura a mesma pergunta sobre
+ * o manual e respondida igual, com search_manual e read_manual_page, e nenhuma
+ * citacao aparece: nao esta quebrado, esta fora do alcance. O sinal na tela sao
+ * os nomes de ferramenta, que pela assinatura chegam como
+ * `mcp__aurora__read_manual_page` e pela API chegam sem prefixo.
  *
  * O CAMINHO, E POR QUE E ESTE. A API da Anthropic so aceita citacao em bloco de
  * documento dentro de mensagem de USUARIO. Resultado de ferramenta nao serve:

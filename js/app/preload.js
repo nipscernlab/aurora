@@ -501,9 +501,12 @@ const aiAPI = {
   // `operacao` diz que TIPO de tarefa e esta chamada (comentar, acharErros,
   // posCompilacaoOk, posCompilacaoFalha, livre). O main resolve o esforco a
   // partir dela (main/ai/effort_policy.js); ausente, vale o valor da interface.
-  startChat: ({ sessionId, conversationId, provider, modelId, messages, system, systemContext, effort, operacao, permission }) =>
+  // `systemFixo` e o que nao muda DENTRO de uma conversa mas nao vale para as
+  // outras (hoje so o tutorial da API). Vai separado porque leva marca de cache
+  // propria, entre o bloco estavel e o que muda por turno.
+  startChat: ({ sessionId, conversationId, provider, modelId, messages, system, systemContext, systemFixo, effort, operacao, permission }) =>
     ipcRenderer.invoke('ai:chat-start', {
-      sessionId, conversationId, provider, modelId, messages, system, systemContext, effort, operacao, permission,
+      sessionId, conversationId, provider, modelId, messages, system, systemContext, systemFixo, effort, operacao, permission,
     }),
 
   /** Abort an in-flight session. Resolves with `{ ok, stopped: bool }`. */

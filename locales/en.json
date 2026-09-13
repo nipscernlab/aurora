@@ -1025,7 +1025,12 @@
     "usageThisSession": "This session",
     "permAsk": "Ask every time",
     "permWrites": "Ask before changes",
-    "permAllow": "Allow all"
+    "permAllow": "Allow all",
+    "citations": {
+      "head": "From the manual",
+      "expand": "Expand",
+      "collapse": "Collapse"
+    }
   },
   "git": {
     "title": "Source Control",

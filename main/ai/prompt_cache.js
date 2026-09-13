@@ -182,4 +182,32 @@ function leituraDoCache(usage) {
   return { lidos, escritos, entrada };
 }
 
+/**
+ * O DOCUMENTO CITAVEL NAO LEVA MARCA, E ISSO E DECISAO.
+ *
+ * Quem ler este arquivo depois de ver main/ai/citacoes.js vai procurar aqui a
+ * quarta marca, a do documento do manual, e nao vai achar. Nao foi esquecimento.
+ *
+ * A API permite quatro marcas e usamos tres, entao sobrava uma. O impedimento e
+ * outro, e e de ORDEM. Citacao so existe em bloco de documento dentro de
+ * mensagem de USUARIO, e toda mensagem vem depois de todo o bloco de sistema. O
+ * nosso bloco variavel (projeto, memorias, componentes) mora no sistema e muda a
+ * cada turno. Como o cache e por prefixo, qualquer marca posta atras dele e
+ * invalidada sempre que ele muda, que e o tempo todo. Cachear o documento
+ * obrigaria a tirar o contexto variavel de dentro do `instructions` e joga-lo no
+ * fluxo de mensagens, depois do documento.
+ *
+ * O QUE ISSO COMPRARIA: uma pagina do manual tem uns 5.550 caracteres, uns 1.500
+ * tokens (a proporcao vem do bloco estavel, 37.378 chars para uns 10,4 mil
+ * tokens; e deducao, nao medida). Reestruturar o que o modelo ve, mudando um
+ * bloco de sistema em mensagem de usuario, por 1.500 tokens por turno, nao se
+ * paga. Fixar o manual INTEIRO seria outra conversa, 205.348 chars, uns 55 mil
+ * tokens, e ai a conta vira a do prefixo frio de effort_policy.js, com um numero
+ * dez vezes maior: a 1 hora a escrita custa 2x, e quem pergunta do manual duas
+ * vezes por semana nunca acha o prefixo quente.
+ *
+ * Se um dia o contexto variavel sair do sistema por OUTRO motivo, esta decisao
+ * muda junto, e ai a marca do documento passa a valer.
+ */
+
 module.exports = { montarComCache, marcaDaUltimaFerramenta, leituraDoCache, cacheia, proporcaoEstavel, TTL_LONGO };

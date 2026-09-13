@@ -45,7 +45,19 @@
 //                       separacao do prefixo protege.
 //   --caso onda         abrir a onda, perguntar sobre um sinal, pedir outro
 //                       ponto de vista. Conversa mais longa, contexto parado.
-//   --caso ambos        os dois (padrao).
+//   --caso manual       uma pergunta sobre o C+- respondida a partir de uma
+//                       pagina do manual, medida DUAS VEZES: com o documento
+//                       citavel anexado e sem ele. E a unica das tres perguntas
+//                       cuja resposta ainda nao temos.
+//   --caso ambos        compilacao e onda (padrao).
+//
+// A TERCEIRA PERGUNTA, E POR QUE ELA E SEPARADA DAS OUTRAS DUAS. Diz-se que o
+// texto citado nao conta como token de SAIDA. Se for verdade, ligar citations e
+// economia liquida, porque hoje o system prompt manda a assistente reproduzir o
+// trecho na prosa, e isso e saida paga. Nao foi conferido contra a fonte, e nao
+// se afirma numero sem medir: o caso `manual` roda a mesma pergunta com e sem o
+// documento anexado e compara `outputTokens`. Se a coluna de saida cair, a
+// afirmacao se sustenta; se nao cair, o prompt voltou a mandar reproduzir.
 //
 // AS DUAS MONTAGENS COMPARADAS:
 //   antes   system prompt e contexto do projeto CONCATENADOS num bloco so,
@@ -157,6 +169,25 @@ function casos(projeto) {
             { role: 'assistant', content: 'The build failed at line 42 of the C+- source.' },
             { role: 'user', content: 'Why does line 42 fail? The loop index is called i.' },
           ],
+        },
+      ],
+    },
+
+    // Uma pergunta que so o manual responde. O identificador `i` e reservado
+    // por ser a unidade imaginaria do C+-, e isso nao esta na documentacao
+    // oficial: modelo generico responde com toda a confianca do mundo e erra.
+    // E o caso em que citation existe para servir.
+    manual: {
+      nome: 'manual',
+      // Marcado para o modo vivo saber que este caso roda duas vezes, com e
+      // sem o documento anexado.
+      comparaCitacao: true,
+      turnos: [
+        {
+          rotulo: 'pergunta sobre o C+-',
+          operacao: 'livre',
+          contexto: ctxBase(),
+          mensagens: [{ role: 'user', content: 'Posso usar i como contador de laco em C+-?' }],
         },
       ],
     },
@@ -299,6 +330,25 @@ function dinheiro(eq, saida, o) {
   return e + s;
 }
 
+/**
+ * A pagina do manual, lida do disco, como documento citavel.
+ *
+ * Le a MESMA pagina que o `read_manual_page` leria, pelo mesmo indexador
+ * (main/docs/busca.js), para o peso medido ser o peso real.
+ */
+function documentoDoManual(consulta) {
+  const busca = require(path.join(REPO_ROOT, 'main', 'docs', 'busca.js'));
+  const citacoes = require(path.join(REPO_ROOT, 'main', 'ai', 'citacoes.js'));
+  const dir = path.join(REPO_ROOT, 'resources', 'docs');
+  const achados = busca.buscar(dir, consulta, { limite: 1 });
+  if (!achados.length) return null;
+  const pag = busca.ler(dir, achados[0].caminho, { limite: 12000 });
+  if (!pag.ok) return null;
+  return citacoes.mensagemDeDocumentos([
+    { caminho: pag.caminho, titulo: pag.titulo, texto: pag.texto },
+  ]);
+}
+
 async function medirUmTurno({ modelo, esforco, instructionsArg, messagesArg, aiTools, ai, provedor }) {
   const t0 = Date.now();
   let ttft = null;
@@ -388,14 +438,23 @@ async function medirVivo(system, casosDoze, o) {
           const { instructionsArg, messagesArg } = montar({
             system, systemContext: t.contexto, messages: t.mensagens,
           });
-          try {
-            const m = await medirUmTurno({
-              modelo: o.modelo, esforco: escolher(t), instructionsArg, messagesArg, aiTools, ai, provedor: anthropic,
-            });
-            somaEq += equivalente(m);
-            console.log(linha(t.rotulo.slice(0, 26), m, o));
-          } catch (e) {
-            console.log(`    ${t.rotulo.slice(0, 26).padEnd(26)} FALHOU: ${e && e.message}`);
+          // O caso do manual roda duas vezes: sem o documento e com ele. E a
+          // comparacao que responde se o trecho citado sai da conta de saida.
+          const variantes = caso.comparaCitacao
+            ? [['sem documento', null], ['com citacao', documentoDoManual(t.mensagens.at(-1).content)]]
+            : [['', null]];
+          for (const [rotuloVar, doc] of variantes) {
+            const msgs = doc ? messagesArg.concat([doc]) : messagesArg;
+            const nome = (rotuloVar ? `${rotuloVar}` : t.rotulo).slice(0, 26);
+            try {
+              const m = await medirUmTurno({
+                modelo: o.modelo, esforco: escolher(t), instructionsArg, messagesArg: msgs, aiTools, ai, provedor: anthropic,
+              });
+              somaEq += equivalente(m);
+              console.log(linha(nome, m, o));
+            } catch (e) {
+              console.log(`    ${nome.padEnd(26)} FALHOU: ${e && e.message}`);
+            }
           }
         }
         const dTotal = dinheiro(somaEq, 0, o);
@@ -405,9 +464,12 @@ async function medirVivo(system, casosDoze, o) {
     }
     console.log('');
   }
-  console.log('  As duas contas sao separadas de proposito. A montagem responde pelo cache;');
-  console.log('  o esforco responde por quanto raciocinio a tarefa pediu. Juntas, uma esconde');
-  console.log('  a outra: menos tokens com mais raciocinio pode dar a mesma fatura.\n');
+  console.log('  As tres contas sao separadas de proposito. A montagem responde pelo cache;');
+  console.log('  o esforco responde por quanto raciocinio a tarefa pediu; e o caso do manual');
+  console.log('  responde se o trecho citado sai da conta de SAIDA. Juntas, uma esconde a');
+  console.log('  outra: menos tokens com mais raciocinio pode dar a mesma fatura.\n');
+  console.log('  PENDENTE ate alguem rodar isto com chave: as tres respostas acima. Nada');
+  console.log('  no codigo afirma numero que este medidor nao tenha produzido.\n');
 }
 
 /* ─────────────────────── principal ─────────────────────── */
@@ -425,9 +487,13 @@ async function main() {
   const system = mod.SYSTEM_PROMPT;
 
   const todos = casos('C:\\projetos\\proc');
-  const escolhidos = o.caso === 'ambos' ? [todos.compilacao, todos.onda] : [todos[o.caso]];
+  const escolhidos = o.caso === 'ambos'
+    ? [todos.compilacao, todos.onda]
+    : o.caso === 'tudo'
+      ? [todos.compilacao, todos.onda, todos.manual]
+      : [todos[o.caso]];
   if (escolhidos.some((c) => !c)) {
-    console.error(`caso desconhecido: ${o.caso} (use compilacao, onda ou ambos)`);
+    console.error(`caso desconhecido: ${o.caso} (use compilacao, onda, manual, ambos ou tudo)`);
     process.exitCode = 1;
     return;
   }

@@ -123,6 +123,21 @@
    Nao some quando zerado (o texto e que fica vazio): botao que aparece e
    desaparece muda o lugar dos vizinhos e faz a pessoa procurar. */
 #problems-panel { position: relative; }
+/* O numero fica DENTRO do botao, e o botao da barra do terminal e um quadrado
+   de 22 px feito para caber so o icone (css/terminal/terminal.css). Com o
+   contador aceso, o numero transbordava para fora dessa caixa e ia encostar no
+   icone do botao vizinho: na tela o "1" vermelho e o proximo icone liam como
+   uma coisa so.
+   Entao o botao DEIXA DE SER QUADRADO enquanto conta alguma coisa. As duas
+   classes sao as que o painel ja liga quando ha erro ou aviso
+   (js/terminal/problems_panel.js), entao a largura segue o contador sem
+   ninguem precisar sincronizar mais nada. */
+#problems-panel.tem-erro,
+#problems-panel.tem-aviso {
+  width: auto;
+  padding: 0 var(--space-1);
+}
+
 #problems-panel .problems-count {
   margin-left: var(--space-1);
   font-size: var(--text-2xs);

@@ -22,6 +22,37 @@
  * isso ela improvisa a ordem e descobre o conteudo aos poucos, que e o
  * contrario de ensinar. O bloco e limitado em tamanho por pagina e por total,
  * porque o manual inteiro tem 1,2 MB e nao cabe em janela nenhuma.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DE QUE LADO DO CACHE ESTE BLOCO CAI: DO VARIAVEL. E E CARO.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Registrado em 13/09/2026, ao ligar as citacoes, como PROXIMA FRENTE e nao
+ * como conserto desta. Quem mexer aqui precisa saber disto antes de mexer.
+ *
+ * O system prompt da AURORA vai em duas partes (main/ai/prompt_cache.js): a
+ * ESTAVEL, com 37.378 caracteres, que leva marca de cache de uma hora, e a
+ * VARIAVEL, que e relida a cada turno e nao leva marca nenhuma. O bloco
+ * montado aqui e concatenado no `systemContext` pelo painel
+ * (js/ui/ai_assistant_manager.js, `+ (this.tutorialBlock || '')`), e o
+ * `systemContext` E a parte variavel.
+ *
+ * Quer dizer que este bloco, de ate 60.000 caracteres, uns 16 mil tokens, e
+ * REESCRITO INTEIRO A CADA TURNO da conversa de tutorial, sem cache. Ele e
+ * quatro vezes maior que o bloco fixo que a separacao do cache foi feita para
+ * proteger. Numa conversa de tutorial de dez turnos isso e 160 mil tokens de
+ * entrada paga, e quem paga e quem usa a AURORA, com a propria credencial.
+ *
+ * O lado bom da escolha errada: estando no variavel, ele ao menos nao INVALIDA
+ * o prefixo estavel. Se estivesse do lado estavel seria pior, porque os cinco
+ * temas buscados variam com o manual instalado e com o que a busca devolve,
+ * entao cada mudanca de conteudo derrubaria os 10,4 mil tokens fixos junto.
+ *
+ * O CONSERTO, quando for a hora, nao e mudar de lado: e o bloco de tutorial
+ * virar tambem documento com marca de cache propria, como as paginas citaveis
+ * de main/ai/citacoes.js, mas essas cabem sem cache e esta nao cabe. Isso
+ * esbarra na mesma questao de ordem descrita no fim de prompt_cache.js, e por
+ * isso e frente propria e nao um remendo.
  */
 
 import manifesto from '../../docs/aurora-intelligence-tools.md?raw';

@@ -2388,6 +2388,21 @@ class AIAssistantManager {
         // time the user looks, this is what fixes "usage never updates".
         if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
         break;
+      case 'citation':
+        // O trecho REAL da pagina do manual que sustenta o que a assistente
+        // acabou de dizer, com o indice do caractere. Junta-se aqui e desenha
+        // de uma vez no fim do turno: desenhar a cada chegada faria o bloco
+        // crescer por baixo do texto enquanto a pessoa ainda le.
+        if (ev.citacao) {
+          if (!this._citacoesDoTurno) this._citacoesDoTurno = [];
+          // A mesma frase pode vir citada duas vezes se o modelo a usar em
+          // duas afirmacoes. Uma linha por frase, nao por uso.
+          const ja = this._citacoesDoTurno.some(
+            (c) => c.pagina === ev.citacao.pagina && c.trecho === ev.citacao.trecho,
+          );
+          if (!ja) this._citacoesDoTurno.push(ev.citacao);
+        }
+        break;
       case 'tool-rejected':
         // Uma chamada de ferramenta que a IA escreveu como texto e que NAO
         // passou pelo esquema da propria ferramenta. Vai para o TCMD, que e o
@@ -2664,9 +2679,104 @@ class AIAssistantManager {
 
   commitTurn() {
     this._sealTurnText();
+    // As citacoes vao DEPOIS do texto selado: elas sustentam o que ficou
+    // escrito, entao aparecem embaixo dele, e nao no meio.
+    this._registrarCitacoes();
     this.resetTurnState();
     // Auto-save the conversation after every turn.
     this.persistCurrentChat();
+  }
+
+  /**
+   * Fecha as citacoes do turno: guarda no historico e desenha.
+   *
+   * Entram na conversa como um registro de papel `citation`, que
+   * `buildApiMessages` filtra (js/ai/chat_turn.js): e para a pessoa conferir,
+   * nao para o modelo reler o que ele mesmo citou.
+   */
+  _registrarCitacoes() {
+    const lista = this._citacoesDoTurno || [];
+    this._citacoesDoTurno = null;
+    if (!lista.length) return;
+    this.messages.push({ role: 'citation', citacoes: lista });
+    this.messagesEl.appendChild(this._blocoDeCitacoes(lista));
+    this.scrollToBottom?.();
+  }
+
+  /**
+   * O bloco que fica embaixo da resposta: o titulo da pagina e a frase citada.
+   *
+   * POR QUE A FRASE FICA A VISTA, e nao atras de um hover. Hover nao existe no
+   * toque, nao sobrevive a um print e esconde justamente o que a coisa toda
+   * existe para revelar. Frase comprida e cortada por CSS e abre no botao.
+   *
+   * POR QUE NAO MARCADOR SOBRESCRITO no meio da prosa: a resposta e texto
+   * corrido em portugues, e numero sobrescrito ali le como artigo academico.
+   *
+   * Clicar no titulo abre o manual naquela pagina. E o gesto todo: a pessoa
+   * sai da resposta e cai no texto de verdade, que e onde ela confere.
+   */
+  _blocoDeCitacoes(lista) {
+    const bloco = document.createElement('div');
+    bloco.className = 'ai-citacoes';
+
+    const titulo = document.createElement('div');
+    titulo.className = 'ai-citacoes-head';
+    titulo.setAttribute('data-i18n', 'ai.citations.head');
+    titulo.textContent = 'From the manual';
+    bloco.appendChild(titulo);
+
+    for (const c of lista) {
+      const item = document.createElement('div');
+      item.className = 'ai-citacao';
+
+      const pagina = document.createElement('button');
+      pagina.type = 'button';
+      pagina.className = 'ai-citacao-pagina';
+      pagina.textContent = c.titulo || c.pagina;
+      pagina.title = c.pagina || '';
+      pagina.addEventListener('click', () => {
+        // `docs:open-help` monta o caminho a partir da pasta do manual e ja
+        // recusa caminho para fora dela (main/ipc/docs.js), entao a pagina que
+        // veio da API atravessa a mesma guarda que a da interface.
+        try { window.electronAPI?.docsOpenHelp?.(c.pagina); }
+        catch (e) { console.warn('[ai] nao consegui abrir o manual:', e); }
+      });
+      item.appendChild(pagina);
+
+      const trecho = document.createElement('p');
+      trecho.className = 'ai-citacao-trecho';
+      trecho.textContent = c.trecho || '';
+      item.appendChild(trecho);
+
+      // O botao de expandir so aparece quando a frase REALMENTE nao coube.
+      // Botao que aparece sempre e clicado a toa, e num trecho de uma linha
+      // ele nao faria nada.
+      const mais = document.createElement('button');
+      mais.type = 'button';
+      mais.className = 'ai-citacao-mais hidden';
+      mais.setAttribute('data-i18n', 'ai.citations.expand');
+      mais.textContent = 'Expand';
+      mais.addEventListener('click', () => {
+        const aberto = item.classList.toggle('aberta');
+        mais.setAttribute('data-i18n', aberto ? 'ai.citations.collapse' : 'ai.citations.expand');
+        mais.textContent = aberto ? 'Collapse' : 'Expand';
+        window.i18nApplyDOM?.(mais);
+      });
+      item.appendChild(mais);
+
+      // A medida so vale depois de o elemento estar no documento e pintado.
+      requestAnimationFrame(() => {
+        if (trecho.scrollHeight > trecho.clientHeight + 1) mais.classList.remove('hidden');
+      });
+
+      bloco.appendChild(item);
+    }
+
+    // Traduzido na HORA DE MOSTRAR, e nao ao criar: quem troca o idioma com a
+    // conversa aberta veria o bloco congelado no idioma de antes.
+    window.i18nApplyDOM?.(bloco);
+    return bloco;
   }
 
   /**
@@ -3288,6 +3398,7 @@ class AIAssistantManager {
     if (this.currentSessionId) return;        // never switch mid-stream
     await this.persistCurrentChat();
     this.messages = [];
+    this._citacoesDoTurno = null;
     this.tutorialBlock = '';
     this.messagesEl.innerHTML = '';
     this._lastMsgRole = null;
@@ -3530,6 +3641,11 @@ class AIAssistantManager {
           this.appendStaticToolChip(msg.toolName, msg.status, msg.error, msg.args, msg.result),
         );
         staticGroup.total += 1;
+      } else if (msg.role === 'citation') {
+        // Sem este ramo a citacao cairia no teste de `typeof msg.content`
+        // abaixo, que e string, e sumiria calada ao reabrir a conversa.
+        closeStaticGroup();
+        this.messagesEl.appendChild(this._blocoDeCitacoes(msg.citacoes || []));
       } else if (msg.role === 'question') {
         // A question record has no `content`, so without this branch the
         // `typeof msg.content === 'string'` test below drops it silently.

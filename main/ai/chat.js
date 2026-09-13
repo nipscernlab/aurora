@@ -19,6 +19,7 @@
  *   { type:'text-delta',  delta }
  *   { type:'tool-call',   toolName, args }
  *   { type:'tool-result', toolName, result }
+ *   { type:'citation',    citacao }   trecho real do manual que sustenta a frase
  *   { type:'finish',      text, usage }
  *   { type:'aborted',     text }
  *   { type:'error',       message }
@@ -45,6 +46,7 @@ const tools = require('./tools');
 const promptCache = require('./prompt_cache');
 const toolArgs = require('./tool_args');
 const effortPolicy = require('./effort_policy');
+const citacoes = require('./citacoes');
 const toolBridge = require('./tool_bridge');
 const audit = require('./audit');
 const { STREAM_IDLE_MS } = require('./timeouts');
@@ -172,9 +174,20 @@ async function start(payload, webContents) {
 
     // Each tool call ships to the renderer (ask-before-write happens
     // there) and is bracketed by audit entries.
+    // As paginas do manual que este turno abriu. Elas voltam ao modelo como
+    // DOCUMENTO citavel no passo seguinte (prepareStep, abaixo), porque a API
+    // so aceita citacao em bloco de documento dentro de mensagem de usuario:
+    // resultado de ferramenta nao serve. O porque completo esta em citacoes.js.
+    /** @type {Array<{caminho: string, titulo: string, texto: string}>} */
+    const paginasCitaveis = [];
+
     const aiTools = tools.buildTools(async (toolName, args) => {
       audit.append({ sessionId, kind: 'tool-call', tool: toolName, args });
       const result = await toolBridge.runTool(webContents, toolName, args);
+      const pagina = citacoes.paginaDoResultado(toolName, result);
+      if (pagina && citacoes.guardar(paginasCitaveis, pagina)) {
+        log.info(`[ai.chat] pagina do manual anexada para citacao: ${pagina.caminho} (${pagina.texto.length} chars)`);
+      }
       audit.append({
         sessionId,
         kind: 'tool-result',
@@ -230,6 +243,18 @@ async function start(payload, webContents) {
       ...(instructionsArg ? { instructions: instructionsArg } : {}),
       ...(providerOptions ? { providerOptions } : {}),
       tools: aiTools,
+      // Reapresenta ao modelo, como documento citavel, as paginas do manual que
+      // ele mesmo abriu neste turno. Anexadas no FIM, depois dos resultados de
+      // ferramenta: o provedor junta `tool` e `user` seguidos num bloco so, e os
+      // blocos de resultado continuam vindo primeiro, que e o que a API exige.
+      //
+      // `comDocumentos` tira a anexacao anterior antes de por a nova, e isso nao
+      // e zelo: o AI SDK diz que a troca de mensagens do prepareStep CARREGA
+      // para os passos seguintes, entao sem tirar, a mesma pagina seria
+      // reenviada uma vez por passo ate o fim do turno.
+      prepareStep: ({ messages: msgsDoPasso }) => (paginasCitaveis.length
+        ? { messages: citacoes.comDocumentos(msgsDoPasso, paginasCitaveis) }
+        : undefined),
       stopWhen: stepCountIs(MAX_STEPS),
       abortSignal: abort.signal,
       // Transient 429/5xx/network failures retry with exponential backoff at
@@ -294,6 +319,8 @@ async function start(payload, webContents) {
     }
 
     let fullText = '';
+    /** As citacoes que este turno produziu, para o log do fim. */
+    const citacoesDoTurno = [];
     let earlyExit = false;
     let nativeToolCallCount = 0;
     // Tool IDs the model is currently awaiting a result for. A Set (not a
@@ -348,6 +375,16 @@ async function start(payload, webContents) {
             result: part.output ?? part.result ?? null,
           });
           break;
+        // A citacao. Antes caia no `default` e sumia: o trecho real vinha da
+        // API, com o indice do caractere, e era jogado fora sem ninguem ver.
+        case 'source': {
+          const c = citacoes.citacaoDaFonte(part);
+          if (c) {
+            citacoesDoTurno.push(c);
+            sendEvent(webContents, sessionId, 'citation', { citacao: c });
+          }
+          break;
+        }
         case 'error': {
           const errMsg = part.error?.message || String(part.error ?? '');
           // Vercel AI SDK / Anthropic prompt-caching compat bug: after a tool
@@ -363,6 +400,7 @@ async function start(payload, webContents) {
         }
         default:
           // step-start, step-finish, finish, reasoning, ..., ignored.
+          // `source` NAO esta mais aqui: tem caso proprio acima.
           break;
       }
     }
@@ -488,6 +526,14 @@ async function start(payload, webContents) {
       const cache = promptCache.leituraDoCache(usage);
       usage = { ...usage, cacheAurora: cache };
       if (cache.lidos || cache.escritos) log.info(`[ai.chat] cache: ${cache.lidos} lidos, ${cache.escritos} escritos, ${cache.entrada} de entrada`);
+    }
+    if (citacoesDoTurno.length) {
+      log.info(`[ai.chat] ${citacoesDoTurno.length} citacao(oes) do manual neste turno`);
+    } else if (paginasCitaveis.length) {
+      // Anexou pagina e nao citou nada. Nao e erro: o modelo pode ter respondido
+      // do que ja sabia. Fica no log porque, se virar regra, a anexacao esta
+      // custando entrada sem entregar verificacao.
+      log.info(`[ai.chat] ${paginasCitaveis.length} pagina(s) anexada(s) e nenhuma citacao devolvida`);
     }
     sendEvent(webContents, sessionId, 'finish', { text: stripToolXml(fullText), usage });
   } catch (e) {

@@ -5,12 +5,37 @@
    precisa crescer; o diff precisa de toda a largura que sobrar, porque e ele
    que responde a pergunta que trouxe a pessoa aqui. */
 
+/* A altura era `height: min(70vh, 620px)`, FIXA, e com ela o painel sem nada
+   para mostrar abria do mesmo tamanho que o cheio: um retangulo de 1100 por
+   620 px com duas frases de aviso perdidas no canto de cima. O vazio ocupava a
+   tela inteira para dizer que nao tinha nada a dizer.
+   A altura fixa FICA, e nao virou teto: o DiffEditor do Monaco mede a si mesmo
+   contra o pai, e com altura indefinida ele nasceria com zero e nao se
+   recuperaria (ver `.history-diff` abaixo). O que muda e so o caso vazio, que
+   nao tem diff nenhum para dimensionar e por isso pode encolher ate o texto. */
 .history-panel {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   gap: var(--space-3);
   min-width: 0;
   height: min(70vh, 620px);
+}
+
+/* Sem arquivo aberto: uma coluna, altura do texto. A divisoria vertical entre
+   lista e diff separava dois avisos, e nao dois conteudos. */
+.history-panel:has(> .history-list > .history-vazio) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  height: auto;
+}
+.history-panel:has(> .history-list > .history-vazio) > .history-list {
+  border-right: 0;
+  padding-right: 0;
+}
+/* Sem lista, a segunda frase ("escolha uma versao") nao tem o que acrescentar:
+   ela so repete, com outras palavras, que nao ha nada ali. */
+.history-panel:has(> .history-list > .history-vazio) > .history-diff {
+  display: none;
 }
 
 /* ---- lista de versoes ---------------------------------------------------- */

@@ -1025,7 +1025,12 @@
     "usageThisSession": "Esta sessão",
     "permAsk": "Perguntar sempre",
     "permWrites": "Perguntar antes de alterar",
-    "permAllow": "Permitir tudo"
+    "permAllow": "Permitir tudo",
+    "citations": {
+      "head": "Do manual",
+      "expand": "Expandir",
+      "collapse": "Recolher"
+    }
   },
   "git": {
     "title": "Controle de Versão",

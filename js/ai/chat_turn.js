@@ -11,7 +11,12 @@
 //   question, the record of an ask_user_question exchange. The model already
 //              got the answer as that tool's return value; resending it here
 //              would just repeat it back, in a role the API does not accept.
-const DISPLAY_ONLY_ROLES = new Set(['tool', 'question']);
+//   citation, os trechos do manual que sustentaram a resposta. Sao um registro
+//              para a PESSOA conferir, e devolve-los ao modelo mandaria de
+//              volta o que ele mesmo acabou de citar, pagando de novo pelo
+//              mesmo texto. A pagina inteira, quando ele precisa dela, volta
+//              como documento pelo main/ai/citacoes.js, e nao por aqui.
+const DISPLAY_ONLY_ROLES = new Set(['tool', 'question', 'citation']);
 
 // Build the messages array sent to the model: drop display-only entries, and
 // CLONE each attachment so the post-send memory-hygiene strip (which deletes

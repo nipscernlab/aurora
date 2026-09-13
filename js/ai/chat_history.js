@@ -44,7 +44,14 @@ export function chatListHtml(chatList, currentChatId) {
 export function serializeMessagesForStorage(messages) {
     return messages.map((m) => {
         const entry = { role: m.role };
-        if (m.role === 'tool') {
+        if (m.role === 'citation') {
+            // O trecho e a razao de a citacao existir: sem ele, reabrir a
+            // conversa deixaria so o nome da pagina, que e o que a assistente
+            // ja dizia na prosa antes de citations existirem.
+            entry.citacoes = (m.citacoes || []).map((c) => ({
+                pagina: c.pagina, titulo: c.titulo, trecho: c.trecho,
+            }));
+        } else if (m.role === 'tool') {
             entry.toolName  = m.toolName;
             entry.status    = m.status;
             if (m.toolUseId) entry.toolUseId = m.toolUseId;

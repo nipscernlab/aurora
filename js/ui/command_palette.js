@@ -77,6 +77,8 @@ const COMMANDS = [
   // Tools
   { id: 'tools.hub', acao: 'processorHub',       group: 'Tools',   icon: 'ph ph-graph',         title: 'Processor Hub',                 keywords: 'generate processor create', run: () => clickById('processorHub') },
   { id: 'tools.procCfg',   group: 'Tools',   icon: 'ph ph-gear-six',      title: 'Processor simulation settings', keywords: 'clock clocks config',    run: () => clickById('procConfigToggle') },
+  { id: 'tools.markPoint', group: 'Tools',   icon: 'ph ph-bookmark-simple', title: 'Mark restore point',      keywords: 'checkpoint snapshot save state rewind', run: () => window.auroraRewind?.marcar?.() },
+  { id: 'tools.rewind',    group: 'Tools',   icon: 'ph ph-arrow-counter-clockwise', title: 'Rewind code to a restore point…', keywords: 'undo revert checkpoint snapshot back', run: () => window.auroraRewind?.escolher?.() },
   { id: 'tools.settings', acao: 'openSettings',  group: 'Tools',   icon: 'ph ph-gear',          title: 'Aurora settings',               keywords: 'preferences options config', run: () => clickById('aurora-settings') },
   { id: 'tools.designLab', group: 'Tools',   icon: 'ph ph-flask',         title: 'Open Design Lab',               keywords: 'components gallery design lab dev showcase lit', run: () => electronAPI?.openDesignLab?.() },
   { id: 'tools.slang', acao: 'toggleSlang',     group: 'Tools',   icon: 'ph ph-brackets-angle', title: 'Toggle slang — SystemVerilog semantic analysis (Ctrl+Alt+S)', keywords: 'slang systemverilog verilog semantic lsp lint diagnostics elaboration toggle ctrl alt s', run: () => window.AuroraSlang?.toggle?.() },

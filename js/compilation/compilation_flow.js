@@ -25,6 +25,7 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { problemStore } from '../terminal/problem_store.js';
+import { marcarPonto } from '../ai/rewind.js';
 import { getPrismMode } from '../prism/prism_mode.js';
 import { resolveOverride } from './command_overrides.js';
 import { CompilationModule } from './compilation_module.js';
@@ -307,6 +308,10 @@ function startCompilation(terminalsToClear) {
     // passada ao lado de uma barra de progresso e a interface afirmando uma
     // coisa que ela ja nao sabe.
     problemStore.limpar();
+    // Um ponto antes de compilar: e o que permite voltar "para o que
+    // compilava", que e a pergunta mais frequente depois de uma mudanca que
+    // quebrou tudo. Nao se espera por ele.
+    marcarPonto({ rotulo: tr('rewind.beforeBuild') });
 }
 
 function endCompilation() {

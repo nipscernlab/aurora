@@ -39,6 +39,7 @@ import {
   escapeHtml, renderMarkdown, highlightCodeBlocks,
   linkifyFileRefs, aiPathIsText, TRUST_LINKS_KEY,
 } from '../ai/chat_render.js';
+import { marcarPonto, rotuloDoPedido, voltarAoPonto, listarPontos } from '../ai/rewind.js';
 import {
   PROVIDER_META, CLAUDE_CODE_PROVIDER, CLAUDE_CODE_EFFORT, CHATGPT_PROVIDER, CHATGPT_MODELS,
   SUB_META, isSubProvider, STREAM_STALL_MS, STREAM_STALL_HARD_MS,
@@ -1686,7 +1687,14 @@ class AIAssistantManager {
     // from the bottom and brightens, then stays on). No-op after the first time.
     this._revealGlow();
 
+    // Um ponto de restauracao ANTES de a IA encostar em qualquer arquivo. E o
+    // gesto que mais causa arrependimento no projeto de alguem, e o unico em
+    // que a pessoa nao viu o que ia acontecer antes de acontecer. Nao se
+    // espera por ele: marcar o instante nao pode atrasar o envio.
+    const idDaMensagem = `msg-${Date.now()}`;
+    marcarPonto({ rotulo: rotuloDoPedido(text), mensagemId: idDaMensagem });
     const userBubble = this.appendBubble('user', text);
+    userBubble?.setAttribute('data-ponto', idDaMensagem);
     if (atts.length) this._renderBubbleAttachments(userBubble, atts);
     this.messages.push({ role: 'user', content: text, attachments: atts.length ? atts : undefined });
     this._capMessages();
@@ -3102,6 +3110,31 @@ class AIAssistantManager {
     }
   }
 
+  /**
+   * Volta o codigo ao instante em que aquela mensagem foi enviada.
+   *
+   * A bolha carrega o id da mensagem; o ponto e procurado por ele. Uma bolha
+   * de conversa carregada do disco (sem ponto, ou com ponto ja podado) nao
+   * pode oferecer um botao que nao faz nada, entao ela diz que nao ha ponto em
+   * vez de fingir.
+   */
+  async _voltarAoPontoDaBolha(el) {
+    const id = el?.getAttribute?.('data-ponto');
+    const pontos = await listarPontos();
+    const ponto = id ? pontos.find((p) => p.mensagemId === id) : null;
+    if (!ponto) {
+      try {
+        window.showNotification?.(
+          (window.t && window.t('rewind.noPoint') !== 'rewind.noPoint')
+            ? window.t('rewind.noPoint')
+            : 'No restore point for this message.',
+          'info', 4000, 'rewind');
+      } catch { /* sem notificacao */ }
+      return;
+    }
+    await voltarAoPonto(ponto.id);
+  }
+
   /* ---------------- bubbles / clear ---------------- */
 
   appendBubble(role, content, { error = false } = {}) {
@@ -3120,6 +3153,21 @@ class AIAssistantManager {
       ${showLabel ? `<div class="ai-msg-role">${label}</div>` : ''}
       <div class="ai-msg-content"></div>
     `;
+    // So na bolha do usuario: o ponto foi marcado quando ELA foi enviada, e
+    // voltar significa desfazer o que veio depois dela. Na bolha da resposta o
+    // botao nao teria um instante proprio para apontar.
+    if (role === 'user') {
+      const voltar = document.createElement('button');
+      voltar.className = 'ai-msg-rewind';
+      voltar.type = 'button';
+      voltar.innerHTML = '<i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>';
+      const dica = (window.t && window.t('rewind.toHere') !== 'rewind.toHere')
+        ? window.t('rewind.toHere') : 'Rewind code to here';
+      voltar.title = dica;
+      voltar.setAttribute('aria-label', dica);
+      voltar.addEventListener('click', () => this._voltarAoPontoDaBolha(el));
+      el.appendChild(voltar);
+    }
     const contentEl = el.querySelector('.ai-msg-content');
     if (content) {
       // Render markdown for BOTH roles. The user's own message goes through the

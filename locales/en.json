@@ -1399,5 +1399,24 @@
     "originSave": "saved",
     "originDelete": "before deleting",
     "originAi": "Aurora Intelligence"
+  },
+  "rewind": {
+    "toHere": "Rewind code to here",
+    "noPoint": "No restore point for this message.",
+    "beforeBuild": "before compiling",
+    "marked": "Restore point marked.",
+    "confirmTitle": "Rewind code",
+    "confirmFiles": "{{files}} files go back to how they were.",
+    "confirmNew": "{{new}} files created after that point go to the Recycle Bin.",
+    "confirmUndo": "The current state is saved as a new point first, so this can be undone.",
+    "confirmYes": "Rewind",
+    "nothing": "Nothing changed since that point.",
+    "previewFailed": "Could not read that restore point.",
+    "failed": "The rewind failed.",
+    "done": "{{files}} files restored.",
+    "partial": "Could not touch {{files}} files.",
+    "pickTitle": "Rewind code to a restore point",
+    "pickEmpty": "No restore point yet. One is marked before each message to Aurora Intelligence and before each build.",
+    "manual": "marked by hand"
   }
 }

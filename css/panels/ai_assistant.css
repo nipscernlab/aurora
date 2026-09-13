@@ -2747,3 +2747,36 @@ body.resizing-ai-corner * {
   border-color: var(--accent);
 }
 .ai-askq-submit:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* O botao de voltar o codigo, na bolha da mensagem do usuario.
+
+   Canto superior, apagado ate o mouse chegar na bolha: e uma acao rara e
+   grande, e um icone sempre aceso ao lado de cada mensagem viraria ruido em
+   toda conversa. Aparecer no hover e o mesmo tratamento das outras acoes de
+   mensagem. */
+.ai-msg-user { position: relative; }
+.ai-msg-rewind {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.ai-msg-user:hover .ai-msg-rewind,
+.ai-msg-rewind:focus-visible { opacity: 1; }
+.ai-msg-rewind:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+.ai-msg-rewind i { font-size: var(--text-sm); }

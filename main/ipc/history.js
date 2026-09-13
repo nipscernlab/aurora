@@ -303,6 +303,235 @@ function ler(projeto, arquivo, id) {
   }
 }
 
+// ── pontos de restauracao ────────────────────────────────────────────────────────
+
+/*
+ * Um ponto de restauracao e um INSTANTE, e nao uma copia do projeto.
+ *
+ * Cada mensagem que a pessoa manda para a Aurora Intelligence abre um ponto
+ * antes de a IA encostar em qualquer arquivo. Guardar o projeto inteiro por
+ * mensagem seria caro e redundante: o historico por arquivo ja guarda cada
+ * versao, entao o ponto precisa registrar apenas QUANDO foi, e voltar a ele e
+ * devolver cada arquivo a versao mais recente daquele instante ou antes.
+ *
+ * Mas ha um buraco nisso, e e ele que obriga o ponto a fazer uma coisa a mais:
+ * um arquivo que nunca foi salvo pela AURORA nao tem versao nenhuma, e a
+ * captura preguicosa do `write-file` so o guardaria no momento em que a IA
+ * fosse sobrescreve-lo, ja com carimbo POSTERIOR ao ponto. Voltar ao ponto nao
+ * acharia nada para esse arquivo justamente quando ele e o que se quer de
+ * volta. Por isso abrir um ponto varre as fontes do projeto e garante uma
+ * versao para cada uma. Pela deduplicacao de conteudo, isso escreve de verdade
+ * so na primeira vez: da segunda mensagem em diante quase nada vai para o
+ * disco.
+ *
+ * ARQUIVO CRIADO DEPOIS vai para a LIXEIRA, e nao para o unlink. Voltar
+ * significa desfazer o que a IA fez, e ela pode ter criado arquivos; apagar de
+ * vez o que a pessoa talvez quisesse guardar seria trocar um arrependimento
+ * por outro. A mesma escolha do apagar projeto.
+ */
+
+const PASTA_PONTOS = 'pontos';
+const MAX_ARQUIVOS_POR_PONTO = 2000;
+const PULAR_PASTAS = new Set([
+  '.git', 'node_modules', 'dist', 'build', 'components', 'Temp', 'Backup', '.vite', '.aurora', '.slang',
+]);
+
+/** As fontes do projeto, em caminho absoluto. Melhor esforco e com teto. */
+function fontesDoProjeto(projeto, teto = MAX_ARQUIVOS_POR_PONTO) {
+  const saida = [];
+  const andar = (dir, profundidade) => {
+    if (saida.length >= teto || profundidade > 12) return;
+    let entradas;
+    try { entradas = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entradas) {
+      if (saida.length >= teto) return;
+      const alvo = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (PULAR_PASTAS.has(e.name) || e.name.startsWith('.')) continue;
+        andar(alvo, profundidade + 1);
+      } else if (e.isFile()) {
+        saida.push(alvo);
+      }
+    }
+  };
+  andar(path.resolve(projeto), 0);
+  return saida;
+}
+
+function pastaDePontos(projeto) {
+  const base = pastaDoProjeto(projeto);
+  return base ? path.join(base, PASTA_PONTOS) : null;
+}
+
+/**
+ * Abre um ponto de restauracao. Sincrono e de melhor esforco.
+ *
+ * @param {string} projeto
+ * @param {{ rotulo?: string|null, mensagemId?: string|null, agora?: number }} [meta]
+ */
+function criarPonto(projeto, { rotulo = null, mensagemId = null, agora = Date.now() } = {}) {
+  const dir = pastaDePontos(projeto);
+  if (!dir) return { ok: false, erro: 'projeto invalido' };
+
+  const arquivos = [];
+  for (const abs of fontesDoProjeto(projeto)) {
+    const rel = relativoAoProjeto(projeto, abs);
+    if (!rel) continue;
+    let conteudo;
+    try { conteudo = fs.readFileSync(abs); } catch { continue; }
+    // Garante versao para o arquivo. Conteudo repetido nao vira versao nova,
+    // entao da segunda mensagem em diante isto quase nao escreve.
+    const r = gravarVersao(projeto, abs, conteudo, { origem: 'ponto', agora });
+    if (r.ok) arquivos.push(rel);
+  }
+
+  fs.mkdirSync(dir, { recursive: true });
+  ocultarPastaDeSistemaEm(dir);
+  const id = idDe(agora);
+  const ponto = {
+    formato: 1,
+    id,
+    quando: agora,
+    rotulo: rotulo ? String(rotulo).slice(0, 200) : null,
+    mensagemId: mensagemId ? String(mensagemId).slice(0, 64) : null,
+    arquivos,
+  };
+  const alvo = path.join(dir, `${id}.json`);
+  fs.writeFileSync(`${alvo}.tmp`, JSON.stringify(ponto, null, 2), 'utf8');
+  fs.renameSync(`${alvo}.tmp`, alvo);
+
+  // Mesma poda do registro de execucoes: cinquenta cobre semanas de uso.
+  try {
+    const nomes = fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort();
+    for (const velho of nomes.slice(0, Math.max(0, nomes.length - LIMITE_VERSOES))) {
+      fs.unlinkSync(path.join(dir, velho));
+    }
+  } catch { /* poda e cortesia */ }
+
+  return { ok: true, id, arquivos: arquivos.length };
+}
+
+/** Os pontos gravados, do mais recente para o mais antigo. */
+function listarPontos(projeto) {
+  const dir = pastaDePontos(projeto);
+  if (!dir || !fs.existsSync(dir)) return { ok: true, pontos: [] };
+  const pontos = [];
+  for (const nome of fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort().reverse()) {
+    try {
+      const d = JSON.parse(fs.readFileSync(path.join(dir, nome), 'utf8'));
+      pontos.push({ id: d.id, quando: d.quando, rotulo: d.rotulo || null, mensagemId: d.mensagemId || null, arquivos: (d.arquivos || []).length });
+    } catch { /* ponto ilegivel: nao derruba a lista */ }
+  }
+  return { ok: true, pontos };
+}
+
+function lerPonto(projeto, id) {
+  const dir = pastaDePontos(projeto);
+  if (!dir || !ID_VALIDO.test(String(id || ''))) return null;
+  try { return JSON.parse(fs.readFileSync(path.join(dir, `${id}.json`), 'utf8')); }
+  catch { return null; }
+}
+
+/**
+ * A versao de um arquivo naquele instante: a mais recente com carimbo menor ou
+ * igual ao do ponto. Puro, para o teste.
+ *
+ * @param {Array<{id:string, quando:number}>} versoes da mais antiga para a mais nova
+ * @param {number} quando
+ */
+function versaoNoInstante(versoes, quando) {
+  let escolhida = null;
+  for (const v of versoes) {
+    if (v.quando <= quando) escolhida = v;
+    else break;
+  }
+  return escolhida;
+}
+
+/**
+ * O que uma volta faria: quais arquivos mudam de conteudo e quais foram
+ * criados depois do ponto. Calculado antes de mexer em qualquer coisa, para a
+ * tela poder perguntar com numeros na mao.
+ *
+ * @param {string} projeto
+ * @param {string} id
+ */
+function previaDoPonto(projeto, id) {
+  const ponto = lerPonto(projeto, id);
+  if (!ponto) return { ok: false, erro: 'ponto nao encontrado' };
+  const doPonto = new Set((ponto.arquivos || []).map((r) => String(r).toLowerCase()));
+
+  const restaurar = [];
+  for (const rel of (ponto.arquivos || [])) {
+    const pasta = pastaDoArquivo(projeto, rel);
+    if (!pasta) continue;
+    const alvo = versaoNoInstante(lerIndice(pasta).versoes, ponto.quando);
+    if (!alvo) continue;
+    let atual = null;
+    try { atual = fs.readFileSync(path.join(path.resolve(projeto), rel.split('/').join(path.sep)), 'utf8'); }
+    catch { atual = null; }
+    let guardado = null;
+    try { guardado = fs.readFileSync(path.join(pasta, `${alvo.id}.txt`), 'utf8'); } catch { continue; }
+    if (atual !== guardado) restaurar.push({ arquivo: rel, versao: alvo.id });
+  }
+
+  const novos = [];
+  for (const abs of fontesDoProjeto(projeto)) {
+    const rel = relativoAoProjeto(projeto, abs);
+    if (rel && !doPonto.has(rel.toLowerCase())) novos.push(rel);
+  }
+
+  return { ok: true, quando: ponto.quando, rotulo: ponto.rotulo || null, restaurar, novos };
+}
+
+/**
+ * Volta o projeto ao ponto.
+ *
+ * Antes de qualquer escrita, o estado de AGORA vira um ponto novo: voltar e
+ * uma acao grande, e sem isso a propria volta seria o gesto sem volta. Quem se
+ * arrepender de ter voltado acha o estado anterior na lista.
+ *
+ * @param {string} projeto
+ * @param {string} id
+ * @param {{ trashItem?: (p: string) => Promise<void> }} [deps]
+ */
+async function rebobinar(projeto, id, { trashItem = null } = {}) {
+  const previa = previaDoPonto(projeto, id);
+  if (!previa.ok) return previa;
+
+  criarPonto(projeto, { rotulo: 'antes de voltar', agora: Date.now() });
+
+  let restaurados = 0;
+  const falhas = [];
+  for (const item of previa.restaurar) {
+    const pasta = pastaDoArquivo(projeto, item.arquivo);
+    const alvo = path.join(path.resolve(projeto), item.arquivo.split('/').join(path.sep));
+    try {
+      const texto = fs.readFileSync(path.join(pasta, `${item.versao}.txt`), 'utf8');
+      fs.mkdirSync(path.dirname(alvo), { recursive: true });
+      fs.writeFileSync(`${alvo}.tmp`, texto, 'utf8');
+      fs.renameSync(`${alvo}.tmp`, alvo);
+      restaurados += 1;
+    } catch (e) {
+      falhas.push(item.arquivo);
+    }
+  }
+
+  let removidos = 0;
+  for (const rel of previa.novos) {
+    const alvo = path.join(path.resolve(projeto), rel.split('/').join(path.sep));
+    try {
+      if (trashItem) await trashItem(alvo);
+      else fs.unlinkSync(alvo);
+      removidos += 1;
+    } catch {
+      falhas.push(rel);
+    }
+  }
+
+  return { ok: true, restaurados, removidos, falhas };
+}
+
 // ── os ganchos que files.js chama ───────────────────────────────────────────────────────
 
 /**
@@ -363,6 +592,29 @@ function register() {
   };
   ipcMain.handle('historico:listar', (event, arquivo) => listar(projetoDe(event) || '', String(arquivo || '')));
   ipcMain.handle('historico:ler', (event, arquivo, id) => ler(projetoDe(event) || '', String(arquivo || ''), String(id || '')));
+  ipcMain.handle('historico:ponto-criar', (event, meta) => {
+    const projeto = projetoDe(event);
+    if (!projeto) return { ok: false, erro: 'sem projeto' };
+    try { return criarPonto(projeto, meta || {}); }
+    catch (e) { return { ok: false, erro: e instanceof Error ? e.message : String(e) }; }
+  });
+  ipcMain.handle('historico:ponto-listar', (event) => {
+    const projeto = projetoDe(event);
+    return projeto ? listarPontos(projeto) : { ok: true, pontos: [] };
+  });
+  ipcMain.handle('historico:ponto-previa', (event, id) => {
+    const projeto = projetoDe(event);
+    if (!projeto) return { ok: false, erro: 'sem projeto' };
+    return previaDoPonto(projeto, String(id || ''));
+  });
+  ipcMain.handle('historico:ponto-voltar', async (event, id) => {
+    const projeto = projetoDe(event);
+    if (!projeto) return { ok: false, erro: 'sem projeto' };
+    const { shell } = require('electron');
+    // Lixeira, e nao unlink: voltar ja e uma acao grande, e apagar de vez o
+    // que a IA criou trocaria um arrependimento por outro.
+    return rebobinar(projeto, String(id || ''), { trashItem: (p) => shell.trashItem(p) });
+  });
 }
 
 module.exports = {
@@ -374,6 +626,12 @@ module.exports = {
   // API
   gravarVersao,
   guardarAntesSePrimeira,
+  criarPonto,
+  listarPontos,
+  previaDoPonto,
+  rebobinar,
+  versaoNoInstante,
+  fontesDoProjeto,
   listar,
   ler,
   // puros, para teste

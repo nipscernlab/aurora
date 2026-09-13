@@ -1399,5 +1399,24 @@
     "originSave": "gravado",
     "originDelete": "antes de apagar",
     "originAi": "Aurora Intelligence"
+  },
+  "rewind": {
+    "toHere": "Voltar o código até aqui",
+    "noPoint": "Não há ponto de restauração para esta mensagem.",
+    "beforeBuild": "antes de compilar",
+    "marked": "Ponto de restauração marcado.",
+    "confirmTitle": "Voltar o código",
+    "confirmFiles": "{{files}} arquivos voltam a como estavam.",
+    "confirmNew": "{{new}} arquivos criados depois daquele ponto vão para a Lixeira.",
+    "confirmUndo": "O estado de agora vira um ponto novo antes, então isto tem volta.",
+    "confirmYes": "Voltar",
+    "nothing": "Nada mudou desde aquele ponto.",
+    "previewFailed": "Não consegui ler esse ponto de restauração.",
+    "failed": "Não consegui voltar.",
+    "done": "{{files}} arquivos restaurados.",
+    "partial": "Não consegui mexer em {{files}} arquivos.",
+    "pickTitle": "Voltar o código a um ponto",
+    "pickEmpty": "Ainda não há ponto. Um é marcado antes de cada mensagem à Aurora Intelligence e antes de cada compilação.",
+    "manual": "marcado à mão"
   }
 }

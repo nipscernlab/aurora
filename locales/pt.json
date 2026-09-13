@@ -1417,6 +1417,8 @@
     "partial": "Não consegui mexer em {{files}} arquivos.",
     "pickTitle": "Voltar o código a um ponto",
     "pickEmpty": "Ainda não há ponto. Um é marcado antes de cada mensagem à Aurora Intelligence e antes de cada compilação.",
-    "manual": "marcado à mão"
+    "manual": "marcado à mão",
+    "markTooltip": "Marcar ponto de restauração",
+    "tooltip": "Voltar o código a um ponto"
   }
 }

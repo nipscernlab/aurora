@@ -550,7 +550,17 @@
                        tras, um no que voce escreveu e outro no que voce
                        mandou compilar. -->
                   <button id="file-history" class="toolbar-button icon-only" data-tooltip="File history" data-i18n-tooltip="history.tooltip">
-                      <i class="ph ph-clock-counter-clockwise"></i>
+                      <i class="ph ph-git-diff"></i>
+                  </button>
+                  <!-- Marcar um ponto de restauracao e voltar a um. Botoes, e nao so
+                       comandos da paleta, a pedido do Chrysthofer: sao a rede de
+                       seguranca do projeto, e rede que precisa ser procurada nao
+                       protege quem ainda nao sabe que ela existe. -->
+                  <button id="mark-point" class="toolbar-button icon-only" data-tooltip="Mark restore point" data-i18n-tooltip="rewind.markTooltip">
+                      <i class="ph ph-bookmark-simple"></i>
+                  </button>
+                  <button id="rewind-code" class="toolbar-button icon-only" data-tooltip="Rewind code to a restore point" data-i18n-tooltip="rewind.tooltip">
+                      <i class="ph ph-arrow-counter-clockwise"></i>
                   </button>
                   <button id="run-history" class="toolbar-button icon-only" data-tooltip="Compilation history" data-i18n-tooltip="runHistory.tooltip">
                       <i class="ph ph-clock-counter-clockwise"></i>
@@ -1828,6 +1838,7 @@
 <script src="./js/project/delete_project.js" type="module"></script>
 <script src="./js/terminal/problems_panel.js" type="module"></script>
 <script src="./js/editor/file_history.js" type="module"></script>
+<script src="./js/ai/rewind.js" type="module"></script>
 <script src="./js/editor/monaco_editor.js" type="module"></script>
 <script src="./js/tabs/tab_manager.js" type="module"></script>
 <script src="./js/compilation/compilation_module.js" type="module"></script>

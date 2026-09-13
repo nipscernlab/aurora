@@ -220,7 +220,15 @@ export async function marcarPontoManual() {
   return !!r;
 }
 
+/** Os botoes da barra do terminal: marcar um ponto, voltar a um. */
+export function initRewindButtons() {
+  document.getElementById('mark-point')?.addEventListener('click', () => { marcarPontoManual(); });
+  document.getElementById('rewind-code')?.addEventListener('click', () => { escolherPonto(); });
+}
+
 // A paleta chama por aqui: ela nao importa modulos, clica em coisas do window.
 if (typeof window !== 'undefined') {
   window.auroraRewind = { marcar: marcarPontoManual, escolher: escolherPonto };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initRewindButtons);
+  else initRewindButtons();
 }

@@ -71,7 +71,15 @@ export function showDialog({ title, message, buttons, variant, ajuda }) {
             // pasta do projeto para a Lixeira: e o tempo de ler e desistir.
             const seg = Number.isInteger(btn.countdown) && btn.countdown > 0 ? btn.countdown : 0;
             const travado = seg > 0 ? ` data-countdown="${seg}" disabled` : '';
-            return `<button class="confirm-btn ${safeType}" data-action="${btn.action}"${travado}>${icone}<span class="confirm-btn-label">${rotuloComContador(btn.label, seg)}</span></button>`;
+            // Botao sem `label` ja chegou a tela como a palavra "undefined",
+            // duas vezes, num dialogo escrito com `text`/`value` por engano.
+            // O contrato e `label`/`action`; quem errar recebe um erro no
+            // console apontando o botao, e a pessoa ve um texto, nao um bug.
+            if (btn.label == null) {
+                console.error('[dialog] botao sem `label` (o contrato e { label, action, type }):', btn);
+            }
+            const rotulo = btn.label != null ? btn.label : (btn.text != null ? btn.text : String(btn.action ?? ''));
+            return `<button class="confirm-btn ${safeType}" data-action="${btn.action}"${travado}>${icone}<span class="confirm-btn-label">${rotuloComContador(rotulo, seg)}</span></button>`;
         }).join('');
 
         const modal = document.createElement('div');

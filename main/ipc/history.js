@@ -331,6 +331,62 @@ function ler(projeto, arquivo, id) {
  */
 
 const PASTA_PONTOS = 'pontos';
+const ARQUIVO_VISTA = 'vista.json';
+
+/*
+ * A VISTA: o tamanho e a data de cada fonte na ultima vez que foi olhada.
+ *
+ * Medido antes dela existir: com 300 arquivos o SEGUNDO ponto custava 224 ms,
+ * e com 1200, 1,3 s, tudo no processo principal, a cada compilacao e a cada
+ * mensagem para a IA. A deduplicacao de conteudo evitava a gravacao, mas nao a
+ * leitura nem o hash de cada arquivo. Um projeto grande faria a AURORA travar
+ * um segundo por clique de compilar, e ninguem ligaria isso ao historico.
+ *
+ * Com a vista, um arquivo cujo tamanho e data nao mudaram nem e lido: um
+ * `stat` por arquivo, que e dez vezes mais barato do que ler, e nenhum hash. E
+ * o mesmo criterio de todo sistema de build. So quem mudou de verdade e lido e
+ * comparado.
+ *
+ * Um arquivo so em `historico/vista.json`, e nao um campo por indice de
+ * arquivo: ler um JSON por fonte custaria quase o mesmo que ler a fonte.
+ */
+function lerVista(projeto) {
+  const base = pastaDoProjeto(projeto);
+  if (!base) return {};
+  try {
+    const d = JSON.parse(fs.readFileSync(path.join(base, ARQUIVO_VISTA), 'utf8'));
+    return d && typeof d === 'object' ? d : {};
+  } catch {
+    return {};
+  }
+}
+
+function gravarVista(projeto, vista) {
+  const base = pastaDoProjeto(projeto);
+  if (!base) return;
+  try {
+    fs.mkdirSync(base, { recursive: true });
+    const alvo = path.join(base, ARQUIVO_VISTA);
+    fs.writeFileSync(`${alvo}.tmp`, JSON.stringify(vista), 'utf8');
+    fs.renameSync(`${alvo}.tmp`, alvo);
+  } catch (e) {
+    log.debug('[historico] vista nao gravada:', e instanceof Error ? e.message : e);
+  }
+}
+
+/** `stat` de um arquivo reduzido ao que a vista compara. */
+function marcaDoDisco(abs) {
+  try {
+    const st = fs.statSync(abs);
+    return { mtimeMs: Math.round(st.mtimeMs), size: st.size };
+  } catch {
+    return null;
+  }
+}
+
+function mesmaMarca(a, b) {
+  return !!a && !!b && a.mtimeMs === b.mtimeMs && a.size === b.size;
+}
 const MAX_ARQUIVOS_POR_PONTO = 2000;
 const PULAR_PASTAS = new Set([
   '.git', 'node_modules', 'dist', 'build', 'components', 'Temp', 'Backup', '.vite', '.aurora', '.slang',
@@ -374,16 +430,27 @@ function criarPonto(projeto, { rotulo = null, mensagemId = null, agora = Date.no
   if (!dir) return { ok: false, erro: 'projeto invalido' };
 
   const arquivos = [];
+  const vista = lerVista(projeto);
+  let vistaMudou = false;
   for (const abs of fontesDoProjeto(projeto)) {
     const rel = relativoAoProjeto(projeto, abs);
     if (!rel) continue;
+    const chave = chaveDe(rel);
+    const marca = marcaDoDisco(abs);
+    // Nao mudou de tamanho nem de data desde a ultima olhada: ja tem versao,
+    // e nem e lido. E isto que faz o segundo ponto custar um stat por arquivo
+    // em vez de uma leitura e um hash.
+    if (marca && mesmaMarca(vista[chave], marca)) { arquivos.push(rel); continue; }
+
     let conteudo;
     try { conteudo = fs.readFileSync(abs); } catch { continue; }
-    // Garante versao para o arquivo. Conteudo repetido nao vira versao nova,
-    // entao da segunda mensagem em diante isto quase nao escreve.
+    // Garante versao para o arquivo. Conteudo repetido nao vira versao nova.
     const r = gravarVersao(projeto, abs, conteudo, { origem: 'ponto', agora });
-    if (r.ok) arquivos.push(rel);
+    if (!r.ok) continue;
+    arquivos.push(rel);
+    if (marca) { vista[chave] = marca; vistaMudou = true; }
   }
+  if (vistaMudou) gravarVista(projeto, vista);
 
   fs.mkdirSync(dir, { recursive: true });
   ocultarPastaDeSistemaEm(dir);
@@ -559,8 +626,20 @@ function antesDeGravar(projeto, arquivo) {
 function depoisDeGravar(projeto, arquivo, conteudo, origem = 'salvar') {
   if (!projeto) return;
   setImmediate(() => {
-    try { gravarVersao(projeto, arquivo, conteudo, { origem }); }
-    catch (e) { log.debug('[historico] gravar versao falhou:', e instanceof Error ? e.message : e); }
+    try {
+      const r = gravarVersao(projeto, arquivo, conteudo, { origem });
+      // A vista aprende a marca do arquivo recem-gravado, senao o proximo ponto
+      // o releria para descobrir que ja tem essa versao.
+      if (r.ok) {
+        const rel = relativoAoProjeto(projeto, arquivo);
+        const marca = rel ? marcaDoDisco(arquivo) : null;
+        if (rel && marca) {
+          const vista = lerVista(projeto);
+          vista[chaveDe(rel)] = marca;
+          gravarVista(projeto, vista);
+        }
+      }
+    } catch (e) { log.debug('[historico] gravar versao falhou:', e instanceof Error ? e.message : e); }
   });
 }
 
@@ -626,6 +705,7 @@ module.exports = {
   // API
   gravarVersao,
   guardarAntesSePrimeira,
+  lerVista,
   criarPonto,
   listarPontos,
   previaDoPonto,

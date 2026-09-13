@@ -153,11 +153,12 @@ async function substituirTudo() {
       .replace('{{files}}', String(arquivos)),
     variant: 'warning',
     buttons: [
-      { text: tt('dialog.common.cancel', 'Cancel'), value: false, type: 'cancel' },
-      { text: tt('search.replaceConfirmYes', 'Replace'), value: true, type: 'primary' },
+      { label: tt('dialog.common.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+      { label: tt('search.replaceConfirmYes', 'Replace'), action: 'substituir', type: 'primary' },
     ],
   });
-  if (!escolha) return;
+  // O dialogo resolve com o `action`; Escape e clique fora resolvem 'cancel'.
+  if (escolha !== 'substituir') return;
 
   let res;
   try {

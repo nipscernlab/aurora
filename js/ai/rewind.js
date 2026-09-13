@@ -132,11 +132,13 @@ export async function voltarAoPonto(id) {
     message: corpo,
     variant: 'warning',
     buttons: [
-      { text: tt('dialog.common.cancel', 'Cancel'), value: false, type: 'cancel' },
-      { text: tt('rewind.confirmYes', 'Rewind'), value: true, type: 'primary' },
+      { label: tt('dialog.common.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+      { label: tt('rewind.confirmYes', 'Rewind'), action: 'voltar', type: 'primary' },
     ],
   });
-  if (!escolha) return false;
+  // O dialogo resolve com o `action` do botao; Escape e clique fora resolvem
+  // 'cancel'. Qualquer coisa que nao seja o sim explicito e nao.
+  if (escolha !== 'voltar') return false;
 
   let r;
   try { r = await electronAPI.historicoPontoVoltar?.(id); }
@@ -195,15 +197,16 @@ export async function escolherPonto() {
     variant: 'info',
     buttons: [
       ...pontos.slice(0, 10).map((p) => ({
-        text: `${quando(p.quando)}${p.rotulo ? ` — ${p.rotulo}` : ''}`,
-        value: p.id,
+        label: `${quando(p.quando)}${p.rotulo ? `  ${p.rotulo}` : ''}`,
+        // O id do ponto viaja como `action`: e o que o dialogo devolve.
+        action: `ponto:${p.id}`,
         type: 'cancel',
       })),
-      { text: tt('dialog.common.cancel', 'Cancel'), value: false, type: 'cancel' },
+      { label: tt('dialog.common.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
     ],
   });
-  if (!escolha) return false;
-  return voltarAoPonto(String(escolha));
+  if (typeof escolha !== 'string' || !escolha.startsWith('ponto:')) return false;
+  return voltarAoPonto(escolha.slice('ponto:'.length));
 }
 
 /** Marca um ponto a pedido da pessoa, pela paleta. */

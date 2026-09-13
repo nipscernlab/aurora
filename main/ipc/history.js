@@ -414,6 +414,33 @@ function fontesDoProjeto(projeto, teto = MAX_ARQUIVOS_POR_PONTO) {
   return saida;
 }
 
+/**
+ * O estado do projeto reduzido a um texto: cada arquivo com a versao que vale
+ * agora. Dois pontos com a mesma assinatura apontam para o mesmo lugar.
+ */
+function assinaturaDoEstado(projeto, arquivos) {
+  const partes = [];
+  for (const rel of arquivos.slice().sort()) {
+    const pasta = pastaDoArquivo(projeto, rel);
+    if (!pasta) continue;
+    const versoes = lerIndice(pasta).versoes;
+    const atual = versoes.length ? versoes[versoes.length - 1].id : '';
+    partes.push(`${rel}:${atual}`);
+  }
+  return crypto.createHash('sha1').update(partes.join('\n'), 'utf8').digest('hex');
+}
+
+/** O ponto mais recente ja gravado, ou null. */
+function ultimoPonto(dir) {
+  try {
+    const nomes = fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort();
+    if (!nomes.length) return null;
+    return JSON.parse(fs.readFileSync(path.join(dir, nomes[nomes.length - 1]), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 function pastaDePontos(projeto) {
   const base = pastaDoProjeto(projeto);
   return base ? path.join(base, PASTA_PONTOS) : null;
@@ -425,7 +452,7 @@ function pastaDePontos(projeto) {
  * @param {string} projeto
  * @param {{ rotulo?: string|null, mensagemId?: string|null, agora?: number }} [meta]
  */
-function criarPonto(projeto, { rotulo = null, mensagemId = null, agora = Date.now() } = {}) {
+function criarPonto(projeto, { rotulo = null, mensagemId = null, manual = false, agora = Date.now() } = {}) {
   const dir = pastaDePontos(projeto);
   if (!dir) return { ok: false, erro: 'projeto invalido' };
 
@@ -454,10 +481,37 @@ function criarPonto(projeto, { rotulo = null, mensagemId = null, agora = Date.no
 
   fs.mkdirSync(dir, { recursive: true });
   ocultarPastaDeSistemaEm(dir);
+
+  /*
+   * Ponto identico ao ultimo nao vira ponto novo.
+   *
+   * Os gatilhos sao automaticos: um por compilacao e um por mensagem para a
+   * IA. Compilar cinco vezes seguidas sem editar nada produzia cinco pontos
+   * apontando para o mesmo estado, e a lista de "volte para aqui" enchia de
+   * linhas indistinguiveis. A deduplicacao de conteudo ja impedia as copias de
+   * arquivo, mas nao os rotulos.
+   *
+   * A assinatura e o conjunto de (arquivo, versao atual) no instante: se ela
+   * nao mudou, nao ha estado novo para onde voltar. Guardada no proprio ponto,
+   * a comparacao custa uma leitura de JSON, e nao uma revarredura.
+   *
+   * O ponto MANUAL escapa disso: quem clicou em "marcar ponto" fez um gesto
+   * deliberado e espera ver o resultado dele na lista, mesmo que o estado
+   * ainda seja o mesmo de dois minutos atras.
+   */
+  const assinatura = assinaturaDoEstado(projeto, arquivos);
+  if (!manual) {
+    const ultimo = ultimoPonto(dir);
+    if (ultimo && ultimo.assinatura && ultimo.assinatura === assinatura) {
+      return { ok: true, id: ultimo.id, arquivos: arquivos.length, repetido: true };
+    }
+  }
+
   const id = idDe(agora);
   const ponto = {
     formato: 1,
     id,
+    assinatura,
     quando: agora,
     rotulo: rotulo ? String(rotulo).slice(0, 200) : null,
     mensagemId: mensagemId ? String(mensagemId).slice(0, 64) : null,
@@ -707,6 +761,7 @@ module.exports = {
   guardarAntesSePrimeira,
   lerVista,
   criarPonto,
+  assinaturaDoEstado,
   listarPontos,
   previaDoPonto,
   rebobinar,

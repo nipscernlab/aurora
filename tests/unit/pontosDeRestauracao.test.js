@@ -61,7 +61,9 @@ describe('ponto: a varredura que fecha o buraco', () => {
     hist.criarPonto(raiz, { agora: 3000 });
 
     expect(hist.listar(raiz, arq('a.v')).versoes).toHaveLength(1);
-    expect(hist.listarPontos(raiz).pontos).toHaveLength(3);
+    // E nem o ROTULO se repete: tres pontos sobre o mesmo estado viram um.
+    // Ver o bloco "ponto: repetido nao entra na lista", no fim deste arquivo.
+    expect(hist.listarPontos(raiz).pontos).toHaveLength(1);
   });
 
   it('nao varre o que nao e fonte do projeto', () => {
@@ -164,5 +166,76 @@ describe('ponto: voltar', () => {
     const p = hist.listarPontos(raiz).pontos[0];
     expect(p.rotulo).toBe('antes de pedir o refatorar');
     expect(p.mensagemId).toBe('msg-7');
+  });
+});
+
+/**
+ * Ponto repetido nao vira ponto novo.
+ *
+ * Os gatilhos sao automaticos: um por compilacao e um por mensagem para a IA.
+ * Compilar cinco vezes seguidas sem editar nada produzia cinco pontos
+ * apontando para o mesmo estado, e a lista de "volte para aqui" enchia de
+ * linhas indistinguiveis. A deduplicacao de CONTEUDO ja impedia as copias de
+ * arquivo, mas nao os rotulos.
+ *
+ * Isto foi escrito depois de o Chrysthofer perguntar se fazia sentido APAGAR
+ * um ponto. A resposta foi que apagar nao libera nada (o conteudo vive no
+ * historico por arquivo, com limite proprio) e que o incomodo real era a lista
+ * cheia de repetidos. Entao o conserto e na origem, e nao um botao de faxina
+ * sobre uma rede de seguranca.
+ *
+ * O ponto MANUAL escapa da regra de proposito: quem clicou em "marcar ponto"
+ * fez um gesto deliberado e espera ver o resultado dele na lista, mesmo que o
+ * estado ainda seja o mesmo de dois minutos atras.
+ */
+describe('ponto: repetido nao entra na lista', () => {
+  it('cinco compilacoes sem editar nada deixam UM ponto', () => {
+    escrever('a.v', 'module a; endmodule\n');
+    for (let i = 0; i < 5; i += 1) {
+      hist.criarPonto(raiz, { rotulo: 'antes de compilar', agora: 1000 + i * 1000 });
+    }
+    expect(hist.listarPontos(raiz).pontos).toHaveLength(1);
+  });
+
+  it('editar entre as compilacoes cria o ponto novo', () => {
+    const p = escrever('a.v', 'v1\n');
+    hist.criarPonto(raiz, { agora: 1000 });
+    fs.writeFileSync(p, 'v2\n', 'utf8');
+    hist.gravarVersao(raiz, p, 'v2\n', { agora: 2000 });
+    hist.criarPonto(raiz, { agora: 3000 });
+
+    expect(hist.listarPontos(raiz).pontos).toHaveLength(2);
+  });
+
+  it('o ponto MANUAL entra mesmo sem nada ter mudado', () => {
+    escrever('a.v', 'parado\n');
+    hist.criarPonto(raiz, { agora: 1000 });
+    hist.criarPonto(raiz, { rotulo: 'marcado a mao', manual: true, agora: 2000 });
+
+    const pts = hist.listarPontos(raiz).pontos;
+    expect(pts).toHaveLength(2);
+    expect(pts[0].rotulo).toBe('marcado a mao');
+  });
+
+  it('o repetido devolve o id do ponto que ja existia, e nao um erro', () => {
+    escrever('a.v', 'x\n');
+    const primeiro = hist.criarPonto(raiz, { agora: 1000 });
+    const segundo = hist.criarPonto(raiz, { agora: 2000 });
+
+    expect(segundo.ok).toBe(true);
+    expect(segundo.repetido).toBe(true);
+    expect(segundo.id).toBe(primeiro.id);
+  });
+
+  it('a assinatura muda quando o conteudo muda, e so por isso', () => {
+    const p = escrever('a.v', 'v1\n');
+    hist.gravarVersao(raiz, p, 'v1\n', { agora: 1000 });
+    const antes = hist.assinaturaDoEstado(raiz, ['a.v']);
+    // Gravar o MESMO conteudo nao cria versao, entao nao muda a assinatura.
+    hist.gravarVersao(raiz, p, 'v1\n', { agora: 2000 });
+    expect(hist.assinaturaDoEstado(raiz, ['a.v'])).toBe(antes);
+
+    hist.gravarVersao(raiz, p, 'v2\n', { agora: 3000 });
+    expect(hist.assinaturaDoEstado(raiz, ['a.v'])).not.toBe(antes);
   });
 });

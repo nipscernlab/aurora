@@ -211,7 +211,9 @@ export async function escolherPonto() {
 
 /** Marca um ponto a pedido da pessoa, pela paleta. */
 export async function marcarPontoManual() {
-  const r = await marcarPonto({ rotulo: tt('rewind.manual', 'marked by hand') });
+  // `manual: true`: um ponto pedido de proposito aparece na lista mesmo que o
+  // estado ainda seja o mesmo. Quem clicou espera ver o resultado do clique.
+  const r = await marcarPonto({ rotulo: tt('rewind.manual', 'marked by hand'), manual: true });
   try {
     window.showNotification?.(
       r ? tt('rewind.marked', 'Restore point marked.') : tt('rewind.failed', 'Could not mark it.'),

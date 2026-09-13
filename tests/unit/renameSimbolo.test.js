@@ -37,8 +37,11 @@ let providers;
 let acoesDe;
 let metaDasAcoes;
 let realcesDe;
+let hoversDe;
 let realceDoVerible;
 let realceDoSlang;
+let hoverDoVerible;
+let hoverDoSlang;
 let quemFoiPerguntado;
 let slangLigado;
 let abertos;
@@ -78,6 +81,7 @@ function montarMonaco() {
   acoesDe = {};
   metaDasAcoes = null;
   realcesDe = {};
+  hoversDe = {};
   globalThis.monaco = {
     Range: class { constructor(a, b, c, d) { Object.assign(this, { a, b, c, d }); } },
     MarkerSeverity: { Hint: 1, Info: 2, Warning: 4, Error: 8 },
@@ -95,9 +99,9 @@ function montarMonaco() {
     languages: {
       registerDocumentFormattingEditProvider: () => {},
       registerDocumentSymbolProvider: () => {},
-      registerHoverProvider: () => {},
       registerDefinitionProvider: () => {},
       registerReferenceProvider: () => {},
+      registerHoverProvider: (lang, p) => { hoversDe[lang] = p; },
       registerRenameProvider: (lang, p) => { providers[lang] = p; },
       registerCodeActionProvider: (lang, p, meta) => {
         acoesDe[lang] = p;
@@ -144,6 +148,8 @@ beforeEach(() => {
   pedidosDeAcao = [];
   realceDoVerible = [];
   realceDoSlang = [];
+  hoverDoVerible = null;
+  hoverDoSlang = null;
   quemFoiPerguntado = [];
   slangLigado = true;
 
@@ -164,12 +170,21 @@ beforeEach(() => {
       quemFoiPerguntado.push('verible');
       return realceDoVerible;
     },
+    hover: async () => {
+      quemFoiPerguntado.push('verible');
+      return hoverDoVerible;
+    },
   };
   window.slangAPI = {
     documentHighlight: async () => {
       quemFoiPerguntado.push('slang');
       if (realceDoSlang instanceof Error) throw realceDoSlang;
       return realceDoSlang;
+    },
+    hover: async () => {
+      quemFoiPerguntado.push('slang');
+      if (hoverDoSlang instanceof Error) throw hoverDoSlang;
+      return hoverDoSlang;
     },
   };
   window.AuroraSlang = { isEnabled: () => slangLigado };
@@ -452,5 +467,82 @@ describe('realce de ocorrencias: quem responde', () => {
     const r = await (await realcador()).provideDocumentHighlights(modelos.get(uriDe(ARQ_A)), POS);
 
     expect(r).toEqual([]);
+  });
+});
+
+/**
+ * O balao de hover, e a mesma escolha do realce por um motivo maior.
+ *
+ * Os dois respondem, e a diferenca e grande. Medido para o mesmo sinal: o
+ * Verible diz "data/net/var/instance valor, Type: reg [7:0]"; o slang diz em
+ * que modulo o sinal vive, o tipo, a LARGURA em bits e QUEM O DIRIGE. Largura
+ * e driver sao duas das perguntas que mais se faz lendo Verilog dos outros, e
+ * a resposta exigia abrir o outro arquivo.
+ *
+ * Vale registrar aqui o engano que quase me fez apagar codigo bom: o Verible
+ * anuncia `hoverProvider: false` no initialize e RESPONDE hover assim mesmo.
+ * Quem conferir capacidades e concluir que este caminho e morto vai remover um
+ * fallback que funciona.
+ */
+describe('hover: quem responde', () => {
+  const POS = { lineNumber: 4, column: 20 };
+  const balao = (texto) => ({ contents: { kind: 'markdown', value: texto } });
+
+  async function hover() {
+    await carregar();
+    return hoversDe.verilog;
+  }
+
+  it('prefere o slang e nem consulta o Verible quando ele responde', async () => {
+    hoverDoSlang = balao('**Variable** `valor` in `contador`  \nWidth: `8`');
+    const r = await (await hover()).provideHover(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(quemFoiPerguntado).toEqual(['slang']);
+    expect(r.contents[0].value).toMatch(/Width/);
+  });
+
+  it('cai no Verible quando o slang esta desligado', async () => {
+    slangLigado = false;
+    hoverDoVerible = balao('### data/net/var/instance valor');
+    const r = await (await hover()).provideHover(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(quemFoiPerguntado).toEqual(['verible']);
+    expect(r.contents[0].value).toMatch(/data\/net\/var/);
+  });
+
+  it('cai no Verible quando o slang volta vazio', async () => {
+    hoverDoSlang = { contents: '' };
+    hoverDoVerible = balao('### module contador');
+    const r = await (await hover()).provideHover(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(quemFoiPerguntado).toEqual(['slang', 'verible']);
+    expect(r.contents[0].value).toMatch(/module contador/);
+  });
+
+  it('cai no Verible quando o slang estoura', async () => {
+    hoverDoSlang = new Error('slang caiu');
+    hoverDoVerible = balao('### module contador');
+    const r = await (await hover()).provideHover(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(quemFoiPerguntado).toEqual(['slang', 'verible']);
+    expect(r.contents[0].value).toMatch(/module contador/);
+  });
+
+  it('devolve nulo quando nenhum dos dois sabe', async () => {
+    hoverDoSlang = null;
+    hoverDoVerible = null;
+    const r = await (await hover()).provideHover(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(r).toBeNull();
+  });
+
+  it('carrega a faixa do simbolo quando o servidor a manda', async () => {
+    hoverDoSlang = {
+      contents: 'texto',
+      range: { start: { line: 3, character: 19 }, end: { line: 3, character: 24 } },
+    };
+    const r = await (await hover()).provideHover(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(r.range).toBeTruthy();
   });
 });

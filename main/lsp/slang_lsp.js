@@ -950,6 +950,44 @@ async function inlayHint(/** @type {string} */ uri, /** @type {any} */ range) {
   }
 }
 
+/**
+ * Os links de um arquivo: hoje, o caminho de cada `include.
+ *
+ * Medido contra o binario: ele RESOLVE o caminho, devolvendo a uri do arquivo
+ * de verdade e nao o texto que esta escrito entre aspas. E isso que faz o
+ * recurso valer, porque o caminho escrito e relativo e a pessoa teria de
+ * descobrir a partir de onde.
+ */
+async function documentLink(/** @type {string} */ uri) {
+  if (!enabled) return null;
+  if (!(await ensureReady())) return null;
+  try {
+    return await request('textDocument/documentLink', { textDocument: { uri } });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * O que este simbolo e, para o balao do editor.
+ *
+ * O Verible ja respondia hover (apesar de anunciar `hoverProvider: false`, que
+ * e um engano do anuncio e nao do servidor). O do slang responde bem mais:
+ * para um sinal ele diz em que modulo ele vive, o tipo, a LARGURA em bits e
+ * quem o dirige; para um modulo, ele mostra a declaracao inteira com as
+ * portas. Largura e quem dirige sao duas das perguntas que mais se faz lendo
+ * Verilog dos outros, e ate agora a resposta exigia abrir o outro arquivo.
+ */
+async function hover(/** @type {string} */ uri, /** @type {any} */ position) {
+  if (!enabled) return null;
+  if (!(await ensureReady())) return null;
+  try {
+    return await request('textDocument/hover', { textDocument: { uri }, position });
+  } catch {
+    return null;
+  }
+}
+
 function setEnabled(/** @type {boolean} */ on) {
   on = !!on;
   if (on === enabled) return { enabled };
@@ -976,6 +1014,8 @@ function register() {
   ipcMain.handle('slang:document-highlight', (_e, { uri, position } = {}) => documentHighlight(uri, position));
   ipcMain.handle('slang:workspace-symbol', (_e, { query } = {}) => workspaceSymbol(query));
   ipcMain.handle('slang:inlay-hint', (_e, { uri, range } = {}) => inlayHint(uri, range));
+  ipcMain.handle('slang:document-link', (_e, { uri } = {}) => documentLink(uri));
+  ipcMain.handle('slang:hover', (_e, { uri, position } = {}) => hover(uri, position));
 }
 
 // As pecas que decidem o que entra no indice saem daqui para o teste: errar

@@ -7,7 +7,7 @@
  *   - live diagnostics (lint + syntax) as squiggles + Problems markers,
  *   - document formatting (Format Document / Shift+Alt+F),
  *   - outline symbols (breadcrumbs + Outline view),
- *   - hover,
+ *   - hover (this one asks slang first, see the provider for why),
  *   - go-to-definition / find-all-references,
  *   - rename symbol (F2), project-wide,
  *   - quick fixes (the lightbulb) for the lint it reports, and
@@ -434,7 +434,32 @@ function registerProviders() {
 
     monaco.languages.registerHoverProvider(lang, {
       async provideHover(model, position) {
-        const hv = await window.lspAPI.hover(model.uri.toString(), monacoPosToLsp(position));
+        const uri = model.uri.toString();
+        const pos = monacoPosToLsp(position);
+
+        // Pergunta ao slang primeiro, porque ele responde muito mais. Medido
+        // nos dois, para o mesmo sinal: o Verible diz "data/net/var/instance
+        // valor, Type: reg [7:0]"; o slang diz em que modulo ele vive, o tipo,
+        // a LARGURA em bits e quem o dirige. Largura e quem dirige sao duas
+        // das perguntas que mais se faz lendo Verilog dos outros.
+        //
+        // O Verible continua de reserva, para o slang desligado ou ausente. E
+        // vale registrar o engano: ele anuncia `hoverProvider: false` no
+        // initialize e RESPONDE hover assim mesmo. Quem for conferir
+        // capacidades por ali nao va concluir que este caminho e morto.
+        if (slangDisponivel()) {
+          let doSlang = null;
+          try { doSlang = await window.slangAPI.hover(uri, pos); } catch { doSlang = null; }
+          const valorDoSlang = hoverContentsToString(doSlang && doSlang.contents);
+          if (valorDoSlang) {
+            return {
+              contents: [{ value: valorDoSlang }],
+              range: doSlang.range ? lspRangeToMonaco(doSlang.range) : undefined,
+            };
+          }
+        }
+
+        const hv = await window.lspAPI.hover(uri, pos);
         if (!hv) return null;
         const value = hoverContentsToString(hv.contents);
         if (!value) return null;

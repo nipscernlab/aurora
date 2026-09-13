@@ -42,6 +42,7 @@ export function initSlang() {
 
     registerCompletion();
     registerInlayHints();
+    registerLinks();
     wireDiagnostics();
     wireModelLifecycle();
     exposeToggle();
@@ -217,6 +218,74 @@ function docToString(doc) {
   if (!doc) return undefined;
   if (typeof doc === 'string') return doc;
   return doc.value || undefined;
+}
+
+/**
+ * O caminho do `include, clicavel.
+ *
+ * O slang RESOLVE o caminho: devolve a uri do arquivo de verdade, e nao o
+ * texto entre aspas. E isso que faz o recurso valer, porque o caminho escrito
+ * e relativo e descobrir a partir de onde e justamente o trabalho chato.
+ *
+ * O clique precisa ser interceptado. Sem isso o Monaco trataria `file://` como
+ * endereco de navegacao, e o melhor caso seria nao acontecer nada. O opener
+ * abre a aba, como qualquer outro jeito de abrir arquivo aqui, e devolve false
+ * para tudo que nao for `file:` para nao sequestrar link de http num
+ * comentario.
+ */
+function registerLinks() {
+  for (const lang of SLANG_LANGS) {
+    monaco.languages.registerLinkProvider(lang, {
+      async provideLinks(model) {
+        const vazio = { links: [] };
+        if (!enabled) return vazio;
+        let res = null;
+        try { res = await window.slangAPI.documentLink(model.uri.toString()); }
+        catch { return vazio; }
+        if (!Array.isArray(res)) return vazio;
+
+        const links = [];
+        for (const l of res) {
+          if (!l || !l.range || !l.target) continue;
+          links.push({
+            range: new monaco.Range(
+              l.range.start.line + 1, l.range.start.character + 1,
+              l.range.end.line + 1, l.range.end.character + 1,
+            ),
+            url: l.target,
+            tooltip: l.tooltip || undefined,
+          });
+        }
+        return { links };
+      },
+    });
+  }
+
+  // Global, uma vez: vale para todo editor. O primeiro registrado a responder
+  // true vence, e devolver false deixa o Monaco seguir com o tratamento dele.
+  if (!aberturaDeLinkLigada) {
+    aberturaDeLinkLigada = true;
+    monaco.editor.registerLinkOpener({
+      open(recurso) {
+        if (!recurso || recurso.scheme !== 'file') return false;
+        abrirArquivoDoLink(recurso.fsPath);
+        return true;
+      },
+    });
+  }
+}
+
+let aberturaDeLinkLigada = false;
+
+/** Abre o arquivo do link numa aba, do mesmo jeito que a arvore abre. */
+async function abrirArquivoDoLink(fsPath) {
+  try {
+    const conteudo = await window.electronAPI.readFile(fsPath, { encoding: 'utf8' });
+    if (typeof conteudo !== 'string') return;
+    window.TabManager?.addTab?.(fsPath, conteudo);
+  } catch (e) {
+    console.warn('[slang] nao consegui abrir o include', fsPath, e);
+  }
 }
 
 /**

@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.17.1](https://github.com/nipscernlab/aurora/compare/v6.17.0...v6.17.1) (2026-09-13)
+
+
+### Bug Fixes
+
+* **components:** a caixa de selecao nao muda durante o download ([e42d4e7](https://github.com/nipscernlab/aurora/commit/e42d4e7d12949ee424c300872c359cce2ae8d9a3))
+
 ## [6.17.0](https://github.com/nipscernlab/aurora/compare/v6.16.0...v6.17.0) (2026-09-13)
 
 

@@ -104,25 +104,83 @@
   display: inline-flex;
   align-items: center;
   gap: 1px;
-  flex-shrink: 0;
+  /* AS DUAS MARGENS MEDEM IGUAL, e e isso que centra a fileira de abas: base
+     zero com crescimento igual, entao cada lado fica com metade do que sobra,
+     mesmo a esquerda tendo cinco botoes e a direita oito.
+     O `min-width` e o que faz isso valer. Sem ele o lado mais pesado encolhe
+     abaixo dos proprios botoes quando o espaco aperta, a divisao igual se
+     desfaz e a fileira sai do centro: MEDIDO em 13/09/2026
+     (scripts/medir-abas-terminal.js --centro), o desvio ia a 34 px. Com o piso no conteudo o
+     desvio e ZERO ate 1000 px de terminal, e so nos ultimos 120 px antes de a
+     barra virar coluna ele chega a 30 px. */
+  flex: 1 1 0;
+  min-width: max-content;
 }
+
+/* Botao de acao nao encolhe: o grupo cede largura, o icone nao. */
+.terminal-tabs-actions > * { flex-shrink: 0; }
 
 .terminal-tabs-list {
   display: inline-flex;
   align-items: center;
-  /* Respiro entre as abas. Era zero, e elas encostavam. */
-  gap: var(--space-2);
-  flex: 1 1 auto;
-  /* Sem isto a lista nunca encolhe abaixo do conteudo dela: as abas ficam no
-     tamanho cheio e as ultimas sao cortadas na borda da barra, que e a mesma
-     borda do painel de IA quando ele esta aberto. Na tela isso e
-     indistinguivel do painel estar por cima, e foi confundido com isso. */
-  min-width: 0;
-  margin-left: var(--space-2);
-  padding-left: var(--space-2);
+  justify-content: center;
+  /* Entre GRUPOS. O vao dentro de cada grupo e menor (.terminal-tabs-group),
+     porque o que separa ali e menos do que separa aqui. */
+  gap: var(--space-3);
+  /* A lista fica do tamanho das abas, e sao os dois grupos de acao que crescem
+     em volta dela. Antes era `1 1 auto`: a lista tomava o meio inteiro e as
+     abas ficavam encostadas na divisoria da esquerda, com um vazio comprido a
+     direita, que e o que se via na tela. */
+  flex: 0 1 auto;
+  /* O PISO E O CONTEUDO. Era `min-width: 0`, para a lista ceder largura antes
+     de cortar as abas na borda do painel de IA. So que ceder largura era
+     justamente o que escondia o problema: MEDIDO em 13/09/2026
+     (scripts/medir-abas-terminal.js --corte), com a lista encolhendo o `scrollWidth` da
+     barra nunca passa do `clientWidth`, em largura nenhuma. Quer dizer que a
+     deteccao de estouro do js/terminal/tab_orientation.js era codigo morto, e
+     so o limiar fixo de 780 px chegava a disparar. Enquanto isso as abas
+     encolhiam e os nomes cortavam a partir de 880 px.
+     Com o piso no conteudo, a barra estoura de verdade aos 850 px e o
+     tab_orientation vira a coluna ali, antes de qualquer nome cortar. O caso
+     que o comentario antigo temia (abas cortadas na borda do painel de IA)
+     nao volta: nessa largura ja se esta em coluna. */
+  min-width: max-content;
+  /* Delimitada dos DOIS lados, e com a mesma medida. So a esquerda tinha
+     divisoria, entao a fileira parecia presa no grupo da esquerda e solta a
+     direita. */
+  margin: 0 var(--space-3);
+  padding: 0 var(--space-3);
   border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
   height: 22px;
   position: relative;   /* anchors the sliding .terminal-tab-indicator */
+}
+
+/* ── as tres familias de terminal ──────────────────────────────────────────
+ * A cadeia de compilacao (C+-, ASM, Verilog, Wave, Test), o PRISM e o Shell.
+ * O agrupamento nao e enfeite: a cadeia esta na ordem em que a compilacao
+ * acontece, o PRISM olha o mesmo projeto pelo esquematico, e o Shell e um
+ * shell de verdade e nao um painel de saida. O vao uniforme de antes dava aos
+ * sete o mesmo peso e nao dizia nada disso.
+ *
+ * Os grupos NAO podem ser `position: relative`: o indicador deslizante mede
+ * `offsetLeft` contra o primeiro ancestral posicionado, que tem de continuar
+ * sendo a lista (js/terminal/terminal.js). Posicionar um grupo faria o
+ * indicador saltar para debaixo da aba errada.
+ * ---------------------------------------------------------------------- */
+.terminal-tabs-group {
+  display: inline-flex;
+  align-items: center;
+  /* Dentro da familia as abas ficam PERTO: sao passos da mesma coisa. */
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* Um traco entre familias, no lugar de mais vao. Vao maior so afasta; o traco
+   diz que ali muda de assunto. */
+.terminal-tabs-group + .terminal-tabs-group {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
 }
 
 /* Single shared active-tab indicator that glides between tabs (positioned by
@@ -152,14 +210,25 @@
   gap: var(--space-2);
   padding: 0 10px;
   height: 22px;
-  /* As abas cedem largura antes de serem cortadas. O piso deixa o glifo e um
-     pedaco do nome sempre visiveis, entao a aba continua reconhecivel e
-     clicavel; passando disso, a barra volta a rolar, que e o comportamento
-     que ja existia. */
-  flex-shrink: 1;
-  min-width: 52px;
+  /* A ABA NAO ENCOLHE. Ela encolhia, com piso de 52 px, na ideia de que meio
+     nome ainda identifica a aba. Medido em 13/09/2026 (scripts/medir-abas-terminal.js --corte):
+     os rotulos comecam a cortar com o terminal em 880 px, e a barra so virava
+     coluna em 780. Eram 100 px de faixa em que "Verilog" aparecia "Verilo" e
+     "PRISM" encostava no vizinho, e o corte ficava INVISIVEL para qualquer
+     medida feita na barra, porque quem esconde e o `overflow: hidden` da
+     propria aba.
+     Sem encolher, a barra estoura em vez de cortar, e quem estoura vira coluna
+     (js/terminal/tab_orientation.js ja observa scrollWidth). O limiar do
+     colapso deixa de ser um numero escolhido a mao e passa a ser o ponto em
+     que os nomes DE FATO nao cabem mais, que e o que se queria desde o
+     comeco. */
+  flex-shrink: 0;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+  /* Quando a aba cede largura, o glifo e o que sobra do nome ficam no meio da
+     pilula, e nao encostados na esquerda com o vazio todo do lado direito. */
+  justify-content: center;
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
@@ -852,6 +921,9 @@
    colunas iguais acomodam o grupo da esquerda inteiro, e o da direita, que tem
    dois, ocupa as duas primeiras celulas sem desalinhar. */
 .terminal-container.tabs-vertical .terminal-tabs-actions {
+  /* Em coluna nao ha margem a equilibrar: o `flex: 1 1 0` da faixa faria os
+     dois grupos esticarem na vertical e abrirem vao morto entre eles. */
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 2px;
@@ -865,18 +937,34 @@
 .terminal-container.tabs-vertical .terminal-tabs-list {
   flex-direction: column;
   align-items: stretch;
+  justify-content: flex-start;
   flex: 0 0 auto;
   width: 100%;
   height: auto;
-  margin-left: 0;
-  padding-left: 0;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) 0 0;
   border-left: 0;
+  border-right: 0;
   border-top: 1px solid var(--border);
-  padding-top: var(--space-2);
-  margin-top: var(--space-2);
   /* Menos que na faixa: em coluna cada aba ja ocupa a largura toda, entao o
      vao grande so espalhava o olho por vao morto. */
   gap: var(--space-1);
+}
+
+/* Em coluna os grupos empilham como o resto, e a divisoria vira horizontal:
+   uma linha vertical entre familias empilhadas nao separaria nada. */
+.terminal-container.tabs-vertical .terminal-tabs-group {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: var(--space-1);
+}
+.terminal-container.tabs-vertical .terminal-tabs-group + .terminal-tabs-group {
+  padding-left: 0;
+  border-left: 0;
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--border);
 }
 
 /* Em coluna a aba tem a largura toda, entao o nome cabe inteiro: nada de
@@ -888,6 +976,9 @@
   height: 28px;
   padding: 0 8px;
   gap: 9px;
+  /* Em coluna o nome cabe inteiro e a aba ocupa a largura toda, entao o
+     conteudo alinha a esquerda: sete rotulos centrados em larguras diferentes
+     nao formariam coluna nenhuma. */
   justify-content: flex-start;
   flex-shrink: 0;
   border-radius: var(--radius-sm);

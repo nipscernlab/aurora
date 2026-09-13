@@ -12,18 +12,39 @@
  *
  * Isto e deliberado, e foi a escolha do Chrysthofer entre duas saidas. Cada
  * valor distinto de esforco cria uma LINHAGEM DE CACHE separada: o prefixo de
- * 10,4 mil tokens do system prompt e aquecido uma vez por valor em uso. Como o
- * cache dura 5 minutos por padrao, escrever custa 1,25x a entrada e ler custa
- * 0,1x, uma operacao rara quase nunca acha o prefixo quente: paga a escrita
- * toda vez e nunca colhe a leitura, ficando 25% mais cara do que seria sem
- * cache nenhum. "Comentar codigo" e o caso suspeito: ninguem pede isso duas
- * vezes em cinco minutos.
+ * 10,4 mil tokens do system prompt e aquecido uma vez por valor em uso.
  *
- * A saida escolhida nao foi comprar TTL de uma hora para todas as linhagens, e
- * sim justificar cada linha pelo raciocinio: `low` em comentar existe para a
+ * O PREFIXO FRIO, com o numero certo. A AURORA marca esses blocos por UMA HORA
+ * (prompt_cache.js, TTL_LONGO), e nao pelos 5 minutos do padrao. Escrever por
+ * 1h custa 2x a entrada, nao 1,25x. Entao uma linhagem que nunca e relida nao
+ * fica 25% mais cara do que nao cachear: fica 100% mais cara. O prazo maior nao
+ * ameniza o prefixo frio, ele PIORA o prefixo frio. Ele se paga na segunda
+ * leitura, e so quem volta colhe isso.
+ *
+ * O QUE SEGURA ISSO AQUI nao e o prazo, e o fato de nenhum valor da tabela
+ * pertencer a uma operacao so. `low` e de comentar E de posCompilacaoOk;
+ * `high` e de achar erro E de posCompilacaoFalha. Compilar e o gesto mais
+ * repetido da IDE, entao as duas linhagens sao reaquecidas pelo caminho comum,
+ * e nao por um botao que se aperta uma vez por tarde.
+ *
+ * O QUE NAO ESTA RESOLVIDO, e tem de ser dito: quem usa a AURORA so para
+ * comentar codigo, sem nunca compilar, fica com a linhagem `low` fria e paga
+ * mais do que pagaria sem cache. Nao foi medido. Se a medicao viva mostrar
+ * isso, o conserto NAO e comprar prazo: e tirar `comentar` da tabela e deixa-lo
+ * no valor da interface, onde ele pega carona no prefixo dominante.
+ *
+ * A saida escolhida nao foi comprar prazo para todas as linhagens, e sim
+ * justificar cada linha pelo raciocinio: `low` em comentar existe para a
  * resposta vir rapida, `high` em achar erro existe porque muda o resultado. Se
  * o cache vier junto, melhor; se nao vier, a decisao continua certa. A medicao
  * mede as duas coisas SEPARADAS, senao uma esconde a outra.
+ *
+ * UMA PREMISSA, e ela ainda nao foi conferida contra a API: que `effort` entre
+ * no que a Anthropic usa para casar o prefixo. Se NAO entrar, as linhagens sao
+ * uma so e todo este paragrafo perde o objeto, para melhor. A medicao viva
+ * (scripts/medir-cache-ia.js --so-esforco) responde isso na primeira linha em
+ * que os tokens lidos do cache aparecerem nao-zero depois de uma troca de
+ * esforco.
  *
  * POR ISSO ISTO NASCEU JUNTO COM A SEPARACAO DO CACHE (prompt_cache.js), e nao
  * depois: esforco distinto cria linhagem distinta, entao medir o cache antes de

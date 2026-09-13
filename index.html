@@ -460,76 +460,93 @@
                 </div>
 
                 <div class="terminal-tabs-list">
-                  <button class="tab active" data-terminal="tcmm" data-tooltip="TCMM" data-i18n-tooltip="toolbar.termTabTooltip.cmm">
-                      <span class="glyph glyph-cpm" aria-hidden="true">
-                        <svg viewBox="0 0 24 16">
-                          <path class="cpm-c" d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
-                          <path class="cpm-pm" d="M18 4.2 v3.6 M16.2 6 h3.6"/>
-                          <path class="cpm-pm" d="M16.2 11.2 h3.6"/>
-                        </svg>
-                      </span>
-                      <span class="tab-label" data-i18n="toolbar.termTabLabel.cmm">C±</span>
-                  </button>
-                  <button class="tab" data-terminal="tasm" data-tooltip="TASM" data-i18n-tooltip="toolbar.termTabTooltip.asm">
-                      <span class="glyph glyph-asm" aria-hidden="true">
-                        <svg viewBox="0 0 16 16">
-                          <rect x="4.5" y="4.5" width="7" height="7" rx="0.8"/>
-                          <path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3M5 1.5v3M11 1.5v3M5 11.5v3M11 11.5v3M1.5 5h3M1.5 11h3M11.5 5h3M11.5 11h3"/>
-                          <path d="M7 7h2v2H7z" fill="currentColor" stroke="none"/>
-                        </svg>
-                      </span>
-                      <span class="tab-label" data-i18n="toolbar.termTabLabel.asm">ASM</span>
-                  </button>
-                  <button class="tab" data-terminal="tveri" data-tooltip="TVERI" data-i18n-tooltip="toolbar.termTabTooltip.veri">
-                      <span class="glyph glyph-veri" aria-hidden="true">
-                        <svg viewBox="0 0 16 16">
-                          <path d="M13.2 2.8c0 5.6-3.9 9.5-9.5 10.5"/>
-                          <path d="M13.2 2.8C7.6 3.8 3.7 7.7 2.7 13.3"/>
-                          <path d="M12.2 3.8 3.4 12.6"/>
-                          <path d="M11.7 4.6 8.5 4.6 M10.2 6.6 7 6.6 M8.6 8.7 5.4 8.7"/>
-                        </svg>
-                      </span>
-                      <span class="tab-label" data-i18n="toolbar.termTabLabel.veri">Verilog</span>
-                  </button>
-                  <button class="tab" data-terminal="twave" data-tooltip="TWAVE" data-i18n-tooltip="toolbar.termTabTooltip.wave">
-                      <span class="glyph glyph-wave" aria-hidden="true">
-                        <svg viewBox="0 0 16 16">
-                          <path d="M1 11 L4 11 L4 5 L8 5 L8 11 L12 11 L12 5 L15 5"/>
-                        </svg>
-                      </span>
-                      <span class="tab-label" data-i18n="toolbar.termTabLabel.wave">Wave</span>
-                  </button>
-                  <button class="tab" data-terminal="thtest" data-tooltip="THTEST" data-i18n-tooltip="toolbar.termTabTooltip.thtest">
-                      <span class="glyph glyph-thtest" aria-hidden="true">
-                        <svg viewBox="0 0 16 16">
-                          <rect x="4.5" y="4.5" width="7" height="7" rx="1"/>
-                          <rect x="7" y="7" width="2" height="2" rx="0.5"/>
-                          <path d="M6.5 4.5 6.5 2 M9.5 4.5 9.5 2 M6.5 11.5 6.5 14 M9.5 11.5 9.5 14"/>
-                          <path d="M4.5 6.5 2 6.5 M4.5 9.5 2 9.5 M11.5 6.5 14 6.5 M11.5 9.5 14 9.5"/>
-                        </svg>
-                      </span>
-                      <span class="tab-label" data-i18n="toolbar.termTabLabel.thtest">Test</span>
-                  </button>
-                  <!-- PRISM tem terminal proprio desde 29/08/2026. Ele
-                       escrevia no TVERI, e as duas coisas mais compridas do
-                       aplicativo disputavam a mesma tela: o Build despejando o
-                       iverilog enquanto o Yosys despejava a sintese do
-                       esquematico, intercalados, sem dizer de quem era cada
-                       linha. Aba propria e o mesmo remedio que os outros seis
-                       terminais ja usam. -->
-                  <button class="tab" data-terminal="tprism" data-tooltip="TPRISM" data-i18n-tooltip="toolbar.termTabTooltip.prism">
-                      <img class="glyph glyph-tprism" src="./assets/icons/aurora_prism.svg" alt="" aria-hidden="true">
-                      <span class="tab-label" data-i18n="toolbar.termTabLabel.prism">PRISM</span>
-                  </button>
-                  <button class="tab" data-terminal="tcmd" data-tooltip="TCMD" data-i18n-tooltip="toolbar.termTabTooltip.cmd">
-                      <span class="glyph glyph-tcmd" aria-hidden="true">
-                        <svg viewBox="0 0 16 16">
-                          <path d="M3.5 4.5 L6.5 8 L3.5 11.5"/>
-                          <path d="M8.5 11.5 H12.5"/>
-                        </svg>
-                      </span>
-                      <span class="tab-label" data-i18n="toolbar.termTabLabel.cmd">Shell</span>
-                  </button>
+                  <!-- Tres familias, e nao sete avulsas. A CADEIA e a ordem em
+                       que a compilacao acontece: C+- vira ASM, ASM vira Verilog,
+                       Verilog simula, a simulacao vira onda, a onda vira teste
+                       de hardware. Ler a fila da esquerda para a direita e ler o
+                       que o projeto faz. O PRISM nao esta nessa fila: ele olha o
+                       mesmo projeto de outro angulo, o esquematico. E o Shell e
+                       um shell de verdade, e nao um painel de saida como os
+                       outros seis. O tracinho entre os grupos diz isso; o vao
+                       uniforme de antes nao dizia nada. -->
+                  <div class="terminal-tabs-group" data-grupo="cadeia">
+                    <button class="tab active" data-terminal="tcmm" data-tooltip="TCMM" data-i18n-tooltip="toolbar.termTabTooltip.cmm">
+                        <span class="glyph glyph-cpm" aria-hidden="true">
+                          <svg viewBox="0 0 24 16">
+                            <path class="cpm-c" d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
+                            <path class="cpm-pm" d="M18 4.2 v3.6 M16.2 6 h3.6"/>
+                            <path class="cpm-pm" d="M16.2 11.2 h3.6"/>
+                          </svg>
+                        </span>
+                        <span class="tab-label" data-i18n="toolbar.termTabLabel.cmm">C±</span>
+                    </button>
+                    <button class="tab" data-terminal="tasm" data-tooltip="TASM" data-i18n-tooltip="toolbar.termTabTooltip.asm">
+                        <span class="glyph glyph-asm" aria-hidden="true">
+                          <svg viewBox="0 0 16 16">
+                            <rect x="4.5" y="4.5" width="7" height="7" rx="0.8"/>
+                            <path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3M5 1.5v3M11 1.5v3M5 11.5v3M11 11.5v3M1.5 5h3M1.5 11h3M11.5 5h3M11.5 11h3"/>
+                            <path d="M7 7h2v2H7z" fill="currentColor" stroke="none"/>
+                          </svg>
+                        </span>
+                        <span class="tab-label" data-i18n="toolbar.termTabLabel.asm">ASM</span>
+                    </button>
+                    <button class="tab" data-terminal="tveri" data-tooltip="TVERI" data-i18n-tooltip="toolbar.termTabTooltip.veri">
+                        <span class="glyph glyph-veri" aria-hidden="true">
+                          <svg viewBox="0 0 16 16">
+                            <path d="M13.2 2.8c0 5.6-3.9 9.5-9.5 10.5"/>
+                            <path d="M13.2 2.8C7.6 3.8 3.7 7.7 2.7 13.3"/>
+                            <path d="M12.2 3.8 3.4 12.6"/>
+                            <path d="M11.7 4.6 8.5 4.6 M10.2 6.6 7 6.6 M8.6 8.7 5.4 8.7"/>
+                          </svg>
+                        </span>
+                        <span class="tab-label" data-i18n="toolbar.termTabLabel.veri">Verilog</span>
+                    </button>
+                    <button class="tab" data-terminal="twave" data-tooltip="TWAVE" data-i18n-tooltip="toolbar.termTabTooltip.wave">
+                        <span class="glyph glyph-wave" aria-hidden="true">
+                          <svg viewBox="0 0 16 16">
+                            <path d="M1 11 L4 11 L4 5 L8 5 L8 11 L12 11 L12 5 L15 5"/>
+                          </svg>
+                        </span>
+                        <span class="tab-label" data-i18n="toolbar.termTabLabel.wave">Wave</span>
+                    </button>
+                    <button class="tab" data-terminal="thtest" data-tooltip="THTEST" data-i18n-tooltip="toolbar.termTabTooltip.thtest">
+                        <span class="glyph glyph-thtest" aria-hidden="true">
+                          <svg viewBox="0 0 16 16">
+                            <rect x="4.5" y="4.5" width="7" height="7" rx="1"/>
+                            <rect x="7" y="7" width="2" height="2" rx="0.5"/>
+                            <path d="M6.5 4.5 6.5 2 M9.5 4.5 9.5 2 M6.5 11.5 6.5 14 M9.5 11.5 9.5 14"/>
+                            <path d="M4.5 6.5 2 6.5 M4.5 9.5 2 9.5 M11.5 6.5 14 6.5 M11.5 9.5 14 9.5"/>
+                          </svg>
+                        </span>
+                        <span class="tab-label" data-i18n="toolbar.termTabLabel.thtest">Test</span>
+                    </button>
+                  </div>
+
+                  <div class="terminal-tabs-group" data-grupo="prism">
+                    <!-- PRISM tem terminal proprio desde 29/08/2026. Ele
+                         escrevia no TVERI, e as duas coisas mais compridas do
+                         aplicativo disputavam a mesma tela: o Build despejando o
+                         iverilog enquanto o Yosys despejava a sintese do
+                         esquematico, intercalados, sem dizer de quem era cada
+                         linha. Aba propria e o mesmo remedio que os outros seis
+                         terminais ja usam. -->
+                    <button class="tab" data-terminal="tprism" data-tooltip="TPRISM" data-i18n-tooltip="toolbar.termTabTooltip.prism">
+                        <img class="glyph glyph-tprism" src="./assets/icons/aurora_prism.svg" alt="" aria-hidden="true">
+                        <span class="tab-label" data-i18n="toolbar.termTabLabel.prism">PRISM</span>
+                    </button>
+                  </div>
+
+                  <div class="terminal-tabs-group" data-grupo="shell">
+                    <button class="tab" data-terminal="tcmd" data-tooltip="TCMD" data-i18n-tooltip="toolbar.termTabTooltip.cmd">
+                        <span class="glyph glyph-tcmd" aria-hidden="true">
+                          <svg viewBox="0 0 16 16">
+                            <path d="M3.5 4.5 L6.5 8 L3.5 11.5"/>
+                            <path d="M8.5 11.5 H12.5"/>
+                          </svg>
+                        </span>
+                        <span class="tab-label" data-i18n="toolbar.termTabLabel.cmd">Shell</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div class="terminal-tabs-actions">

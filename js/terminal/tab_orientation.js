@@ -32,6 +32,18 @@ export const LARGURA_VIRA_COLUNA = 780;
  * a faixa não cabe, vira coluna também; e para não oscilar (em coluna não dá
  * para medir se a faixa caberia), a coluna só volta a faixa quando o terminal
  * cresce uma folga além da largura em que estourou.
+ *
+ * ESTA DETECÇÃO NÃO DISPARAVA, e foi consertada no CSS, não aqui. Enquanto a
+ * lista de abas podia encolher (`min-width: 0`), as abas cediam largura e
+ * cortavam o próprio nome por dentro, então o `scrollWidth` da barra nunca
+ * passava do `clientWidth`: medido em 13/09/2026 com
+ * `scripts/medir-abas-terminal.js --corte`, em largura nenhuma de 1400 a 600 px.
+ * O efeito era que só o limiar fixo abaixo chegava a valer, e ele valia tarde:
+ * os rótulos começavam a cortar aos 880 px e a coluna só entrava aos 780, uma
+ * faixa de 100 px em que "Verilog" aparecia "Verilo". Com o piso da lista no
+ * próprio conteúdo (css/terminal/terminal.css), a barra estoura de verdade aos
+ * 880 px, que é exatamente onde os nomes deixariam de caber, e é esta variável
+ * que vira a coluna ali.
  */
 let larguraQueEstourou = 0;
 const FOLGA_PARA_VOLTAR = 40;

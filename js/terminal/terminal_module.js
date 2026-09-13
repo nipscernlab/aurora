@@ -25,6 +25,19 @@ const MAX_TERMINAL_ENTRIES = 5000;
 const MAX_GROUPED_MESSAGES = 5000;
 
 /** 1234567 -> "1.2 MB": o pill do dump atualiza varias vezes por segundo. */
+/**
+ * O texto traduzido, ou a reserva em ingles.
+ *
+ * Estes rotulos estavam fixos em ingles: quem usa a AURORA em portugues via
+ * ingles no meio da tela.
+ */
+function tr(chave, reserva) {
+  const f = typeof window !== 'undefined' ? window.t : null;
+  if (typeof f !== 'function') return reserva;
+  const v = f(chave);
+  return (v && v !== chave) ? v : reserva;
+}
+
 function formatarBytes(n) {
     if (!Number.isFinite(n) || n < 0) return '0 B';
     if (n < 1024) return `${n} B`;
@@ -1438,7 +1451,7 @@ class TerminalManager {
                 return;
             }
             const result = await api.showSaveDialog({
-                title: 'Export terminal log (all terminals)',
+                title: tr('terminal.exportAllTitle', 'Export terminal log (all terminals)'),
                 defaultPath: defaultName,
                 filters: [
                     { name: 'Plain text', extensions: ['txt', 'log'] },
@@ -1729,11 +1742,11 @@ async clearTerminal(terminalId) {
         if (this.clearMode === 'current') {
             this.clearMode = 'all';
             if (icon) icon.className = 'ph ph-broom';
-            clearButton.setAttribute('data-tooltip', 'Clear all terminals (right-click: current only)');
+            clearButton.setAttribute('data-tooltip', tr('terminal.clearAllTip', 'Clear all terminals (right-click: current only)'));
         } else {
             this.clearMode = 'current';
             if (icon) icon.className = 'ph ph-trash';
-            clearButton.setAttribute('data-tooltip', 'Clear current terminal tab (right-click: all)');
+            clearButton.setAttribute('data-tooltip', tr('terminal.clearCurrentTip', 'Clear current terminal tab (right-click: all)'));
         }
     }
 

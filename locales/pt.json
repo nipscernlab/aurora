@@ -807,7 +807,10 @@
     "cleared": "Terminal limpo",
     "allCleared": "Terminais limpos",
     "openManual": "Abrir o manual",
-    "helpLine": "O manual explica este caso."
+    "helpLine": "O manual explica este caso.",
+    "clearAllTip": "Limpar todos os terminais (botão direito: só o atual)",
+    "clearCurrentTip": "Limpar a aba atual do terminal (botão direito: todas)",
+    "exportAllTitle": "Exportar o log do terminal (todos)"
   },
   "error": {
     "config": {
@@ -1012,7 +1015,17 @@
       "sendNow": "Enviar agora (interrompe a resposta atual)",
       "cancel": "Tirar da fila"
     },
-    "help": "Abrir o capítulo do manual sobre a Aurora Intelligence"
+    "help": "Abrir o capítulo do manual sobre a Aurora Intelligence",
+    "customAnswerPlaceholder": "Escreva uma resposta sua (opcional)",
+    "selectionAsk": "Perguntar à Aurora Intelligence sobre esta seleção",
+    "selectionFixBugs": "Achar e corrigir erros",
+    "selectionComment": "Comentar o código",
+    "usageThisWeek": "Esta semana",
+    "usageThisWeekModel": "Esta semana, {{model}}",
+    "usageThisSession": "Esta sessão",
+    "permAsk": "Perguntar sempre",
+    "permWrites": "Perguntar antes de alterar",
+    "permAllow": "Permitir tudo"
   },
   "git": {
     "title": "Controle de Versão",
@@ -1477,6 +1490,9 @@
       "markPoint": "checkpoint snapshot save state rewind ponto marcar restauracao",
       "rewind": "undo revert checkpoint snapshot back voltar desfazer reverter",
       "settings": "preferences options config preferencias opcoes ajustes"
-    }
+    },
+    "placeholder": "Digite um comando…",
+    "aria": "Paleta de comandos",
+    "empty": "Nenhum comando corresponde"
   }
 }

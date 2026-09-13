@@ -12,6 +12,19 @@
  * Both editor factories call `attachAiSelectionWidget(editor, { getFilePath })`
  * once per instance, see monaco_editor.js (main pane) and split_editor.js.
  */
+/**
+ * O texto traduzido, ou a reserva em ingles.
+ *
+ * Estes rotulos estavam fixos em ingles: quem usa a AURORA em portugues via
+ * ingles no meio da tela.
+ */
+function tr(chave, reserva) {
+  const f = typeof window !== 'undefined' ? window.t : null;
+  if (typeof f !== 'function') return reserva;
+  const v = f(chave);
+  return (v && v !== chave) ? v : reserva;
+}
+
 
 const WIDGET_ID = 'aurora.ai.selectionStar';
 
@@ -19,9 +32,9 @@ const WIDGET_ID = 'aurora.ai.selectionStar';
 // prompt; the free-form "Ask…" only seeds the composer so the user can type.
 const MENU_ITEMS = [
   { intent: 'explain', label: 'Explain',       icon: 'ph ph-chat-circle-text', send: true },
-  { intent: 'fix',     label: 'Find & fix bugs', icon: 'ph ph-bug',            send: true },
+  { intent: 'fix',     label: tr('ai.selectionFixBugs', 'Find & fix bugs'), icon: 'ph ph-bug',            send: true },
   { intent: 'improve', label: 'Improve',        icon: 'ph ph-magic-wand',      send: true },
-  { intent: 'comment', label: 'Add comments',   icon: 'ph ph-note-pencil',     send: true },
+  { intent: 'comment', label: tr('ai.selectionComment', 'Add comments'),   icon: 'ph ph-note-pencil',     send: true },
   { intent: 'ask',     label: 'Ask…',           icon: 'ph ph-paper-plane-tilt', send: false },
 ];
 
@@ -43,7 +56,7 @@ export function attachAiSelectionWidget(editor, opts = {}) {
   // ── the star button ───────────────────────────────────────────────────
   const node = document.createElement('div');
   node.className = 'ai-selection-star';
-  node.title = 'Ask Aurora Intelligence about this selection';
+  node.title = tr('ai.selectionAsk', 'Ask Aurora Intelligence about this selection');
   node.setAttribute('role', 'button');
   // A single Phosphor sparkle, centres cleanly in the button (the old custom
   // 3-star SVG sat off-centre because its glyphs weren't centred in the viewBox).

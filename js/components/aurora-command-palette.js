@@ -28,6 +28,16 @@ class AuroraCommandPalette extends LitElement {
     // chamada depois do open: quem limpa o campo e o `updated` do Lit, que roda
     // DEPOIS, e apagaria qualquer coisa escrita antes dele.
     textoInicial: { attribute: false },
+    /**
+     * Os textos da casca, na lingua da interface.
+     *
+     * Vem de fora, e nao de `window.t` daqui, por dois motivos. O contrato
+     * deste componente e ser VISTA (o registro e a pontuacao moram no
+     * controlador), e `data-i18n` nao atravessa shadow DOM: a varredura do
+     * i18n usa `document.querySelectorAll`, que para na borda do shadow root,
+     * entao um `data-i18n` aqui dentro nunca seria traduzido.
+     */
+    rotulos: { attribute: false },
     selected: { type: Number },
   };
 
@@ -36,6 +46,7 @@ class AuroraCommandPalette extends LitElement {
     this.open = false;
     this.items = [];
     this.textoInicial = '';
+    this.rotulos = { placeholder: 'Type a command…', aria: 'Command palette', vazio: 'No matching commands' };
     this.selected = 0;
   }
 
@@ -273,15 +284,15 @@ class AuroraCommandPalette extends LitElement {
               type="text"
               autocomplete="off"
               spellcheck="false"
-              placeholder="Type a command…"
-              aria-label="Command palette"
+              placeholder=${this.rotulos.placeholder}
+              aria-label=${this.rotulos.aria}
               @input=${this._onInput}
             />
             <kbd class="esc">esc</kbd>
           </div>
           <div class="list" role="listbox">${this._renderList()}</div>
           ${this.items.length === 0
-            ? html`<div class="empty">No matching commands</div>`
+            ? html`<div class="empty">${this.rotulos.vazio}</div>`
             : ''}
         </div>
       </div>

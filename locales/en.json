@@ -807,7 +807,10 @@
     "cleared": "Terminal cleared",
     "allCleared": "Terminals cleared",
     "openManual": "Open the manual",
-    "helpLine": "The manual covers this case."
+    "helpLine": "The manual covers this case.",
+    "clearAllTip": "Clear all terminals (right-click: current only)",
+    "clearCurrentTip": "Clear current terminal tab (right-click: all)",
+    "exportAllTitle": "Export terminal log (all terminals)"
   },
   "error": {
     "config": {
@@ -1012,7 +1015,17 @@
       "sendNow": "Send now (interrupts the current reply)",
       "cancel": "Remove from the queue"
     },
-    "help": "Open the manual chapter about Aurora Intelligence"
+    "help": "Open the manual chapter about Aurora Intelligence",
+    "customAnswerPlaceholder": "Type a custom answer (optional)",
+    "selectionAsk": "Ask Aurora Intelligence about this selection",
+    "selectionFixBugs": "Find & fix bugs",
+    "selectionComment": "Add comments",
+    "usageThisWeek": "This week",
+    "usageThisWeekModel": "This week, {{model}}",
+    "usageThisSession": "This session",
+    "permAsk": "Ask every time",
+    "permWrites": "Ask before changes",
+    "permAllow": "Allow all"
   },
   "git": {
     "title": "Source Control",
@@ -1477,6 +1490,9 @@
       "markPoint": "checkpoint snapshot save state rewind ponto marcar restauracao",
       "rewind": "undo revert checkpoint snapshot back voltar desfazer reverter",
       "settings": "preferences options config preferencias opcoes ajustes"
-    }
+    },
+    "placeholder": "Type a command…",
+    "aria": "Command palette",
+    "empty": "No matching commands"
   }
 }

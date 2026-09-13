@@ -271,6 +271,15 @@ class CommandPalette {
     void this._el.offsetWidth;
     this._open = true;
     this._el.textoInicial = textoInicial;
+    // A casca e vista pura e nao alcanca o i18n: a varredura usa
+    // `document.querySelectorAll`, que para na borda do shadow root, entao um
+    // `data-i18n` la dentro nunca seria traduzido. Quem traduz e quem ja tem o
+    // tradutor na mao.
+    this._el.rotulos = {
+      placeholder: tr('palette.placeholder', 'Type a command\u2026'),
+      aria: tr('palette.aria', 'Command palette'),
+      vazio: tr('palette.empty', 'No matching commands'),
+    };
     this._el.open = true;     // the component focuses + seeds its input
     this._refilter(textoInicial);
   }

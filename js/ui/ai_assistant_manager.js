@@ -1425,7 +1425,7 @@ class AIAssistantManager {
         <div class="ai-askq-other">
           <label class="ai-askq-other-label">Other / write your own answer</label>
           <textarea class="ai-askq-other-input" rows="2"
-                    placeholder="Type a custom answer (optional)"></textarea>
+                    placeholder="${tr('ai.customAnswerPlaceholder')}"></textarea>
         </div>
         <div class="ai-askq-actions">
           <button type="button" class="ai-askq-cancel">Cancel</button>

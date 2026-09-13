@@ -4,7 +4,8 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showCardNotification } from '../ui/notification.js';
 import { switchTerminal, smoothFollowToBottom } from './terminal.js';
-import { comLinks } from './error_locations.js';
+import { comLinks, problemasNaLinha } from './error_locations.js';
+import { problemStore } from './problem_store.js';
 import { abrirAjudaDe, AJUDAS } from '../ui/help_link.js';
 
 // Hard cap on retained `.log-entry` nodes per terminal body. A streaming
@@ -636,6 +637,24 @@ class TerminalManager {
         // O texto que NAO e link passa a ser escapado aqui, o que antes nao
         // acontecia: a saida ia crua para o innerHTML, e ela vem de arquivo do
         // usuario, que pode ter qualquer coisa no nome.
+        // A MESMA linha que vira link vira tambem marcador no editor. O
+        // reconhecimento e um so (error_locations.js); o que muda e o destino.
+        // Sem isto o erro existia apenas como texto aqui: quem fechasse o
+        // terminal o perdia de vista, e erro em arquivo nao aberto era
+        // invisivel do comeco ao fim.
+        try {
+            problemStore.registrarLinha(text, {
+                cmmPadrao: window.compilationManager?.lastCompiledCmmPath
+                    || window._latestCompilationModule?.lastCompiledCmmPath
+                    || null,
+                problemasNaLinha,
+            });
+        } catch (e) {
+            // Marcador e ganho, nao requisito: se algo aqui falhar, a linha do
+            // terminal tem de sair do mesmo jeito.
+            console.warn('[problemas] nao consegui registrar a linha:', e);
+        }
+
         let out = comLinks(text, {
             titulo: (loc) => (loc.arquivo
                 ? `Abrir ${loc.arquivo}:${loc.linha}${loc.coluna ? ':' + loc.coluna : ''}`

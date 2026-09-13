@@ -6,6 +6,7 @@ import '../components/aurora-editor.js';
 import { SharedModelRegistry } from './shared_models.js';
 import { attachAiSelectionWidget } from './ai_selection_widget.js';
 import { initVerilogLSP } from './lsp_integration.js';
+import { problemStore } from '../terminal/problem_store.js';
 import { initClangFormat } from './clang_format_integration.js';
 import { initPythonFormat } from './python_format_integration.js';
 import { initSlang } from './slang_integration.js';
@@ -963,6 +964,12 @@ function initMonaco() {
             // The 'verilog'/'systemverilog' languages are already registered
             // by the vendored Monaco build, so this only wires the providers.
             initVerilogLSP();
+            // Os marcadores da toolchain (dono 'toolchain', ao lado dos do
+            // LSP). Precisa ficar ligado ao ciclo de vida dos modelos: o
+            // arquivo que a pessoa abre DEPOIS de compilar tem de nascer ja
+            // com os rabiscos do erro, senao abrir o arquivo que o erro
+            // apontou mostraria codigo limpo.
+            problemStore.ligar();
             // Shift+Alt+F formatting for C / C++ / CMM via bundled clang-format
             // (CMM borrows C rules). Verilog formats via Verible above; Monaco
             // dispatches by the focused buffer's language automatically.

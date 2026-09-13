@@ -164,6 +164,102 @@ export function localizacoesNaLinha(texto) {
   return achados.sort((a, b) => a.inicio - b.inicio);
 }
 
+/* ── de localizacao para PROBLEMA ──────────────────────────────────
+
+   Um link precisa saber ONDE; um marcador no editor precisa saber tambem O QUE
+   e QUAO GRAVE. As duas coisas se leem da mesma linha de texto, e por isso a
+   leitura mora aqui, junto do resto do que se sabe sobre cada ferramenta.
+
+   Severidade: cada uma anuncia do seu jeito, e o `%Warning-WIDTH` do Verilator
+   e o exemplo de por que nao serve procurar a palavra solta no meio do texto.
+   Uma mensagem de erro pode CONTER a palavra "warning" (e vice-versa), entao o
+   que vale e a marca da ferramenta, no lugar onde ela a imprime. */
+
+/** A palavra de severidade de cada ferramenta, no formato que ela usa. */
+const SEVERIDADE = [
+  // Verilator, antes do resto: `%Warning-WIDTH:` tem "Warning" com sufixo.
+  [/^\s*%Warning/i, 'aviso'],
+  [/^\s*%Error/i, 'erro'],
+  // Estilo GCC: a palavra vem depois do local, como `:12:3: warning: ...`.
+  [/:\s*(?:warning|aten\u00e7\u00e3o|atencao)\s*:/i, 'aviso'],
+  [/:\s*(?:error|erro|fatal)\s*:/i, 'erro'],
+  // yanc: a palavra abre a mensagem.
+  [/^\s*(?:Aten\u00e7\u00e3o|Atencao|Warning)\b/i, 'aviso'],
+  [/^\s*(?:Erro|Error|Syntax error)\b/i, 'erro'],
+];
+
+/**
+ * Erro ou aviso? Na duvida, ERRO.
+ *
+ * Chamar erro o que era aviso custa um marcador vermelho a mais; chamar aviso
+ * o que era erro esconde o que trava a compilacao. O primeiro engano se ve e se
+ * corrige, o segundo nao.
+ *
+ * @param {string} texto
+ * @returns {'erro'|'aviso'}
+ */
+export function severidadeDaLinha(texto) {
+  const t = String(texto || '');
+  for (const [re, nivel] of SEVERIDADE) if (re.test(t)) return nivel;
+  return 'erro';
+}
+
+/**
+ * A mensagem, sem o local que ja virou link.
+ *
+ * O que sobra depois de tirar o trecho da localizacao, sem a pontuacao e os
+ * prefixos de severidade que a coluna do marcador ja diz de outro jeito. Linha
+ * que so tinha o local fica com o texto inteiro, porque marcador sem mensagem
+ * nao explica nada.
+ *
+ * @param {string} texto
+ * @param {{inicio:number, fim:number}} loc
+ */
+export function mensagemDoProblema(texto, loc) {
+  const t = String(texto || '');
+  // So o que vem DEPOIS do local, nunca o de antes costurado com o de depois.
+  // Costurar parecia preservar mais texto e produzia frase quebrada:
+  // `File "x.py", line 42, in teste` virava `File " , in teste`, e
+  // `Erro na linha 2: ...` virava `Erro na  : ...`. Em todas as ferramentas o
+  // que interessa esta a direita; a esquerda so ha o prefixo que a coluna de
+  // severidade ja diz de outro jeito.
+  const resto = t.slice(loc.fim)
+    .replace(/^[-:,\s]+/, '')
+    .replace(/^(?:error|erro|warning|aten\u00e7\u00e3o|atencao|fatal)\s*:\s*/i, '')
+    .trim();
+  // Linha que era SO o local nao vira marcador mudo: sem mensagem, mostra a
+  // linha inteira, que ao menos diz de onde veio.
+  return resto.length >= 3 ? resto : t.trim();
+}
+
+/**
+ * Os problemas de uma linha de saida: onde, o que e quao grave.
+ *
+ * `cmmPadrao` e o arquivo que a AURORA acabou de mandar compilar, e existe por
+ * causa do yanc, que diz a linha e nao diz o arquivo. Sem ele, a mensagem do
+ * compilador de C± continua sendo so texto no terminal.
+ *
+ * @param {string} texto
+ * @param {{ cmmPadrao?: string|null }} [opcoes]
+ */
+export function problemasNaLinha(texto, { cmmPadrao = null } = {}) {
+  const severidade = severidadeDaLinha(texto);
+  const saida = [];
+  for (const loc of localizacoesNaLinha(texto)) {
+    const arquivo = loc.arquivo || cmmPadrao;
+    if (!arquivo) continue;
+    saida.push({
+      arquivo,
+      linha: loc.linha,
+      coluna: loc.coluna,
+      severidade,
+      mensagem: mensagemDoProblema(texto, loc),
+      ferramenta: loc.ferramenta,
+    });
+  }
+  return saida;
+}
+
 /** Onde comeca o "linha N" dentro do casamento do yanc. */
 function posDaPalavra(texto, m) {
   const dentro = /(?:linha|line)\s+\d+/i.exec(m[0]);

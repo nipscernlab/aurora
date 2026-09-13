@@ -24,6 +24,7 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { problemStore } from '../terminal/problem_store.js';
 import { getPrismMode } from '../prism/prism_mode.js';
 import { resolveOverride } from './command_overrides.js';
 import { CompilationModule } from './compilation_module.js';
@@ -267,6 +268,11 @@ function startCompilation(terminalsToClear) {
     if (tm && Array.isArray(terminalsToClear)) {
         for (const id of terminalsToClear) tm.clearTerminalImmediate?.(id);
     }
+    // Os rabiscos da rodada anterior somem AGORA, e nao quando os novos
+    // chegarem. Durante uma compilacao longa, um erro vermelho da rodada
+    // passada ao lado de uma barra de progresso e a interface afirmando uma
+    // coisa que ela ja nao sabe.
+    problemStore.limpar();
 }
 
 function endCompilation() {

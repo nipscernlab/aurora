@@ -581,7 +581,7 @@
     "cancelled": "Compilação cancelada"
   },
   "editor": {
-    "lineCol": "Ln {{line}}, Col {{col}}",
+    "lineCol": "Lin {{line}}, Col {{col}}",
     "formatTimeout": "Formatar desistiu: o formatador não terminou a tempo. O arquivo ficou como estava.",
     "bootFailed": "O editor de código não conseguiu iniciar ({{error}}). Reinicie o SAPHO; se repetir, reinstale.",
     "renameNoSymbol": "Este símbolo não pode ser renomeado daqui.",
@@ -610,7 +610,7 @@
     "simulator": {
       "title": "Simulador alterado",
       "iverilog": "Agora usando <strong>Icarus Verilog</strong> (vvp), ideal para simulações curtas; expõe os sinais internos do processador.",
-      "verilator": "Agora usando <strong>Verilator</strong>, compila um binário nativo (~5–10× mais rápido em sims longas); apenas sinais de topo da testbench ficam visíveis."
+      "verilator": "Agora usando <strong>Verilator</strong>, compila um binário nativo (5 a 10 vezes mais rápido em sims longas); apenas sinais de topo da testbench ficam visíveis."
     },
     "ai": {
       "fileNotFound": "Arquivo não encontrado no projeto: {{name}}",
@@ -789,7 +789,7 @@
       "surferLaunched": "Surfer aberto com sucesso",
       "surferTabOpened": "Onda aberta na aba do Surfer; a leitura do arquivo leva alguns segundos.",
       "prismWave": "Abrindo a onda da simulação do PRISM de {{module}}...",
-      "surferTabNoBundle": "O modo aba do Surfer precisa do componente web (Configurações, Componentes) — abrindo a janela nativa.",
+      "surferTabNoBundle": "O modo aba do Surfer precisa do componente web (Configurações, Componentes), então abre a janela nativa.",
       "hierarchyGen": "Gerando hierarquia com Yosys...",
       "yosysRun": "Executando comando Yosys: {{cmd}}",
       "hierarchyForTop": "Hierarquia gerada com sucesso para o módulo top-level: {{name}}",
@@ -878,7 +878,7 @@
       "prismcomp": "Abre o visualizador RTL interativo para explorar arquiteturas de processadores e relações entre sinais.",
       "allcomp": "Executa o fluxo de compilação completo: C± ➔ ASM ➔ Verilog ➔ Forma de Onda, construindo o processador inteiro.",
       "processorHub": "Abre o Hub de Processadores para projetar e configurar novos processadores, definindo portas, tamanho de memória e opções de arquitetura.",
-      "aiButton": "Acessa o Assistente IA para usar ChatGPT ou Claude como auxílio no desenvolvimento e troubleshooting dentro da IDE.",
+      "aiButton": "Abre o assistente de IA: pergunte ao Claude, ao ChatGPT ou ao Gemini sobre o seu processador, a saída do compilador ou a forma de onda, sem sair da IDE.",
       "aurora-settings": "Abre as configurações do AURORA IDE para configurar preferências e comportamento da aplicação.",
       "current-spf-name": "Exibe o nome do projeto atualmente carregado.",
       "verilog-block": "Navega e insere um módulo Verilog pré-construído no seu projeto. A maioria dos módulos é genérica e independente de FPGA, mas sempre revise antes de integrar.",
@@ -1082,7 +1082,7 @@
     "discardOneMsg": "Descartar as alterações de <strong>{{file}}</strong>? Isto não pode ser desfeito.",
     "discardManyMsg": "Descartar as alterações destes <strong>{{n}} arquivos</strong>? Isto não pode ser desfeito.",
     "discardMore": "e mais {{n}}",
-    "discardSkipped": "{{n}} arquivo(s) novo(s) mantido(s) — não há versão commitada para onde voltar.",
+    "discardSkipped": "{{n}} arquivo(s) novo(s) mantido(s): não há versão commitada para onde voltar.",
     "discarded": "Stash descartado",
     "stashDropConfirm": "Descartar as alterações guardadas? Isto não pode ser desfeito.",
     "noFileChanges": "Nenhuma alteração de arquivo neste commit.",
@@ -1170,7 +1170,8 @@
     "oauthFailed": "Falha no login.",
     "projectOpened": "Projeto git aberto",
     "createRepoFiles": "Criar um repositório com estes arquivos",
-    "initialCommit": "Commit inicial"
+    "initialCommit": "Commit inicial",
+    "forgetNow": "Limpar agora"
   },
   "runHistory": {
     "title": "Histórico de compilações",
@@ -1354,7 +1355,8 @@
     "waitSeconds": "{n} segundos",
     "waitOneMinute": "1 minuto",
     "waitMinutes": "{n} minutos",
-    "waitOneSecond": "1 segundo"
+    "waitOneSecond": "1 segundo",
+    "sendByEmail": "Enviar por e-mail"
   },
   "componentSummary": {
     "msys": "A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.",
@@ -1377,7 +1379,12 @@
     "semMotivo": "a API respondeu sem dizer o erro (resposta: {{resposta}})"
   },
   "procConfig": {
-    "help": "Abrir o capítulo do manual sobre os jeitos de rodar"
+    "noProcessor": "Nenhum processador ativo",
+    "clockFreq": "Frequência de clock (MHz)",
+    "numClocks": "Número de clocks",
+    "showArrays": "Mostrar vetores no GTKWave",
+    "simTime": "Tempo estimado de simulação",
+    "help": "Ajuda: o que cada ajuste de simulação faz"
   },
   "problems": {
     "title": "Problemas",

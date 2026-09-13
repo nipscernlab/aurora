@@ -298,7 +298,7 @@
        de drag dela e pra escapar do overflow horizontal. -->
   <div id="procConfigPanel" class="proc-config-panel hidden" role="dialog" aria-labelledby="procConfigPanelTitle">
       <div class="proc-config-panel-header">
-          <span id="procConfigPanelTitle">No active processor</span>
+          <span id="procConfigPanelTitle" data-i18n="procConfig.noProcessor">No active processor</span>
           <!-- Mesma ideia dos modais: o "?" leva ao capitulo do assunto. Aqui
                ele nao tem X ao lado (o popover fecha ao clicar fora), entao
                fica sozinho na ponta direita do cabecalho. -->
@@ -308,19 +308,19 @@
       </div>
       <div class="proc-config-panel-body">
           <label class="proc-config-field">
-              <span>Clock frequency (MHz)</span>
+              <span data-i18n="procConfig.clockFreq">Clock frequency (MHz)</span>
               <input type="number" id="procConfigClk" min="1" step="1" disabled />
           </label>
           <label class="proc-config-field">
-              <span>Number of clocks</span>
+              <span data-i18n="procConfig.numClocks">Number of clocks</span>
               <input type="number" id="procConfigNumClocks" min="1" step="1" disabled />
           </label>
           <label class="proc-config-field proc-config-field-check">
               <input type="checkbox" id="procConfigShowArrays" disabled />
-              <span>Show arrays in GTKWave</span>
+              <span data-i18n="procConfig.showArrays">Show arrays in GTKWave</span>
           </label>
           <div class="proc-config-sim-time" id="procConfigSimTimeRow">
-              <span class="proc-config-sim-time-label">Estimated simulation time</span>
+              <span class="proc-config-sim-time-label" data-i18n="procConfig.simTime">Estimated simulation time</span>
               <span class="proc-config-sim-time-readout">
                   <span class="proc-config-sim-time-value" id="procConfigSimTime">-</span>
                   <i class="ph ph-clock proc-config-sim-time-icon" aria-hidden="true"></i>
@@ -918,8 +918,8 @@
         <div class="git-repo" id="git-repo"></div>
         <div class="git-publish" id="git-publish" hidden></div>
         <div class="git-tabs" id="git-tabs">
-            <button class="git-tab active" data-action="tab" data-tab="changes"><i class="ph ph-list-checks"></i> <span>Changes</span> <span class="git-tab-count" id="git-tab-count" hidden></span></button>
-            <button class="git-tab" data-action="tab" data-tab="history"><i class="ph ph-clock-counter-clockwise"></i> <span>History</span></button>
+            <button class="git-tab active" data-action="tab" data-tab="changes"><i class="ph ph-list-checks"></i> <span data-i18n="git.changes">Changes</span> <span class="git-tab-count" id="git-tab-count" hidden></span></button>
+            <button class="git-tab" data-action="tab" data-tab="history"><i class="ph ph-clock-counter-clockwise"></i> <span data-i18n="git.history">History</span></button>
         </div>
         <div class="git-tabpane" id="git-pane-changes">
             <div class="git-commitbox" id="git-commitbox">

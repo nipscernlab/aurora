@@ -13,6 +13,19 @@
  * segurança, "pronto" não serve: quem está deixando o computador precisa poder
  * conferir que o que importava saiu, e ver qual passo falhou se algum falhou.
  */
+/**
+ * O texto traduzido, ou a reserva em ingles.
+ *
+ * Este arquivo escrevia o rotulo direto em portugues, entao quem usava a AURORA
+ * em ingles via uma palavra em portugues no meio da tela.
+ */
+function tr(chave, reserva) {
+  const f = typeof window !== 'undefined' ? window.t : null;
+  if (typeof f !== 'function') return reserva;
+  const v = f(chave);
+  return (v && v !== chave) ? v : reserva;
+}
+
 
 import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from './dialog_manager.js';
@@ -39,7 +52,7 @@ async function limparGitHub() {
     variant: 'warning',
     buttons: [
       { label: 'Cancelar', action: 'cancel', type: 'cancel' },
-      { label: 'Limpar agora', action: 'limpar', type: 'danger' },
+      { label: tr('git.forgetNow', 'Clear now'), action: 'limpar', type: 'danger' },
     ],
   });
   if (escolha !== 'limpar') return;

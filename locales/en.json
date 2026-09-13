@@ -610,7 +610,7 @@
     "simulator": {
       "title": "Simulator switched",
       "iverilog": "Now using <strong>Icarus Verilog</strong> (vvp), best for short sims; exposes the processor's internal signals.",
-      "verilator": "Now using <strong>Verilator</strong>, builds a native binary (~5–10× faster on long sims); only top-level testbench signals are visible."
+      "verilator": "Now using <strong>Verilator</strong>, builds a native binary (5 to 10 times faster on long sims); only top-level testbench signals are visible."
     },
     "ai": {
       "fileNotFound": "File not found in project: {{name}}",
@@ -789,7 +789,7 @@
       "surferLaunched": "Surfer launched successfully",
       "surferTabOpened": "Wave opened in the Surfer tab; reading the file may take a few seconds.",
       "prismWave": "Opening the PRISM simulation wave of {{module}}...",
-      "surferTabNoBundle": "The Surfer tab mode needs the web component (Settings, Components) — opening the native window instead.",
+      "surferTabNoBundle": "The Surfer tab mode needs the web component (Settings, Components), so the native window opens instead.",
       "hierarchyGen": "Generating hierarchy with Yosys...",
       "yosysRun": "Running Yosys command: {{cmd}}",
       "hierarchyForTop": "Hierarchy generated successfully for top-level module: {{name}}",
@@ -878,7 +878,7 @@
       "prismcomp": "Launches the RTL interactive visualizer to explore processor architectures and signal relationships.",
       "allcomp": "Performs a full compilation workflow: C± ➔ ASM ➔ Verilog ➔ Waveform, building the processor completely.",
       "processorHub": "Opens the Processor Hub to design and configure new processors, setting ports, memory size, and architectural options.",
-      "aiButton": "Accesses the AI Assistant to leverage ChatGPT or Claude for help with processor development and troubleshooting inside the IDE.",
+      "aiButton": "Opens the AI assistant: ask Claude, ChatGPT or Gemini about your processor, the compiler output or the waveform, without leaving the IDE.",
       "aurora-settings": "Opens AURORA IDE settings to configure preferences and application behavior.",
       "current-spf-name": "Displays the name of the currently loaded project.",
       "verilog-block": "Browse and insert a prebuilt Verilog module into your project. Most modules are generic and FPGA-agnostic, but always review before integrating.",
@@ -1082,7 +1082,7 @@
     "discardOneMsg": "Discard the changes in <strong>{{file}}</strong>? This cannot be undone.",
     "discardManyMsg": "Discard the changes in these <strong>{{n}} files</strong>? This cannot be undone.",
     "discardMore": "+{{n}} more",
-    "discardSkipped": "{{n}} new file(s) kept — they have no committed version to go back to.",
+    "discardSkipped": "{{n}} new file(s) kept: they have no committed version to go back to.",
     "discarded": "Stash discarded",
     "stashDropConfirm": "Discard the stashed changes? This cannot be undone.",
     "noFileChanges": "No file changes in this commit.",
@@ -1170,7 +1170,8 @@
     "oauthFailed": "Sign-in failed.",
     "projectOpened": "Git project opened",
     "createRepoFiles": "Create a repository from these files",
-    "initialCommit": "Initial commit"
+    "initialCommit": "Initial commit",
+    "forgetNow": "Clear now"
   },
   "runHistory": {
     "title": "Compilation history",
@@ -1354,7 +1355,8 @@
     "waitSeconds": "{n} seconds",
     "waitOneMinute": "1 minute",
     "waitMinutes": "{n} minutes",
-    "waitOneSecond": "1 second"
+    "waitOneSecond": "1 second",
+    "sendByEmail": "Send by e-mail"
   },
   "componentSummary": {
     "msys": "The compilation chain: Icarus Verilog, Verilator, Yosys and the bundled Python.",
@@ -1377,7 +1379,12 @@
     "semMotivo": "the API replied without saying what went wrong (reply: {{resposta}})"
   },
   "procConfig": {
-    "help": "Open the manual chapter about the ways to run"
+    "noProcessor": "No active processor",
+    "clockFreq": "Clock frequency (MHz)",
+    "numClocks": "Number of clocks",
+    "showArrays": "Show arrays in GTKWave",
+    "simTime": "Estimated simulation time",
+    "help": "Help: what each simulation setting does"
   },
   "problems": {
     "title": "Problems",

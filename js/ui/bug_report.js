@@ -16,6 +16,19 @@
  * logotipos oficiais, vindos da biblioteca Simple Icons (CC0), e aparecem só
  * para identificar cada serviço na lista.
  */
+/**
+ * O texto traduzido, ou a reserva em ingles.
+ *
+ * Este arquivo escrevia o rotulo direto em portugues, entao quem usava a AURORA
+ * em ingles via uma palavra em portugues no meio da tela.
+ */
+function tr(chave, reserva) {
+  const f = typeof window !== 'undefined' ? window.t : null;
+  if (typeof f !== 'function') return reserva;
+  const v = f(chave);
+  return (v && v !== chave) ? v : reserva;
+}
+
 
 import { electronAPI } from '../app/electron_api.js';
 import { abrirFormulario, diagnosticoEmTexto } from './bug_report_form.js';
@@ -243,7 +256,7 @@ async function enviarPorEmail(texto = {}, diagDoMain = null) {
   const corpo = montarCorpo(dados, texto);
 
   const escolha = await window.AuroraUI?.dialog?.({
-    title: 'Enviar por e-mail',
+    title: tr('bugReport.sendByEmail', 'Send by e-mail'),
     message: 'A AURORA abre a janela de composição do seu e-mail já preenchida. '
       + 'Escolha por onde enviar.',
     variant: 'info',

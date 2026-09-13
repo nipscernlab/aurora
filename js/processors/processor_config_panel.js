@@ -144,7 +144,9 @@ class ProcessorConfigPanel {
     _populateFields() {
         if (!this.titleEl) return;
         if (!this.activeProc) {
-            this.titleEl.textContent = 'No active processor';
+            this.titleEl.textContent = (typeof window !== 'undefined' && window.t)
+                ? window.t('procConfig.noProcessor')
+                : 'No active processor';
             this._setInput(this.clkInput, '', true);
             this._setInput(this.numClocksInput, '', true);
             this._setCheckbox(this.showArraysInput, false, true);

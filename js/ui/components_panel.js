@@ -410,6 +410,23 @@ function marcarBaixando(chave) {
   cartaoAlvo.querySelector('.componente-progresso')?.removeAttribute('hidden');
   cartaoAlvo.querySelectorAll('button').forEach((b) => { b.disabled = true; });
   document.querySelectorAll('[data-instalar]').forEach((b) => { b.disabled = true; });
+  // Travar de verdade, e nao so recusar o clique: uma caixa que responde ao
+  // clique e volta sozinha parece defeito. Desabilitada, ela diz por que.
+  travarCaixas(true);
+}
+
+/**
+ * Liga ou desliga as caixas de selecao.
+ *
+ * `disabled` e nao `readonly`: input do tipo checkbox ignora `readonly`, e
+ * usar a propriedade errada aqui daria a impressao de estar travado enquanto a
+ * caixa continuaria alternando ao clique.
+ */
+function travarCaixas(travar) {
+  document.querySelectorAll('.componente-marcar').forEach((c) => {
+    c.disabled = !!travar;
+    c.title = travar ? tr('modal.settings.componentsBusy') : '';
+  });
 }
 
 function aplicarProgresso(d) {
@@ -518,6 +535,7 @@ async function baixarFila() {
   }
 
   if (botao) botao.disabled = false;
+  travarCaixas(false);
 
   const resumo = resumoDaFila(resultados);
   if (resumo.tudoBem) {
@@ -547,6 +565,7 @@ async function instalar(chave, forcar = false) {
   const r = await electronAPI.componentesInstalar(chave, { forcar: Boolean(forcar) })
     .catch((e) => ({ ok: false, erro: e?.message }));
   baixando = null;
+  travarCaixas(false);
 
   if (r?.ok) showCardNotification(tr('modal.settings.componentsInstalledOk'), 'success', 5000, 'Componentes');
   else showCardNotification(tr('modal.settings.componentsInstallFailed', { erro: motivoDe(r, '?') }),
@@ -728,6 +747,19 @@ function ligar() {
     // A caixa de selecao passa pelo mesmo ouvinte: a lista se refaz inteira a
     // cada mudanca, e um ouvinte por caixa morreria junto com ela.
     if (e.target instanceof Element && e.target.matches('[data-marcar]')) {
+      // Com download em curso a marcacao NAO muda.
+      //
+      // A fila e lida uma vez, no comeco de `baixarFila`, e percorrida item a
+      // item; desmarcar no meio nao cancela o que ja esta baixando e nao tira
+      // o item da fila, entao a caixa passaria a mentir sobre o que vai
+      // acontecer. Pior no sentido contrario: MARCAR durante o download cria a
+      // expectativa de que aquele componente entra nesta rodada, e ele nao
+      // entra. Recusar o clique e mais honesto do que aceitar e ignorar.
+      if (baixando) {
+        e.preventDefault();
+        showCardNotification(tr('modal.settings.componentsBusy'), 'info', 3000, 'Componentes');
+        return;
+      }
       const chave = e.target.getAttribute('data-marcar');
       // O DOM continua sendo quem recebe o clique, mas quem GUARDA e o
       // conjunto, senao a proxima acao na lista apagaria a marcacao.

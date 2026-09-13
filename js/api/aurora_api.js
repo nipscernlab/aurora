@@ -3119,6 +3119,22 @@ const manualNs = {
     } catch (e) { return err(e?.message || 'manual read failed'); }
   },
 
+  /**
+   * Confere uma citacao do manual contra o arquivo em disco.
+   *
+   * O modelo manda a pagina e o COMECO da frase; o que volta e o trecho inteiro
+   * lido do arquivo. Recusa quando o localizador nao existe na pagina, e a
+   * recusa e resposta legitima: sem ela, "verificar" seria so repetir o que o
+   * modelo digitou.
+   */
+  async cite(pagePath, locator) {
+    try {
+      const r = await electronAPI.docsCitar?.(pagePath, locator);
+      if (!r?.ok) return err(r?.erro || r?.error || 'citation could not be verified');
+      return ok({ path: r.pagina, title: r.titulo, quote: r.trecho, manualVersion: r.versao });
+    } catch (e) { return err(e?.message || 'manual cite failed'); }
+  },
+
   /** O manual esta instalado nesta maquina, e em que versao. */
   async status() {
     try {
@@ -3292,6 +3308,7 @@ const NAMESPACES = Object.freeze({
   manual: {
     search: 'Search the offline SAPHO manual and get the closest pages with a snippet of each',
     read:   'Read one page of the manual as plain text, by the path search returned',
+    cite:   'Verify a quote against the manual file and get the full sentence back',
     status: 'Whether the manual is installed on this machine, and which version',
   },
   settings: {

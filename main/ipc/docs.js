@@ -32,6 +32,8 @@ const { app, shell, ipcMain, BrowserWindow } = require('electron');
 const log = require('electron-log');
 
 const busca = require('../docs/busca');
+// A conferencia do localizador contra o texto da pagina e pura, e mora ao lado.
+const citar = require('../docs/citar');
 // O guarda de caminho da janela do manual. Reaproveitado pelo openHelp: duas
 // checagens diferentes para a mesma fronteira divergem com o tempo.
 const { dentroDaRaiz } = require('./docs_nav');
@@ -414,6 +416,37 @@ function register() {
    * Perguntado DEPOIS, e nao devolvido pelo open-help, porque a pagina carrega
    * de forma assincrona e o open-help responde antes dela terminar.
    */
+  /**
+   * Confere uma citacao: o modelo manda a pagina e o COMECO da frase, e aqui se
+   * confirma contra o arquivo em disco e se devolve o trecho inteiro.
+   *
+   * Recusa e resposta legitima, e o modelo precisa dela: sem recusar, a
+   * "verificacao" seria so repetir o que ele digitou. O texto que sai daqui vem
+   * sempre do arquivo, nunca do modelo.
+   */
+  ipcMain.handle('docs:citar', (_e, pagina, localizador) => {
+    try {
+      const dir = activeDir();
+      if (!dir) return { ok: false, erro: 'o manual nao esta instalado nesta maquina' };
+      // Le pelo mesmo caminho guardado do read_manual_page: o `ler` valida que
+      // a pagina fica dentro da pasta do manual, entao um `../../` mandado pelo
+      // modelo nao vira leitura de disco.
+      const pag = busca.ler(dir, pagina, { limite: 200000 });
+      if (!pag.ok) return { ok: false, erro: pag.erro || 'pagina nao encontrada' };
+      const r = citar.conferir(pag.texto, localizador);
+      if (!r.ok) return r;
+      return {
+        ok: true,
+        pagina: pag.caminho,
+        titulo: pag.titulo,
+        trecho: r.trecho,
+        versao: readManifest(dir)?.version || '',
+      };
+    } catch (e) {
+      return { ok: false, erro: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
   ipcMain.handle('docs:realce-desfecho', () => {
     try { return require('./docs_window').desfechoDoRealce(); }
     catch (_) { return null; }

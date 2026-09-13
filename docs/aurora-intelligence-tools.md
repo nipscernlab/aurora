@@ -5,7 +5,7 @@
      `description` dela em main/ai/tools.js, que e o mesmo texto que o
      modelo le ao decidir se a chama. -->
 
-A AURORA expoe 124 ferramentas ao modelo. Elas chegam ate ele por dois
+A AURORA expoe 125 ferramentas ao modelo. Elas chegam ate ele por dois
 caminhos, descritos abaixo.
 
 Pelo caminho de API, o `main/ai/chat.js` liga este manifesto direto no Vercel
@@ -185,6 +185,7 @@ passam pelo cartao de permissao do painel, conforme o modo configurado.
 | Ferramenta | Acesso | Parametros | O que faz |
 |---|---|---|---|
 | `ask_user_question` | read | `question`, `options`?, `multiSelect`? | Pause the turn and ask the human a question with optional choices. Use this only when truly ambiguous — prefer doing things autonomously. Returns { answer, selected }. Use sparingly; do not chain. |
+| `cite_manual` | read | `pagePath`, `locator` | Back up a claim about SAPHO or AURORA with the REAL sentence from the manual. Call this right after read_manual_page, once per claim you make from that page. Pass the page path and a LOCATOR: the first six to twelve words of the sentence, copied exactly as they appear on the page. Aurora looks the locator up in the file on disk, and returns the whole sentence read from there, so you never have to type it out. If the locator is not on that page the call is REFUSED, which means you remembered it instead of reading it: call read_manual_page again and copy the words. The sentence is shown to the user under your answer, with a link that opens the manual at that exact spot, so do NOT quote it in your prose as well; name the page and keep writing. |
 | `install_example_projects` | write | nenhum | Create all five example projects on disk. The user picks the destination folder in a native dialog, so this never writes to a path chosen by the model; if they cancel, the result is { cancelled: true } and nothing was written. On success it returns the .spf path of each project, which open_project then opens. Existing projects are never overwritten. |
 | `list_example_projects` | read | nenhum | List the five ready-made example projects that ship with AURORA: key, name, what each one teaches, the language, and which processors it carries. Use this to answer "what can I study here?" or to pick a starting point for a beginner, instead of describing a project from memory. |
 | `read_manual_page` | read | `pagePath`, `options`? | Read one page of the SAPHO manual as plain text, by the path that search_manual returned (for example "avancado/dirac.html"). Long pages come back truncated, with truncated:true. |

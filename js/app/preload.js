@@ -92,6 +92,9 @@ const fileOperations = {
   // rola ate ela e a realca. Sem trecho, abre no topo como sempre.
   docsOpenHelp:    (pagina, opcoes) => ipcRenderer.invoke('docs:open-help', pagina, opcoes || {}),
   docsRealceDesfecho: () => ipcRenderer.invoke('docs:realce-desfecho'),
+  // Confere uma citacao contra o arquivo do manual. O `localizador` e o comeco
+  // da frase; o trecho inteiro volta lido do disco, nunca do modelo.
+  docsCitar:       (pagina, localizador) => ipcRenderer.invoke('docs:citar', pagina, localizador),
   // Procurar e ler o manual, para a Aurora Intelligence. Nenhuma das duas
   // recebe pasta: quem resolve onde o manual esta e o processo principal.
   docsBuscar: (consulta, opcoes) => ipcRenderer.invoke('docs:buscar', consulta, opcoes),

@@ -822,6 +822,32 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'cite_manual',
+    description:
+      'Back up a claim about SAPHO or AURORA with the REAL sentence from the manual. '
+      + 'Call this right after read_manual_page, once per claim you make from that page. '
+      + 'Pass the page path and a LOCATOR: the first six to twelve words of the sentence, '
+      + 'copied exactly as they appear on the page. Aurora looks the locator up in the file '
+      + 'on disk, and returns the whole sentence read from there, so you never have to type '
+      + 'it out. If the locator is not on that page the call is REFUSED, which means you '
+      + 'remembered it instead of reading it: call read_manual_page again and copy the '
+      + 'words. The sentence is shown to the user under your answer, with a link that opens '
+      + 'the manual at that exact spot, so do NOT quote it in your prose as well; name the '
+      + 'page and keep writing.',
+    access: 'read',
+    api: ['manual', 'cite'],
+    argStyle: 'positional',
+    argNames: ['pagePath', 'locator'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pagePath: { type: 'string', description: 'Page path inside the manual, as returned by search_manual.' },
+        locator: { type: 'string', description: 'The first words of the sentence, copied exactly from the page.' },
+      },
+      required: ['pagePath', 'locator'],
+    },
+  },
+  {
     name: 'list_example_projects',
     description:
       'List the five ready-made example projects that ship with AURORA: key, name, what each one '

@@ -2379,6 +2379,11 @@ class AIAssistantManager {
         break;
       case 'tool-result':
         this.finishToolChip(ev.toolName, ev.result, ev.toolUseId);
+        // Uma citacao VERIFICADA e um resultado de ferramenta como outro
+        // qualquer, e vira linha no mesmo bloco que a citacao nativa da API.
+        // Os dois caminhos convergem aqui de proposito: quem le a resposta nao
+        // deve precisar saber por qual provedor ela veio.
+        this._colherCitacaoDeFerramenta(ev.toolName, ev.result);
         break;
       case 'finish':
         this._clearCliDownload();
@@ -2741,6 +2746,34 @@ class AIAssistantManager {
     this.messages.push({ role: 'citation', citacoes: lista });
     this.messagesEl.appendChild(this._blocoDeCitacoes(lista));
     this.scrollToBottom?.();
+  }
+
+  /**
+   * A citacao que veio da ferramenta `cite_manual`.
+   *
+   * POR QUE ELA EXISTE, ao lado da citacao nativa. A nativa e melhor: automatica
+   * e sem custo de saida. So que ela exige montar o corpo do pedido, e no
+   * caminho de assinatura quem monta e a CLI do Claude Code. A ferramenta
+   * funciona nos tres caminhos, porque as CLIs recebem as nossas ferramentas
+   * pelo servidor MCP.
+   *
+   * O NOME CHEGA DE DOIS JEITOS. Pela API vem `cite_manual`; pela assinatura vem
+   * `mcp__aurora__cite_manual`, porque o servidor MCP prefixa tudo. Casar pelo
+   * fim do nome atende os dois sem uma tabela de traducao que ia divergir.
+   */
+  _colherCitacaoDeFerramenta(toolName, resultado) {
+    if (!String(toolName || '').endsWith('cite_manual')) return;
+    const d = resultado && resultado.ok !== false ? (resultado.data || resultado) : null;
+    if (!d || !d.quote || !d.path) return;     // recusada: o modelo e quem fica sabendo
+    if (!this._citacoesDoTurno) this._citacoesDoTurno = [];
+    const ja = this._citacoesDoTurno.some((c) => c.pagina === d.path && c.trecho === d.quote);
+    if (ja) return;
+    this._citacoesDoTurno.push({
+      pagina: d.path,
+      titulo: d.title || d.path,
+      trecho: d.quote,
+      versao: d.manualVersion || this._versaoDoManual || '',
+    });
   }
 
   /**

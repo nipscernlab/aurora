@@ -479,6 +479,110 @@ describe('o turno que a propria assistente comeca', () => {
     expect(aviso.texto).toContain('chain limit');
   });
 
+  /* ---------------- a citacao do manual, pelos dois caminhos ---------------- */
+
+  describe('cite_manual vira citacao na tela', () => {
+    // ESTE ARQUIVO EXISTE POR CAUSA DESTE BUG. A ferramenta rodava, o chip
+    // dizia "done" e nenhuma citacao aparecia, porque o resultado chega em
+    // DUAS formas e o coletor lia so uma:
+    //
+    //   pela API          { ok, data: { path, title, quote } }
+    //   pela assinatura   { ok, content: '<o mesmo objeto em JSON>' }
+    //
+    // A segunda passa pelo servidor MCP, que so sabe devolver texto. Nenhum
+    // teste cobria o caminho da assinatura, entao tudo passava e nada aparecia.
+    const CITACAO = {
+      path: 'avancado/dirac.html',
+      title: 'Notacao de Dirac',
+      quote: 'O tipo complexo e nativo da linguagem.',
+      manualVersion: '6.4.2',
+    };
+
+    /** Emite o par tool-call/tool-result como o backend emite. */
+    function citar(nome, result) {
+      emitir({ type: 'tool-call', toolName: nome, args: {}, toolUseId: 't1' });
+      emitir({ type: 'tool-result', toolName: nome, result, toolUseId: 't1' });
+    }
+
+    it('pelo caminho de API, com o objeto em `data`', async () => {
+      await abrirPainel();
+      await mandar('onde fala de Dirac?');
+      citar('cite_manual', { ok: true, data: CITACAO });
+      emitir({ type: 'finish' });
+
+      const bloco = painel.messagesEl.querySelector('.ai-citacoes');
+      expect(bloco, 'o bloco de citacao nao foi desenhado').toBeTruthy();
+      expect(bloco.textContent).toContain(CITACAO.quote);
+      expect(bloco.textContent).toContain(CITACAO.title);
+    });
+
+    it('pela assinatura, com o objeto SERIALIZADO em `content`', async () => {
+      // O caso que quebrou. O servidor MCP faz JSON.stringify do resultado, e
+      // a ponte da CLI entrega isso como texto.
+      await abrirPainel();
+      await mandar('onde fala de Dirac?');
+      citar('mcp__aurora__cite_manual', {
+        ok: true,
+        content: JSON.stringify({ ok: true, data: CITACAO }),
+      });
+      emitir({ type: 'finish' });
+
+      const bloco = painel.messagesEl.querySelector('.ai-citacoes');
+      expect(bloco, 'o bloco nao apareceu pelo caminho da assinatura').toBeTruthy();
+      expect(bloco.textContent).toContain(CITACAO.quote);
+    });
+
+    it('a citacao recusada nao vira nada na tela', async () => {
+      // Recusa e assunto do modelo, que tem de reler a pagina. Mostrar uma
+      // citacao vazia ou um erro aqui so confundiria quem le a resposta.
+      await abrirPainel();
+      await mandar('onde fala de Dirac?');
+      citar('mcp__aurora__cite_manual', {
+        ok: true,
+        content: JSON.stringify({ ok: false, error: 'este texto nao existe nesta pagina' }),
+      });
+      emitir({ type: 'finish' });
+      expect(painel.messagesEl.querySelector('.ai-citacoes')).toBeNull();
+    });
+
+    it('a mesma frase citada duas vezes vira uma linha so', async () => {
+      // O modelo repete a citacao quando usa a mesma frase em duas afirmacoes.
+      // Uma linha por frase, nao por uso.
+      await abrirPainel();
+      await mandar('onde fala de Dirac?');
+      citar('cite_manual', { ok: true, data: CITACAO });
+      citar('cite_manual', { ok: true, data: { ...CITACAO } });
+      emitir({ type: 'finish' });
+
+      expect(painel.messagesEl.querySelectorAll('.ai-citacao')).toHaveLength(1);
+    });
+
+    it('outra ferramenta qualquer nao vira citacao', async () => {
+      await abrirPainel();
+      await mandar('compila');
+      citar('mcp__aurora__read_manual_page', {
+        ok: true,
+        content: JSON.stringify({ ok: true, data: { path: 'x.html', text: 'muito texto' } }),
+      });
+      emitir({ type: 'finish' });
+      expect(painel.messagesEl.querySelector('.ai-citacoes')).toBeNull();
+    });
+
+    it('a citacao sobrevive a reabertura da conversa', async () => {
+      // Ela entra no historico como registro de papel `citation`; sem o ramo
+      // de releitura, reabrir a conversa a perderia em silencio.
+      await abrirPainel();
+      await mandar('onde fala de Dirac?');
+      citar('cite_manual', { ok: true, data: CITACAO });
+      emitir({ type: 'finish' });
+
+      const guardada = painel.messages.find((m) => m.role === 'citation');
+      expect(guardada, 'a citacao nao entrou no historico').toBeTruthy();
+      expect(guardada.citacoes[0].trecho).toBe(CITACAO.quote);
+      expect(guardada.citacoes[0].versao).toBe('6.4.2');
+    });
+  });
+
   /* ---------------- a operacao, que vira esforco no main ---------------- */
 
   describe('o turno diz QUE TIPO de tarefa e', () => {

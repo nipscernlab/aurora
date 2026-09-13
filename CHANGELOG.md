@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.18.0](https://github.com/nipscernlab/aurora/compare/v6.17.1...v6.18.0) (2026-09-13)
+
+
+### Features
+
+* **ia:** a resposta sobre o manual vem com o trecho real que a sustenta ([72ffbd8](https://github.com/nipscernlab/aurora/commit/72ffbd80450da3d6f0a2f5c84947819a38319e27))
+* **ia:** o cache de prompt para de ser jogado fora, e o esforco e por tarefa ([4fa7429](https://github.com/nipscernlab/aurora/commit/4fa74298662b148bdc76c92774e2a738305d0494))
+
+
+### Bug Fixes
+
+* **terminal:** as abas nao encolhem ate ficar ilegiveis, e a fileira fica centrada ([cd31522](https://github.com/nipscernlab/aurora/commit/cd31522aa67ad198b04a33038425de2864e5965e))
+
+
+### Performance
+
+* **ia:** o tutorial para de mandar as ferramentas duas vezes, e o que sobra vai para o cache ([568cbd7](https://github.com/nipscernlab/aurora/commit/568cbd74d8f559d17571f4826f60cd914b6f4d69))
+
 ## [6.17.1](https://github.com/nipscernlab/aurora/compare/v6.17.0...v6.17.1) (2026-09-13)
 
 

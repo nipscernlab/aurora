@@ -637,6 +637,7 @@ const lspOperations = {
   references:      (uri, position) => ipcRenderer.invoke('lsp:references', { uri, position }),
   rename:          (uri, position, newName) => ipcRenderer.invoke('lsp:rename', { uri, position, newName }),
   codeAction:      (uri, range, diagnostics) => ipcRenderer.invoke('lsp:code-action', { uri, range, diagnostics }),
+  documentHighlight: (uri, position) => ipcRenderer.invoke('lsp:document-highlight', { uri, position }),
 
   onDiagnostics: (cb) => {
     const handler = (_e, payload) => cb(payload);
@@ -662,6 +663,7 @@ const slangOperations = {
   didChange:  (uri, text) => ipcRenderer.invoke('slang:did-change', { uri, text }),
   didClose:   (uri) => ipcRenderer.invoke('slang:did-close', { uri }),
   completion: (uri, position) => ipcRenderer.invoke('slang:completion', { uri, position }),
+  documentHighlight: (uri, position) => ipcRenderer.invoke('slang:document-highlight', { uri, position }),
 
   onDiagnostics: (cb) => {
     const handler = (_e, payload) => cb(payload);

@@ -396,6 +396,20 @@ function rename(/** @type {string} */ uri, /** @type {any} */ position, /** @typ
  * proprios diagnosticos dele (identificador nao declarado, variavel nao usada).
  * Ligar os dois so gastaria uma viagem por lampada, entao fica so o Verible.
  */
+/**
+ * As ocorrencias do simbolo sob o cursor, DENTRO do arquivo.
+ *
+ * Medido: o Verible responde, mas casa por TEXTO. Clicando no `reset` de quem
+ * instancia, ele realca tambem o `.reset(` da instanciacao, que e outro
+ * simbolo (a porta do modulo de dentro) com o mesmo nome. O slang, que entende
+ * escopo, realca so o certo. Por isso o renderer pergunta ao slang primeiro e
+ * so cai aqui quando ele esta desligado ou nao instalado: realce um pouco
+ * largo e melhor do que nenhum, mas nao e o primeiro a ser escolhido.
+ */
+function documentHighlight(/** @type {string} */ uri, /** @type {any} */ position) {
+  return safeRequest('textDocument/documentHighlight', { textDocument: { uri }, position }, null);
+}
+
 function codeAction(/** @type {string} */ uri, /** @type {any} */ range, /** @type {any} */ diagnostics) {
   return safeRequest('textDocument/codeAction', {
     textDocument: { uri },
@@ -420,6 +434,7 @@ function register() {
   ipcMain.handle('lsp:references', (_e, { uri, position } = {}) => references(uri, position));
   ipcMain.handle('lsp:rename', (_e, { uri, position, newName } = {}) => rename(uri, position, newName));
   ipcMain.handle('lsp:code-action', (_e, { uri, range, diagnostics } = {}) => codeAction(uri, range, diagnostics));
+  ipcMain.handle('lsp:document-highlight', (_e, { uri, position } = {}) => documentHighlight(uri, position));
 }
 
 module.exports = { register };

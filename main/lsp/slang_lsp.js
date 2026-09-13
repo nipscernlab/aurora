@@ -880,6 +880,28 @@ async function completion(/** @type {string} */ uri, /** @type {any} */ position
   }
 }
 
+/**
+ * As ocorrencias do simbolo sob o cursor, com ESCOPO.
+ *
+ * E esta a razao de o realce preferir o slang ao Verible: o Verible casa por
+ * texto e acaba realcando `.reset(` (a porta do modulo instanciado) quando o
+ * cursor esta no `reset` de quem instancia. Sao dois simbolos diferentes que
+ * so por acaso tem o mesmo nome, e confundi-los e justamente o engano que o
+ * aluno ja comete sozinho.
+ *
+ * Falha em silencio: realce e enfeite, e o pedido sai a cada movimento de
+ * cursor. Avisar a cada tremida seria pior do que nao realcar.
+ */
+async function documentHighlight(/** @type {string} */ uri, /** @type {any} */ position) {
+  if (!enabled) return null;
+  if (!(await ensureReady())) return null;
+  try {
+    return await request('textDocument/documentHighlight', { textDocument: { uri }, position });
+  } catch {
+    return null;
+  }
+}
+
 function setEnabled(/** @type {boolean} */ on) {
   on = !!on;
   if (on === enabled) return { enabled };
@@ -903,6 +925,7 @@ function register() {
   ipcMain.handle('slang:did-change', (e, { uri, text } = {}) => didChange(uri, text, e?.sender?.id ?? null));
   ipcMain.handle('slang:did-close', (_e, { uri } = {}) => didClose(uri));
   ipcMain.handle('slang:completion', (_e, { uri, position } = {}) => completion(uri, position));
+  ipcMain.handle('slang:document-highlight', (_e, { uri, position } = {}) => documentHighlight(uri, position));
 }
 
 // As pecas que decidem o que entra no indice saem daqui para o teste: errar

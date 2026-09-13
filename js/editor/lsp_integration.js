@@ -9,8 +9,10 @@
  *   - outline symbols (breadcrumbs + Outline view),
  *   - hover,
  *   - go-to-definition / find-all-references,
- *   - rename symbol (F2), project-wide, and
- *   - quick fixes (the lightbulb) for the lint it reports.
+ *   - rename symbol (F2), project-wide,
+ *   - quick fixes (the lightbulb) for the lint it reports, and
+ *   - highlighting the other occurrences of the symbol under the cursor
+ *     (this one asks slang first, see the provider for why).
  *
  * Everything is best-effort: if Verible isn't installed the IPC resolves
  * to null/empty and the editor behaves exactly as before (static Monaco
@@ -288,6 +290,38 @@ async function abrirOsQueFaltam(uris) {
   return { ok: true, abertos: faltam.length };
 }
 
+/**
+ * O slang esta ligado e alcancavel? O toggle do O11 vive no renderer
+ * (window.AuroraSlang) e o canal, no preload. Consultar pelo global evita um
+ * import entre os dois modulos de LSP, que hoje nao se conhecem.
+ */
+function slangDisponivel() {
+  try {
+    return !!(window.slangAPI
+      && window.AuroraSlang
+      && typeof window.AuroraSlang.isEnabled === 'function'
+      && window.AuroraSlang.isEnabled());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * O `kind` do LSP e o do Monaco contam a partir de numeros diferentes:
+ * Text/Read/Write e 1/2/3 la e 0/1/2 aqui. Nenhum dos dois servidores manda
+ * `kind` hoje, e sem ele o Monaco usa o realce neutro, que e o certo.
+ */
+function highlightsParaMonaco(res) {
+  if (!Array.isArray(res)) return [];
+  return res
+    .filter((h) => h && h.range)
+    .map((h) => {
+      const saida = { range: lspRangeToMonaco(h.range) };
+      if (typeof h.kind === 'number' && h.kind >= 1 && h.kind <= 3) saida.kind = h.kind - 1;
+      return saida;
+    });
+}
+
 /** Recusa legivel: o Monaco mostra `rejectReason` como esta, para o usuario. */
 function recusa(chave, alternativa) {
   try { return (window.t && window.t(chave)) || alternativa; } catch { return alternativa; }
@@ -419,6 +453,29 @@ function registerProviders() {
       async provideReferences(model, position) {
         const res = await window.lspAPI.references(model.uri.toString(), monacoPosToLsp(position));
         return locationsToMonaco(res);
+      },
+    });
+
+    monaco.languages.registerDocumentHighlightProvider(lang, {
+      async provideDocumentHighlights(model, position) {
+        const uri = model.uri.toString();
+        const pos = monacoPosToLsp(position);
+
+        // Pergunta ao slang primeiro, porque ele entende ESCOPO. Medido nos
+        // dois binarios: com o cursor no `reset` de quem instancia, o Verible
+        // realca tambem o `.reset(` da instanciacao, que e a porta do modulo
+        // de dentro, outro simbolo com o mesmo nome. Num editor de ensino isso
+        // ensina errado, porque e exatamente a confusao que o aluno ja tem.
+        //
+        // O Verible fica de reserva: o slang pode estar desligado pelo toggle
+        // do O11 ou nao instalado, e realce um pouco largo e melhor do que
+        // nenhum.
+        if (slangDisponivel()) {
+          let doSlang = null;
+          try { doSlang = await window.slangAPI.documentHighlight(uri, pos); } catch { doSlang = null; }
+          if (Array.isArray(doSlang) && doSlang.length) return highlightsParaMonaco(doSlang);
+        }
+        return highlightsParaMonaco(await window.lspAPI.documentHighlight(uri, pos));
       },
     });
 

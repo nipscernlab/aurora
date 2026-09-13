@@ -36,6 +36,11 @@ let modelos;
 let providers;
 let acoesDe;
 let metaDasAcoes;
+let realcesDe;
+let realceDoVerible;
+let realceDoSlang;
+let quemFoiPerguntado;
+let slangLigado;
 let abertos;
 let ativados;
 let respostaDoLsp;
@@ -72,6 +77,7 @@ function montarMonaco() {
   providers = {};
   acoesDe = {};
   metaDasAcoes = null;
+  realcesDe = {};
   globalThis.monaco = {
     Range: class { constructor(a, b, c, d) { Object.assign(this, { a, b, c, d }); } },
     MarkerSeverity: { Hint: 1, Info: 2, Warning: 4, Error: 8 },
@@ -97,6 +103,7 @@ function montarMonaco() {
         acoesDe[lang] = p;
         metaDasAcoes = meta;
       },
+      registerDocumentHighlightProvider: (lang, p) => { realcesDe[lang] = p; },
     },
   };
 }
@@ -135,6 +142,10 @@ beforeEach(() => {
 
   respostaDasAcoes = [];
   pedidosDeAcao = [];
+  realceDoVerible = [];
+  realceDoSlang = [];
+  quemFoiPerguntado = [];
+  slangLigado = true;
 
   globalThis.window = globalThis.window || {};
   window.lspAPI = {
@@ -149,7 +160,19 @@ beforeEach(() => {
       pedidosDeAcao.push({ uri, range, diagnostics });
       return respostaDasAcoes;
     },
+    documentHighlight: async () => {
+      quemFoiPerguntado.push('verible');
+      return realceDoVerible;
+    },
   };
+  window.slangAPI = {
+    documentHighlight: async () => {
+      quemFoiPerguntado.push('slang');
+      if (realceDoSlang instanceof Error) throw realceDoSlang;
+      return realceDoSlang;
+    },
+  };
+  window.AuroraSlang = { isEnabled: () => slangLigado };
   window.electronAPI = {
     readFile: async (p) => {
       if (!arquivosLegiveis.has(p)) throw new Error('sumiu');
@@ -346,5 +369,88 @@ describe('quick fix: a lampada', () => {
 
     descartar(uriDe(ARQ_A));
     expect((await p.provideCodeActions(modelos.get(uriDe(ARQ_A)), FAIXA)).actions).toEqual([]);
+  });
+});
+
+/**
+ * Realcar as ocorrencias do simbolo sob o cursor.
+ *
+ * Os dois servidores respondem, e o Verible responde ERRADO de um jeito que
+ * importa num editor de ensino: ele casa por texto, entao com o cursor no
+ * `reset` de quem instancia ele realca tambem o `.reset(` da instanciacao, que
+ * e a porta do modulo de dentro, outro simbolo com o mesmo nome. Confundir os
+ * dois e exatamente o engano que o aluno ja comete sozinho.
+ *
+ * Por isso o slang vem primeiro e o Verible fica de reserva, para quando o
+ * slang estiver desligado pelo toggle do O11 ou nao instalado. Realce um pouco
+ * largo e melhor do que realce nenhum, mas nao e o primeiro a ser escolhido.
+ */
+describe('realce de ocorrencias: quem responde', () => {
+  const POS = { lineNumber: 3, column: 15 };
+  const realce = (linha, de, ate) => ({
+    range: { start: { line: linha, character: de }, end: { line: linha, character: ate } },
+  });
+
+  async function realcador() {
+    await carregar();
+    return realcesDe.verilog;
+  }
+
+  it('pergunta ao slang primeiro e nem consulta o Verible quando ele responde', async () => {
+    realceDoSlang = [realce(2, 13, 18)];
+    const r = await (await realcador()).provideDocumentHighlights(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(quemFoiPerguntado).toEqual(['slang']);
+    expect(r).toHaveLength(1);
+  });
+
+  it('cai no Verible quando o slang esta desligado', async () => {
+    slangLigado = false;
+    realceDoVerible = [realce(2, 13, 18), realce(7, 4, 9)];
+    const r = await (await realcador()).provideDocumentHighlights(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(quemFoiPerguntado).toEqual(['verible']);
+    expect(r).toHaveLength(2);
+  });
+
+  it('cai no Verible quando o slang nao acha nada', async () => {
+    realceDoSlang = [];
+    realceDoVerible = [realce(2, 13, 18)];
+    const r = await (await realcador()).provideDocumentHighlights(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(quemFoiPerguntado).toEqual(['slang', 'verible']);
+    expect(r).toHaveLength(1);
+  });
+
+  it('cai no Verible quando o slang estoura, em vez de derrubar o realce', async () => {
+    realceDoSlang = new Error('slang morreu no meio');
+    realceDoVerible = [realce(2, 13, 18)];
+    const r = await (await realcador()).provideDocumentHighlights(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(quemFoiPerguntado).toEqual(['slang', 'verible']);
+    expect(r).toHaveLength(1);
+  });
+
+  it('traduz o kind, que conta de 1 no LSP e de 0 no Monaco', async () => {
+    realceDoSlang = [
+      { ...realce(2, 13, 18), kind: 2 },
+      { ...realce(7, 4, 9), kind: 3 },
+      realce(9, 0, 3),
+    ];
+    const r = await (await realcador()).provideDocumentHighlights(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(r[0].kind).toBe(1);
+    expect(r[1].kind).toBe(2);
+    // Sem kind o Monaco usa o realce neutro, que e o que os dois servidores
+    // produzem hoje: nenhum manda kind.
+    expect(r[2].kind).toBeUndefined();
+  });
+
+  it('aguenta resposta que nao e lista', async () => {
+    realceDoSlang = null;
+    realceDoVerible = null;
+    const r = await (await realcador()).provideDocumentHighlights(modelos.get(uriDe(ARQ_A)), POS);
+
+    expect(r).toEqual([]);
   });
 });

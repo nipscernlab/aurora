@@ -4,6 +4,35 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.17.0](https://github.com/nipscernlab/aurora/compare/v6.16.0...v6.17.0) (2026-09-13)
+
+
+### Features
+
+* **editor:** a dica de arquivo vazio vale para qualquer arquivo ([51ce5e7](https://github.com/nipscernlab/aurora/commit/51ce5e71d6ccc125b3ce8b642cc10b935fbf9386))
+* **editor:** erro de compilador vira marcador, e nao so texto no terminal ([e33ddc1](https://github.com/nipscernlab/aurora/commit/e33ddc1fed618ed53ac9c94f490e5855491fc432))
+* **editor:** historico local por arquivo, com diff de verdade ([7e391f9](https://github.com/nipscernlab/aurora/commit/7e391f993156a0ca3cf9a765d5f4eae7f7f9c12f))
+* **editor:** include clicavel, e hover com largura e driver do sinal ([6aa8fd6](https://github.com/nipscernlab/aurora/commit/6aa8fd6ba45e87542a5cb56f4912ecb97bb0c859))
+* **editor:** nome da porta inline na conexao por posicao ([facbbe7](https://github.com/nipscernlab/aurora/commit/facbbe7d3396b53289458a819f6a38c31035270b))
+* **editor:** quick fix do Verible na lampada do editor ([ebd7f46](https://github.com/nipscernlab/aurora/commit/ebd7f46790ba070bb296978f5deea8108ad63b8f))
+* **editor:** renomear simbolo com F2, no projeto inteiro ([8220268](https://github.com/nipscernlab/aurora/commit/82202689f764af2e1d6faa32dd467969c121ff70))
+* **editor:** sticky scroll, e a fonte que o responsivo desfazia ([78cc897](https://github.com/nipscernlab/aurora/commit/78cc8973a50e2df57a11f6d2c0abad78302c9b41))
+* **i18n:** a paleta de comandos fala a lingua da interface ([9ea20bf](https://github.com/nipscernlab/aurora/commit/9ea20bfa98335b3fc8877062669dc34af7029f85))
+* **i18n:** os textos soltos no JS passam a falar as duas linguas ([d9de305](https://github.com/nipscernlab/aurora/commit/d9de305bc0d0d5c18c18210441e94b2f0222dd4f))
+* **palette:** Ctrl+T leva a qualquer modulo do projeto ([b4bc6e4](https://github.com/nipscernlab/aurora/commit/b4bc6e4786af55fb85fb42a321b6d50d62240d2c))
+* **rewind:** marcar ponto e voltar viram botoes na barra ([0ce4df3](https://github.com/nipscernlab/aurora/commit/0ce4df3e4d8dd66fc0352da07886a79be44d7e34))
+* **rewind:** voltar o codigo a um ponto, com confirmacao ([eb767da](https://github.com/nipscernlab/aurora/commit/eb767da95da2cd2e22dc2624216420663da3ed82))
+* **search:** substituir em todos os arquivos ([c997434](https://github.com/nipscernlab/aurora/commit/c997434f6f6086bab1c8be70ef6733b4442127cc))
+* **terminal:** painel de problemas, com contador na barra ([9855e3c](https://github.com/nipscernlab/aurora/commit/9855e3cb73af757a012be3f7abd4508b10d585ea))
+
+
+### Bug Fixes
+
+* **deps:** fechar os quatro alertas de seguranca, um deles alto ([5788552](https://github.com/nipscernlab/aurora/commit/57885521b3d14def1c20c17f0de6ea67b02ea8a7))
+* **i18n:** travessao, ai-slop e texto na lingua errada ([1d53d0c](https://github.com/nipscernlab/aurora/commit/1d53d0c94f1d6ffe83bc1f77260cbc57878eaedb))
+* **rewind:** botoes do dialogo com o contrato certo, e ponto barato ([23eea13](https://github.com/nipscernlab/aurora/commit/23eea132bd8bc99213a14c864e2766be33ecb784))
+* **run-log:** historico dizia OK para compilacao que falhou ([8848542](https://github.com/nipscernlab/aurora/commit/88485420535f3d5fe376565170a16237ba77895e))
+
 ## [6.16.0](https://github.com/nipscernlab/aurora/compare/v6.15.0...v6.16.0) (2026-09-13)
 
 

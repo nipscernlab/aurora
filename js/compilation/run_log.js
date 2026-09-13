@@ -134,14 +134,55 @@ export function desfechoDaExecucao({ resolveu, falha = null, cancelada = false, 
   return { ok: true, erro: null, cancelada: false };
 }
 
+/**
+ * Quantos problemas cabem no registro de uma execucao.
+ *
+ * O registro vai para o disco e e lido inteiro pela tela; um build que falha em
+ * cascata pode imprimir centenas de linhas de erro, e guardar todas transforma
+ * um arquivo de historico em um log. Os primeiros sao os que importam: em
+ * compilador, o primeiro erro costuma ser a causa dos outros.
+ */
+const MAX_PROBLEMAS_NO_REGISTRO = 20;
+
+/**
+ * Os problemas de uma execucao, achatados e cortados para caber no registro.
+ *
+ * Entra o que a leitura da saida (js/terminal/error_locations.js) ja
+ * estruturou: arquivo, linha, gravidade e a MENSAGEM DO COMPILADOR. Antes
+ * disto o registro guardava apenas o texto que a AURORA montou a partir do
+ * codigo de saida ("CMM compilation failed with code 1"), que diz que falhou e
+ * nao diz o que houve; o erro de verdade existia so no terminal, e sumia com
+ * ele.
+ *
+ * @param {Array<{arquivo: string, problemas: Array<object>}>} porArquivo
+ */
+export function problemasParaRegistro(porArquivo, limite = MAX_PROBLEMAS_NO_REGISTRO) {
+  const saida = [];
+  for (const grupo of (porArquivo || [])) {
+    for (const p of (grupo.problemas || [])) {
+      if (saida.length >= limite) return saida;
+      saida.push({
+        arquivo: grupo.arquivo,
+        linha: p.linha,
+        coluna: p.coluna ?? null,
+        severidade: p.severidade,
+        ferramenta: p.ferramenta,
+        mensagem: String(p.mensagem || '').slice(0, 500),
+      });
+    }
+  }
+  return saida;
+}
+
 /** Fecha a execucao com o desfecho. */
-export function fecharExecucao(exec, { ok, erro = null, cancelada = false, agora = Date.now() }) {
+export function fecharExecucao(exec, { ok, erro = null, cancelada = false, problemas = null, agora = Date.now() }) {
   if (!exec) return exec;
   exec.fim = agora;
   exec.ms = agora - exec.inicio;
   exec.ok = !!ok;
   exec.cancelada = !!cancelada;
   exec.erro = erro ? String(erro).slice(0, 2000) : null;
+  if (Array.isArray(problemas) && problemas.length) exec.problemas = problemas;
   return exec;
 }
 

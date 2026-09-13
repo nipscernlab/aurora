@@ -35,7 +35,7 @@ import { getSimulator } from '../wave/simulator_preference.js';
 import { escolherTestbench } from './compilation_helpers.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { addRunObserver } from './spec_runner.js';
-import { abrirExecucao, anotarPasso, fecharExecucao, resumo, desfechoDaExecucao } from './run_log.js';
+import { abrirExecucao, anotarPasso, fecharExecucao, resumo, desfechoDaExecucao, problemasParaRegistro } from './run_log.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
@@ -216,18 +216,23 @@ async function comRegistro(pedido, corpo) {
         // handler engole o erro depois de mostra-lo. O que vale e se alguem
         // passou pelo funil de erro fatal durante esta execucao.
         const falha = falhaReportadaDe.get(exec) || null;
-        fecharExecucao(exec, desfechoDaExecucao({
-            resolveu: true,
-            falha: falha && !falha.cancelada ? falha : null,
-            cancelada: compilationCanceled || !!(falha && falha.cancelada),
-        }));
+        fecharExecucao(exec, {
+            ...desfechoDaExecucao({
+                resolveu: true,
+                falha: falha && !falha.cancelada ? falha : null,
+                cancelada: compilationCanceled || !!(falha && falha.cancelada),
+            }),
+            // O que o COMPILADOR disse, lido da saida pelo mesmo reconhecedor
+            // que pinta os marcadores. O deposito e zerado no inicio de cada
+            // rodada, entao aqui ele tem exatamente os desta.
+            problemas: problemasParaRegistro(problemStore.listar()),
+        });
         return r;
     } catch (erro) {
-        fecharExecucao(exec, desfechoDaExecucao({
-            resolveu: false,
-            erro,
-            cancelada: compilationCanceled,
-        }));
+        fecharExecucao(exec, {
+            ...desfechoDaExecucao({ resolveu: false, erro, cancelada: compilationCanceled }),
+            problemas: problemasParaRegistro(problemStore.listar()),
+        });
         throw erro;
     } finally {
         cancelar();

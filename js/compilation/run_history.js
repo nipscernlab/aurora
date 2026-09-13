@@ -154,6 +154,33 @@ async function desenharLista() {
   }
 }
 
+/**
+ * O que o COMPILADOR disse, e nao o que a AURORA concluiu.
+ *
+ * O detalhe mostrava apenas `e.erro`, que e a frase montada a partir do codigo
+ * de saida ("Compilacao CMM falhou com codigo 1"): ela diz que falhou e nao diz
+ * o que houve. A mensagem de verdade existia so no terminal e sumia com ele.
+ * Agora o registro carrega os problemas lidos da saida, e eles aparecem aqui,
+ * com arquivo e linha.
+ *
+ * Execucao gravada antes desta mudanca nao tem o campo, e o bloco simplesmente
+ * nao aparece: e melhor uma tela sem a secao do que uma secao vazia dizendo que
+ * nao houve erro nenhum.
+ */
+function problemasHtml(problemas) {
+  if (!Array.isArray(problemas) || !problemas.length) return '';
+  const linhas = problemas.map((p) => {
+    const lugar = p.coluna ? `${p.linha}:${p.coluna}` : String(p.linha ?? '');
+    return `<li class="run-history-problema ${p.severidade === 'aviso' ? 'aviso' : 'erro'}">
+      <span class="run-history-problema-lugar">${escapar(base(p.arquivo))}${lugar ? `:${escapar(lugar)}` : ''}</span>
+      <span class="run-history-problema-msg">${escapar(p.mensagem)}</span>
+      <span class="run-history-problema-ferr">${escapar(p.ferramenta || '')}</span>
+    </li>`;
+  }).join('');
+  return `<h4 class="run-history-secao">${escapar(tr('runHistory.problemsTitle'))}</h4>
+    <ul class="run-history-problemas">${linhas}</ul>`;
+}
+
 /* ---------------------------------------------------------------- detalhe */
 
 async function mostrarDetalhe(id) {
@@ -206,6 +233,7 @@ async function mostrarDetalhe(id) {
       <span class="run-history-desfecho ${d.classe}">${escapar(d.texto)}</span>
     </header>
     ${e.erro ? `<p class="run-history-erro">${escapar(e.erro)}</p>` : ''}
+    ${problemasHtml(e.problemas)}
     <h4 class="run-history-secao">${escapar(tr('runHistory.stateTitle'))}</h4>
     <dl class="run-history-retrato">
       ${retrato.map(([k, v]) => `<dt>${escapar(k)}</dt><dd>${escapar(v)}</dd>`).join('')}

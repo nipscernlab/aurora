@@ -1233,7 +1233,8 @@
       "yosysHierarchy": "Hierarquia (Yosys)",
       "prismYosys": "Síntese para o PRISM (Yosys)",
       "gtkwave": "GTKWave"
-    }
+    },
+    "problemsTitle": "O que o compilador disse"
   },
   "search": {
     "title": "Buscar nos arquivos",

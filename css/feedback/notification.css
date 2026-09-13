@@ -166,6 +166,25 @@
   margin-top: var(--space-1);
 }
 
+/* Modo LISTA: quando o dialogo e um seletor, e nao uma pergunta.
+   A fileira do rodape foi desenhada para dois ou tres botoes. Com dez, o
+   `flex-wrap` os arrumava em duas colunas estreitas e cada rotulo era cortado
+   no meio; o seletor de ponto de restauracao ficou ilegivel assim. Em coluna,
+   cada linha ocupa a largura toda e o texto cabe. */
+.confirm-modal-actions.lista {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+}
+.confirm-modal-actions.lista .confirm-btn {
+  width: 100%;
+  justify-content: flex-start;
+  white-space: normal;
+  text-align: left;
+}
+
 .confirm-btn {
   display: inline-flex;
   align-items: center;

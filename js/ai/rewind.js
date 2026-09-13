@@ -117,7 +117,7 @@ export async function listarPontos() {
  * @param {string} id
  * @returns {Promise<boolean>} se voltou
  */
-export async function voltarAoPonto(id) {
+export async function voltarAoPonto(id, ponto = null) {
   let previa;
   try { previa = await electronAPI.historicoPontoPrevia?.(id); }
   catch (e) { previa = { ok: false, erro: e?.message || String(e) }; }
@@ -129,6 +129,11 @@ export async function voltarAoPonto(id) {
     } catch { /* sem notificacao */ }
     return false;
   }
+
+  // Que ponto e este, em palavras. A mensagem de sucesso dizia so "4 arquivos
+  // restaurados", e quem tem seis pontos na lista fica sem saber para qual
+  // deles voltou. A previa traz o instante e o motivo, entao da para dizer.
+  const descricao = `${quando(previa.quando)} ${nomeDoPonto(ponto || previa)}`;
 
   const mudam = previa.restaurar.length;
   const novos = previa.novos.length;
@@ -178,7 +183,9 @@ export async function voltarAoPonto(id) {
 
   try {
     window.showNotification?.(
-      tt('rewind.done', '{{files}} files restored.').replace('{{files}}', String(r.restaurados)),
+      tt('rewind.done', '{{files}} files restored from {{point}}.')
+        .replace('{{files}}', String(r.restaurados))
+        .replace('{{point}}', descricao),
       'success', 5000, 'rewind');
     // Falha parcial nao pode passar batida no meio de uma mensagem de sucesso:
     // o projeto ficou metade voltado e a pessoa precisa saber agora.
@@ -219,6 +226,8 @@ export async function escolherPonto() {
     title: tt('rewind.pickTitle', 'Rewind code to a restore point'),
     message: '',
     variant: 'info',
+    // Seletor, e nao pergunta: os pontos empilham em coluna e cada rotulo cabe.
+    lista: true,
     buttons: [
       ...pontos.slice(0, 10).map((p) => ({
         label: `${quando(p.quando)}  ${nomeDoPonto(p)}`,
@@ -230,7 +239,8 @@ export async function escolherPonto() {
     ],
   });
   if (typeof escolha !== 'string' || !escolha.startsWith('ponto:')) return false;
-  return voltarAoPonto(escolha.slice('ponto:'.length));
+  const id = escolha.slice('ponto:'.length);
+  return voltarAoPonto(id, pontos.find((p) => p.id === id) || null);
 }
 
 /** Marca um ponto a pedido da pessoa, pela paleta. */
@@ -239,8 +249,12 @@ export async function marcarPontoManual() {
   // estado ainda seja o mesmo. Quem clicou espera ver o resultado do clique.
   const r = await marcarPonto({ motivo: 'manual', manual: true });
   try {
+    // Diz QUANDO e COM QUE NOME, senao a confirmacao nao distingue este ponto
+    // dos outros cinco que ja estao na lista.
+    const agora = `${quando(Date.now())} ${tt('rewind.manual', 'marked by hand')}`;
     window.showNotification?.(
-      r ? tt('rewind.marked', 'Restore point marked.') : tt('rewind.failed', 'Could not mark it.'),
+      r ? tt('rewind.marked', 'Restore point marked: {{point}}').replace('{{point}}', agora)
+        : tt('rewind.failed', 'Could not mark it.'),
       r ? 'success' : 'error', 4000, 'rewind');
   } catch { /* sem notificacao */ }
   return !!r;

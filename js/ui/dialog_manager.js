@@ -46,7 +46,15 @@ function inferVariant(buttons) {
     return 'info';
 }
 
-export function showDialog({ title, message, buttons, variant, ajuda }) {
+/**
+ * @param {{ title?: string, message?: string, buttons?: any[], variant?: string,
+ *           ajuda?: string, lista?: boolean }} opcoes
+ *   `lista`: os botoes empilham em coluna, cada um ocupando a largura toda.
+ *   A fileira do rodape foi desenhada para dois ou tres botoes; com dez ela
+ *   quebrava em duas colunas espremidas e cortava o texto de cada um no meio,
+ *   que foi o que apareceu no seletor de ponto de restauracao.
+ */
+export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
     return new Promise((resolve) => {
         // Replace any existing dialog
         document.querySelectorAll('.confirm-modal').forEach(el => el.remove());
@@ -101,7 +109,7 @@ export function showDialog({ title, message, buttons, variant, ajuda }) {
                     ${ajudaHTML}
                 </header>
                 <div class="confirm-modal-message">${message || ''}</div>
-                <footer class="confirm-modal-actions">${buttonsHTML}</footer>
+                <footer class="confirm-modal-actions${lista ? ' lista' : ''}">${buttonsHTML}</footer>
             </div>
         `;
         document.body.appendChild(modal);

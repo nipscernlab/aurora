@@ -189,3 +189,12 @@ export function initProblemsPanel() {
 }
 
 export { abrir, fechar };
+
+// Os dois botoes da barra nasciam sem ouvinte: este modulo exportava a funcao
+// de ligar e NINGUEM a chamava. O `<script type="module">` do index carregava o
+// arquivo, o codigo avaliava, e nada acontecia ao clicar. O rewind ja tinha
+// esta auto-ligacao; estes dois nao.
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initProblemsPanel);
+  else initProblemsPanel();
+}

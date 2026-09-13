@@ -29,6 +29,9 @@ const { app, shell, ipcMain, BrowserWindow, WebContentsView } = require('electro
 const log = require('electron-log');
 
 const { loadPage } = require('../render_loader');
+// Achar a frase citada dentro da pagina e puro, e mora ao lado: da para
+// provar o casamento de texto sem abrir janela nenhuma.
+const realce = require('../docs/realce');
 // A fronteira de navegacao mora ao lado, em docs_nav.js: e a unica decisao de
 // seguranca deste arquivo e e pura, entao da para prova-la sem abrir janela.
 const { decidirNavegacao } = require('./docs_nav');
@@ -42,6 +45,40 @@ let win = null;
 let view = null;
 /** Pasta do manual desta sessão, para decidir o que é navegação interna. */
 let raizDocs = '';
+
+/**
+ * O desfecho do ultimo realce pedido, para quem abriu poder dizer ao leitor o
+ * que houve. Guardado aqui, e nao devolvido pelo `open`, porque a carga da
+ * pagina e assincrona e o `open` responde antes dela terminar.
+ * @type {{achou: boolean, motivo: string}|null}
+ */
+let ultimoRealce = null;
+
+/**
+ * Procura a frase citada na pagina que acabou de carregar e rola ate ela.
+ *
+ * Silencioso por escolha quando nao acha: a janela ja esta aberta na pagina
+ * certa, que e a metade que sempre funciona. Quem quiser explicar a outra
+ * metade pergunta em `desfechoDoRealce()`.
+ */
+async function aplicarRealce(trecho) {
+  if (!view || view.webContents.isDestroyed()) return;
+  try {
+    // Apaga o anterior primeiro: sem isto, duas citacoes seguidas na mesma
+    // pagina deixariam as duas pintadas e a segunda pareceria nao ter feito
+    // nada de novo.
+    await view.webContents.executeJavaScript(realce.scriptLimpar());
+    if (!trecho) { ultimoRealce = null; return; }
+    ultimoRealce = await view.webContents.executeJavaScript(realce.script(trecho));
+  } catch (e) {
+    ultimoRealce = { achou: false, motivo: `erro: ${e instanceof Error ? e.message : e}` };
+  }
+}
+
+/** O que aconteceu com o ultimo realce pedido. */
+function desfechoDoRealce() {
+  return ultimoRealce;
+}
 
 /** Reposiciona o view sob a barra sempre que a janela muda de tamanho. */
 function ajustarView() {
@@ -68,14 +105,17 @@ function avisarEstado() {
  * @param {string} dir pasta do manual já resolvida pelo chamador
  * @param {string} [relPage] página inicial, relativa e já validada (docs.js)
  * @param {string} [hash] âncora sem o '#'
+ * @param {string} [trecho] frase a procurar e realçar depois de carregar
  * @returns {import('electron').BrowserWindow}
  */
-function open(dir, relPage = 'index.html', hash = '') {
+function open(dir, relPage = 'index.html', hash = '', trecho = '') {
   const indexPath = path.join(dir, relPage);
   if (win && !win.isDestroyed()) {
     // Janela já aberta: navega para a página pedida em vez de só focar.
     if (view) {
-      view.webContents.loadFile(indexPath, hash ? { hash } : undefined).catch(() => { /* pagina sumiu */ });
+      view.webContents.loadFile(indexPath, hash ? { hash } : undefined)
+        .then(() => aplicarRealce(trecho))
+        .catch(() => { /* pagina sumiu */ });
     }
     win.show();
     win.focus();
@@ -121,7 +161,9 @@ function open(dir, relPage = 'index.html', hash = '') {
     },
   });
   win.contentView.addChildView(view);
-  view.webContents.loadFile(indexPath, hash ? { hash } : undefined);
+  view.webContents.loadFile(indexPath, hash ? { hash } : undefined)
+    .then(() => aplicarRealce(trecho))
+    .catch(() => { /* pagina sumiu entre a validacao e a carga */ });
 
   // Link externo é assunto do navegador do sistema, não desta janela.
   view.webContents.setWindowOpenHandler(({ url }) => {
@@ -189,4 +231,4 @@ function register() {
   ipcMain.handle('docs-window:sync', () => { avisarEstado(); return true; });
 }
 
-module.exports = { open, register };
+module.exports = { desfechoDoRealce, open, register };

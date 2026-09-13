@@ -605,6 +605,13 @@ class AIAssistantManager {
     // Re-sync providers whenever the AI settings panel changes model/key.
     window.addEventListener('aurora-ai-settings-changed', () => this.refreshProviders());
 
+    // A versao do manual, para carimbar as citacoes. Lida agora e RELIDA ao
+    // voltar o foco: o manual se atualiza sozinho por manifesto, no meio da
+    // sessao, e uma citacao carimbada com a versao velha mandaria o leitor
+    // procurar a diferenca no lugar errado.
+    this._lerVersaoDoManual();
+    window.addEventListener('focus', () => this._lerVersaoDoManual());
+
     // Encolher a janela pode tornar invasiva uma largura que era legitima.
     // Sem isto o painel so era reavaliado ao ser arrastado, entao bastava
     // diminuir a janela para ele voltar a cobrir o terminal.
@@ -819,6 +826,20 @@ class AIAssistantManager {
     this.permissionMode = mode;
     try { localStorage.setItem(PERMISSION_STORE_KEY, mode); }
     catch (_) { /* persistence is best-effort */ }
+  }
+
+  /**
+   * A versao do manual instalado, lida uma vez e guardada.
+   *
+   * Guardada porque quem a usa () tem de ser sincrono, e
+   * relida quando a janela volta ao foco porque o manual se atualiza sozinho
+   * por manifesto, no meio da sessao.
+   */
+  async _lerVersaoDoManual() {
+    try {
+      const st = await window.electronAPI?.docsStatus?.();
+      this._versaoDoManual = (st && st.version) || '';
+    } catch (_) { this._versaoDoManual = ''; }
   }
 
   async refreshProviders() {
@@ -2705,9 +2726,63 @@ class AIAssistantManager {
     const lista = this._citacoesDoTurno || [];
     this._citacoesDoTurno = null;
     if (!lista.length) return;
+    // Carimba a versao do manual instalado. Ela nao serve para hoje: serve para
+    // daqui a um mes, quando alguem reabrir esta conversa, clicar na citacao e a
+    // frase nao estiver mais la. Sem a versao aquilo e um link morto; com ela, e
+    // "esta citacao e do manual 6.4.2".
+    //
+    // SINCRONO de proposito, por um valor guardado. `commitTurn` nao espera
+    // por este metodo, e ele empurra a citacao para `this.messages` antes de
+    // `persistCurrentChat` rodar. Buscar a versao por IPC aqui tornaria o metodo
+    // assincrono, e o push cairia DEPOIS da gravacao: a citacao apareceria na
+    // tela e sumiria ao reabrir a conversa.
+    const versao = this._versaoDoManual;
+    if (versao) for (const c of lista) c.versao = versao;
     this.messages.push({ role: 'citation', citacoes: lista });
     this.messagesEl.appendChild(this._blocoDeCitacoes(lista));
     this.scrollToBottom?.();
+  }
+
+  /**
+   * Diz ao leitor por que o clique nao levou ao ponto, quando nao levou.
+   *
+   * O MANUAL MUDA SOZINHO: ele vive em repositorio proprio e se atualiza por
+   * manifesto, sem esperar release da AURORA. Uma citacao de uma conversa de
+   * semana passada pode apontar para uma frase que foi reescrita ou para uma
+   * pagina que foi renomeada. Sem explicacao, o clique nao faz nada visivel e o
+   * leitor conclui que a assistente inventou a citacao, que e exatamente o
+   * oposto do que ela existe para fazer.
+   *
+   * So fala quando ha o que falar. Achou a frase, nao aparece nada.
+   */
+  async _explicarCitacao(item, c, resposta) {
+    let chave = null;
+    let versao = resposta && resposta.versao;
+    if (resposta && resposta.ok === false) {
+      chave = resposta.motivo === 'manual-ausente'
+        ? 'ai.citations.manualMissing'
+        : 'ai.citations.pageGone';
+    } else {
+      // A pagina abriu; o realce e assincrono, entao o desfecho se pergunta
+      // depois. `achou` falso aqui quer dizer que a pagina esta la e a frase
+      // nao: o caso classico de manual atualizado.
+      let d = null;
+      try { d = await window.electronAPI?.docsRealceDesfecho?.(); } catch (_) { /* sem resposta */ }
+      if (d && d.achou === false && d.motivo === 'trecho-ausente') chave = 'ai.citations.textGone';
+    }
+    const anterior = item.querySelector('.ai-citacao-nota');
+    if (anterior) anterior.remove();
+    if (!chave) return;
+
+    const nota = document.createElement('p');
+    nota.className = 'ai-citacao-nota';
+    nota.setAttribute('data-i18n', chave);
+    nota.textContent = chave;
+    item.appendChild(nota);
+    window.i18nApplyDOM?.(nota);
+    // A versao vai DEPOIS da traducao, senao o applyDOM a apagaria ao reescrever
+    // o texto da chave.
+    if (versao) nota.textContent = `${nota.textContent} (${versao})`;
   }
 
   /**
@@ -2742,12 +2817,20 @@ class AIAssistantManager {
       pagina.className = 'ai-citacao-pagina';
       pagina.textContent = c.titulo || c.pagina;
       pagina.title = c.pagina || '';
-      pagina.addEventListener('click', () => {
+      pagina.addEventListener('click', async () => {
         // `docs:open-help` monta o caminho a partir da pasta do manual e ja
         // recusa caminho para fora dela (main/ipc/docs.js), entao a pagina que
         // veio da API atravessa a mesma guarda que a da interface.
-        try { window.electronAPI?.docsOpenHelp?.(c.pagina); }
-        catch (e) { console.warn('[ai] nao consegui abrir o manual:', e); }
+        //
+        // O TRECHO vai junto: a janela o procura na pagina, rola ate ele e o
+        // realca. Sem isso o clique abriria no topo e o leitor teria de cacar,
+        // numa pagina de 5.550 caracteres, a frase que acabou de ler aqui.
+        try {
+          const r = await window.electronAPI?.docsOpenHelp?.(c.pagina, { trecho: c.trecho });
+          this._explicarCitacao(item, c, r);
+        } catch (e) {
+          console.warn('[ai] nao consegui abrir o manual:', e);
+        }
       });
       item.appendChild(pagina);
 

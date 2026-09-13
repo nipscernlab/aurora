@@ -334,21 +334,41 @@ function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir
  * @param {string} pagina caminho relativo dentro do manual, ex: 'verilog/ondas.html'
  * @returns {{ok: true} | {ok: false, motivo: string}}
  */
-function openHelp(pagina) {
+/**
+ * Abre o manual numa pagina, e opcionalmente NAQUELE PONTO dela.
+ *
+ * `opcoes.trecho` e a frase citada: a janela a procura na pagina, rola ate ela
+ * e a realca (main/docs/realce.js). Sem trecho, abre no topo como sempre.
+ *
+ * O `versao` que volta e a versao do manual INSTALADO AGORA. Quem clicou numa
+ * citacao guardada precisa dele: o manual se atualiza sozinho por manifesto, e
+ * "o trecho nao esta mais nesta pagina" so e util junto de "voce tinha a 6.4.2
+ * e agora tem a 6.5.0". Sem isso o leitor conclui que a assistente inventou a
+ * citacao, que e o contrario do que ela existe para fazer.
+ *
+ * @param {string} pagina caminho relativo, com `#ancora` opcional
+ * @param {{trecho?: string}} [opcoes]
+ */
+function openHelp(pagina, opcoes = {}) {
   const dir = activeDir();
-  if (!dir) return { ok: false, motivo: 'manual-ausente' };
-  if (typeof pagina !== 'string' || !pagina.trim()) return { ok: false, motivo: 'pagina-invalida' };
+  const versao = dir ? (readManifest(dir)?.version || '') : '';
+  if (!dir) return { ok: false, motivo: 'manual-ausente', versao };
+  if (typeof pagina !== 'string' || !pagina.trim()) return { ok: false, motivo: 'pagina-invalida', versao };
 
   const [rel, ancoraDaPagina = ''] = pagina.split('#');
   const alvo = path.join(dir, rel);
-  if (!dentroDaRaiz(dir, alvo) || !fs.existsSync(alvo)) return { ok: false, motivo: 'pagina-invalida' };
+  // Pagina que existia quando a citacao foi feita pode ter sido renomeada numa
+  // atualizacao do manual. O desfecho e o mesmo de um caminho invalido, e o
+  // `versao` de volta e o que permite dizer a diferenca ao leitor.
+  if (!dentroDaRaiz(dir, alvo) || !fs.existsSync(alvo)) return { ok: false, motivo: 'pagina-invalida', versao };
 
   try {
-    require('./docs_window').open(dir, rel, ancoraDaPagina);
-    return { ok: true };
+    const janela = require('./docs_window');
+    janela.open(dir, rel, ancoraDaPagina, String(opcoes.trecho || ''));
+    return { ok: true, versao };
   } catch (e) {
     log.error('[docs] falha ao abrir a ajuda:', e instanceof Error ? e.message : e);
-    return { ok: false, motivo: 'abrir-falhou' };
+    return { ok: false, motivo: 'abrir-falhou', versao };
   }
 }
 
@@ -386,7 +406,18 @@ function register() {
   // Ajuda contextual dos modais. Devolve {ok:false} em vez de lancar quando o
   // manual nao esta instalado, porque quem chama tem um plano B: abrir a mesma
   // pagina do manual publico no navegador.
-  ipcMain.handle('docs:open-help', (_e, pagina) => openHelp(pagina));
+  ipcMain.handle('docs:open-help', (_e, pagina, opcoes) => openHelp(pagina, opcoes || {}));
+
+  /**
+   * O que aconteceu com o ultimo realce pedido: a frase foi achada na pagina?
+   *
+   * Perguntado DEPOIS, e nao devolvido pelo open-help, porque a pagina carrega
+   * de forma assincrona e o open-help responde antes dela terminar.
+   */
+  ipcMain.handle('docs:realce-desfecho', () => {
+    try { return require('./docs_window').desfechoDoRealce(); }
+    catch (_) { return null; }
+  });
 
   ipcMain.handle('docs:ler', (_e, caminho, opcoes) => {
     try {

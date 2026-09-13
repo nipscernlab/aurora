@@ -48,8 +48,18 @@ export function serializeMessagesForStorage(messages) {
             // O trecho e a razao de a citacao existir: sem ele, reabrir a
             // conversa deixaria so o nome da pagina, que e o que a assistente
             // ja dizia na prosa antes de citations existirem.
+            //
+            // OS INDICES (`inicio`, `fim`) FICAM DE FORA DE PROPOSITO, e isto
+            // nao e a lista curta por descuido. Eles contam caracteres do texto
+            // extraido da pagina COMO ELA ESTAVA naquele turno, e o manual se
+            // atualiza sozinho por manifesto, sem esperar release da AURORA.
+            // Guardado, um indice aponta para o meio de outra frase depois da
+            // proxima correcao de texto: seria mentira com data para vencer.
+            // O que sobrevive e o TEXTO, que ou ainda esta na pagina e e achado
+            // onde quer que tenha ido parar (main/docs/realce.js), ou nao esta,
+            // e ai "nao achei" e uma resposta honesta que da para dizer.
             entry.citacoes = (m.citacoes || []).map((c) => ({
-                pagina: c.pagina, titulo: c.titulo, trecho: c.trecho,
+                pagina: c.pagina, titulo: c.titulo, trecho: c.trecho, versao: c.versao,
             }));
         } else if (m.role === 'tool') {
             entry.toolName  = m.toolName;

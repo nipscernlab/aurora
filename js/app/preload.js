@@ -88,7 +88,10 @@ const fileOperations = {
   docsCheckUpdate: () => ipcRenderer.invoke('docs:check-update'),
   // Ajuda contextual dos modais: abre o manual JA na pagina do assunto. O
   // caminho e validado no main contra a pasta do manual; daqui so passa string.
-  docsOpenHelp:    (pagina) => ipcRenderer.invoke('docs:open-help', pagina),
+  // `opcoes.trecho` abre o manual NAQUELE PONTO: a janela procura a frase,
+  // rola ate ela e a realca. Sem trecho, abre no topo como sempre.
+  docsOpenHelp:    (pagina, opcoes) => ipcRenderer.invoke('docs:open-help', pagina, opcoes || {}),
+  docsRealceDesfecho: () => ipcRenderer.invoke('docs:realce-desfecho'),
   // Procurar e ler o manual, para a Aurora Intelligence. Nenhuma das duas
   // recebe pasta: quem resolve onde o manual esta e o processo principal.
   docsBuscar: (consulta, opcoes) => ipcRenderer.invoke('docs:buscar', consulta, opcoes),

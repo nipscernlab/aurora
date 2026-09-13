@@ -1029,7 +1029,10 @@
     "citations": {
       "head": "Do manual",
       "expand": "Expandir",
-      "collapse": "Recolher"
+      "collapse": "Recolher",
+      "textGone": "Este trecho nao esta mais nesta pagina. O manual foi atualizado depois da resposta.",
+      "pageGone": "Esta pagina nao esta mais no manual instalado.",
+      "manualMissing": "O manual nao esta instalado nesta maquina."
     }
   },
   "git": {

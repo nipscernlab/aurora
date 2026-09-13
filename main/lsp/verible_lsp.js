@@ -366,6 +366,23 @@ function references(/** @type {string} */ uri, /** @type {any} */ position) {
   }, null);
 }
 
+/**
+ * Renomear o simbolo sob o cursor, em TODO o projeto.
+ *
+ * A resposta e um WorkspaceEdit, que pode alcancar arquivos que o usuario
+ * nem abriu: renomear a porta de um modulo reescreve a instanciacao dele
+ * em outro arquivo. Quem trata isso e o renderer, que precisa garantir um
+ * modelo do Monaco para cada arquivo antes de aplicar.
+ *
+ * Verificado contra o binario real: e rename SEMANTICO, nao troca de texto.
+ * Renomear o `clk` de um modulo reescreve a porta `.clk(` na instanciacao e
+ * NAO toca no sinal `clk` de quem instancia, que so por acaso tem o mesmo
+ * nome. Um rename textual corromperia o projeto justamente ai.
+ */
+function rename(/** @type {string} */ uri, /** @type {any} */ position, /** @type {string} */ newName) {
+  return safeRequest('textDocument/rename', { textDocument: { uri }, position, newName }, null);
+}
+
 // ── IPC registration ──────────────────────────────────────────────────────────
 
 function register() {
@@ -380,6 +397,7 @@ function register() {
   ipcMain.handle('lsp:hover', (_e, { uri, position } = {}) => hover(uri, position));
   ipcMain.handle('lsp:definition', (_e, { uri, position } = {}) => definition(uri, position));
   ipcMain.handle('lsp:references', (_e, { uri, position } = {}) => references(uri, position));
+  ipcMain.handle('lsp:rename', (_e, { uri, position, newName } = {}) => rename(uri, position, newName));
 }
 
 module.exports = { register };

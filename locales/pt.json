@@ -583,7 +583,9 @@
   "editor": {
     "lineCol": "Ln {{line}}, Col {{col}}",
     "formatTimeout": "Formatar desistiu: o formatador não terminou a tempo. O arquivo ficou como estava.",
-    "bootFailed": "O editor de código não conseguiu iniciar ({{error}}). Reinicie o SAPHO; se repetir, reinstale."
+    "bootFailed": "O editor de código não conseguiu iniciar ({{error}}). Reinicie o SAPHO; se repetir, reinstale.",
+    "renameNoSymbol": "Este símbolo não pode ser renomeado daqui.",
+    "renameCannotOpen": "A renomeação alcança um arquivo que não deu para abrir, então nada foi alterado."
   },
   "tabs": {
     "waveLoading": "Carregando a forma de onda…",

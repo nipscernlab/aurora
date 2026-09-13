@@ -583,7 +583,9 @@
   "editor": {
     "lineCol": "Ln {{line}}, Col {{col}}",
     "formatTimeout": "Formatting gave up: the formatter did not finish in time. The file was left as it was.",
-    "bootFailed": "The code editor failed to start ({{error}}). Restart SAPHO; if it happens again, reinstall it."
+    "bootFailed": "The code editor failed to start ({{error}}). Restart SAPHO; if it happens again, reinstall it.",
+    "renameNoSymbol": "This symbol cannot be renamed from here.",
+    "renameCannotOpen": "Rename reaches a file that could not be opened, so nothing was changed."
   },
   "tabs": {
     "waveLoading": "Loading the waveform…",

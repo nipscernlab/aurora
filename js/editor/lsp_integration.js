@@ -7,8 +7,9 @@
  *   - live diagnostics (lint + syntax) as squiggles + Problems markers,
  *   - document formatting (Format Document / Shift+Alt+F),
  *   - outline symbols (breadcrumbs + Outline view),
- *   - hover, and
- *   - go-to-definition / find-all-references.
+ *   - hover,
+ *   - go-to-definition / find-all-references, and
+ *   - rename symbol (F2), project-wide.
  *
  * Everything is best-effort: if Verible isn't installed the IPC resolves
  * to null/empty and the editor behaves exactly as before (static Monaco
@@ -20,6 +21,8 @@
  * fires `didClose`. This decouples the LSP from editor/pane creation, so
  * split panes sharing one model only open the document once.
  */
+
+import { electronAPI } from '../app/electron_api.js';
 
 const LSP_LANGS = ['verilog', 'systemverilog'];
 const CHANGE_DEBOUNCE_MS = 350;
@@ -155,6 +158,97 @@ function locationsToMonaco(res) {
   }).filter(Boolean);
 }
 
+// ── rename (server → workspace edit) ──────────────────────────────────
+
+/**
+ * Um WorkspaceEdit chega de duas formas: `changes` (uri para lista de
+ * edicoes) ou `documentChanges` (lista que ainda carrega a versao de cada
+ * documento). As duas dizem a mesma coisa aqui, entao viram um mapa so.
+ *
+ * `documentChanges` tambem pode trazer operacoes de criar, renomear e apagar
+ * ARQUIVO. O Verible nunca manda dessas, e adivinhar o que fazer com elas
+ * seria pior do que ignora-las, entao o que nao for edicao de texto passa
+ * batido em vez de virar palpite.
+ */
+function workspaceEditToMap(we) {
+  const porUri = new Map();
+  if (!we) return porUri;
+  const juntar = (uri, edits) => {
+    if (!uri || !Array.isArray(edits) || !edits.length) return;
+    porUri.set(uri, (porUri.get(uri) || []).concat(edits));
+  };
+  if (Array.isArray(we.documentChanges)) {
+    for (const dc of we.documentChanges) {
+      juntar(dc && dc.textDocument && dc.textDocument.uri, dc && dc.edits);
+    }
+  }
+  if (we.changes && typeof we.changes === 'object') {
+    for (const [uri, edits] of Object.entries(we.changes)) juntar(uri, edits);
+  }
+  return porUri;
+}
+
+/**
+ * O modelo nao nasce junto com a aba: addTab cria o editor dentro de um IIFE
+ * assincrono que espera `EditorManager.ready`. Entao depois de mandar abrir e
+ * preciso ESPERAR o modelo aparecer, em vez de supor que ja esta la.
+ */
+async function esperarModelo(uri, tentativas = 40, esperaMs = 25) {
+  for (let i = 0; i < tentativas; i += 1) {
+    const m = modelForUri(uri);
+    if (m) return m;
+    await new Promise((r) => setTimeout(r, esperaMs));
+  }
+  return null;
+}
+
+/**
+ * Garante um modelo do Monaco para cada arquivo que o rename alcanca.
+ *
+ * O Monaco recusa a edicao INTEIRA quando algum arquivo alvo nao tem modelo
+ * ("bad edit - model not found"), e confere ANTES de aplicar qualquer coisa.
+ * Isso e sorte nossa: um rename que cruza arquivos falha inteiro em vez de
+ * renomear pela metade e deixar o projeto sem compilar.
+ *
+ * Abrir o arquivo e o que cria o modelo, e e tambem a coisa honesta a fazer.
+ * A alternativa seria gravar no disco por baixo do pano: o usuario nao veria,
+ * nao poderia desfazer e so descobriria depois. Aberto, a mudanca fica
+ * visivel, marcada como suja, com Ctrl+Z e Ctrl+S iguais aos do arquivo de
+ * onde ele pediu o rename. No fim o foco volta para onde estava, porque abrir
+ * abas e consequencia do pedido dele, mas tomar o lugar dele nao e.
+ */
+async function abrirOsQueFaltam(uris) {
+  const faltam = uris.filter((u) => !modelForUri(u));
+  if (!faltam.length) return { ok: true, abertos: 0 };
+
+  const abas = (typeof window !== 'undefined') ? window.TabManager : null;
+  if (!abas || typeof abas.addTab !== 'function') return { ok: false, culpado: faltam[0] };
+
+  const voltarPara = (typeof abas.getEditingFilePath === 'function')
+    ? abas.getEditingFilePath() : null;
+
+  for (const uri of faltam) {
+    let fsPath;
+    try { fsPath = monaco.Uri.parse(uri).fsPath; } catch { return { ok: false, culpado: uri }; }
+    try {
+      const conteudo = await electronAPI.readFile(fsPath, { encoding: 'utf8' });
+      if (typeof conteudo !== 'string') return { ok: false, culpado: fsPath };
+      abas.addTab(fsPath, conteudo);
+    } catch { return { ok: false, culpado: fsPath }; }
+    if (!(await esperarModelo(uri))) return { ok: false, culpado: fsPath };
+  }
+
+  if (voltarPara && typeof abas.activateTab === 'function') {
+    try { abas.activateTab(voltarPara); } catch { /* a aba pode ter sumido no meio */ }
+  }
+  return { ok: true, abertos: faltam.length };
+}
+
+/** Recusa legivel: o Monaco mostra `rejectReason` como esta, para o usuario. */
+function recusa(chave, alternativa) {
+  try { return (window.t && window.t(chave)) || alternativa; } catch { return alternativa; }
+}
+
 // ── diagnostics (server → editor markers) ─────────────────────────────────────
 
 // Match a server URI back to its Monaco model. Verible echoes the exact URI
@@ -265,6 +359,51 @@ function registerProviders() {
       async provideReferences(model, position) {
         const res = await window.lspAPI.references(model.uri.toString(), monacoPosToLsp(position));
         return locationsToMonaco(res);
+      },
+    });
+
+    monaco.languages.registerRenameProvider(lang, {
+      async provideRenameEdits(model, position, newName) {
+        const semSimbolo = () => ({
+          edits: [],
+          rejectReason: recusa('editor.renameNoSymbol',
+            'This symbol cannot be renamed from here.'),
+        });
+        const semArquivo = () => ({
+          edits: [],
+          rejectReason: recusa('editor.renameCannotOpen',
+            'Rename reaches a file that could not be opened, so nothing was changed.'),
+        });
+
+        const we = await window.lspAPI.rename(
+          model.uri.toString(), monacoPosToLsp(position), newName,
+        );
+        const porUri = workspaceEditToMap(we);
+        if (!porUri.size) return semSimbolo();
+
+        const abriu = await abrirOsQueFaltam([...porUri.keys()]);
+        if (!abriu.ok) return semArquivo();
+
+        const edits = [];
+        for (const [uri, lspEdits] of porUri) {
+          const alvo = modelForUri(uri);
+          // Garantido logo acima; se sumiu nesse intervalo, recusa TUDO em vez
+          // de aplicar um rename pela metade.
+          if (!alvo) return semArquivo();
+          for (const e of lspEdits) {
+            if (!e || !e.range) continue;
+            edits.push({
+              resource: alvo.uri,
+              // Sem versionId de proposito: com ele o Monaco exige que o
+              // modelo nao tenha mudado desde a consulta e aborta com
+              // "model changed in the meantime". Os arquivos recem-abertos
+              // acabaram de ganhar versao, entao a checagem so atrapalha.
+              versionId: undefined,
+              textEdit: { range: lspRangeToMonaco(e.range), text: e.newText },
+            });
+          }
+        }
+        return { edits };
       },
     });
   }

@@ -1235,7 +1235,17 @@
     "fileOne": "arquivo",
     "fileMany": "arquivos",
     "in": "em",
-    "partial": "mostrando resultados parciais (limite atingido)"
+    "partial": "mostrando resultados parciais (limite atingido)",
+    "replacePlaceholder": "Substituir por",
+    "replaceAll": "Substituir tudo",
+    "replaceConfirmTitle": "Substituir no projeto",
+    "replaceConfirmBody": "Isto vai alterar {{matches}} ocorrências em {{files}} arquivos, no disco. Arquivo aberto com alteração não salva vai perguntar o que manter.",
+    "replaceConfirmYes": "Substituir",
+    "replaceDone": "{{matches}} ocorrências substituídas em {{files}} arquivos.",
+    "replaceNothing": "Nada a substituir.",
+    "replaceTooMany": "Resultados demais ({{total}}) para substituir de uma vez. Estreite a busca antes.",
+    "replaceFailed": "A substituição falhou: {{error}}",
+    "replacePartial": "Não consegui gravar {{files}} arquivos. O resto foi substituído."
   },
   "pylibs": {
     "title": "Bibliotecas",

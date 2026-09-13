@@ -612,6 +612,7 @@ const searchOperations = {
    * { ok, results, total, truncated } or { ok:false, error }.
    */
   searchInProject: (payload) => ipcRenderer.invoke('search:in-project', payload),
+  replaceInProject: (payload) => ipcRenderer.invoke('search:replace-in-project', payload),
 };
 
 /* ============================================================================

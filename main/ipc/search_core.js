@@ -53,6 +53,25 @@ function buildRegex(query, { caseSensitive, wholeWord, regex }) {
   return new RegExp(body, flags);
 }
 
+/**
+ * Prepara o texto de substituicao para `String.replace`.
+ *
+ * `String.replace` SEMPRE interpreta `$&`, `$1`, `` $` `` e afins no texto de
+ * substituicao, mesmo quando a busca foi literal. Quem procurou `preco` e
+ * mandou trocar por `R$ 5` receberia o resultado de `$ ` como grupo, que e
+ * silencioso e errado. Em modo literal, entao, cada `$` vira `$$`.
+ *
+ * Em modo regex o `$1` fica como esta, de proposito: ali ele e o recurso, e
+ * quem ligou "usar expressao regular" pediu justamente por isso.
+ *
+ * @param {string} texto
+ * @param {boolean} ehRegex
+ */
+function prepararSubstituicao(texto, ehRegex) {
+  const t = String(texto == null ? '' : texto);
+  return ehRegex ? t : t.replace(/\$/g, '$$$$');
+}
+
 /** Heuristic binary sniff: a NUL byte in the first 4 KB ⇒ treat as binary. */
 function looksBinary(/** @type {string} */ absPath) {
   let fd = -1;
@@ -168,4 +187,4 @@ function buscar(rootDir, payload) {
   return { ok: true, results, total: budget.matches, truncated: budget.truncated };
 }
 
-module.exports = { buscar, buildRegex, escapeRegExp };
+module.exports = { buscar, buildRegex, escapeRegExp, prepararSubstituicao };

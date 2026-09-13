@@ -1235,7 +1235,17 @@
     "fileOne": "file",
     "fileMany": "files",
     "in": "in",
-    "partial": "showing partial results (limit reached)"
+    "partial": "showing partial results (limit reached)",
+    "replacePlaceholder": "Replace with",
+    "replaceAll": "Replace all",
+    "replaceConfirmTitle": "Replace across the project",
+    "replaceConfirmBody": "This will change {{matches}} occurrences in {{files}} files, on disk. Open files with unsaved changes will ask what to keep.",
+    "replaceConfirmYes": "Replace",
+    "replaceDone": "Replaced {{matches}} occurrences in {{files}} files.",
+    "replaceNothing": "Nothing to replace.",
+    "replaceTooMany": "Too many results ({{total}}) to replace at once. Narrow the search first.",
+    "replaceFailed": "The replacement failed: {{error}}",
+    "replacePartial": "Could not write {{files}} files. The rest was replaced."
   },
   "pylibs": {
     "title": "Libraries",

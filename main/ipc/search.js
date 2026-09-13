@@ -20,7 +20,7 @@ const fs = require('fs');
 const { Worker } = require('worker_threads');
 
 const { spfDaJanela } = require('./project_paths');
-const { buildRegex, escapeRegExp } = require('./search_core');
+const { buildRegex, escapeRegExp, prepararSubstituicao } = require('./search_core');
 
 /** Prazo de uma busca. Folgado para um projeto real; curto para um RegExp que nao volta. */
 const PRAZO_MS = 30000;
@@ -82,6 +82,74 @@ function buscarNoWorker(rootDir, payload) {
   });
 }
 
+/**
+ * Substitui em todos os arquivos que a busca acha.
+ *
+ * Grava NO DISCO, e nao nos modelos do editor, de proposito. Quem cuida do que
+ * esta aberto e o vigia que ja existe (js/tabs/tab_watchers.js): arquivo sem
+ * edicao local se atualiza sozinho, arquivo com edicao local abre o dialogo de
+ * conflito e a pessoa decide. Mexer nos dois lugares criaria dois donos da
+ * verdade para o mesmo arquivo.
+ *
+ * A varredura e REFEITA aqui, e nao herdada da lista que o usuario esta vendo.
+ * Entre o Enter da busca e o clique em substituir o projeto pode ter mudado, e
+ * o que vale e o que esta no disco AGORA. E a mesma funcao da busca, entao o
+ * conjunto substituido e exatamente o conjunto listado, sem um segundo
+ * criterio parecido que um dia divirja.
+ *
+ * Resultado truncado faz o pedido inteiro ser RECUSADO. A varredura para em
+ * 2000 ocorrencias ou 500 arquivos, e substituir "o que coube" deixaria o
+ * projeto pela metade, num estado que ninguem pediu e que a lista nao mostrou.
+ */
+async function substituirNoProjeto(rootDir, payload) {
+  const { query, caseSensitive, wholeWord, regex, replacement } = payload;
+
+  const achados = await buscarNoWorker(rootDir, { query, caseSensitive, wholeWord, regex });
+  if (!achados.ok) return achados;
+  if (achados.truncated) {
+    return { ok: false, error: 'too-many', total: achados.total };
+  }
+  if (!achados.total) return { ok: true, arquivos: 0, ocorrencias: 0 };
+
+  const texto = prepararSubstituicao(replacement, !!regex);
+  let arquivos = 0;
+  let ocorrencias = 0;
+  const falhas = [];
+
+  for (const grupo of achados.results) {
+    const abs = path.resolve(rootDir, grupo.abs || grupo.file);
+    // Cinto e suspensorio: a varredura so anda dentro do projeto, mas quem
+    // grava confere de novo. Um caminho que escape daqui vira arquivo do
+    // usuario reescrito sem que ninguem tenha pedido.
+    const dentro = abs === rootDir || abs.startsWith(rootDir + path.sep);
+    if (!dentro) { falhas.push(grupo.file); continue; }
+
+    try {
+      const antes = fs.readFileSync(abs, 'utf8');
+      // RegExp novo por arquivo. Ele tem flag `g`, e ainda que `match` e
+      // `replace` zerem o `lastIndex` sozinhos, um objeto por arquivo tira a
+      // pergunta do caminho.
+      const re = buildRegex(query, { caseSensitive, wholeWord, regex });
+      const contou = (antes.match(re) || []).length;
+      if (!contou) continue;
+      // `texto` ja veio escapado conforme o modo, entao aqui o `$1` do modo
+      // regex resolve sozinho, que e o que faz esse modo valer.
+      const depois = antes.replace(re, texto);
+      if (depois === antes) continue;
+
+      const tmp = `${abs}.aurora-tmp`;
+      fs.writeFileSync(tmp, depois, 'utf8');
+      fs.renameSync(tmp, abs);
+      arquivos += 1;
+      ocorrencias += contou;
+    } catch (e) {
+      falhas.push(grupo.file);
+    }
+  }
+
+  return { ok: true, arquivos, ocorrencias, falhas };
+}
+
 function register() {
   const { ipcMain } = require('electron');
 
@@ -108,9 +176,32 @@ function register() {
       query, caseSensitive: !!caseSensitive, wholeWord: !!wholeWord, regex: !!regex,
     });
   });
+
+  ipcMain.handle('search:replace-in-project', async (event, payload) => {
+    const { query, caseSensitive, wholeWord, regex, replacement } = payload || {};
+    if (!query || typeof query !== 'string') return { ok: true, arquivos: 0, ocorrencias: 0 };
+    if (typeof replacement !== 'string') return { ok: false, error: 'No replacement' };
+
+    const rootDir = projectDir(event);
+    if (!rootDir || !fs.existsSync(rootDir)) return { ok: false, error: 'No project open' };
+
+    try {
+      buildRegex(query, { caseSensitive: !!caseSensitive, wholeWord: !!wholeWord, regex: !!regex });
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+
+    return substituirNoProjeto(path.resolve(rootDir), {
+      query,
+      caseSensitive: !!caseSensitive,
+      wholeWord: !!wholeWord,
+      regex: !!regex,
+      replacement,
+    });
+  });
 }
 
 // buildRegex e escapeRegExp sao exportados para teste. Eles transformam o que o
 // usuario digita na caixa de busca em RegExp, e sao o ponto onde um caractere
 // especial vira comportamento inesperado. Ver tests/unit/searchQuery.test.js.
-module.exports = { register, buildRegex, escapeRegExp, buscarNoWorker };
+module.exports = { register, buildRegex, escapeRegExp, buscarNoWorker, substituirNoProjeto };

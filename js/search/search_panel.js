@@ -1,5 +1,6 @@
 import { electronAPI } from '../app/electron_api.js';
 import { motivoDe } from '../app/api_reply.js';
+import { showDialog } from '../ui/dialog_manager.js';
 // search_panel.js, "Find in Files" panel (VS Code's Search), driven by
 // electronAPI.searchInProject (main/ipc/search.js). Results are grouped
 // by file: a collapsible file header + match rows. Clicking a row opens the
@@ -71,6 +72,7 @@ async function runSearch() {
     lastResults = [];
     wrap.innerHTML = '';
     if (summary) { summary.hidden = true; summary.textContent = ''; }
+    sincronizarBotaoSubstituir();
     return;
   }
 
@@ -90,6 +92,7 @@ async function runSearch() {
 
   if (!res || !res.ok) {
     lastResults = [];
+    sincronizarBotaoSubstituir();
     wrap.innerHTML = `<div class="search-error"><i class="ph ph-warning-circle"></i> ${esc(motivoDe(res, tt('search.failed', 'Search failed.')))}</div>`;
     if (summary) { summary.hidden = true; summary.textContent = ''; }
     return;
@@ -97,6 +100,106 @@ async function runSearch() {
 
   lastResults = Array.isArray(res.results) ? res.results : [];
   renderResults(res);
+  sincronizarBotaoSubstituir();
+}
+
+// --- substituir ------------------------------------------------------------
+
+/** Quantas ocorrencias e quantos arquivos a lista mostra agora. */
+function totaisDaLista() {
+  let ocorrencias = 0;
+  for (const g of lastResults) ocorrencias += (g.matches || []).length;
+  return { arquivos: lastResults.length, ocorrencias };
+}
+
+/**
+ * O botao so acende com resultado na tela. Substituir sem nada listado nao tem
+ * o que fazer, e um botao aceso que nao faz nada e pior do que um apagado.
+ */
+function sincronizarBotaoSubstituir() {
+  const btn = $('search-replace-all');
+  if (btn) btn.disabled = lastResults.length === 0;
+}
+
+function avisar(msg, tipo) {
+  try { window.showNotification?.(msg, tipo || 'info', 4000, 'search-replace'); }
+  catch (_) { /* sem notificacao, sem problema */ }
+}
+
+/**
+ * Substitui em todos os arquivos da lista.
+ *
+ * Pergunta antes, e a pergunta traz os NUMEROS: quantas ocorrencias, quantos
+ * arquivos, e que a gravacao e no disco. A lista de resultados ja e a previa
+ * (a pessoa esta vendo linha por linha o que vai mudar), entao o dialogo nao
+ * repete a previa; ele da a dimensao, que e o que a lista rolada nao mostra.
+ *
+ * Sem contagem regressiva, ao contrario do apagar projeto: aqui existe volta.
+ * O arquivo aberto ganha o dialogo de conflito do vigia, e o que estava no
+ * controle de versao se recupera com um diff. Travar o botao por cinco
+ * segundos numa acao reversivel so treinaria a pessoa a esperar sem ler.
+ */
+async function substituirTudo() {
+  const query = currentQuery();
+  if (!query.trim() || !lastResults.length) return;
+
+  const replacement = $('search-replace-input')?.value ?? '';
+  const { arquivos, ocorrencias } = totaisDaLista();
+
+  const escolha = await showDialog({
+    title: tt('search.replaceConfirmTitle', 'Replace across the project'),
+    message: tt('search.replaceConfirmBody', '')
+      .replace('{{matches}}', String(ocorrencias))
+      .replace('{{files}}', String(arquivos)),
+    variant: 'warning',
+    buttons: [
+      { text: tt('dialog.common.cancel', 'Cancel'), value: false, type: 'cancel' },
+      { text: tt('search.replaceConfirmYes', 'Replace'), value: true, type: 'primary' },
+    ],
+  });
+  if (!escolha) return;
+
+  let res;
+  try {
+    res = await electronAPI?.replaceInProject?.({
+      query,
+      caseSensitive: toggles.case,
+      wholeWord: toggles.word,
+      regex: toggles.regex,
+      replacement,
+    });
+  } catch (e) {
+    res = { ok: false, error: e?.message || String(e) };
+  }
+
+  if (res && res.ok === false && res.error === 'too-many') {
+    avisar(tt('search.replaceTooMany', '').replace('{{total}}', String(res.total ?? '')), 'warning');
+    return;
+  }
+  if (!res || !res.ok) {
+    avisar(tt('search.replaceFailed', 'The replacement failed: {{error}}')
+      .replace('{{error}}', motivoDe(res, '')), 'error');
+    return;
+  }
+  if (!res.arquivos) {
+    avisar(tt('search.replaceNothing', 'Nothing to replace.'), 'info');
+    return;
+  }
+
+  avisar(tt('search.replaceDone', '')
+    .replace('{{matches}}', String(res.ocorrencias))
+    .replace('{{files}}', String(res.arquivos)), 'success');
+
+  // Um arquivo que nao deu para gravar nao pode passar batido no meio de uma
+  // mensagem de sucesso: o projeto ficou metade trocado e a pessoa precisa
+  // saber disso agora, nao na proxima compilacao.
+  if (Array.isArray(res.falhas) && res.falhas.length) {
+    avisar(tt('search.replacePartial', '').replace('{{files}}', String(res.falhas.length)), 'warning');
+  }
+
+  // A lista virou passado no instante da gravacao: refaz a busca para mostrar
+  // o que sobrou, em vez de deixar na tela ocorrencias que nao existem mais.
+  runSearch();
 }
 
 // --- render ----------------------------------------------------------------
@@ -255,6 +358,16 @@ function init() {
       }
       btn.addEventListener('click', () => onToggleClick(btn));
     });
+    $('search-replace-all')?.addEventListener('click', substituirTudo);
+    const alvo = $('search-replace-input');
+    if (alvo) {
+      // Enter no campo de substituicao faz o que a pessoa esta olhando, e nao
+      // uma nova busca.
+      alvo.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); substituirTudo(); }
+        if (e.key === 'Escape') { e.preventDefault(); close(); }
+      });
+    }
     const input = $('search-input');
     if (input) {
       input.addEventListener('input', debounce(runSearch, 250));

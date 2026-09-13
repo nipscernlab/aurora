@@ -20,6 +20,7 @@ const { debounce, safePath, formatTimestamp } = require('../utils');
 const { spfDaJanela } = require('./project_paths');
 const janelas = require('../main_windows');
 const { ocultarPastaDeSistemaEm } = require('../pastas_ocultas');
+const historico = require('./history');
 const { escritaPermitida } = require('./fs_guard');
 const { componentsPath } = require('../paths');
 const {
@@ -120,6 +121,18 @@ function concederRaizDeEscrita(/** @type {unknown} */ p) {
  * @param {string} alvo caminho ja resolvido pelo safePath.
  * @param {string} rotulo
  */
+/**
+ * A raiz do projeto da janela que pediu, para o historico local.
+ *
+ * Do `event`, e nunca um caminho vindo do renderer: com duas janelas abertas,
+ * a gravacao da janela A iria para o historico do projeto da B.
+ * @param {any} event
+ */
+function projetoDaJanela(event) {
+  const spf = spfDaJanela(event);
+  return spf ? path.dirname(spf) : null;
+}
+
 function exigirEscritaPermitida(event, alvo, rotulo) {
   const spf = spfDaJanela(event);
   const permitido = escritaPermitida(alvo, {
@@ -216,7 +229,16 @@ function register() {
     try {
       const dir = path.dirname(filePath);
       await fse.ensureDir(dir);
+      // O historico local (main/ipc/history.js) pendura-se AQUI porque este e o
+      // funil unico de escrita: o salvar do editor, o create_file da Aurora
+      // Intelligence e a substituicao em arquivos passam todos por ele. O
+      // "antes" e sincrono e so na primeira vez de cada arquivo, senao a
+      // primeira edicao perderia justamente o estado de que se quer voltar; o
+      // "depois" sai do caminho critico.
+      const projetoDoHistorico = projetoDaJanela(event);
+      historico.antesDeGravar(projetoDoHistorico, filePath);
       await fse.writeFile(filePath, content);
+      historico.depoisDeGravar(projetoDoHistorico, filePath, content);
       return { success: true };
     } catch (error) {
       log.error('Error writing file:', error);
@@ -273,6 +295,10 @@ function register() {
   ipcMain.handle('delete-file', async (event, filePath) => {
     filePath = exigirEscritaPermitida(event, safePath(filePath, 'filePath'), 'delete-file');
     try {
+      // A ultima copia vai para o historico ANTES do unlink, senao ela some
+      // junto com o arquivo e o historico nao serve para o caso que mais
+      // assusta, que e apagar o que nao devia.
+      historico.antesDeApagar(projetoDaJanela(event), filePath);
       await fs.unlink(filePath);
       return { success: true };
     } catch (error) {
@@ -380,6 +406,10 @@ function register() {
   ipcMain.handle('file:trash', async (event, targetPath) => {
     targetPath = exigirEscritaPermitida(event, safePath(targetPath, 'targetPath'), 'file:trash');
     try {
+      // Mesma razao do delete-file: a Lixeira do Windows guarda o arquivo, mas
+      // o historico e o que devolve uma VERSAO dele sem sair da AURORA. Vale
+      // so para arquivo; pasta cai no catch da leitura e segue.
+      historico.antesDeApagar(projetoDaJanela(event), targetPath);
       await shell.trashItem(targetPath);
       return { success: true };
     } catch (error) {

@@ -147,11 +147,14 @@ function podarTemp(dir, opts = {}) {
  * Ignorado e so o que a maquina gera.
  */
 const GITIGNORE_DA_AURORA = [
-  '# Gerado pela AURORA. Intermediarios de compilacao e registro de execucoes:',
-  '# saem da maquina de quem compilou e nao valem para mais ninguem.',
+  '# Gerado pela AURORA. Intermediarios de compilacao, registro de execucoes e',
+  '# historico local: saem da maquina de quem compilou e nao valem para mais',
+  '# ninguem. O historico e a rede de seguranca desta maquina, e versiona-lo',
+  '# encheria o repositorio de copias de cada gravacao de cada arquivo.',
   '# A pasta memory/ NAO entra aqui, ela e conteudo e pode ser versionada.',
   'Temp/',
   'execucoes/',
+  'historico/',
   '',
 ].join('\n');
 

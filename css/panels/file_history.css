@@ -1,0 +1,124 @@
+/* file_history.css, a linha do tempo do arquivo aberto (js/editor/file_history.js).
+
+   Duas colunas: a lista de versoes a esquerda, estreita e de largura fixa, e o
+   diff a direita ocupando o resto. A lista e uma coluna de datas, entao ela nao
+   precisa crescer; o diff precisa de toda a largura que sobrar, porque e ele
+   que responde a pergunta que trouxe a pessoa aqui. */
+
+.history-panel {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+  height: min(70vh, 620px);
+}
+
+/* ---- lista de versoes ---------------------------------------------------- */
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  min-width: 0;
+  padding-right: var(--space-1);
+  border-right: 1px solid var(--border-hairline);
+}
+/* `display` de autor vence o `[hidden]` do navegador; sem isto, esconder a
+   lista pelo JavaScript nao a esconderia. */
+.history-list[hidden] { display: none; }
+
+.history-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "quando tamanho"
+    "origem linhas";
+  gap: 0 var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.history-item:hover { background: var(--bg-elev-1, var(--bg-elev)); }
+.history-item.selecionada {
+  background: var(--bg-elev-1, var(--bg-elev));
+  border-color: var(--border);
+}
+.history-quando {
+  grid-area: quando;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+/* De onde a versao veio: gravado, antes da primeira edicao, antes de apagar,
+   Aurora Intelligence. E o que distingue duas versoes do mesmo minuto. */
+.history-origem {
+  grid-area: origem;
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-tamanho,
+.history-linhas {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.history-tamanho { grid-area: tamanho; }
+.history-linhas  { grid-area: linhas; }
+
+/* ---- diff ---------------------------------------------------------------- */
+
+/* O DiffEditor do Monaco monta aqui dentro e mede a si mesmo
+   (automaticLayout), entao este bloco so precisa ter altura propria: sem ela,
+   o editor nasceria com zero e nao se recuperaria. */
+.history-diff {
+  min-width: 0;
+  height: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.history-vazio {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ---- cabecalho ----------------------------------------------------------- */
+
+/* O nome do arquivo, ao lado do titulo: a tela e sobre um arquivo so, e sem
+   ele o titulo seria igual para todos. */
+.history-file {
+  margin-left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: var(--font-normal);
+}
+
+.history-restore {
+  height: var(--h-button-lg, 32px);
+  padding: 0 var(--space-3);
+  background: var(--bg-elev-1, var(--bg-elev));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+}
+.history-restore:hover:not(:disabled) { border-color: var(--border-strong, var(--border)); }
+/* Sem versao escolhida nao ha o que restaurar, e um botao aceso que nao faz
+   nada e pior do que um apagado. */
+.history-restore:disabled { opacity: 0.45; cursor: default; }

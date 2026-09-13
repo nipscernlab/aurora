@@ -1385,5 +1385,19 @@
     "none": "No problems",
     "count": "Errors: {{errors}}  Warnings: {{warnings}}",
     "emptyBody": "The last build reported nothing."
+  },
+  "history": {
+    "title": "File history",
+    "tooltip": "History of the open file",
+    "restore": "Restore into the editor",
+    "empty": "No earlier version yet. The next save of this file starts the history.",
+    "noFile": "Open a file to see its history.",
+    "pick": "Pick a version to see what changed.",
+    "readFailed": "Could not read that version.",
+    "restored": "Version restored into the editor. Save to keep it, Ctrl+Z to undo.",
+    "originInitial": "before the first edit",
+    "originSave": "saved",
+    "originDelete": "before deleting",
+    "originAi": "Aurora Intelligence"
   }
 }

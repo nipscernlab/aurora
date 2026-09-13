@@ -1385,5 +1385,19 @@
     "none": "Nenhum problema",
     "count": "Erros: {{errors}}  Avisos: {{warnings}}",
     "emptyBody": "A última compilação não reclamou de nada."
+  },
+  "history": {
+    "title": "Histórico do arquivo",
+    "tooltip": "Histórico do arquivo aberto",
+    "restore": "Restaurar no editor",
+    "empty": "Ainda não há versão anterior. A próxima gravação deste arquivo começa o histórico.",
+    "noFile": "Abra um arquivo para ver o histórico dele.",
+    "pick": "Escolha uma versão para ver o que mudou.",
+    "readFailed": "Não consegui ler essa versão.",
+    "restored": "Versão restaurada no editor. Salve para manter, Ctrl+Z para desfazer.",
+    "originInitial": "antes da primeira edição",
+    "originSave": "gravado",
+    "originDelete": "antes de apagar",
+    "originAi": "Aurora Intelligence"
   }
 }

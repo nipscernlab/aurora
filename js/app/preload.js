@@ -113,6 +113,8 @@ const fileOperations = {
   componentesListar:    () => ipcRenderer.invoke('componentes:listar'),
 
   // Registro de execucoes de compilacao. Grava em <projeto>/.aurora/execucoes.
+  historicoListar: (arquivo) => ipcRenderer.invoke('historico:listar', arquivo),
+  historicoLer: (arquivo, id) => ipcRenderer.invoke('historico:ler', arquivo, id),
   runLogGravar: (projeto, exec) => ipcRenderer.invoke('runlog:gravar', projeto, exec),
   runLogListar: (projeto) => ipcRenderer.invoke('runlog:listar', projeto),
   runLogLer: (projeto, id) => ipcRenderer.invoke('runlog:ler', projeto, id),

@@ -545,6 +545,13 @@
                   <button id="problems-panel" class="toolbar-button icon-only" data-tooltip="Problems" data-i18n-tooltip="problems.tooltip">
                       <i class="ph ph-warning-circle"></i>
                   </button>
+                  <!-- Historico do arquivo aberto. Vizinho do historico de
+                       compilacoes de proposito: sao o mesmo gesto, olhar para
+                       tras, um no que voce escreveu e outro no que voce
+                       mandou compilar. -->
+                  <button id="file-history" class="toolbar-button icon-only" data-tooltip="File history" data-i18n-tooltip="history.tooltip">
+                      <i class="ph ph-clock-counter-clockwise"></i>
+                  </button>
                   <button id="run-history" class="toolbar-button icon-only" data-tooltip="Compilation history" data-i18n-tooltip="runHistory.tooltip">
                       <i class="ph ph-clock-counter-clockwise"></i>
                   </button>
@@ -1046,6 +1053,25 @@
 <!-- Historico de execucoes: o que cada clique de compilar fez, e em que estado
      o projeto estava. Os dados vem de <projeto>/.aurora/execucoes, gravados
      pelo compilation_flow; a tela so le. js/compilation/run_history.js. -->
+<!-- A linha do tempo do arquivo aberto: cada gravacao guardada em
+     <projeto>/.aurora/historico, e o diff entre a versao escolhida e o que
+     esta no editor agora. O diff e o DiffEditor do Monaco, e nao HTML nosso:
+     as duas pontas aqui sao texto puro, e ele ja alinha, colore por linguagem
+     e dobra o que nao mudou. js/editor/file_history.js. -->
+<aurora-modal id="historyModal" style="--aurora-modal-width: min(1100px, 96vw);">
+    <span slot="title" class="modal-title">
+        <i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i>
+        <span data-i18n="history.title">File history</span>
+        <span class="history-file" id="history-file"></span>
+    </span>
+    <button slot="actions" id="history-restore" class="history-restore" disabled
+            data-i18n="history.restore">Restore into the editor</button>
+    <main class="modal-body history-panel">
+        <div class="history-list" id="history-list"></div>
+        <div class="history-diff" id="history-diff"></div>
+    </main>
+</aurora-modal>
+
 <!-- O que a ultima compilacao reclamou, por arquivo. Os dados vem do deposito
      em js/terminal/problem_store.js, alimentado pela saida das ferramentas; a
      tela so le. js/terminal/problems_panel.js. -->
@@ -1801,6 +1827,7 @@
 <script src="./js/project/close_project.js" type="module"></script>
 <script src="./js/project/delete_project.js" type="module"></script>
 <script src="./js/terminal/problems_panel.js" type="module"></script>
+<script src="./js/editor/file_history.js" type="module"></script>
 <script src="./js/editor/monaco_editor.js" type="module"></script>
 <script src="./js/tabs/tab_manager.js" type="module"></script>
 <script src="./js/compilation/compilation_module.js" type="module"></script>

@@ -91,6 +91,7 @@ const bugReportIpc = require('./main/ipc/bug_report');
 const componentsIpc = require('./main/ipc/components');
 const exemplosIpc = require('./main/ipc/exemplos');
 const searchIpc = require('./main/ipc/search');
+const historicoIpc = require('./main/ipc/history');
 const shellIpc = require('./main/ipc/shell');
 const previewIpc = require('./main/ipc/preview');
 const surferTabIpc = require('./main/ipc/surfer_tab');
@@ -132,6 +133,7 @@ if (acquiredLock) {
   exemplosIpc.register();
   gitIpc.register();
   searchIpc.register();
+  historicoIpc.register();
   shellIpc.register();
   previewIpc.register();
   surferTabIpc.register();

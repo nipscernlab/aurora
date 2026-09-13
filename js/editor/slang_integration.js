@@ -41,6 +41,7 @@ export function initSlang() {
     try { window.slangAPI.setEnabled(enabled); } catch { /* ignore */ }
 
     registerCompletion();
+    registerInlayHints();
     wireDiagnostics();
     wireModelLifecycle();
     exposeToggle();
@@ -216,6 +217,61 @@ function docToString(doc) {
   if (!doc) return undefined;
   if (typeof doc === 'string') return doc;
   return doc.value || undefined;
+}
+
+/**
+ * A dica inline com o nome da porta, na conexao por POSICAO.
+ *
+ * `contador u1 (clk, reset, saida)` nao diz qual porta e qual, e trocar duas
+ * de lugar compila e roda errado, o que e dos enganos mais caros de achar num
+ * projeto de aluno. Com a dica, le-se `clk: clk, reset: reset, valor: saida`
+ * sem sair do lugar nem abrir o outro arquivo.
+ *
+ * So o slang produz isso, e so onde resolve alguma coisa: conexao nomeada, que
+ * ja se explica sozinha, nao ganha dica. O Verible nem anuncia o recurso, entao
+ * aqui nao ha reserva: com o slang desligado, nao ha dica.
+ *
+ * `Type` e `Parameter` valem 1 e 2 nos dois lados, LSP e Monaco, entao o kind
+ * atravessa sem conversao. Escrito com nome em vez de numero para o dia em que
+ * alguem mexer nisso confiando na memoria.
+ */
+function registerInlayHints() {
+  for (const lang of SLANG_LANGS) {
+    monaco.languages.registerInlayHintsProvider(lang, {
+      displayName: 'slang',
+      async provideInlayHints(model, range) {
+        const vazio = { hints: [], dispose() {} };
+        if (!enabled) return vazio;
+
+        let res = null;
+        try {
+          res = await window.slangAPI.inlayHint(model.uri.toString(), {
+            start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+            end: { line: range.endLineNumber - 1, character: range.endColumn - 1 },
+          });
+        } catch { return vazio; }
+        if (!Array.isArray(res) || !res.length) return vazio;
+
+        const hints = [];
+        for (const h of res) {
+          if (!h || !h.position) continue;
+          const label = typeof h.label === 'string'
+            ? h.label
+            : (Array.isArray(h.label) ? h.label.map((p) => (p && p.value) || '').join('') : '');
+          if (!label) continue;
+          hints.push({
+            label,
+            position: { lineNumber: h.position.line + 1, column: h.position.character + 1 },
+            kind: h.kind === 1 ? monaco.languages.InlayHintKind.Type
+              : monaco.languages.InlayHintKind.Parameter,
+            paddingLeft: h.paddingLeft === true,
+            paddingRight: h.paddingRight === true,
+          });
+        }
+        return { hints, dispose() {} };
+      },
+    });
+  }
 }
 
 function registerCompletion() {

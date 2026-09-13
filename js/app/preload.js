@@ -665,6 +665,7 @@ const slangOperations = {
   completion: (uri, position) => ipcRenderer.invoke('slang:completion', { uri, position }),
   documentHighlight: (uri, position) => ipcRenderer.invoke('slang:document-highlight', { uri, position }),
   workspaceSymbol: (query) => ipcRenderer.invoke('slang:workspace-symbol', { query }),
+  inlayHint: (uri, range) => ipcRenderer.invoke('slang:inlay-hint', { uri, range }),
 
   onDiagnostics: (cb) => {
     const handler = (_e, payload) => cb(payload);

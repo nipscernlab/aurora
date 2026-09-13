@@ -926,6 +926,30 @@ async function workspaceSymbol(/** @type {string} */ query) {
   }
 }
 
+/**
+ * As dicas inline de um trecho do arquivo.
+ *
+ * Medido contra o binario: o slang so as produz onde elas resolvem um
+ * problema de verdade, a CONEXAO POR POSICAO. Escrever `contador u1 (clk,
+ * reset, saida)` nao diz qual porta e qual, e trocar duas de lugar compila e
+ * roda errado; a dica escreve `clk:`, `reset:` e `valor:` antes de cada uma.
+ * Conexao nomeada, que ja se explica sozinha, nao ganha dica nenhuma.
+ *
+ * Vem pronta, sem segunda viagem: ele anuncia `resolveProvider: false`.
+ *
+ * Falha calada, como o realce: o editor pede isto a cada rolagem e a cada
+ * edicao, e um aviso por pedido seria barulho constante para um enfeite.
+ */
+async function inlayHint(/** @type {string} */ uri, /** @type {any} */ range) {
+  if (!enabled) return null;
+  if (!(await ensureReady())) return null;
+  try {
+    return await request('textDocument/inlayHint', { textDocument: { uri }, range });
+  } catch {
+    return null;
+  }
+}
+
 function setEnabled(/** @type {boolean} */ on) {
   on = !!on;
   if (on === enabled) return { enabled };
@@ -951,6 +975,7 @@ function register() {
   ipcMain.handle('slang:completion', (_e, { uri, position } = {}) => completion(uri, position));
   ipcMain.handle('slang:document-highlight', (_e, { uri, position } = {}) => documentHighlight(uri, position));
   ipcMain.handle('slang:workspace-symbol', (_e, { query } = {}) => workspaceSymbol(query));
+  ipcMain.handle('slang:inlay-hint', (_e, { uri, range } = {}) => inlayHint(uri, range));
 }
 
 // As pecas que decidem o que entra no indice saem daqui para o teste: errar

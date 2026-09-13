@@ -122,21 +122,6 @@ function register() {
     }
   });
 
-  // One-shot generation (prompt -> text, no tools/streaming). Used by the AI
-  // harness generator. claude-code routes to the subscription CLI (print mode);
-  // everything else goes through the Vercel-SDK API providers. (chatgpt/codex
-  // one-shot isn't wired yet, provider.generateOneshot returns a clear error.)
-  ipcMain.handle('ai:generate-oneshot', async (_event, payload) => {
-    try {
-      if (runnerDe(payload?.provider) === 'claude-code') {
-        return await claudeCode.generateOneshot(payload || {});
-      }
-      return await provider.generateOneshot(payload || {});
-    } catch (e) {
-      return fail(e instanceof Error ? e.message : String(e));
-    }
-  });
-
   /* ---- Claude Code (subscription) bridge ----
    * Probe the local `claude` CLI install + subscription login, and
    * surface live rate-limit / token usage for the panel's usage bars.

@@ -43,6 +43,8 @@ try {
 const provider = require('./provider');
 const tools = require('./tools');
 const promptCache = require('./prompt_cache');
+const toolArgs = require('./tool_args');
+const effortPolicy = require('./effort_policy');
 const toolBridge = require('./tool_bridge');
 const audit = require('./audit');
 const { STREAM_IDLE_MS } = require('./timeouts');
@@ -133,7 +135,9 @@ async function start(payload, webContents) {
     modelId,
     messages,
     system,
+    systemContext,
     effort,
+    operacao,
   } = payload || {};
 
   // Expand any composer attachments (images / files) into SDK multimodal content.
@@ -186,17 +190,37 @@ async function start(payload, webContents) {
     // prompt_cache.js; aqui so se monta o pedido. As ferramentas ja vem com a
     // marca da ultima (tools.buildTools).
     const { instructionsArg, messagesArg, comCache } = promptCache.montarComCache({
-      providerName, system, messages: sdkMessages,
+      providerName, system, systemVariavel: systemContext, messages: sdkMessages,
     });
-    if (comCache) log.info(`[ai.chat] prompt cache armado para ${modelKey} (system 1h, ferramentas 1h, conversa 5m)`);
+    if (comCache) {
+      const p = promptCache.proporcaoEstavel(system, systemContext);
+      log.info(
+        `[ai.chat] prompt cache armado para ${modelKey} (estavel 1h, ferramentas 1h, conversa 5m); `
+        + `system ${p.total} chars = ${p.estavel} estaveis (${p.pctEstavel}%) + ${p.variavel} por turno`,
+      );
+    }
 
     // Esforco de raciocinio no caminho de API. O controle da tela ja existia
     // para as CLIs de assinatura; a API da Anthropic aceita o mesmo `effort`
     // nas familias que o suportam, e nas outras o parametro seria um 400.
-    const providerOptions = provider.efeitoSuportado(providerName, modelKey) && effort
-      ? { anthropic: { effort } }
+    // O esforco vem da POLITICA da operacao, com queda para o valor que a
+    // pessoa escolheu na interface quando a operacao e livre. A tabela e o
+    // porque de cada linha estao em effort_policy.js.
+    //
+    // Isto anda junto com a separacao do cache, e nao depois: cada valor de
+    // esforco cria uma linhagem de cache propria, entao medir o cache antes de
+    // fixar a politica mediria uma coisa que ia deixar de existir.
+    const esforcoFinal = effortPolicy.esforcoPara(operacao, effort);
+    const providerOptions = provider.efeitoSuportado(providerName, modelKey) && esforcoFinal
+      ? { anthropic: { effort: esforcoFinal } }
       : undefined;
-    if (providerOptions) log.info(`[ai.chat] effort=${effort} para ${modelKey}`);
+    if (providerOptions) {
+      const porque = effortPolicy.porqueDe(operacao);
+      log.info(
+        `[ai.chat] effort=${esforcoFinal} para ${modelKey}`
+        + (operacao ? ` (operacao ${operacao}${porque ? ': ' + porque : ''})` : ' (valor da interface)'),
+      );
+    }
 
     const result = streamText({
       model,
@@ -230,20 +254,43 @@ async function start(payload, webContents) {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    // Extract complete tool-call JSON objects from a text string, used as a
-    // fallback for models that output {"name":"…","arguments":{…}} as plain
-    // text instead of via the OpenAI tool_calls API field.
-    // Handles empty args `{}` as well as single-level nested objects.
+    /**
+     * As chamadas escritas como JSON no meio do texto, e as que foram RECUSADAS.
+     *
+     * Este e o resgate para modelos que nao usam o campo nativo de tool-call: o
+     * caminho normal ja e validado pelo SDK contra o `inputSchema` antes de
+     * executar, este nao era. Duas recusas possiveis, e as duas eram silencio
+     * antes:
+     *
+     *   - o JSON nao faz parse. A chamada sumia no catch e a pessoa via o
+     *     modelo "nao fazer nada", sem nenhuma pista do motivo;
+     *   - o JSON faz parse mas os argumentos nao valem contra o esquema que a
+     *     propria ferramenta publica. `{"filePath": 42}` passava no parse e
+     *     chegava no tool_bridge como caminho de arquivo numerico.
+     *
+     * Recusado nao executa, e o motivo sobe para o terminal.
+     */
     function extractTextToolCalls(/** @type {any} */ text, /** @type {any} */ knownTools) {
       const calls = [];
+      const recusadas = [];
       const re = /[⺀-鿿]*\s*\{"name"\s*:\s*"([a-z_][a-z_0-9]*)"\s*,\s*"arguments"\s*:\s*(\{(?:[^{}]|\{[^{}]*\})*\})\s*\}/g;
       let m;
       while ((m = re.exec(text)) !== null) {
         const name = m[1];
         if (!knownTools[name]) continue;
-        try { calls.push({ name, args: JSON.parse(m[2]) }); } catch (_) { /* malformed args */ }
+        let args;
+        try {
+          args = JSON.parse(m[2]);
+        } catch (_) {
+          recusadas.push({ name, problemas: ['os argumentos nao sao JSON valido'] });
+          continue;
+        }
+        const def = tools.TOOL_MANIFEST.find((d) => d.name === name);
+        const problemas = toolArgs.validar(args, def && def.inputSchema);
+        if (problemas.length) { recusadas.push({ name, problemas }); continue; }
+        calls.push({ name, args });
       }
-      return calls;
+      return { calls, recusadas };
     }
 
     let fullText = '';
@@ -366,7 +413,14 @@ async function start(payload, webContents) {
     // the results into a follow-up generateText call, and stream its reply as
     // additional text-delta events, all before sending the finish event.
     if (!abort.signal.aborted && nativeToolCallCount === 0) {
-      const textCalls = extractTextToolCalls(fullText, aiTools);
+      const { calls: textCalls, recusadas } = extractTextToolCalls(fullText, aiTools);
+      // O que foi recusado vira linha no terminal, e nao silencio. Sem isto a
+      // chamada some e o modelo parece nao ter feito nada.
+      for (const r of recusadas) {
+        const msg = toolArgs.motivoLegivel(r.name, r.problemas);
+        log.warn(`[ai.chat] ${msg}`);
+        sendEvent(webContents, sessionId, 'tool-rejected', { toolName: r.name, problemas: r.problemas, message: msg });
+      }
       if (textCalls.length > 0) {
         const toolResultMsgs = [];
         for (const call of textCalls) {

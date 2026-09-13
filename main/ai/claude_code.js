@@ -40,7 +40,7 @@ const cliLocator = require('./cli_locator');
 const { locateClaude } = cliLocator;
 const cliDownloader = require('./cli_downloader');
 const attachments = require('./attachments');
-const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS, ONESHOT_MS } = require('./timeouts');
+const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } = require('./timeouts');
 // Agent SDK engine (ESTUDO §18.5 step 2), preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
 const claudeAgent = require('./claude_agent');
@@ -330,7 +330,7 @@ async function ensureMcpConfig(webContents) {
 async function start(payload, webContents) {
   const {
     sessionId, conversationId, messages,
-    system, modelId, effort, permission,
+    system, systemContext, effort, modelId, permission,
   } = payload || {};
 
   if (!sessionId || typeof sessionId !== 'string') {
@@ -384,7 +384,11 @@ async function start(payload, webContents) {
   // AURORA_CLAUDE_LEGACY_CLI=1 escape hatch.
   try {
     const handled = await claudeAgent.tryStart(
-      { sessionId, conversationId, messages, system, modelId, effort, bin },
+      // A CLI recebe o system prompt INTEIRO, como sempre recebeu: a separacao
+      // entre estavel e variavel existe para o cache da API da Anthropic, e o
+      // processo da CLI tem o cache dele. Juntar aqui mantem o comportamento
+      // identico ao de antes da separacao.
+      { sessionId, conversationId, messages, system: (system || '') + (systemContext || ''), modelId, effort, bin },
       webContents,
       {
         sendEvent,
@@ -863,81 +867,4 @@ function forgetConversation(/** @type {string} */ conversationId) {
   if (conversationId) convSessions.delete(conversationId);
 }
 
-/**
- * One-shot text generation via the Claude Code CLI (subscription) in print
- * mode, no streaming, no Aurora MCP/tool bridge, no session. Lets the AI
- * harness generator use the subscription instead of requiring an API key.
- * The prompt rides on stdin (it can be large). Same shape as
- * provider.generateOneshot: { ok, text, finishReason } or { ok:false, error }.
- *
- * @param {{ system?:string, prompt:string, model?:string }} opts
- */
-async function generateOneshot({ system, prompt, model } = /** @type {any} */ ({})) {
-  if (!readCredentials()) return { ok: false, error: 'Claude Code is not signed in. Run `claude login` in a terminal.' };
-
-  let bin = resolveBinary();
-  if (!bin) {
-    // B12: fetch the CLI on first use here too (no progress channel on the
-    // one-shot path, the harness generator already shows its own pending UI).
-    if (!cliDownloader.isDownloadable('claude')) {
-      return { ok: false, error: 'Claude Code CLI not found. Install it, or pick an API provider.' };
-    }
-    try {
-      bin = await cliDownloader.ensureCli('claude');
-      cliLocator.invalidate();
-    } catch (e) {
-      return { ok: false, error: `Could not download Claude Code: ${e instanceof Error ? e.message : e}` };
-    }
-  }
-
-  const args = ['-p', '--output-format', 'text'];
-  if (model && model !== 'default') args.push('--model', model);
-  if (system) args.push('--append-system-prompt', system);
-
-  // .cmd shim needs cmd.exe on Windows (same as execFileText/start).
-  let cmd = bin.exe;
-  let finalArgs = args;
-  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(bin.exe)) {
-    cmd = 'cmd.exe';
-    finalArgs = ['/d', '/s', '/c', bin.exe, ...args];
-  }
-
-  return new Promise((resolve) => {
-    let out = '';
-    let err = '';
-    let done = false;
-    const finish = (/** @type {any} */ r) => { if (!done) { done = true; resolve(r); } };
-    let proc;
-    try {
-      proc = spawn(cmd, finalArgs, { windowsHide: true });
-    } catch (e) {
-      finish({ ok: false, error: e instanceof Error ? e.message : String(e) });
-      return;
-    }
-    // The CLI in text mode is slow (it returns only after the whole answer is
-    // generated, measured ~4 min for a harness). Generous timeout so a real
-    // hang doesn't wait forever, without cutting a legitimate generation.
-    const TIMEOUT_MS = ONESHOT_MS; // 7 min
-    const timer = setTimeout(() => {
-      try { proc.kill(); } catch (_) { /* already gone */ }
-      finish({ ok: false, error: 'Claude Code timed out (no answer in 7 min). It is much slower than an API provider — try gemini/openai for faster iteration.' });
-    }, TIMEOUT_MS);
-    proc.stdout.on('data', (c) => { out += c.toString(); });
-    proc.stderr.on('data', (c) => { err += c.toString(); });
-    proc.on('error', (e) => { clearTimeout(timer); finish({ ok: false, error: e instanceof Error ? e.message : String(e) }); });
-    proc.on('close', (code) => {
-      clearTimeout(timer);
-      if (code === 0) finish({ ok: true, text: out, finishReason: 'stop' });
-      else finish({ ok: false, error: `claude CLI exited ${code}: ${(err || out).slice(-500)}` });
-    });
-    try {
-      proc.stdin.write(String(prompt || ''));
-      proc.stdin.end();
-    } catch (e) {
-      clearTimeout(timer);
-      finish({ ok: false, error: e instanceof Error ? e.message : String(e) });
-    }
-  });
-}
-
-module.exports = { detect, getUsage, start, abort, pushUserMessage, killAll, forgetConversation, generateOneshot };
+module.exports = { detect, getUsage, start, abort, pushUserMessage, killAll, forgetConversation };

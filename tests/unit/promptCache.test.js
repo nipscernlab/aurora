@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { montarComCache, marcaDaUltimaFerramenta, leituraDoCache } from '../../main/ai/prompt_cache.js';
+import { montarComCache, marcaDaUltimaFerramenta, leituraDoCache, proporcaoEstavel } from '../../main/ai/prompt_cache.js';
 
 // Uma marca de cache no lugar errado nao da erro: so deixa de pegar, e a fatura
 // e o unico sintoma. Por isso os testes conferem a FORMA exata que o AI SDK
@@ -74,4 +74,99 @@ describe('leituraDoCache', () => {
         expect(leituraDoCache({ inputTokens: 5, cachedInputTokens: 3 })).toEqual({ lidos: 3, escritos: 0, entrada: 5 });
         expect(leituraDoCache(null)).toEqual({ lidos: 0, escritos: 0, entrada: 0 });
     });
+});
+
+/**
+ * A fronteira entre o que e estavel e o que muda a cada turno.
+ *
+ * O cache da Anthropic e por PREFIXO: a marca diz "tudo ate aqui pode ser
+ * reaproveitado". O system prompt da AURORA e a soma de duas coisas com vidas
+ * diferentes, e ate 13/09/2026 elas iam concatenadas numa string so, com a
+ * marca no fim:
+ *
+ *   - o prompt derivado do yanc e do dominio do SAPHO, que nao muda dentro de
+ *     uma versao (medido: 37.378 chars, uns 10,4 mil tokens);
+ *   - o contexto do projeto, RELIDO DO DISCO a cada turno de proposito, porque
+ *     a pessoa pode trocar de projeto, salvar uma memoria ou instalar um
+ *     componente no meio da conversa (uns 900 chars, 251 tokens).
+ *
+ * Com a marca depois dos dois, mudar 2,4% do conteudo jogava fora os outros
+ * 97,6%. O que estes testes fixam e que o bloco estavel e SEPARADO e que o
+ * conteudo dele nao depende do contexto: e isso, e so isso, que faz o prefixo
+ * sobreviver a uma troca de projeto.
+ */
+describe('cache: o bloco estavel nao e invalidado pelo variavel', () => {
+  const ESTAVEL = 'S'.repeat(4000);
+  const msgs = [{ role: 'user', content: 'oi' }];
+
+  it('sao dois blocos de sistema, e so o primeiro leva marca', () => {
+    const { instructionsArg } = montarComCache({
+      providerName: 'anthropic', system: ESTAVEL, systemVariavel: 'projeto A', messages: msgs,
+    });
+
+    expect(Array.isArray(instructionsArg)).toBe(true);
+    expect(instructionsArg).toHaveLength(2);
+    expect(instructionsArg[0].content).toBe(ESTAVEL);
+    expect(instructionsArg[0].providerOptions.anthropic.cacheControl).toEqual({ type: 'ephemeral', ttl: '1h' });
+    expect(instructionsArg[1].content).toBe('projeto A');
+    // O variavel e recobrado a cada turno de qualquer jeito; marca-lo so
+    // gastaria uma das quatro que a API permite.
+    expect(instructionsArg[1].providerOptions).toBeUndefined();
+  });
+
+  it('trocar o contexto NAO muda o bloco estavel, byte a byte', () => {
+    const a = montarComCache({
+      providerName: 'anthropic', system: ESTAVEL, systemVariavel: 'projeto A', messages: msgs,
+    });
+    const b = montarComCache({
+      providerName: 'anthropic', system: ESTAVEL, systemVariavel: 'projeto B, outra memoria, outro componente', messages: msgs,
+    });
+
+    // E esta igualdade que o cache le como "mesmo prefixo".
+    expect(a.instructionsArg[0].content).toBe(b.instructionsArg[0].content);
+    expect(a.instructionsArg[0]).toEqual(b.instructionsArg[0]);
+    expect(a.instructionsArg[1].content).not.toBe(b.instructionsArg[1].content);
+  });
+
+  it('a ordem e estavel primeiro, senao o prefixo nao existe', () => {
+    const { instructionsArg } = montarComCache({
+      providerName: 'anthropic', system: ESTAVEL, systemVariavel: 'v', messages: msgs,
+    });
+    expect(instructionsArg[0].content.length).toBeGreaterThan(instructionsArg[1].content.length);
+    expect(instructionsArg[0].content).toBe(ESTAVEL);
+  });
+
+  it('sem parte variavel, continua um bloco so', () => {
+    const { instructionsArg } = montarComCache({
+      providerName: 'anthropic', system: ESTAVEL, messages: msgs,
+    });
+    expect(instructionsArg).toHaveLength(1);
+  });
+
+  it('quem nao cacheia recebe a string inteira, como antes da separacao', () => {
+    const { instructionsArg, comCache } = montarComCache({
+      providerName: 'openai', system: ESTAVEL, systemVariavel: 'projeto A', messages: msgs,
+    });
+    expect(comCache).toBe(false);
+    expect(instructionsArg).toBe(ESTAVEL + 'projeto A');
+  });
+
+  it('system curto demais nao vale a marca, e os dois voltam a ser um', () => {
+    const { instructionsArg, comCache } = montarComCache({
+      providerName: 'anthropic', system: 'curto', systemVariavel: 'ctx', messages: [],
+    });
+    expect(comCache).toBe(false);
+    expect(instructionsArg).toBe('curtoctx');
+  });
+});
+
+describe('cache: a proporcao que o log reporta', () => {
+  it('mede a fatia estavel em caracteres', () => {
+    expect(proporcaoEstavel('a'.repeat(976), 'b'.repeat(24)))
+      .toEqual({ estavel: 976, variavel: 24, total: 1000, pctEstavel: 97.6 });
+  });
+
+  it('nao divide por zero quando nao ha nada', () => {
+    expect(proporcaoEstavel('', '')).toEqual({ estavel: 0, variavel: 0, total: 0, pctEstavel: 0 });
+  });
 });

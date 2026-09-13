@@ -150,18 +150,28 @@ describe('o turno, de ponta a ponta', () => {
     await abrirPainel();
     await mandar('compila o projeto');
 
-    // O que foi despachado. O caminho do projeto entra no system prompt a cada
-    // turno de proposito (senao o modelo gasta uma tool call para saber onde
-    // esta), e e por isso que ele e conferido aqui e nao no chat_turn.
+    // O que foi despachado. O caminho do projeto e relido a cada turno de
+    // proposito (senao o modelo gasta uma tool call para saber onde esta), e e
+    // por isso que ele e conferido aqui e nao no chat_turn.
     expect(api.startChat).toHaveBeenCalledTimes(1);
     const p = api.chamadas.startChat[0];
     expect(p.provider).toBe('anthropic');
     expect(p.sessionId).toBeTruthy();
     expect(p.conversationId).toBe('c-teste');
     expect(p.messages).toEqual([{ role: 'user', content: 'compila o projeto' }]);
-    expect(p.system).toContain('project_root: C:/proj');
-    expect(p.system).toContain('spf_file:     C:/proj/proj.spf');
     expect(p.permission).toBe(painel.permissionMode);
+
+    // Os dois campos vao SEPARADOS, e e o que faz o cache de prompt valer: o
+    // que muda por turno nao pode estar dentro do bloco estavel, senao trocar
+    // de projeto joga fora o prefixo inteiro. Conferido aqui porque e um
+    // contrato entre o painel e o main, e nao um detalhe de montagem.
+    expect(p.systemContext).toContain('project_root: C:/proj');
+    expect(p.systemContext).toContain('spf_file:     C:/proj/proj.spf');
+    expect(p.system).not.toContain('project_root:');
+
+    // Turno livre: o esforco continua sendo o da interface. So operacao tipada
+    // (comentar, acharErros, posCompilacao*) troca isso.
+    expect(p.operacao).toBeUndefined();
 
     // Enquanto corre: Stop no lugar de Send.
     expect(painel.stopBtn.classList.contains('hidden')).toBe(false);
@@ -467,6 +477,84 @@ describe('o turno que a propria assistente comeca', () => {
     const aviso = bolhas().at(-1);
     expect(aviso.erro).toBe(true);
     expect(aviso.texto).toContain('chain limit');
+  });
+
+  /* ---------------- a operacao, que vira esforco no main ---------------- */
+
+  describe('o turno diz QUE TIPO de tarefa e', () => {
+    // Quem dispara sabe o que esta pedindo; o modelo nao. O rotulo viaja no
+    // `startChat` e o main o traduz em esforco de raciocinio
+    // (main/ai/effort_policy.js). Sem isto, toda tarefa paga o mesmo
+    // raciocinio, e quem paga a conta e quem usa a AURORA.
+    it('o botao Fix da selecao pede acharErros', async () => {
+      await abrirPainel();
+      painel.askAboutSelection({ code: 'x = 1;', intent: 'fix', send: true });
+      await vi.waitFor(() => expect(api.chamadas.startChat.length).toBe(1));
+      expect(api.chamadas.startChat[0].operacao).toBe('acharErros');
+    });
+
+    it('explicar, comentar e documentar caem na mesma linha da tabela', async () => {
+      // A regra e o RACIOCINIO que a tarefa exige, e nao o nome do botao: os
+      // tres sao leitura local de um trecho que ja esta na tela.
+      for (const intent of ['explain', 'comment', 'doc']) {
+        await abrirPainel();
+        painel.askAboutSelection({ code: 'x = 1;', intent, send: true });
+        await vi.waitFor(() => expect(api.chamadas.startChat.length).toBeGreaterThan(0));
+        expect(api.chamadas.startChat.at(-1).operacao, intent).toBe('comentar');
+      }
+    });
+
+    it('improve fica de fora de proposito, e vale o valor da interface', async () => {
+      // Nao esta na tabela. Inventar uma linha aqui seria decidir o esforco
+      // por quem paga sem ter motivo.
+      await abrirPainel();
+      painel.askAboutSelection({ code: 'x = 1;', intent: 'improve', send: true });
+      await vi.waitFor(() => expect(api.chamadas.startChat.length).toBe(1));
+      expect(api.chamadas.startChat[0].operacao).toBeUndefined();
+    });
+
+    it('o rotulo vale para UM envio, e nao contamina o seguinte', async () => {
+      // Um campo esquecido aqui daria esforco de diagnostico a uma pergunta
+      // qualquer digitada depois.
+      await abrirPainel();
+      painel.askAboutSelection({ code: 'x = 1;', intent: 'fix', send: true });
+      await vi.waitFor(() => expect(api.chamadas.startChat.length).toBe(1));
+      emitir({ type: 'finish' });
+      await mandar('e agora?');
+      expect(api.chamadas.startChat[1].operacao).toBeUndefined();
+    });
+
+    it('compilar que passou e compilar que falhou nao sao a mesma tarefa', async () => {
+      await abrirPainel();
+      await mandar('compila');
+      emitir({ type: 'finish' });
+
+      painel.autoContinue('deu certo', { label: 'ok', operacao: 'posCompilacaoOk' });
+      await vi.waitFor(() => expect(api.chamadas.startChat.length).toBe(2));
+      expect(api.chamadas.startChat[1].operacao).toBe('posCompilacaoOk');
+      emitir({ type: 'finish' }, 1);
+
+      painel.autoContinue('deu erro', { label: 'falhou', operacao: 'posCompilacaoFalha' });
+      await vi.waitFor(() => expect(api.chamadas.startChat.length).toBe(3));
+      expect(api.chamadas.startChat[2].operacao).toBe('posCompilacaoFalha');
+    });
+
+    it('a operacao viaja na fila, e nao num campo unico do painel', async () => {
+      // Enfileirar duas enquanto um turno corre e o caso em que um campo
+      // unico entregaria o rotulo de uma tarefa ao turno da outra.
+      await abrirPainel();
+      await mandar('compila');
+      painel.autoContinue('primeira', { operacao: 'posCompilacaoOk' });
+      painel.autoContinue('segunda', { operacao: 'posCompilacaoFalha' });
+      expect(api.chamadas.startChat.length).toBe(1);   // a corrente espera o turno vivo
+
+      emitir({ type: 'finish' });
+      await vi.waitFor(() => expect(api.chamadas.startChat.length).toBe(2));
+      expect(api.chamadas.startChat[1].operacao).toBe('posCompilacaoOk');
+      emitir({ type: 'finish' }, 1);
+      await vi.waitFor(() => expect(api.chamadas.startChat.length).toBe(3));
+      expect(api.chamadas.startChat[2].operacao).toBe('posCompilacaoFalha');
+    });
   });
 
   it('uma mensagem de gente zera a corrente, que e o que a trava protege', async () => {

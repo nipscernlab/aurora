@@ -484,14 +484,6 @@ const aiAPI = {
     ipcRenderer.invoke('ai:test-connection', { provider, modelId }),
 
   /**
-   * One-shot generation (prompt -> text, no tools/streaming). Resolves with
-   * `{ ok, text, usage, model }` or `{ ok:false, error }`. Only API providers
-   * (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama), not the CLI bridges.
-   */
-  generateOneshot: ({ provider, model, system, prompt, maxOutputTokens }) =>
-    ipcRenderer.invoke('ai:generate-oneshot', { provider, model, system, prompt, maxOutputTokens }),
-
-  /**
    * Kick off a streaming chat. The renderer must subscribe to chat
    * events via `onChatEvent` *before* calling startChat so it doesn't
    * miss early text-delta packets. Returns immediately with the
@@ -501,9 +493,17 @@ const aiAPI = {
    * the `claude-code` provider (the CLI bridge); API providers ignore
    * them harmlessly.
    */
-  startChat: ({ sessionId, conversationId, provider, modelId, messages, system, effort, permission }) =>
+  // `systemContext` e a parte do system prompt que muda a cada turno (projeto,
+  // memorias, componentes). Vai SEPARADA de `system` para o cache da Anthropic
+  // poder marcar so a estavel; quem nao cacheia junta as duas de volta. Este
+  // objeto e reconstruido campo a campo, entao um campo novo que nao entre aqui
+  // e silenciosamente descartado na ponte.
+  // `operacao` diz que TIPO de tarefa e esta chamada (comentar, acharErros,
+  // posCompilacaoOk, posCompilacaoFalha, livre). O main resolve o esforco a
+  // partir dela (main/ai/effort_policy.js); ausente, vale o valor da interface.
+  startChat: ({ sessionId, conversationId, provider, modelId, messages, system, systemContext, effort, operacao, permission }) =>
     ipcRenderer.invoke('ai:chat-start', {
-      sessionId, conversationId, provider, modelId, messages, system, effort, permission,
+      sessionId, conversationId, provider, modelId, messages, system, systemContext, effort, operacao, permission,
     }),
 
   /** Abort an in-flight session. Resolves with `{ ok, stopped: bool }`. */

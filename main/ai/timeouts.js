@@ -57,10 +57,6 @@ const MCP_TOOL_CALL_MS = 10 * 60_000;
 /** MCP server startup handshake (Claude's MCP_TIMEOUT env). */
 const MCP_STARTUP_MS = 30_000;
 
-/** One-shot text generation via `claude -p` (harness generator), the CLI
- *  only answers after the WHOLE generation, measured ~4 min for a harness. */
-const ONESHOT_MS = 7 * 60_000;
-
 // --- self-check: fail LOUDLY at load time if an edit breaks the hierarchy ---
 if (MCP_TOOL_CALL_MS < TOOL_INTERACTIVE_MS) {
   throw new Error('timeouts.js: MCP_TOOL_CALL_MS must out-wait TOOL_INTERACTIVE_MS');
@@ -77,5 +73,4 @@ module.exports = {
   TOOL_INTERACTIVE_MS,
   MCP_TOOL_CALL_MS,
   MCP_STARTUP_MS,
-  ONESHOT_MS,
 };

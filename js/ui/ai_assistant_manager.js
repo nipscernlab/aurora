@@ -285,6 +285,19 @@ class AIAssistantManager {
       comment: 'Add clear, concise comments to this code',
       doc: 'Write documentation for this code',
     };
+    // Do botao para a operacao, e dai para o esforco. A regra e o RACIOCINIO
+    // que a tarefa exige, e nao o nome do botao: explicar, comentar e
+    // documentar sao a mesma leitura local de um trecho que ja esta na tela,
+    // e caem na mesma linha da tabela. `fix` e o oposto, exige simular a
+    // execucao e comparar hipoteses. `improve` fica de fora de proposito: nao
+    // esta na tabela, entao vale o que a pessoa escolheu na interface, que e
+    // melhor do que inventarmos um esforco para quem paga a conta.
+    const OPERACAO_DO_INTENT = {
+      explain: 'comentar',
+      comment: 'comentar',
+      doc: 'comentar',
+      fix: 'acharErros',
+    };
     const lead = INTENT_LEAD[intent] || '';
     const fence = '```' + (language || '');
     const body = `${lead ? lead + ' ' : ''}from ${where}:\n\n${fence}\n${snippet}\n\`\`\`\n`;
@@ -295,6 +308,7 @@ class AIAssistantManager {
     this.autoGrowInput?.();
     this.inputEl.focus();
     if (lead && send && !this._isStreaming) {
+      this._operacaoDoProximoEnvio = OPERACAO_DO_INTENT[intent] || null;
       this.send();
     } else if (!lead) {
       // Free-form "Ask…": leave the cursor at the very start so the user types
@@ -1701,7 +1715,13 @@ class AIAssistantManager {
     // A real user message breaks any autonomous follow-up chain.
     this._autoChainCount = 0;
 
-    await this._dispatchTurn();
+    // A operacao vale para UM envio. Quem a marcou foi o botao da selecao
+    // logo antes de chamar send(); qualquer outro envio e turno livre, e um
+    // rotulo esquecido aqui daria esforco errado na mensagem seguinte.
+    const operacao = this._operacaoDoProximoEnvio || undefined;
+    this._operacaoDoProximoEnvio = null;
+
+    await this._dispatchTurn(operacao);
   }
 
   /**
@@ -1945,8 +1965,15 @@ class AIAssistantManager {
    * autoContinue() (an autonomous follow-up). The caller pushes its message
    * into this.messages FIRST; this resets the streaming state, (re)subscribes
    * to chat events, opens a session and calls startChat.
+   *
+   * `operacao` diz que TIPO de tarefa e este turno. Quem dispara sabe (quem
+   * apertou "Fix" na selecao, quem viu a compilacao falhar); o modelo nao. O
+   * main traduz isso em esforco de raciocinio (main/ai/effort_policy.js).
+   * Ausente, vale o que a pessoa escolheu na interface.
+   *
+   * @param {string} [operacao]
    */
-  async _dispatchTurn() {
+  async _dispatchTurn(operacao) {
     // Assistant output is built lazily: text segments and tool chips
     // append in arrival order, so a turn reads top-to-bottom even when
     // the model interleaves "explain → call a tool → explain".
@@ -2018,8 +2045,17 @@ class AIAssistantManager {
     } catch (e) {
       console.warn('[ai] could not read components:', e);  // never block a turn over this
     }
-    const systemPrompt = SYSTEM_PROMPT
-      + buildProjectContext(projectPath, spfPath, memories, componentes)
+    // Os dois vao SEPARADOS para o main, e nao concatenados como antes.
+    //
+    // O SYSTEM_PROMPT nao muda dentro de uma versao; o contexto do projeto e
+    // relido do disco a cada turno de proposito (a pessoa pode trocar de
+    // projeto, salvar memoria ou instalar componente no meio da conversa).
+    // Juntos num blob so, a marca de cache da Anthropic cobria os dois, e
+    // mudar 251 tokens de contexto jogava fora 10,4 mil estaveis. Quem decide
+    // o que fazer com a separacao e cada runner: o caminho de API poe a marca
+    // entre os dois, as CLIs juntam de novo (main/ai/prompt_cache.js).
+    const systemPrompt = SYSTEM_PROMPT;
+    const systemContext = buildProjectContext(projectPath, spfPath, memories, componentes)
       // So na conversa de tutorial; newChat limpa. Vai por ultimo para o
       // contexto do projeto continuar onde o resto do codigo espera.
       + (this.tutorialBlock || '');
@@ -2032,9 +2068,11 @@ class AIAssistantManager {
         modelId: isSub ? (subEntry?.model || 'default') : undefined,
         messages: apiMessages,
         system: systemPrompt,
+        systemContext,
         // Shared effort selection, sent to any bridge that declares
         // hasEffort (Claude Code --effort; Codex -c model_reasoning_effort).
         effort: (SUB_META[this.currentProvider]?.hasEffort || this.currentProvider === 'anthropic') ? this.claudeCodeEffort : undefined,
+        operacao,
         permission: this.permissionMode,
       });
       if (r && r.ok === false) this.failTurn(motivoDe(r, 'Failed to start chat'));
@@ -2055,10 +2093,13 @@ class AIAssistantManager {
    * that turn ends (see setStreaming → _drainAutoQueue). A safety cap stops
    * runaway self-chaining.
    */
-  autoContinue(content, { label = 'Autonomous follow-up' } = {}) {
+  autoContinue(content, { label = 'Autonomous follow-up', operacao = null } = {}) {
     if (!content || !this.currentProvider || !this.currentChatId) return;
     if (!this._autoQueue) this._autoQueue = [];
-    this._autoQueue.push({ content, label });
+    // A operacao viaja NA FILA, e nao num campo do objeto: entre enfileirar e
+    // despachar pode entrar outro turno, e um campo unico entregaria o rotulo
+    // de uma tarefa ao seguinte.
+    this._autoQueue.push({ content, label, operacao });
     if (!this._isStreaming) this._drainAutoQueue();
   }
 
@@ -2075,7 +2116,7 @@ class AIAssistantManager {
         { error: true });
       return;
     }
-    const { content, label } = this._autoQueue.shift();
+    const { content, label, operacao } = this._autoQueue.shift();
     // Subtle marker bubble (not a normal user message visually).
     if (this.chatEmptyHint) this.chatEmptyHint.classList.add('hidden');
     const note = document.createElement('div');
@@ -2086,7 +2127,7 @@ class AIAssistantManager {
     // The synthetic message goes into the model context as a user turn.
     this.messages.push({ role: 'user', content });
     this._capMessages();
-    this._dispatchTurn();
+    this._dispatchTurn(operacao || undefined);
   }
 
   /**
@@ -2156,7 +2197,15 @@ class AIAssistantManager {
         (note ? `Original intent: ${note}\n\n` : '') +
         `Relevant terminal output (truncated):\n${terminals || '(none captured)'}\n\n` +
         `Summarise the outcome for the user concisely, and decide whether any follow-up action is warranted.`,
-        { label: `Background task: ${label} ${okJob ? 'finished' : 'failed'}` },
+        {
+          label: `Background task: ${label} ${okJob ? 'finished' : 'failed'}`,
+          // Passou e falhou NAO sao a mesma tarefa. Passou e resumir uma saida
+          // que ja veio pronta. Falhou e inferir a causa de um erro do C+-, que
+          // nao esta na mensagem: `i` e reservado por ser a unidade imaginaria,
+          // array nao vai como parametro de funcao, array global nao aceita
+          // inicializacao direta. Nada disso aparece no texto do erro.
+          operacao: okJob ? 'posCompilacaoOk' : 'posCompilacaoFalha',
+        },
       );
     }).catch((e) => {
       if (!stillSameChat()) return;
@@ -2338,6 +2387,22 @@ class AIAssistantManager {
         // Subscription usage bars and plan limits reflect reality the next
         // time the user looks, this is what fixes "usage never updates".
         if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
+        break;
+      case 'tool-rejected':
+        // Uma chamada de ferramenta que a IA escreveu como texto e que NAO
+        // passou pelo esquema da propria ferramenta. Vai para o TCMD, que e o
+        // painel de shell, e nao para um dos terminais de compilacao: nada foi
+        // compilado, o que houve foi um pedido malformado.
+        //
+        // Antes isto era silencio: a chamada sumia num catch e a pessoa via a
+        // assistente "nao fazer nada", sem pista nenhuma do motivo.
+        try {
+          window.initializeGlobalTerminalManager?.()?.appendToTerminal?.(
+            'tcmd', ev.message, 'warning',
+          );
+        } catch (e) {
+          console.warn('[ai] nao consegui escrever a recusa no terminal:', e);
+        }
         break;
       case 'follow-up-taken':
         // A assistente terminou o que estava dizendo e pegou a mensagem que

@@ -268,62 +268,6 @@ async function testConnection(providerName, modelId) {
   }
 }
 
-/**
- * One-shot text generation (no tools, no streaming, no chat history), for
- * features that transform an input into an output in a single call, e.g. the
- * AI harness generator. Returns a structured result instead of throwing so the
- * IPC handler can pass it through. Only the Vercel-SDK API providers are
- * supported here (the claude-code / chatgpt CLI bridges are chat-only).
- *
- * @param {object} opts
- * @param {string}  opts.provider
- * @param {string} [opts.model]
- * @param {string} [opts.system]
- * @param {string}  opts.prompt
- * @param {number} [opts.maxOutputTokens]
- */
-async function generateOneshot({ provider: name, model, system, prompt, maxOutputTokens } = /** @type {any} */ ({})) {
-  if (!generateText) {
-    return { ok: false, error: 'AI SDK ("ai" package) failed to load.' };
-  }
-  if (!name || !PROVIDER_FACTORIES[name] && name !== 'ollama') {
-    return { ok: false, error: `One-shot generation needs an API provider (got "${name || 'none'}"). Pick OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama in the AI panel.` };
-  }
-  const resolvedModel = model ? resolveModelId(name, model) : getModelFor(name);
-  if (!resolvedModel) return { ok: false, error: `No model configured for "${name}"` };
-  const once = async (/** @type {string} */ m) => {
-    const prov = getProvider(name);
-    const result = await generateText({
-      model: prov(m),
-      ...(system ? { system } : {}),
-      prompt,
-      ...(maxOutputTokens ? { maxOutputTokens } : {}),
-      // Gemini 2.5 "thinking" spends the output budget on reasoning tokens,
-      // which truncated the generated code. Disable it so the whole budget
-      // goes to the answer. Other providers ignore the `google` key.
-      providerOptions: { google: { thinkingConfig: { thinkingBudget: 0 } } },
-    });
-    return {
-      ok: true,
-      text: result.text || '',
-      finishReason: result.finishReason || null,
-      usage: result.usage || null,
-      model: m,
-    };
-  };
-  try {
-    return await once(resolvedModel);
-  } catch (e) {
-    // G6: retired/invalid id → fall back to the provider default once.
-    const def = getDefaultModel(name);
-    if (isModelUnavailableError(e) && def && def !== resolvedModel) {
-      try { return { ...(await once(def)), fellBackFrom: resolvedModel }; }
-      catch (_) { /* fall through to the original error */ }
-    }
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
-  }
-}
-
 module.exports = {
   MODEL_PRESETS,
   efeitoSuportado,
@@ -334,5 +278,4 @@ module.exports = {
   resolveModelId,
   isModelUnavailableError,
   testConnection,
-  generateOneshot,
 };

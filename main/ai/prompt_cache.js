@@ -3,17 +3,31 @@
  * prompt_cache.js: onde o cache de prompt da Anthropic e marcado, e por quanto.
  *
  * O QUE SE PAGA SEM ISTO. Cada turno da Aurora Intelligence reenvia o system
- * prompt (uns 8,6 mil tokens medidos em 29/08/2026), as 112 ferramentas (uns
- * 14,7 mil) e a conversa inteira. Antes, so o system prompt era marcado para
+ * prompt (uns 8,6 mil tokens medidos em 29/08/2026), as ferramentas (eram 112,
+ * uns 14,7 mil tokens, na mesma medida; hoje sao 124, entao aquele numero e piso)
+ * e a conversa inteira. Antes, so o system prompt era marcado para
  * cache, por 5 minutos: as ferramentas, a parte maior, eram cobradas cheias em
  * todo turno, e uma pausa de mais de 5 minutos para compilar ou pensar jogava o
  * cache fora.
  *
  * AS TRES MARCAS (a API aceita ate quatro):
  *   1. a ultima ferramenta, que fecha o prefixo de ferramentas inteiro;
- *   2. o system prompt;
+ *   2. a parte ESTAVEL do system prompt;
  *   3. a ultima mensagem do usuario, que anda a cada turno: tudo antes dela e
  *      identico ao turno anterior, entao a conversa toda vem do cache.
+ *
+ * POR QUE A PARTE ESTAVEL, E NAO O SYSTEM PROMPT INTEIRO. O que a AURORA manda
+ * como system e a soma de duas coisas com vidas diferentes: o prompt derivado
+ * do yanc e do dominio do SAPHO, que nao muda dentro de uma versao (medido em
+ * 13/09/2026: 37.378 chars, uns 10,4 mil tokens), e o contexto do projeto, que
+ * e RELIDO DO DISCO a cada turno de proposito, porque a pessoa pode abrir outro
+ * projeto, salvar uma memoria ou instalar um componente no meio da conversa
+ * (uns 900 chars, 251 tokens).
+ *
+ * Concatenados num blob so, com a marca no fim, o cache e por prefixo e a marca
+ * cobria os dois: mudar 251 tokens de contexto jogava fora os 10,4 mil
+ * estaveis. Em dois blocos, com a marca ENTRE eles, o prefixo estavel sobrevive
+ * a troca de projeto. Os 2,4% variaveis deixam de custar os outros 97,6%.
  * As duas primeiras por 1 hora, porque o que elas cobrem nao muda dentro de
  * uma sessao e o ritmo de uma IDE tem pausas longas; a terceira por 5 minutos,
  * porque ela e refeita a cada turno de qualquer jeito.
@@ -64,25 +78,38 @@ function cacheia(providerName) {
  *
  * @param {object} p
  * @param {string} p.providerName
- * @param {string} [p.system]
+ * @param {string} [p.system] a parte ESTAVEL: e ela que leva a marca de 1h
+ * @param {string} [p.systemVariavel] o que muda a cada turno (contexto do
+ *   projeto, memorias, componentes). Vai DEPOIS do estavel e SEM marca, para
+ *   nao arrastar o prefixo grande junto quando mudar.
  * @param {Array<{role:string, content:any}>} p.messages mensagens ja no formato do SDK
  * @param {number} [p.minimoChars] abaixo disto o system prompt nao vale a marca
  * @returns {{ instructionsArg: any, messagesArg: Array<any>, comCache: boolean }}
  *   `instructionsArg` vai direto em `instructions` do streamText: string sem
  *   cache, ou a mensagem de sistema marcada.
  */
-function montarComCache({ providerName, system, messages, minimoChars = 1024 }) {
+function montarComCache({ providerName, system, systemVariavel, messages, minimoChars = 1024 }) {
   const msgs = Array.isArray(messages) ? messages : [];
+  const estavel = system || '';
+  const variavel = systemVariavel || '';
+
   if (!cacheia(providerName)) {
-    return { instructionsArg: system || undefined, messagesArg: msgs, comCache: false };
+    // Sem cache, os dois viram de novo uma string so: e exatamente o que os
+    // outros provedores recebiam antes desta separacao existir.
+    const inteiro = estavel + variavel;
+    return { instructionsArg: inteiro || undefined, messagesArg: msgs, comCache: false };
   }
 
   /** @type {Array<any>} */
   const out = [];
   let comCache = false;
-  let instructionsArg = system || undefined;
-  if (system && system.length > minimoChars) {
-    instructionsArg = [{ role: 'system', content: system, providerOptions: marca('1h') }];
+  let instructionsArg = (estavel + variavel) || undefined;
+  if (estavel && estavel.length > minimoChars) {
+    // A marca fica no FIM DO ESTAVEL, e nao no fim de tudo. O bloco variavel
+    // vem depois e sem marca: ele e recobrado a cada turno de qualquer jeito, e
+    // marca-lo so gastaria uma das quatro que a API permite.
+    instructionsArg = [{ role: 'system', content: estavel, providerOptions: marca('1h') }];
+    if (variavel) instructionsArg.push({ role: 'system', content: variavel });
     comCache = true;
   }
 
@@ -99,6 +126,19 @@ function montarComCache({ providerName, system, messages, minimoChars = 1024 }) 
   });
 
   return { instructionsArg, messagesArg: comCache ? out : msgs, comCache };
+}
+
+/**
+ * Os tamanhos do que foi montado, para o log dizer quanto do prompt e estavel.
+ * Puro: nao mede tokens (so a API sabe), mede caracteres, que e a proporcao.
+ * @param {string} [estavel]
+ * @param {string} [variavel]
+ */
+function proporcaoEstavel(estavel, variavel) {
+  const e = (estavel || '').length;
+  const v = (variavel || '').length;
+  const total = e + v;
+  return { estavel: e, variavel: v, total, pctEstavel: total ? Math.round((e / total) * 1000) / 10 : 0 };
 }
 
 /**
@@ -142,4 +182,4 @@ function leituraDoCache(usage) {
   return { lidos, escritos, entrada };
 }
 
-module.exports = { montarComCache, marcaDaUltimaFerramenta, leituraDoCache, cacheia, TTL_LONGO };
+module.exports = { montarComCache, marcaDaUltimaFerramenta, leituraDoCache, cacheia, proporcaoEstavel, TTL_LONGO };

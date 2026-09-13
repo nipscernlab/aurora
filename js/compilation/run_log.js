@@ -103,6 +103,37 @@ function nomeDoBinario(caminho) {
   return String(caminho || '').split(/[\\/]/).pop() || null;
 }
 
+/**
+ * O desfecho de uma execucao, a partir dos tres fatos que existem sobre ela.
+ *
+ * O registro marcava OK sempre que a promessa do corpo resolvia, e a promessa
+ * resolve QUASE SEMPRE: o executor nunca rejeita (devolve `{ code }` mesmo com
+ * saida diferente de zero), e cada handler captura o erro do compilador, mostra
+ * "Erro Fatal" no terminal e retorna normalmente. Resultado medido no disco:
+ * `cmmcomp.exe code=1` gravado como `ok: true`, o historico dizendo OK para a
+ * compilacao que a pessoa acabou de ver falhar.
+ *
+ * O codigo de saida dos passos NAO serve de criterio, e isto e deliberado. O
+ * passo de hierarquia do yosys falha com code=1 e e tratado como AVISO (a arvore
+ * ja esta montada, o resumo e cortesia); uma regra "qualquer passo nao zero
+ * falhou" marcaria como falha as rodadas do PRISM que funcionaram. O que vale e
+ * o que o handler decidiu: se ele chamou o funil de erro fatal, falhou.
+ *
+ * Cancelar nao e falhar: e um terceiro estado, e o que era OK-por-engano em
+ * cancelamento engolido vira "cancelada".
+ *
+ * @param {{ resolveu: boolean, falha?: {mensagem?: string}|null, cancelada?: boolean, erro?: unknown }} f
+ * @returns {{ ok: boolean, erro: string|null, cancelada: boolean }}
+ */
+export function desfechoDaExecucao({ resolveu, falha = null, cancelada = false, erro = null }) {
+  if (cancelada) return { ok: false, erro: null, cancelada: true };
+  if (!resolveu) {
+    return { ok: false, erro: erro == null ? null : String(erro && erro.message ? erro.message : erro), cancelada: false };
+  }
+  if (falha) return { ok: false, erro: falha.mensagem ? String(falha.mensagem) : null, cancelada: false };
+  return { ok: true, erro: null, cancelada: false };
+}
+
 /** Fecha a execucao com o desfecho. */
 export function fecharExecucao(exec, { ok, erro = null, cancelada = false, agora = Date.now() }) {
   if (!exec) return exec;

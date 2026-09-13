@@ -34,7 +34,7 @@ import { getSimulator } from '../wave/simulator_preference.js';
 import { escolherTestbench } from './compilation_helpers.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { addRunObserver } from './spec_runner.js';
-import { abrirExecucao, anotarPasso, fecharExecucao, resumo } from './run_log.js';
+import { abrirExecucao, anotarPasso, fecharExecucao, resumo, desfechoDaExecucao } from './run_log.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
@@ -145,6 +145,32 @@ let execucoesAtivas = 0;
 const execAbertas = new Set();
 
 /**
+ * A falha fatal que cada execucao aberta reportou, se reportou.
+ *
+ * Um WeakMap e nao um campo no registro: o registro vai para o disco como
+ * esta, e esta marca e so o recado entre o funil de erro e o fechamento. Quem
+ * escreve e logFatalError, que e por onde TODOS os handlers passam quando
+ * desistem, inclusive o Full Build e o cancelamento; quem le e comRegistro, na
+ * hora de decidir o que gravar.
+ */
+const falhaReportadaDe = new WeakMap();
+
+/**
+ * Marca a(s) execucao(oes) aberta(s) a que uma falha fatal pertence.
+ *
+ * Com uma so aberta, e ela. Com mais de uma, a do pedido que esta ativo; se
+ * nao der para saber, todas, porque marcar a mais custa um "falhou" onde a
+ * pessoa ja viu um erro na tela, e marcar a menos e exatamente o bug que isto
+ * conserta.
+ */
+function reportarFalhaNaExecucao(falha) {
+    const abertas = [...execAbertas];
+    if (!abertas.length) return;
+    const doPasso = abertas.filter((e) => e.pedido === activeRunStep);
+    for (const e of (doPasso.length ? doPasso : abertas)) falhaReportadaDe.set(e, falha);
+}
+
+/**
  * Avisa quem mostra o registro que ele mudou.
  *
  * Evento no window, e nao uma chamada direta a tela: o compilation_flow nao
@@ -185,14 +211,22 @@ async function comRegistro(pedido, corpo) {
     });
     try {
         const r = await corpo();
-        fecharExecucao(exec, { ok: true });
+        // "Resolveu" nao quer dizer "deu certo": o executor nunca rejeita e o
+        // handler engole o erro depois de mostra-lo. O que vale e se alguem
+        // passou pelo funil de erro fatal durante esta execucao.
+        const falha = falhaReportadaDe.get(exec) || null;
+        fecharExecucao(exec, desfechoDaExecucao({
+            resolveu: true,
+            falha: falha && !falha.cancelada ? falha : null,
+            cancelada: compilationCanceled || !!(falha && falha.cancelada),
+        }));
         return r;
     } catch (erro) {
-        fecharExecucao(exec, {
-            ok: false,
-            erro: erro && erro.message ? erro.message : String(erro),
+        fecharExecucao(exec, desfechoDaExecucao({
+            resolveu: false,
+            erro,
             cancelada: compilationCanceled,
-        });
+        }));
         throw erro;
     } finally {
         cancelar();
@@ -397,6 +431,8 @@ function logFatalError(terminalId, error) {
     // simulation failed with exit code 1". That is the kill, not a real fault,
     // so once the user has cancelled, every fatal is reported as the cancel.
     if (isCancellationError(error) || compilationCanceled) {
+        // Cancelamento engolido pelo handler chegava ao registro como OK.
+        reportarFalhaNaExecucao({ cancelada: true, mensagem: null });
         if (cancelCardShown) return;
         cancelCardShown = true;
         getTM()?.appendToTerminal?.(
@@ -415,6 +451,10 @@ function logFatalError(terminalId, error) {
     // A marca viaja no proprio erro, e nao num estado deste modulo, porque um
     // passo pode ser chamado de mais de um lugar (botao, Full Build, API da
     // Aurora Intelligence) e o erro atravessa todos eles.
+    // Antes de qualquer saida: e esta marca que faz o historico dizer "falhou"
+    // em vez de "OK" quando o handler engole a excecao e retorna normalmente,
+    // que e o que todos eles fazem.
+    reportarFalhaNaExecucao({ cancelada: false, mensagem: error?.message ? String(error.message) : null });
     if (!error?.jaNoTerminal) {
         getTM()?.appendToTerminal?.(
             terminalId, `Erro Fatal: ${error.message}`, 'error',

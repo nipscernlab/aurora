@@ -106,12 +106,107 @@ function scoreCommand(cmd, query) {
   return score;
 }
 
+// ── modo simbolo: `#` procura modulo no PROJETO ────────────────────────
+
+/**
+ * `#` liga a busca por modulo, como no VS Code. O Ctrl+T abre a paleta ja com
+ * ele digitado, entao quem sabe o atalho nunca ve o prefixo e quem nao sabe
+ * descobre o recurso digitando.
+ *
+ * Os textos daqui ficam em ingles como todo o resto da paleta, que nao passa
+ * pelo i18n: os titulos dos comandos tambem sao fixos. Traduzir so estas tres
+ * linhas deixaria a lista falando duas linguas ao mesmo tempo.
+ */
+const PREFIXO_SIMBOLO = '#';
+
+/** So o slang indexa o projeto; o Verible responde "method not found". */
+function slangDisponivel() {
+  try {
+    return !!(window.slangAPI
+      && typeof window.slangAPI.workspaceSymbol === 'function'
+      && window.AuroraSlang
+      && typeof window.AuroraSlang.isEnabled === 'function'
+      && window.AuroraSlang.isEnabled());
+  } catch {
+    return false;
+  }
+}
+
+/** O ultimo pedaco de um caminho, com separador de qualquer um dos dois mundos. */
+function nomeDoArquivo(caminho) {
+  const partes = String(caminho || '').split(/[/\\]/);
+  return partes[partes.length - 1] || '';
+}
+
+/** Abre o arquivo do simbolo e leva o cursor ate ele. */
+async function irParaSimbolo(sym) {
+  const loc = sym && sym.location;
+  if (!loc || !loc.uri) return;
+  let fsPath;
+  try { fsPath = window.monaco.Uri.parse(loc.uri).fsPath; } catch { return; }
+
+  try {
+    const conteudo = await electronAPI.readFile(fsPath, { encoding: 'utf8' });
+    if (typeof conteudo !== 'string') return;
+    window.TabManager?.addTab?.(fsPath, conteudo);
+  } catch (e) {
+    console.warn('[cmdk] nao consegui abrir', fsPath, e);
+    return;
+  }
+
+  // A aba cria o editor de forma assincrona (addTab espera EditorManager.ready),
+  // entao a ida ate a linha tenta algumas vezes em vez de supor que ja esta la.
+  const linha = (loc.range && loc.range.start && loc.range.start.line + 1) || 1;
+  for (let i = 0; i < 40; i += 1) {
+    const ed = window.EditorManager?.getEditorForFile?.(fsPath);
+    if (ed) {
+      ed.setPosition({ lineNumber: linha, column: 1 });
+      ed.revealLineInCenter(linha);
+      ed.focus();
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
+
+/** Um simbolo do LSP vira uma linha da paleta. */
+function simboloComoItem(sym) {
+  let arquivo = '';
+  try { arquivo = nomeDoArquivo(window.monaco.Uri.parse(sym.location.uri).fsPath); }
+  catch { arquivo = ''; }
+  return {
+    id: `sym:${sym.name}:${arquivo}`,
+    group: 'Modules',
+    icon: 'ph ph-cpu',
+    title: sym.name,
+    detalhe: arquivo,
+    keywords: '',
+    run: () => { irParaSimbolo(sym); },
+  };
+}
+
+/** Uma linha que so explica, sem acao util. Usada quando nao ha o que listar. */
+function recado(texto, run) {
+  return {
+    id: 'recado',
+    group: 'Modules',
+    icon: 'ph ph-info',
+    title: texto,
+    keywords: '',
+    run: run || (() => {}),
+  };
+}
+
 class CommandPalette {
   constructor() {
     this._open = false;
     this._items = [];        // current filtered [{cmd, score}]
     this._sel = 0;
     this._el = null;         // the <aurora-command-palette> view
+    // Cada busca por simbolo carrega um numero. A resposta que chega com
+    // numero velho e descartada: digitar rapido dispara varias, e sem isso a
+    // lista pisca resultado de consulta que a pessoa ja abandonou.
+    this._buscaAtual = 0;
     this._onKeydown = this._onKeydown.bind(this);
     window.addEventListener('keydown', this._onKeydown, true);
   }
@@ -129,14 +224,15 @@ class CommandPalette {
 
   toggle() { this._open ? this.close() : this.open(); }
 
-  open() {
+  open(textoInicial = '') {
     this._build();
     // Force the closed (opacity:0) state to paint before flipping `open`, so the
     // fade/scale-in transition actually runs on the first open too.
     void this._el.offsetWidth;
     this._open = true;
-    this._el.open = true;     // the component focuses + clears its input
-    this._refilter('');
+    this._el.textoInicial = textoInicial;
+    this._el.open = true;     // the component focuses + seeds its input
+    this._refilter(textoInicial);
   }
 
   close() {
@@ -147,6 +243,12 @@ class CommandPalette {
 
   _refilter(query) {
     const q = query || '';
+    if (q.startsWith(PREFIXO_SIMBOLO)) {
+      this._buscarSimbolos(q.slice(PREFIXO_SIMBOLO.length).trim());
+      return;
+    }
+    // Voltar para os comandos invalida a busca que ainda estiver no ar.
+    this._buscaAtual += 1;
     let scored;
     if (!q.trim()) {
       scored = COMMANDS.map((cmd) => ({ cmd, score: 0 }));
@@ -163,6 +265,45 @@ class CommandPalette {
     this._items = scored;
     this._sel = 0;
     this._sync();
+  }
+
+  /**
+   * Procura modulo no projeto. Assincrona, entao o resultado so entra na lista
+   * se a consulta ainda for a mais recente.
+   */
+  async _buscarSimbolos(consulta) {
+    const meu = (this._buscaAtual += 1);
+    const mostrar = (itens) => {
+      if (meu !== this._buscaAtual || !this._open) return;
+      this._items = itens.map((cmd) => ({ cmd, score: 0 }));
+      this._sel = 0;
+      this._sync();
+    };
+
+    if (!slangDisponivel()) {
+      // Recado COM acao: ligar o slang daqui e mais util do que mandar a
+      // pessoa procurar o comando que liga.
+      mostrar([recado(
+        'Module search needs slang. Press Enter to turn it on.',
+        () => { try { window.AuroraSlang?.toggle?.(); } catch { /* sem slang, sem acao */ } },
+      )]);
+      return;
+    }
+
+    let simbolos = null;
+    try { simbolos = await window.slangAPI.workspaceSymbol(consulta); }
+    catch { simbolos = null; }
+
+    if (!Array.isArray(simbolos) || !simbolos.length) {
+      // O slang indexa MODULO, nao sinal. Dizer isso evita que a pessoa
+      // conclua que digitou errado ao procurar pelo nome de um sinal.
+      mostrar([recado(consulta
+        ? 'No module with that name. Only modules are indexed, not signals.'
+        : 'No module indexed yet.')]);
+      return;
+    }
+
+    mostrar(simbolos.filter((s) => s && s.name && s.location).map(simboloComoItem));
   }
 
   /** Push the current filtered list + selection to the view. */
@@ -196,6 +337,13 @@ class CommandPalette {
     if (!this._open) {
       const k = e.key.toLowerCase();
       const mod = e.ctrlKey || e.metaKey;
+      // Ctrl+T: a paleta ja no modo simbolo, mesmo atalho do VS Code.
+      if (mod && !e.shiftKey && k === 't') {
+        e.preventDefault();
+        e.stopPropagation();
+        this.open(PREFIXO_SIMBOLO);
+        return;
+      }
       if (mod && e.shiftKey && (k === 'k' || k === 'p')) {
         // Capture-phase + stopPropagation so it opens even over a focused
         // Monaco editor (which binds Ctrl+Shift+K to delete-line) without also

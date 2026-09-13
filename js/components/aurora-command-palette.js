@@ -22,7 +22,12 @@ const PHOSPHOR_HREF = new URL('vendor/phosphor/src/regular/style.css', document.
 class AuroraCommandPalette extends LitElement {
   static properties = {
     open: { type: Boolean, reflect: true },
-    items: { attribute: false }, // [{ title, icon, group }]
+    items: { attribute: false }, // [{ title, icon, group, detalhe?, atalho? }]
+    // Com o que o campo abre. Vazio na abertura normal; o Ctrl+T abre com o
+    // prefixo do modo simbolo ja digitado. Precisa ser propriedade, e nao uma
+    // chamada depois do open: quem limpa o campo e o `updated` do Lit, que roda
+    // DEPOIS, e apagaria qualquer coisa escrita antes dele.
+    textoInicial: { attribute: false },
     selected: { type: Number },
   };
 
@@ -30,6 +35,7 @@ class AuroraCommandPalette extends LitElement {
     super();
     this.open = false;
     this.items = [];
+    this.textoInicial = '';
     this.selected = 0;
   }
 
@@ -199,6 +205,21 @@ class AuroraCommandPalette extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    /* Onde o item mora: o arquivo de um modulo, na busca por simbolo. Fica
+       colado ao titulo e mais apagado, porque responde "qual deles" depois que
+       o titulo ja respondeu "o que". Encolhe antes do titulo quando falta
+       espaco: perder o caminho e aceitavel, perder o nome nao. */
+    .item-detalhe {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      /* Encolhe MUITO antes do titulo: com os dois em 1 eles cederiam
+         proporcionalmente, e o nome do modulo e o que a pessoa procura. */
+      flex-shrink: 100;
+    }
     /* O atalho do comando, quando ele tem um. A paleta e onde se procura uma
        funcao pelo nome; mostrar a tecla aqui e o que faz alguem parar de
        precisar da paleta para aquela funcao. Empurrado para a direita, discreto:
@@ -285,6 +306,7 @@ class AuroraCommandPalette extends LitElement {
         >
           <i class="${cmd.icon} item-icon" aria-hidden="true"></i>
           <span class="item-title">${cmd.title}</span>
+          ${cmd.detalhe ? html`<span class="item-detalhe">${cmd.detalhe}</span>` : ''}
           ${cmd.atalho ? html`<kbd class="item-atalho">${cmd.atalho}</kbd>` : ''}
         </div>
       `);
@@ -312,8 +334,11 @@ class AuroraCommandPalette extends LitElement {
     if (changed.has('open') && this.open) {
       const input = this._inputEl;
       if (input) {
-        input.value = '';
+        input.value = this.textoInicial || '';
         input.focus();
+        // Cursor no fim, para a pessoa continuar digitando depois do prefixo.
+        try { input.setSelectionRange(input.value.length, input.value.length); }
+        catch { /* input que nao aceita selecao */ }
       }
     }
     if (changed.has('selected')) {

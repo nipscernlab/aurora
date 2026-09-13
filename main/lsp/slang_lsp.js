@@ -902,6 +902,30 @@ async function documentHighlight(/** @type {string} */ uri, /** @type {any} */ p
   }
 }
 
+/**
+ * Os modulos do projeto inteiro, pelo nome, inclusive nos arquivos que
+ * ninguem abriu. E este "inclusive" que da sentido ao Ctrl+T: o que ja esta
+ * aberto se acha pelas abas.
+ *
+ * Medido contra o binario: o slang filtra do lado dele (a consulta vai junto),
+ * consulta vazia devolve tudo, e o que ele indexa sao MODULOS, nao sinais.
+ * Procurar por um nome de sinal volta vazio, e a interface diz isso em vez de
+ * deixar a pessoa achando que digitou errado.
+ *
+ * O Verible nao implementa: responde "method not found" (-32601). Este recurso
+ * so existe com o slang ligado.
+ */
+async function workspaceSymbol(/** @type {string} */ query) {
+  if (!enabled) return null;
+  if (!(await ensureReady())) return null;
+  try {
+    return await request('workspace/symbol', { query: String(query || '') });
+  } catch (e) {
+    log.warn('[slang-ls] workspace/symbol falhou:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 function setEnabled(/** @type {boolean} */ on) {
   on = !!on;
   if (on === enabled) return { enabled };
@@ -926,6 +950,7 @@ function register() {
   ipcMain.handle('slang:did-close', (_e, { uri } = {}) => didClose(uri));
   ipcMain.handle('slang:completion', (_e, { uri, position } = {}) => completion(uri, position));
   ipcMain.handle('slang:document-highlight', (_e, { uri, position } = {}) => documentHighlight(uri, position));
+  ipcMain.handle('slang:workspace-symbol', (_e, { query } = {}) => workspaceSymbol(query));
 }
 
 // As pecas que decidem o que entra no indice saem daqui para o teste: errar

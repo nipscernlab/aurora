@@ -664,6 +664,7 @@ const slangOperations = {
   didClose:   (uri) => ipcRenderer.invoke('slang:did-close', { uri }),
   completion: (uri, position) => ipcRenderer.invoke('slang:completion', { uri, position }),
   documentHighlight: (uri, position) => ipcRenderer.invoke('slang:document-highlight', { uri, position }),
+  workspaceSymbol: (query) => ipcRenderer.invoke('slang:workspace-symbol', { query }),
 
   onDiagnostics: (cb) => {
     const handler = (_e, payload) => cb(payload);

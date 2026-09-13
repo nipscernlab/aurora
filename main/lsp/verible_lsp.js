@@ -383,6 +383,27 @@ function rename(/** @type {string} */ uri, /** @type {any} */ position, /** @typ
   return safeRequest('textDocument/rename', { textDocument: { uri }, position, newName }, null);
 }
 
+/**
+ * Os quick fixes que o Verible oferece para os diagnosticos de um trecho.
+ *
+ * Medido contra o binario real: ele so oferece acao PRESA A DIAGNOSTICO, e
+ * cada uma ja vem com a edicao pronta (nada de `codeAction/resolve`). Num
+ * arquivo limpo a resposta e lista vazia. Os tres que ele sabe fazer hoje sao
+ * renomear o modulo para casar com o nome do arquivo, tirar espaco no fim da
+ * linha e acrescentar a quebra de linha final.
+ *
+ * O slang tambem anuncia `codeActionProvider`, mas devolveu ZERO acao para os
+ * proprios diagnosticos dele (identificador nao declarado, variavel nao usada).
+ * Ligar os dois so gastaria uma viagem por lampada, entao fica so o Verible.
+ */
+function codeAction(/** @type {string} */ uri, /** @type {any} */ range, /** @type {any} */ diagnostics) {
+  return safeRequest('textDocument/codeAction', {
+    textDocument: { uri },
+    range,
+    context: { diagnostics: Array.isArray(diagnostics) ? diagnostics : [] },
+  }, null);
+}
+
 // ── IPC registration ──────────────────────────────────────────────────────────
 
 function register() {
@@ -398,6 +419,7 @@ function register() {
   ipcMain.handle('lsp:definition', (_e, { uri, position } = {}) => definition(uri, position));
   ipcMain.handle('lsp:references', (_e, { uri, position } = {}) => references(uri, position));
   ipcMain.handle('lsp:rename', (_e, { uri, position, newName } = {}) => rename(uri, position, newName));
+  ipcMain.handle('lsp:code-action', (_e, { uri, range, diagnostics } = {}) => codeAction(uri, range, diagnostics));
 }
 
 module.exports = { register };

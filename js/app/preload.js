@@ -620,7 +620,7 @@ const searchOperations = {
  *  Thin bridge to the bundled verible-verilog-ls. The renderer
  *  (js/editor/lsp_integration.js) drives the document lifecycle
  *  (open/change/close) and pulls on-demand features (format, symbols,
- *  hover, definition, references, rename); diagnostics are pushed the other way
+ *  hover, definition, references, rename, quick fixes); diagnostics are pushed the other way
  *  via onDiagnostics. Every channel is best-effort, if Verible isn't
  *  installed the main side no-ops and these resolve to null/undefined.
  * ========================================================================= */
@@ -636,6 +636,7 @@ const lspOperations = {
   definition:      (uri, position) => ipcRenderer.invoke('lsp:definition', { uri, position }),
   references:      (uri, position) => ipcRenderer.invoke('lsp:references', { uri, position }),
   rename:          (uri, position, newName) => ipcRenderer.invoke('lsp:rename', { uri, position, newName }),
+  codeAction:      (uri, range, diagnostics) => ipcRenderer.invoke('lsp:code-action', { uri, range, diagnostics }),
 
   onDiagnostics: (cb) => {
     const handler = (_e, payload) => cb(payload);

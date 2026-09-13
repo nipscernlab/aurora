@@ -8,8 +8,9 @@
  *   - document formatting (Format Document / Shift+Alt+F),
  *   - outline symbols (breadcrumbs + Outline view),
  *   - hover,
- *   - go-to-definition / find-all-references, and
- *   - rename symbol (F2), project-wide.
+ *   - go-to-definition / find-all-references,
+ *   - rename symbol (F2), project-wide, and
+ *   - quick fixes (the lightbulb) for the lint it reports.
  *
  * Everything is best-effort: if Verible isn't installed the IPC resolves
  * to null/empty and the editor behaves exactly as before (static Monaco
@@ -57,6 +58,19 @@ function lspRangeToMonaco(r) {
     r.start.line + 1, r.start.character + 1,
     r.end.line + 1, r.end.character + 1,
   );
+}
+
+function monacoRangeToLsp(range) {
+  return {
+    start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+    end: { line: range.endLineNumber - 1, character: range.endColumn - 1 },
+  };
+}
+
+/** Duas faixas do LSP se tocam? Usado para achar o diagnostico sob o cursor. */
+function faixasSeCruzam(a, b) {
+  const naoDepois = (p, q) => p.line < q.line || (p.line === q.line && p.character <= q.character);
+  return naoDepois(a.start, b.end) && naoDepois(b.start, a.end);
 }
 
 function monacoPosToLsp(position) {
@@ -189,6 +203,36 @@ function workspaceEditToMap(we) {
 }
 
 /**
+ * Traduz o mapa do LSP para a edicao que o Monaco aplica.
+ *
+ * Devolve null quando algum arquivo alvo nao tem modelo, porque nesse caso o
+ * Monaco recusaria a edicao INTEIRA com "bad edit - model not found". Quem
+ * chama decide o que fazer com esse null: o rename abre os arquivos que faltam
+ * e tenta de novo; o quick fix apenas nao oferece a lampada, ja que uma
+ * lampada que estoura ao ser clicada e pior do que nenhuma.
+ *
+ * Vai sem `versionId` de proposito: com ele o Monaco exige que o modelo nao
+ * tenha mudado desde a consulta e aborta com "model changed in the meantime",
+ * justamente nos arquivos que o rename acabou de abrir.
+ */
+function paraEdicaoDoMonaco(porUri) {
+  const edits = [];
+  for (const [uri, lspEdits] of porUri) {
+    const alvo = modelForUri(uri);
+    if (!alvo) return null;
+    for (const e of lspEdits) {
+      if (!e || !e.range) continue;
+      edits.push({
+        resource: alvo.uri,
+        versionId: undefined,
+        textEdit: { range: lspRangeToMonaco(e.range), text: e.newText },
+      });
+    }
+  }
+  return { edits };
+}
+
+/**
  * O modelo nao nasce junto com a aba: addTab cria o editor dentro de um IIFE
  * assincrono que espera `EditorManager.ready`. Entao depois de mandar abrir e
  * preciso ESPERAR o modelo aparecer, em vez de supor que ja esta la.
@@ -267,12 +311,27 @@ function modelForUri(uriStr) {
   return null;
 }
 
+/**
+ * Os diagnosticos como o SERVIDOR os mandou, por arquivo.
+ *
+ * O quick fix precisa devolve-los ao servidor no contexto do pedido, e o
+ * marker do Monaco nao serve para isso: ele e uma traducao com perdas, sem os
+ * campos que o Verible usa para casar o fix com a regra de lint que o gerou.
+ * Guardar o original custa um Map e evita ter que adivinhar o caminho de volta.
+ *
+ * A chave e a uri do MODELO, nao a que veio na mensagem: o servidor pode
+ * devolver a mesma coisa com outra grafia (maiuscula da unidade, %-encoding),
+ * e quem consulta depois so tem o modelo em maos.
+ */
+const diagnosticosPorUri = new Map();
+
 function wireDiagnostics() {
   window.lspAPI.onDiagnostics(({ uri, diagnostics }) => {
     const model = modelForUri(uri);
     if (!model || (model.isDisposed && model.isDisposed())) return;
-    const markers = (diagnostics || []).map(diagnosticToMarker);
-    monaco.editor.setModelMarkers(model, DIAGNOSTICS_OWNER, markers);
+    const lista = diagnostics || [];
+    diagnosticosPorUri.set(model.uri.toString(), lista);
+    monaco.editor.setModelMarkers(model, DIAGNOSTICS_OWNER, lista.map(diagnosticToMarker));
   });
 }
 
@@ -307,6 +366,7 @@ function attach(model) {
     clearTimeout(timer);
     changeSub.dispose();
     disposeSub.dispose();
+    diagnosticosPorUri.delete(model.uri.toString());
     window.lspAPI.didClose(uri);
   });
 }
@@ -362,6 +422,44 @@ function registerProviders() {
       },
     });
 
+    monaco.languages.registerCodeActionProvider(lang, {
+      async provideCodeActions(model, range) {
+        const nada = { actions: [], dispose() {} };
+        const uri = model.uri.toString();
+        const guardados = diagnosticosPorUri.get(uri);
+        if (!guardados || !guardados.length) return nada;
+
+        // So pergunta quando ha diagnostico no trecho. Medido contra o
+        // binario: o Verible nao oferece NADA fora de diagnostico, e o Monaco
+        // chama este provider a cada movimento de cursor. Perguntar sempre
+        // seria uma viagem de IPC por tecla, para receber lista vazia.
+        const faixa = monacoRangeToLsp(range);
+        const noTrecho = guardados.filter((d) => d && d.range && faixasSeCruzam(faixa, d.range));
+        if (!noTrecho.length) return nada;
+
+        const vindas = await window.lspAPI.codeAction(uri, faixa, noTrecho);
+        if (!Array.isArray(vindas) || !vindas.length) return nada;
+
+        const actions = [];
+        for (const a of vindas) {
+          if (!a || !a.title) continue;
+          const edicao = paraEdicaoDoMonaco(workspaceEditToMap(a.edit));
+          // Sem edicao aplicavel nao ha o que oferecer. O Verible manda o fix
+          // pronto junto com a acao, entao isto so acontece se ele alcancar
+          // arquivo fechado, e uma lampada que estoura ao ser clicada e pior
+          // do que lampada nenhuma.
+          if (!edicao || !edicao.edits.length) continue;
+          actions.push({
+            title: a.title,
+            kind: a.kind || 'quickfix',
+            edit: edicao,
+            isPreferred: a.isPreferred === true,
+          });
+        }
+        return { actions, dispose() {} };
+      },
+    }, { providedCodeActionKinds: ['quickfix'] });
+
     monaco.languages.registerRenameProvider(lang, {
       async provideRenameEdits(model, position, newName) {
         const semSimbolo = () => ({
@@ -384,26 +482,12 @@ function registerProviders() {
         const abriu = await abrirOsQueFaltam([...porUri.keys()]);
         if (!abriu.ok) return semArquivo();
 
-        const edits = [];
-        for (const [uri, lspEdits] of porUri) {
-          const alvo = modelForUri(uri);
-          // Garantido logo acima; se sumiu nesse intervalo, recusa TUDO em vez
-          // de aplicar um rename pela metade.
-          if (!alvo) return semArquivo();
-          for (const e of lspEdits) {
-            if (!e || !e.range) continue;
-            edits.push({
-              resource: alvo.uri,
-              // Sem versionId de proposito: com ele o Monaco exige que o
-              // modelo nao tenha mudado desde a consulta e aborta com
-              // "model changed in the meantime". Os arquivos recem-abertos
-              // acabaram de ganhar versao, entao a checagem so atrapalha.
-              versionId: undefined,
-              textEdit: { range: lspRangeToMonaco(e.range), text: e.newText },
-            });
-          }
-        }
-        return { edits };
+        // Depois de abrir, todo alvo tem modelo. Se ainda assim faltar um (a
+        // aba sumiu nesse intervalo), recusa TUDO em vez de renomear pela
+        // metade e deixar o projeto sem compilar.
+        const edicao = paraEdicaoDoMonaco(porUri);
+        if (!edicao) return semArquivo();
+        return edicao;
       },
     });
   }

@@ -34,26 +34,47 @@ const uriDe = (p) => PREFIXO + p;
 
 let modelos;
 let providers;
+let acoesDe;
+let metaDasAcoes;
 let abertos;
 let ativados;
 let respostaDoLsp;
+let respostaDasAcoes;
+let pedidosDeAcao;
 let arquivosLegiveis;
+let publicarDiagnosticos;
 
+/**
+ * `scheme: 'file'` e `getLanguageId` importam: sem eles o modulo nao considera
+ * o modelo seu (isLspModel), nao o acompanha, e o teste de fechar arquivo
+ * passaria por nao fazer nada, em vez de por funcionar.
+ */
 function modeloFalso(uri) {
+  const aoDescartar = [];
   return {
-    uri: { toString: () => uri, fsPath: uri.slice(PREFIXO.length) },
+    uri: { toString: () => uri, fsPath: uri.slice(PREFIXO.length), scheme: 'file' },
     isDisposed: () => false,
     getLanguageId: () => 'verilog',
     getValue: () => '',
     onDidChangeContent: () => ({ dispose() {} }),
-    onWillDispose: () => ({ dispose() {} }),
+    onWillDispose: (cb) => { aoDescartar.push(cb); return { dispose() {} }; },
+    _descartar: () => { for (const cb of aoDescartar.splice(0)) cb(); },
   };
+}
+
+/** Fecha o arquivo como o Monaco faz: dispara o onWillDispose do modelo. */
+function descartar(uri) {
+  const m = modelos.get(uri);
+  if (m) m._descartar();
 }
 
 function montarMonaco() {
   providers = {};
+  acoesDe = {};
+  metaDasAcoes = null;
   globalThis.monaco = {
     Range: class { constructor(a, b, c, d) { Object.assign(this, { a, b, c, d }); } },
+    MarkerSeverity: { Hint: 1, Info: 2, Warning: 4, Error: 8 },
     Uri: {
       parse: (s) => ({ toString: () => s, fsPath: s.slice(PREFIXO.length) }),
       file: (p) => ({ toString: () => uriDe(p), fsPath: p }),
@@ -72,14 +93,30 @@ function montarMonaco() {
       registerDefinitionProvider: () => {},
       registerReferenceProvider: () => {},
       registerRenameProvider: (lang, p) => { providers[lang] = p; },
+      registerCodeActionProvider: (lang, p, meta) => {
+        acoesDe[lang] = p;
+        metaDasAcoes = meta;
+      },
     },
   };
 }
 
-async function provider() {
+async function carregar() {
   const mod = await import('../../js/editor/lsp_integration.js?r=' + Math.random());
   mod.initVerilogLSP();
+  return mod;
+}
+
+async function provider() {
+  await carregar();
   return providers.verilog;
+}
+
+/** O provider da lampada, ja com os diagnosticos entregues como o servidor os manda. */
+async function lampada(diagnosticos) {
+  await carregar();
+  publicarDiagnosticos(uriDe(ARQ_A), diagnosticos);
+  return acoesDe.verilog;
 }
 
 const edicao = (linha, de, ate, texto) => ({
@@ -96,8 +133,23 @@ beforeEach(() => {
   modelos.set(uriDe(ARQ_A), modeloFalso(uriDe(ARQ_A)));
   montarMonaco();
 
+  respostaDasAcoes = [];
+  pedidosDeAcao = [];
+
   globalThis.window = globalThis.window || {};
-  window.lspAPI = { onDiagnostics: () => {}, rename: async () => respostaDoLsp };
+  window.lspAPI = {
+    // O modulo assina uma vez; guardamos o callback para poder publicar
+    // diagnosticos no meio do teste, como o servidor faz.
+    onDiagnostics: (cb) => { publicarDiagnosticos = (uri, ds) => cb({ uri, diagnostics: ds }); },
+    didOpen: () => {},
+    didChange: () => {},
+    didClose: () => {},
+    rename: async () => respostaDoLsp,
+    codeAction: async (uri, range, diagnostics) => {
+      pedidosDeAcao.push({ uri, range, diagnostics });
+      return respostaDasAcoes;
+    },
+  };
   window.electronAPI = {
     readFile: async (p) => {
       if (!arquivosLegiveis.has(p)) throw new Error('sumiu');
@@ -211,5 +263,88 @@ describe('rename: recusas e o que o Monaco cobra', () => {
       modelos.get(uriDe(ARQ_A)), { lineNumber: 1, column: 1 }, 'x');
 
     expect(r.rejectReason).toBe('traduzido');
+  });
+});
+
+/**
+ * A lampada (quick fix). O Verible so oferece acao PRESA A DIAGNOSTICO, e cada
+ * uma ja vem com a edicao pronta. Medido contra o binario: num arquivo limpo a
+ * resposta e lista vazia, e os tres fixes que ele sabe fazer sao renomear o
+ * modulo para casar com o arquivo, tirar espaco no fim da linha e acrescentar
+ * a quebra final.
+ *
+ * Por isso o provider so pergunta quando ha diagnostico no trecho: o Monaco o
+ * chama a cada movimento de cursor, e perguntar sempre seria uma viagem de IPC
+ * por tecla apertada para receber nada.
+ */
+describe('quick fix: a lampada', () => {
+  const FAIXA = { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 30 };
+  const diagnostico = (linha, de, ate, msg) => ({
+    range: { start: { line: linha, character: de }, end: { line: linha, character: ate } },
+    message: msg,
+    severity: 2,
+    source: 'verible',
+  });
+  const acaoDoVerible = (titulo, texto) => ({
+    title: titulo,
+    kind: 'quickfix',
+    edit: { changes: { [uriDe(ARQ_A)]: [edicao(0, 22, 25, texto)] } },
+  });
+
+  it('anuncia que fornece quickfix, senao o Monaco nem chama', async () => {
+    await carregar();
+    expect(metaDasAcoes).toEqual({ providedCodeActionKinds: ['quickfix'] });
+  });
+
+  it('nao pergunta ao servidor quando nao ha diagnostico no trecho', async () => {
+    const p = await lampada([diagnostico(8, 0, 1, 'la longe')]);
+    const r = await p.provideCodeActions(modelos.get(uriDe(ARQ_A)), FAIXA);
+
+    expect(pedidosDeAcao).toEqual([]);
+    expect(r.actions).toEqual([]);
+  });
+
+  it('devolve o diagnostico ORIGINAL do servidor, nao o marker traduzido', async () => {
+    const d = diagnostico(0, 22, 25, 'Remove trailing spaces. [Style: trailing-spaces]');
+    respostaDasAcoes = [acaoDoVerible('Remove trailing space', '')];
+    const p = await lampada([d]);
+    await p.provideCodeActions(modelos.get(uriDe(ARQ_A)), FAIXA);
+
+    expect(pedidosDeAcao).toHaveLength(1);
+    expect(pedidosDeAcao[0].diagnostics).toEqual([d]);
+  });
+
+  it('converte a acao do Verible em acao do Monaco, com a edicao junto', async () => {
+    respostaDasAcoes = [acaoDoVerible('Remove trailing space', '')];
+    const p = await lampada([diagnostico(0, 22, 25, 'Remove trailing spaces.')]);
+    const r = await p.provideCodeActions(modelos.get(uriDe(ARQ_A)), FAIXA);
+
+    expect(r.actions).toHaveLength(1);
+    expect(r.actions[0].title).toBe('Remove trailing space');
+    expect(r.actions[0].kind).toBe('quickfix');
+    expect(r.actions[0].edit.edits).toHaveLength(1);
+    expect(r.actions[0].edit.edits[0].versionId).toBeUndefined();
+  });
+
+  it('nao oferece fix que alcanca arquivo fechado, em vez de estourar no clique', async () => {
+    respostaDasAcoes = [{
+      title: 'mexe em arquivo que nao esta aberto',
+      kind: 'quickfix',
+      edit: { changes: { [uriDe(ARQ_B)]: [edicao(0, 0, 1, 'x')] } },
+    }];
+    const p = await lampada([diagnostico(0, 22, 25, 'Remove trailing spaces.')]);
+    const r = await p.provideCodeActions(modelos.get(uriDe(ARQ_A)), FAIXA);
+
+    expect(r.actions).toEqual([]);
+    expect(abertos).toEqual([]);
+  });
+
+  it('esquece os diagnosticos quando o arquivo e fechado', async () => {
+    respostaDasAcoes = [acaoDoVerible('Remove trailing space', '')];
+    const p = await lampada([diagnostico(0, 22, 25, 'Remove trailing spaces.')]);
+    expect((await p.provideCodeActions(modelos.get(uriDe(ARQ_A)), FAIXA)).actions).toHaveLength(1);
+
+    descartar(uriDe(ARQ_A));
+    expect((await p.provideCodeActions(modelos.get(uriDe(ARQ_A)), FAIXA)).actions).toEqual([]);
   });
 });

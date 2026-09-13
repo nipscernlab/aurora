@@ -192,6 +192,15 @@ class SplitPane {
             // de ficar preso sob a toolbar. Num pane estreito ele escapa
             // tambem pela lateral, que e onde mais falta espaco.
             fixedOverflowWidgets: true,
+            // Igual ao editor principal, e aqui faz ainda mais falta: um pane
+            // mostra menos linhas de cada vez, entao o `module` e o `always`
+            // que envolvem a linha atual saem de vista mais cedo.
+            stickyScroll: {
+                enabled: true,
+                maxLineCount: 3,
+                defaultModel: 'outlineModel',
+                scrollWithEditor: true,
+            },
         });
 
         // Font ligatures per language (see monaco_editor.js): kill them in

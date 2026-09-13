@@ -232,6 +232,27 @@ class EditorManager {
             lineNumbersMinChars: 4,
             glyphMargin: true,
             showFoldingControls: 'mouseover',
+
+            // STICKY SCROLL
+            // Segura no alto o cabecalho do que envolve a linha atual. Em
+            // Verilog isso e `module`, `always` e o `case`/`if` de dentro, que
+            // e exatamente o que some de vista num arquivo longo: a pessoa
+            // desce cem linhas dentro de um always e nao sabe mais de que
+            // bloco aquilo e, nem sob que condicao.
+            //
+            // `outlineModel` usa o outline do LSP, que ja existe (o
+            // documentSymbol do Verible). Linguagem sem outline cai sozinha no
+            // recuo, entao C+- e Assembly tambem ganham alguma coisa.
+            //
+            // Teto de 3 e nao os 5 do VS Code: o painel do editor aqui divide
+            // altura com terminal e abas, e o teto so vale para aninhamento
+            // fundo, que em Verilog ja e sinal de outro problema.
+            stickyScroll: {
+                enabled: true,
+                maxLineCount: 3,
+                defaultModel: 'outlineModel',
+                scrollWithEditor: true
+            },
             
             // BRACKET PAIR COLORIZATION
             bracketPairColorization: {
@@ -654,7 +675,15 @@ class EditorManager {
                     enabled: !isTablet,
                     scale: window.innerWidth > 1200 ? 1 : 0.8
                 },
-                fontSize: isMobile ? 12 : 14,
+                // MESMOS numeros do bloco de criacao, e nao outros.
+                //
+                // Aqui dizia 12/14 enquanto a criacao dizia 11/12, e este
+                // caminho ganhava: o ResizeObserver entrega uma medicao assim
+                // que comeca a observar, entao o 12 escolhido na criacao virava
+                // 14 antes de alguem ver. O tamanho do editor ficava fora da
+                // escala do resto da interface sem que nada no codigo dissesse
+                // isso; parecia decisao e era atropelo.
+                fontSize: isMobile ? 11 : 12,
                 lineNumbers: window.innerWidth < 480 ? 'off' : 'on',
                 folding: !isMobile,
                 scrollbar: {

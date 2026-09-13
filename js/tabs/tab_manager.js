@@ -455,7 +455,11 @@ async def basic_test(dut):
     await Timer(1, unit="ns")
 `;
         }
-        if (type === 'verilog') return '// New Verilog file\n';
+        // Verilog nao ganha semente: o "// New Verilog file" virou a dica de
+        // arquivo vazio (js/editor/empty_placeholder.js), que aparece enquanto
+        // nao ha texto e nunca entra no arquivo. C+- e Python continuam com
+        // molde porque molde e andaime de verdade, nao um comentario que a
+        // pessoa tem de apagar antes de comecar.
         return '';
     }
 

@@ -1,6 +1,10 @@
 /**
  * empty_placeholder.js: a dica "// New Verilog file" num arquivo vazio.
  *
+ * Vale para QUALQUER arquivo, nao so os de Verilog: a regra e "arquivo vazio
+ * mostra a dica", sem lista de convidados. O que muda por linguagem e a forma,
+ * porque a dica imita um comentario e o marcador precisa ser o da linguagem.
+ *
  * Ate 03/09/2026 a arvore criava o .v novo com esse texto DENTRO do arquivo.
  * Parecia dica e era conteudo: a pessoa tinha de apagar a linha antes de
  * escrever, e quem nao apagava levava um comentario de fabrica para o
@@ -20,20 +24,69 @@
  * escreveu, e so isso.
  */
 
-/** A dica por extensao. So Verilog por ora; a lista existe para crescer. */
-const DICAS = [
-  [/\.(v|sv|vh|svh)$/i, '// New Verilog file'],
-];
+/**
+ * A dica de cada linguagem: como se abre um comentario nela, como se fecha (se
+ * precisar) e o nome que aparece no meio.
+ *
+ * O marcador tem de ser o da linguagem. A dica imita um comentario, e escrever
+ * `//` num arquivo Python ensinaria a sintaxe errada de graca, justamente para
+ * quem ainda esta aprendendo a linguagem. Onde nao ha comentario de linha, usa
+ * o de bloco; onde nao ha comentario nenhum (JSON), a dica vai sem marcador,
+ * porque um JSON com `//` nao e um JSON valido nem de mentira.
+ */
+const POR_LINGUAGEM = new Map([
+  ['verilog', ['//', '', 'Verilog']],
+  ['systemverilog', ['//', '', 'SystemVerilog']],
+  ['cmm', ['//', '', 'C\u00b1']],
+  ['c', ['//', '', 'C']],
+  ['cpp', ['//', '', 'C++']],
+  ['javascript', ['//', '', 'JavaScript']],
+  ['typescript', ['//', '', 'TypeScript']],
+  ['asm', [';', '', 'Assembly']],
+  ['python', ['#', '', 'Python']],
+  ['matlab', ['%', '', 'MATLAB']],
+  ['css', ['/*', ' */', 'CSS']],
+  ['html', ['<!--', ' -->', 'HTML']],
+  ['markdown', ['<!--', ' -->', 'Markdown']],
+  ['json', ['', '', 'JSON']],
+  ['plaintext', ['', '', '']],
+]);
+
+/** A extensao vira linguagem do mesmo jeito que em EditorManager.getLanguageFromPath. */
+const POR_EXTENSAO = new Map([
+  ['v', 'verilog'], ['vh', 'verilog'],
+  ['sv', 'systemverilog'], ['svh', 'systemverilog'],
+  ['cmm', 'cmm'], ['asm', 'asm'],
+  ['c', 'c'], ['h', 'c'],
+  ['cpp', 'cpp'], ['cc', 'cpp'], ['cxx', 'cpp'], ['hpp', 'cpp'], ['hh', 'cpp'], ['hxx', 'cpp'],
+  ['js', 'javascript'], ['jsx', 'javascript'],
+  ['ts', 'typescript'], ['tsx', 'typescript'],
+  ['py', 'python'], ['m', 'matlab'],
+  ['css', 'css'], ['html', 'html'], ['md', 'markdown'],
+  ['json', 'json'], ['spf', 'json'],
+]);
 
 /**
- * O texto da dica para um caminho, ou null quando a extensao nao tem dica.
+ * O texto da dica para um caminho.
+ *
+ * Todo arquivo tem dica, inclusive os de extensao desconhecida: a regra que o
+ * Chrysthofer pediu e "arquivo vazio mostra a dica", sem lista de convidados.
+ * O que muda por linguagem e a forma, nao a existencia.
+ *
+ * Pode receber a linguagem ja resolvida (o modelo do Monaco sabe melhor do que
+ * a extensao, porque um documento sem titulo troca de linguagem enquanto a
+ * pessoa escreve). Sem ela, cai na extensao.
+ *
  * @param {string} filePath
- * @returns {string|null}
+ * @param {string} [languageId]
+ * @returns {string}
  */
-export function placeholderTextFor(filePath) {
-  const p = String(filePath || '');
-  for (const [re, texto] of DICAS) if (re.test(p)) return texto;
-  return null;
+export function placeholderTextFor(filePath, languageId) {
+  const ext = String(filePath || '').split('.').pop().toLowerCase();
+  const lang = languageId || POR_EXTENSAO.get(ext) || 'plaintext';
+  const [abre, fecha, nome] = POR_LINGUAGEM.get(lang) || POR_LINGUAGEM.get('plaintext');
+  const miolo = nome ? `New ${nome} file` : 'Empty file';
+  return abre ? `${abre} ${miolo}${fecha}` : miolo;
 }
 
 /**
@@ -48,12 +101,20 @@ export function placeholderTextFor(filePath) {
  * @param {string} filePath
  */
 export function installEmptyPlaceholder(editor, filePath) {
-  const texto = placeholderTextFor(filePath);
-  if (!texto || !editor || typeof editor.addContentWidget !== 'function') return;
+  if (!editor || typeof editor.addContentWidget !== 'function') return;
 
   const node = document.createElement('div');
   node.className = 'aurora-empty-placeholder';
-  node.textContent = texto;
+
+  // A linguagem do MODELO manda quando existe: um documento sem titulo comeca
+  // como texto puro e vira C+- assim que a pessoa digita o gatilho, e a dica
+  // tem de acompanhar em vez de ficar presa a extensao do nome provisorio.
+  const escrever = () => {
+    const model = editor.getModel();
+    const lang = model && typeof model.getLanguageId === 'function' ? model.getLanguageId() : null;
+    node.textContent = placeholderTextFor(filePath, lang);
+  };
+  escrever();
 
   const widget = {
     getId: () => 'aurora.emptyPlaceholder',
@@ -71,6 +132,7 @@ export function installEmptyPlaceholder(editor, filePath) {
     const vazio = !!model && model.getValueLength() === 0;
     const deve = vazio && !editando;
     if (deve === mostrado) return;
+    if (deve) escrever();
     if (deve) editor.addContentWidget(widget);
     else editor.removeContentWidget(widget);
     mostrado = deve;

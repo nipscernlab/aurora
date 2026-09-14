@@ -1,4 +1,5 @@
 import { electronAPI } from '../app/electron_api.js';
+import { paraRelativo, candidatos } from '../project/caminho_de_projeto.js';
 /**
  * wave_state_store.ts: Per-testbench wave-flow state.
  *
@@ -89,6 +90,87 @@ async function stateFilePathFor(projectPath: string, tbKey: string): Promise<str
   return electronAPI.joinPath(dir, `${safeKey(tbKey)}.json`);
 }
 
+/**
+ * ESTE ARQUIVO VIAJA COM O PROJETO, e por isso nao pode guardar caminho
+ * absoluto.
+ *
+ * Ele mora em `<projeto>/testbench/<tb>.json`, entao vai no pendrive junto com
+ * o resto. Guardava `tbPath` e o caminho de cada `.gtkw` e de cada layout do
+ * Surfer em ABSOLUTO, e foi assim que um aluno levou um projeto para outro
+ * computador e a AURORA foi abrir o `.gtkw` pelo caminho da maquina de origem:
+ * o arquivo estava ali, mas a letra de unidade e o nome do usuario nao viajaram.
+ *
+ * POR QUE SO AQUI, e nao no .spf tambem. O .spf ja guarda os arquivos em
+ * caminho relativo, e o main ainda o RELOCALIZA ao abrir: `deepRemapPaths`
+ * troca o prefixo da raiz antiga pela nova (main/ipc/project.js). So que aquele
+ * remap percorre `projectData.structure` e nada mais, entao nunca chegou a
+ * `<projeto>/testbench/*.json`. Era a unica lacuna, e era exatamente onde o
+ * `.gtkw` morava.
+ *
+ * Agora GRAVA relativo quando o arquivo esta dentro do projeto, e ao LER
+ * resolve contra a raiz de hoje. Caminho de fora do projeto continua absoluto,
+ * porque relativo a algo que nao viaja com o projeto nao ajudaria ninguem.
+ *
+ * O RESGATE cobre o que ja esta gravado nos projetos por ai. Um absoluto que
+ * nao existe mais pode ser o mesmo arquivo em outro lugar: tenta-se a cauda
+ * dele dentro do projeto de hoje (js/project/caminho_de_projeto.ts). No caminho
+ * comum custa um unico teste de existencia; as caudas so entram quando o
+ * primeiro falha.
+ *
+ * NAO SE REGRAVA NO MEIO DA LEITURA, de proposito: `readRaw` roda dentro da
+ * cadeia de escrita do `update`, e escrever dali seria reentrar nela. O arquivo
+ * se conserta sozinho na proxima escrita, que e quando `writeRaw` relativiza.
+ */
+
+/** Os campos deste estado que sao caminho de arquivo. */
+const CAMPOS_DE_CAMINHO = ['tbPath'] as const;
+/** As listas cujos itens tem `.path`. */
+const LISTAS_DE_CAMINHO = ['gtkwFiles', 'surferFiles'] as const;
+
+/** O caminho de hoje para um gravado antes, tentando a cauda se preciso. */
+async function resolverCaminho(projectPath: string, gravado: string): Promise<string> {
+  const opcoes = candidatos(projectPath, gravado);
+  if (!opcoes.length) return gravado;
+  for (const tentativa of opcoes) {
+    try {
+      if (await electronAPI.fileExists(tentativa)) return tentativa;
+    } catch (_) { /* sem resposta da ponte: tenta o proximo */ }
+  }
+  // Nenhum existe. Devolve o primeiro, que e a leitura normal: quem for usar
+  // precisa de um caminho para poder dizer QUAL arquivo faltou.
+  return opcoes[0];
+}
+
+/** Estado lido do disco com os caminhos resolvidos para esta maquina. */
+async function comCaminhosResolvidos(projectPath: string, estado: any): Promise<any> {
+  if (!projectPath || !estado) return estado;
+  for (const campo of CAMPOS_DE_CAMINHO) {
+    if (estado[campo]) estado[campo] = await resolverCaminho(projectPath, estado[campo]);
+  }
+  for (const lista of LISTAS_DE_CAMINHO) {
+    if (!Array.isArray(estado[lista])) continue;
+    for (const item of estado[lista]) {
+      if (item && item.path) item.path = await resolverCaminho(projectPath, item.path);
+    }
+  }
+  return estado;
+}
+
+/** Estado pronto para gravar: dentro do projeto vira relativo. */
+function comCaminhosRelativos(projectPath: string, estado: any): any {
+  const fora: any = { ...estado };
+  for (const campo of CAMPOS_DE_CAMINHO) {
+    if (fora[campo]) fora[campo] = paraRelativo(projectPath, fora[campo]);
+  }
+  for (const lista of LISTAS_DE_CAMINHO) {
+    if (!Array.isArray(fora[lista])) continue;
+    fora[lista] = fora[lista].map((item: any) => (item && item.path
+      ? { ...item, path: paraRelativo(projectPath, item.path) }
+      : item));
+  }
+  return fora;
+}
+
 async function readRaw(projectPath: string, tbKey: string): Promise<WaveState | null> {
   const filePath = await stateFilePathFor(projectPath, tbKey);
   const exists = await electronAPI.fileExists(filePath);
@@ -96,7 +178,7 @@ async function readRaw(projectPath: string, tbKey: string): Promise<WaveState | 
   try {
     const content = await electronAPI.readFile(filePath);
     const parsed = JSON.parse(content);
-    return { ...DEFAULTS, ...parsed } as WaveState;
+    return comCaminhosResolvidos(projectPath, { ...DEFAULTS, ...parsed }) as Promise<WaveState>;
   } catch (err) {
     console.warn(`wave state for ${tbKey} unparseable; treating as missing.`, err);
     return null;
@@ -107,7 +189,10 @@ async function writeRaw(projectPath: string, tbKey: string, state: WaveState): P
   const dir = await stateDirFor(projectPath);
   await electronAPI.mkdir(dir);
   const filePath = await stateFilePathFor(projectPath, tbKey);
-  await electronAPI.writeFile(filePath, JSON.stringify(state, null, 2));
+  await electronAPI.writeFile(
+    filePath,
+    JSON.stringify(comCaminhosRelativos(projectPath, state), null, 2),
+  );
 }
 
 function chainKey(projectPath: string, tbKey: string): string {

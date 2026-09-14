@@ -27,6 +27,7 @@
     "js/wave/complex_decode.ts",
     "js/wave/event_markers.ts",
     "js/project/processor_list.ts",
+    "js/project/caminho_de_projeto.ts",
     "js/wave/wave_state_store.ts",
     "js/project/spf_store.ts",
     "js/compilation/command_spec.ts",

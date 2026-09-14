@@ -248,11 +248,28 @@ async function loadProject(spfPath) {
         // Tolerância: result.projectData pode vir com forma variável dependendo
         // da versão do main.js. Tenta múltiplos caminhos antes de falhar.
         const projectData = result.projectData || result.data || {};
+
+        // A RAIZ E ONDE O .spf ESTA, e nao o que esta escrito dentro dele.
+        //
+        // Defesa em profundidade, e nao o conserto de um defeito: o main JA
+        // relocaliza o .spf ao abrir (main/ipc/project.js, `deepRemapPaths` +
+        // a regravacao de `basePath`), entao o que chega aqui costuma estar
+        // certo. Esta ordem existe para o caso em que nao esteja.
+        //
+        // A ordem ANTERIOR lia `structure.basePath` primeiro e deixava a pasta
+        // do proprio .spf como ULTIMO recurso, o que e ler a verdade pela copia.
+        // O caminho do .spf e o unico dado aqui que nao pode estar errado: ele
+        // veio de a pessoa ter acabado de abrir AQUELE arquivo. O que esta
+        // gravado dentro e, na melhor hipotese, uma copia velha dele.
+        const raizDoSpf = typeof spfPath === 'string'
+            ? spfPath.replace(/[\\/][^\\/]+\.spf$/i, '')
+            : null;
         const basePath =
+            raizDoSpf ||
             projectData.structure?.basePath ||
             projectData.basePath ||
             projectData.metadata?.projectPath ||
-            (typeof spfPath === 'string' ? spfPath.replace(/[\\/][^\\/]+\.spf$/i, '') : null);
+            null;
 
         if (!basePath) {
             throw new Error(window.t ? window.t('error.config.noProjectBase') : 'Project base path could not be determined.');

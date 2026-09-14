@@ -82,6 +82,7 @@ coverage/
 
 # --- TypeScript compiler output (.ts → .js in-place via tsc; run `npm run build:ts`) ---
 # These are build artefacts — never edit the .js, edit the .ts source.
+js/project/caminho_de_projeto.js
 js/utils/path_utils.js
 js/compilation/compilation_helpers.js
 js/compilation/command_spec.js

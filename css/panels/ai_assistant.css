@@ -158,13 +158,29 @@ body.ai-assistant-open {
   transition: opacity var(--transition-fast);
 }
 
+/* O titulo NAO QUEBRA, ele encolhe com reticencias.
+   O cabecalho tem altura fixa de 34 px, entao um titulo de duas linhas nao o
+   empurra: a segunda linha transborda e some, e na tela le-se "Aurora" com um
+   pedaco de "Intelligence" cortado embaixo. Medido em 13/09/2026
+   (scripts/medir-cabecalho-ia.js): comecava a quebrar com o painel em 340 px, e
+   quem arrasta o painel para dar espaco ao editor passa por ali.
+   Com reticencias o desfecho e honesto: le-se "Aurora Intellig...", que ainda
+   identifica o painel, numa linha so. */
 .ai-assistant-title {
   font-size: var(--text-md);
   font-weight: var(--font-semibold);
   color: var(--text);
   letter-spacing: var(--tracking-tight);
   margin: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+/* Os botoes nao cedem largura: sao alvos de clique de 26 px e encolher um
+   deles e pior do que encurtar o texto ao lado. Quem cede e o titulo. */
+.ai-header-right { flex-shrink: 0; }
 
 /* Provider dropdown */
 .ai-provider-section {

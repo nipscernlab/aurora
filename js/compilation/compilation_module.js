@@ -3391,7 +3391,13 @@ async _waveOpenSurferTab(vcdFile, surferLayoutFile, tools, opts = {}) {
     let stateSavePath = null;
     if (tbKey && this.projectPath && !opts.semEstado) {
         const stateName = `${tbKey}.tab.surf.ron`;
-        stateSavePath = await electronAPI.joinPath(this.projectPath, 'testbench', stateName);
+        // A MESMA pasta do estado de onda, pela constante e nao pelo literal.
+        // Eram dois lugares dizendo 'testbench' de forma independente, e mover
+        // um sem o outro deixaria o layout do Surfer gravado numa pasta e o
+        // caminho dele registrado apontando para outra.
+        stateSavePath = await electronAPI.joinPath(
+            this.projectPath, WaveStore.STATE_DIRNAME, stateName,
+        );
         surferTabSaveCtx.set(tabId, { projectPath: this.projectPath, tbKey, name: stateName });
     }
 

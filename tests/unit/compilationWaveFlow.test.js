@@ -309,7 +309,11 @@ describe('runGtkWave, Icarus com GTKWave', () => {
 
         // O WaveStore guarda por testbench, e e dele que a proxima corrida le o
         // layout ativo em vez de gerar outro do zero.
-        expect(api._arquivos.has(PROJ + '/testbench/' + SIM_TOP + '.json')).toBe(true);
+        //
+        // A pasta e `.aurora/testbench/`, e nao `testbench/`: no Windows a
+        // segunda colidia com a pasta `Testbench/` que muitos projetos tem
+        // para os .v, e o estado da IDE acabava no meio do codigo-fonte.
+        expect(api._arquivos.has(PROJ + '/.aurora/testbench/' + SIM_TOP + '.json')).toBe(true);
     });
 });
 

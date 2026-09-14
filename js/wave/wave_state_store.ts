@@ -34,7 +34,30 @@ export interface WaveState {
   wcCustomized: boolean;
 }
 
-const STATE_DIRNAME = 'testbench';
+/**
+ * Onde o estado de onda mora.
+ *
+ * ERA `testbench/`, e no Windows isso colidia com a pasta `Testbench/` que
+ * muitos projetos tem para os `.v` de testbench: o sistema nao distingue a
+ * caixa, entao o estado da IDE era escrito no meio do codigo-fonte do usuario
+ * e ia junto para o git dele. Nos exemplos do repositorio da para ver os dois
+ * lados na mesma pasta: `tb_dirac.v` ao lado de `tb_dirac.json`.
+ *
+ * Config de ferramenta pertence a `.aurora/`, que e a pasta que a AURORA ja
+ * usa para o que e dela (execucoes, historico, temporarios).
+ */
+const STATE_DIRNAME = '.aurora/testbench';
+
+/**
+ * O lugar antigo, so para LER.
+ *
+ * Todo projeto que existe hoje tem o estado ali, e perde-lo significaria o
+ * `.gtkw` escolhido, a selecao do Wave Configuration e a decisao sobre
+ * `$dumpvars` voltarem ao zero sem ninguem pedir. A leitura cai aqui quando o
+ * arquivo novo nao existe, e a proxima escrita ja grava no lugar novo: o
+ * projeto se muda sozinho, sem etapa de migracao e sem apagar nada.
+ */
+const STATE_DIRNAME_LEGADO = 'testbench';
 
 // In-flight promise per (projectPath + tbKey). Updates para um mesmo
 // testbench serializam; updates para tbs diferentes (mesmo projeto)
@@ -88,6 +111,26 @@ async function stateDirFor(projectPath: string): Promise<string> {
 async function stateFilePathFor(projectPath: string, tbKey: string): Promise<string> {
   const dir = await stateDirFor(projectPath);
   return electronAPI.joinPath(dir, `${safeKey(tbKey)}.json`);
+}
+
+/** O caminho no lugar ANTIGO, para a leitura de projeto que ainda nao migrou. */
+async function legacyStateFilePathFor(projectPath: string, tbKey: string): Promise<string> {
+  const dir = await electronAPI.joinPath(projectPath, STATE_DIRNAME_LEGADO);
+  return electronAPI.joinPath(dir, `${safeKey(tbKey)}.json`);
+}
+
+/**
+ * O arquivo de estado a LER: o novo quando existe, senao o antigo.
+ *
+ * Devolve null quando nenhum dos dois existe, que e o caso do testbench ainda
+ * nao registrado.
+ */
+async function arquivoDeEstadoParaLer(projectPath: string, tbKey: string): Promise<string | null> {
+  const novo = await stateFilePathFor(projectPath, tbKey);
+  if (await electronAPI.fileExists(novo)) return novo;
+  const antigo = await legacyStateFilePathFor(projectPath, tbKey);
+  if (await electronAPI.fileExists(antigo)) return antigo;
+  return null;
 }
 
 /**
@@ -172,9 +215,8 @@ function comCaminhosRelativos(projectPath: string, estado: any): any {
 }
 
 async function readRaw(projectPath: string, tbKey: string): Promise<WaveState | null> {
-  const filePath = await stateFilePathFor(projectPath, tbKey);
-  const exists = await electronAPI.fileExists(filePath);
-  if (!exists) return null;
+  const filePath = await arquivoDeEstadoParaLer(projectPath, tbKey);
+  if (!filePath) return null;
   try {
     const content = await electronAPI.readFile(filePath);
     const parsed = JSON.parse(content);
@@ -201,6 +243,7 @@ function chainKey(projectPath: string, tbKey: string): string {
 
 export const WaveStore = {
   STATE_DIRNAME,
+  STATE_DIRNAME_LEGADO,
   DEFAULTS,
 
   /**

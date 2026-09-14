@@ -50,7 +50,7 @@ const MAQUINA_B = 'D:/aulas/proj';
 
 /** O que esta gravado no json do testbench, como texto. */
 function gravado(raiz, tb) {
-  return JSON.parse(disco.get(`${raiz}/testbench/${tb}.json`));
+  return JSON.parse(disco.get(`${raiz}/.aurora/testbench/${tb}.json`));
 }
 
 describe('gravar', () => {
@@ -86,9 +86,9 @@ describe('ler na maquina de destino', () => {
 
     // O pendrive: o json e os arquivos vao para a maquina B, em outra letra de
     // unidade e outro nome de usuario. O caminho da maquina A deixa de existir.
-    const json = disco.get(`${MAQUINA_A}/testbench/tb.json`);
+    const json = disco.get(`${MAQUINA_A}/.aurora/testbench/tb.json`);
     disco.clear();
-    disco.set(`${MAQUINA_B}/testbench/tb.json`, json);
+    disco.set(`${MAQUINA_B}/.aurora/testbench/tb.json`, json);
     disco.set(`${MAQUINA_B}/Testbench/tb.v`, '');
     disco.set(`${MAQUINA_B}/Testbench/tb.gtkw`, '');
 
@@ -98,10 +98,52 @@ describe('ler na maquina de destino', () => {
   });
 
   it('caminho de fora do projeto e devolvido inteiro', async () => {
-    disco.set(`${MAQUINA_B}/testbench/tb.json`, JSON.stringify({ gtkwFiles: [{ path: 'C:/lib/padrao.gtkw' }] }));
+    disco.set(`${MAQUINA_B}/.aurora/testbench/tb.json`, JSON.stringify({ gtkwFiles: [{ path: 'C:/lib/padrao.gtkw' }] }));
     disco.set('C:/lib/padrao.gtkw', '');
     const lido = await WaveStore.get(MAQUINA_B, 'tb');
     expect(lido.gtkwFiles[0].path).toBe('C:/lib/padrao.gtkw');
+  });
+});
+
+describe('a pasta do estado mudou de lugar', () => {
+  // O estado saiu de `testbench/` para `.aurora/testbench/`, porque no Windows
+  // a primeira colidia com a pasta `Testbench/` dos .v do usuario. Todo projeto
+  // que existe hoje tem o estado no lugar antigo, e perde-lo seria o .gtkw
+  // escolhido e a selecao do Wave Configuration voltarem ao zero sem ninguem
+  // pedir.
+
+  it('le do lugar ANTIGO quando o novo nao existe', async () => {
+    disco.set(`${MAQUINA_B}/testbench/tb.json`, JSON.stringify({
+      gtkwFiles: [{ path: 'Testbench/tb.gtkw', isActive: true }],
+      wcInitialized: true,
+    }));
+    disco.set(`${MAQUINA_B}/Testbench/tb.gtkw`, '');
+
+    const lido = await WaveStore.get(MAQUINA_B, 'tb');
+    expect(lido, 'o estado do lugar antigo foi ignorado').toBeTruthy();
+    expect(lido.wcInitialized).toBe(true);
+    expect(lido.gtkwFiles[0].path).toBe(`${MAQUINA_B}/Testbench/tb.gtkw`);
+  });
+
+  it('o novo VENCE o antigo quando os dois existem', async () => {
+    disco.set(`${MAQUINA_B}/testbench/tb.json`, JSON.stringify({ tbModule: 'antigo' }));
+    disco.set(`${MAQUINA_B}/.aurora/testbench/tb.json`, JSON.stringify({ tbModule: 'novo' }));
+    const lido = await WaveStore.get(MAQUINA_B, 'tb');
+    expect(lido.tbModule).toBe('novo');
+  });
+
+  it('a proxima escrita grava no lugar novo, e o antigo fica intacto', async () => {
+    // Migracao sem etapa de migracao: o projeto se muda sozinho e nada e
+    // apagado, entao uma versao anterior da AURORA ainda acha o estado dela.
+    disco.set(`${MAQUINA_B}/testbench/tb.json`, JSON.stringify({ tbModule: 'tb' }));
+    await WaveStore.update(MAQUINA_B, 'tb', (cfg) => { cfg.wcCustomized = true; });
+
+    expect(JSON.parse(disco.get(`${MAQUINA_B}/.aurora/testbench/tb.json`)).wcCustomized).toBe(true);
+    expect(disco.has(`${MAQUINA_B}/testbench/tb.json`)).toBe(true);
+  });
+
+  it('testbench sem estado em lugar nenhum continua nao registrado', async () => {
+    expect(await WaveStore.get(MAQUINA_B, 'inexistente')).toBeNull();
   });
 });
 
@@ -110,7 +152,7 @@ describe('resgatar o que ja esta gravado por ai', () => {
     // Este json e o que existe HOJE nos projetos dos alunos: absoluto, gravado
     // antes da correcao. Sem o resgate, a correcao valeria so para projeto
     // novo e quem trouxe o problema continuaria com ele.
-    disco.set(`${MAQUINA_B}/testbench/tb.json`, JSON.stringify({
+    disco.set(`${MAQUINA_B}/.aurora/testbench/tb.json`, JSON.stringify({
       tbPath: `${MAQUINA_A}/Testbench/tb.v`,
       gtkwFiles: [{ path: `${MAQUINA_A}/Testbench/tb.gtkw`, isActive: true }],
     }));
@@ -124,7 +166,7 @@ describe('resgatar o que ja esta gravado por ai', () => {
   it('o resgate se conserta no disco na proxima escrita', async () => {
     // Nao se regrava durante a leitura de proposito: `readRaw` roda dentro da
     // cadeia de escrita do `update`, e escrever dali seria reentrar nela.
-    disco.set(`${MAQUINA_B}/testbench/tb.json`, JSON.stringify({
+    disco.set(`${MAQUINA_B}/.aurora/testbench/tb.json`, JSON.stringify({
       gtkwFiles: [{ path: `${MAQUINA_A}/Testbench/tb.gtkw` }],
     }));
     disco.set(`${MAQUINA_B}/Testbench/tb.gtkw`, '');
@@ -136,7 +178,7 @@ describe('resgatar o que ja esta gravado por ai', () => {
   it('arquivo que sumiu de verdade devolve um caminho, e nao vazio', async () => {
     // Quem for usar precisa de um caminho para poder dizer QUAL arquivo
     // faltou. Devolver vazio viraria "nao consegui" sem dizer de que.
-    disco.set(`${MAQUINA_B}/testbench/tb.json`, JSON.stringify({
+    disco.set(`${MAQUINA_B}/.aurora/testbench/tb.json`, JSON.stringify({
       gtkwFiles: [{ path: 'Testbench/apagado.gtkw' }],
     }));
     const lido = await WaveStore.get(MAQUINA_B, 'tb');

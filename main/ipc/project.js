@@ -153,6 +153,31 @@ async function moveWithRetry(/** @type {any} */ from, /** @type {any} */ to, opt
  * direta, que e o comportamento antigo, e o .tmp e recolhido.
  */
 async function escreverSpf(/** @type {string} */ spfPath, /** @type {any} */ dados) {
+  // A RAIZ GRAVADA E A DE AGORA, sempre.
+  //
+  // `metadata.projectPath` e `structure.basePath` apontam para a pasta do
+  // proprio projeto. Eram gravados como estavam em memoria, e a leitura ja os
+  // relocalizava ao abrir (`deepRemapPaths`, mais abaixo), entao o arquivo
+  // ficava em disco afirmando uma raiz que podia ja nao ser a dele: o projeto
+  // funcionava e o arquivo mentia. Qualquer leitor que nao seja a AURORA, um
+  // script, um diff, uma pessoa abrindo o JSON, acreditava na mentira.
+  //
+  // Derivada do `spfPath`, que e o unico dado aqui que nao pode estar errado:
+  // e o caminho onde este arquivo esta sendo gravado neste instante.
+  //
+  // So sobrescreve campo que JA existe: um .spf sem `metadata` nao ganha um
+  // aqui, porque inventar estrutura na hora de gravar e como um escritor
+  // atomico perde a previsibilidade.
+  const raizDeAgora = path.dirname(spfPath);
+  if (dados && typeof dados === 'object') {
+    if (dados.metadata && typeof dados.metadata === 'object') {
+      dados.metadata.projectPath = raizDeAgora;
+    }
+    if (dados.structure && typeof dados.structure === 'object') {
+      dados.structure.basePath = raizDeAgora;
+    }
+  }
+
   const json = JSON.stringify(dados, null, 2);
   const tmp = `${spfPath}.tmp`;
   try {

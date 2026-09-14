@@ -1,5 +1,12 @@
-// gerar-icone-sapho.js: monta assets/icons/sapho_aurora_icon.ico a partir das
-// DUAS artes da marca.
+// gerar-icone-sapho.js: monta o .ico da MARCA CANDIDATA a partir das duas
+// artes dela.
+//
+// O QUE ESTE SCRIPT NAO FAZ: ele nao mexe no icone em uso. A AURORA continua
+// com `sapho_aurora_icon.svg`/`.ico`, a logo de sempre. Os arquivos com
+// `.proposta.` no nome sao a marca nova em avaliacao (o emblema de escamas do
+// NIPS-CERN), guardados no repositorio para nao se perderem entre uma rodada
+// de decisao e a proxima. Adotar a proposta e renomear os tres para os nomes
+// sem `.proposta.`; ate la nada no codigo aponta para eles.
 //
 // POR QUE DUAS ARTES. A marca do SAPHO tem 34 escamas em espiral de filotaxia.
 // Em tamanho grande ela le como pele de reptil, que e o ponto; em 16 ou 24 px
@@ -32,9 +39,9 @@ const path = require('path');
 const { app, BrowserWindow } = require('electron');
 
 const ICONES = path.resolve(__dirname, '..', 'assets', 'icons');
-const CHEIA = path.join(ICONES, 'sapho_aurora_icon.svg');
-const REDUZIDA = path.join(ICONES, 'sapho_aurora_icon.small.svg');
-const SAIDA = path.join(ICONES, 'sapho_aurora_icon.ico');
+const CHEIA = path.join(ICONES, 'sapho_aurora_icon.proposta.svg');
+const REDUZIDA = path.join(ICONES, 'sapho_aurora_icon.proposta.small.svg');
+const SAIDA = path.join(ICONES, 'sapho_aurora_icon.proposta.ico');
 
 /**
  * O maior tamanho que ainda usa a arte reduzida.
@@ -118,6 +125,7 @@ app.whenReady().then(async () => {
   for (const p of [CHEIA, REDUZIDA]) {
     if (!fs.existsSync(p)) {
       console.error(`falta ${path.basename(p)} em assets/icons`);
+      console.error('Este script monta o icone da marca CANDIDATA, nao o em uso.');
       app.exit(1);
       return;
     }

@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.19.1](https://github.com/nipscernlab/aurora/compare/v6.19.0...v6.19.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **projeto:** a config do projeto grava a raiz de hoje, e o estado de onda sai da pasta de fonte ([4427397](https://github.com/nipscernlab/aurora/commit/442739774c7105648325b1683f2b2e9d3b3751c0))
+* **projeto:** o .gtkw escolhido sobrevive a troca de computador ([37f177d](https://github.com/nipscernlab/aurora/commit/37f177d6e762847928ff7ddd5698aa3952b7b0d5))
+
 ## [6.19.0](https://github.com/nipscernlab/aurora/compare/v6.18.0...v6.19.0) (2026-09-14)
 
 

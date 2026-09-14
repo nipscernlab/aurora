@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.19.0](https://github.com/nipscernlab/aurora/compare/v6.18.0...v6.19.0) (2026-09-14)
+
+
+### Features
+
+* **ia:** a citacao do manual passa a funcionar tambem pela assinatura ([c49de72](https://github.com/nipscernlab/aurora/commit/c49de7205e1e992e17a6d1fc30ba79227933d7dc))
+* **ia:** clicar na citacao abre o manual na frase, e nao no topo da pagina ([3c85903](https://github.com/nipscernlab/aurora/commit/3c8590336a6d20b99f1026d02c22f65533a63b20))
+
+
+### Bug Fixes
+
+* **ia:** a citacao verificada aparecia so pelo caminho de API ([dd93e80](https://github.com/nipscernlab/aurora/commit/dd93e80631c7d04f105dd3dd67bf681eae9d61c0))
+* **ia:** o titulo do painel encolhe com reticencias em vez de quebrar e sumir ([1d9eda5](https://github.com/nipscernlab/aurora/commit/1d9eda56100cad07c4ae4a64c21f80d00bbe195d))
+
 ## [6.18.0](https://github.com/nipscernlab/aurora/compare/v6.17.1...v6.18.0) (2026-09-13)
 
 

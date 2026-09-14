@@ -36,8 +36,17 @@ const CHEIA = path.join(ICONES, 'sapho_aurora_icon.svg');
 const REDUZIDA = path.join(ICONES, 'sapho_aurora_icon.small.svg');
 const SAIDA = path.join(ICONES, 'sapho_aurora_icon.ico');
 
-/** O maior tamanho que ainda usa a arte reduzida. */
-const ATE_REDUZIDA = 32;
+/**
+ * O maior tamanho que ainda usa a arte reduzida.
+ *
+ * 48, e nao 32, por causa da escala do Windows. A barra de tarefas pede o
+ * icone em 24 px a 100%, 30 a 125%, 36 a 150%, 42 a 175% e 48 a 200%, e o
+ * Windows escolhe a entrada IGUAL OU MAIOR mais proxima: 36 vira 40 e 42 vira
+ * 48. Parar em 32 deixaria a arte cheia na barra de quem usa 150% ou mais, que
+ * e a maioria das telas de hoje. Ate 48 a barra recebe a reduzida em qualquer
+ * escala, e de 64 para cima ficam os lugares que sao mesmo grandes.
+ */
+const ATE_REDUZIDA = 48;
 
 /** Os tamanhos que entram no .ico, do menor ao maior. */
 const TAMANHOS = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256];

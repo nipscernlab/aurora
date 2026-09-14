@@ -105,6 +105,81 @@ describe('ler na maquina de destino', () => {
   });
 });
 
+describe('o layout do Surfer, pelo mesmo caminho', () => {
+  // O `.surf.ron` e o `.sucl` sao registrados por `AuroraAPI.wave.addSurferFile`,
+  // que guarda `path: abs` (js/api/aurora_api.js). Doenca identica a do `.gtkw`,
+  // e cura identica: `surferFiles` entra na mesma lista de campos de caminho do
+  // store. Este caso existe porque a auditoria dos projetos reais NAO provou
+  // nada sobre ele: nenhum dos quatro tinha layout do Surfer registrado, entao
+  // o campo estava vazio e nao havia absoluto para encontrar. Vazio nao e
+  // limpo, e o codigo dizia que o problema estava la.
+
+  it('grava relativo e acha na outra maquina', async () => {
+    await WaveStore.update(MAQUINA_A, 'tb', (cfg) => {
+      cfg.surferFiles = [{ name: 'tb.surf.ron', path: `${MAQUINA_A}/.aurora/testbench/tb.surf.ron`, isActive: true }];
+    });
+    expect(JSON.parse(disco.get(`${MAQUINA_A}/.aurora/testbench/tb.json`)).surferFiles[0].path)
+      .toBe('.aurora/testbench/tb.surf.ron');
+
+    const json = disco.get(`${MAQUINA_A}/.aurora/testbench/tb.json`);
+    disco.clear();
+    disco.set(`${MAQUINA_B}/.aurora/testbench/tb.json`, json);
+    disco.set(`${MAQUINA_B}/.aurora/testbench/tb.surf.ron`, '');
+
+    const lido = await WaveStore.get(MAQUINA_B, 'tb');
+    expect(lido.surferFiles[0].path).toBe(`${MAQUINA_B}/.aurora/testbench/tb.surf.ron`);
+    expect(lido.surferFiles[0].isActive).toBe(true);
+  });
+
+  it('o absoluto velho tambem e resgatado', async () => {
+    disco.set(`${MAQUINA_B}/.aurora/testbench/tb.json`, JSON.stringify({
+      surferFiles: [{ path: `${MAQUINA_A}/testbench/tb.surf.ron`, isActive: true }],
+    }));
+    disco.set(`${MAQUINA_B}/testbench/tb.surf.ron`, '');
+    const lido = await WaveStore.get(MAQUINA_B, 'tb');
+    expect(lido.surferFiles[0].path).toBe(`${MAQUINA_B}/testbench/tb.surf.ron`);
+  });
+});
+
+describe('o invariante que sustenta o resto', () => {
+  // EM MEMORIA SEMPRE ABSOLUTO, EM DISCO SEMPRE RELATIVO quando esta dentro.
+  //
+  // Nao e detalhe de arrumacao: quem mexe no estado compara caminho por
+  // igualdade. `addSurferFile` procura `f.path === abs` para nao duplicar, e
+  // `removeSurferFile` filtra `f.path !== filePath` para apagar. Se o mutator
+  // recebesse caminho relativo, as duas comparacoes falhariam em silencio: a
+  // primeira duplicaria a entrada, a segunda nao apagaria nada.
+  //
+  // O invariante se mantem porque a relativizacao acontece na ESCRITA, sobre
+  // uma copia, e nunca no objeto que o mutator recebe.
+
+  it('o mutator ve caminho ABSOLUTO, mesmo lendo de um disco relativo', async () => {
+    disco.set(`${MAQUINA_B}/.aurora/testbench/tb.json`, JSON.stringify({
+      gtkwFiles: [{ path: 'Testbench/tb.gtkw' }],
+      surferFiles: [{ path: 'Testbench/tb.surf.ron' }],
+    }));
+    disco.set(`${MAQUINA_B}/Testbench/tb.gtkw`, '');
+    disco.set(`${MAQUINA_B}/Testbench/tb.surf.ron`, '');
+
+    let vistos = null;
+    await WaveStore.update(MAQUINA_B, 'tb', (cfg) => {
+      vistos = [cfg.gtkwFiles[0].path, cfg.surferFiles[0].path];
+    });
+    expect(vistos).toEqual([
+      `${MAQUINA_B}/Testbench/tb.gtkw`,
+      `${MAQUINA_B}/Testbench/tb.surf.ron`,
+    ]);
+  });
+
+  it('e o que volta ao disco continua relativo', async () => {
+    await WaveStore.update(MAQUINA_B, 'tb', (cfg) => {
+      cfg.gtkwFiles = [{ path: `${MAQUINA_B}/Testbench/tb.gtkw` }];
+    });
+    expect(JSON.parse(disco.get(`${MAQUINA_B}/.aurora/testbench/tb.json`)).gtkwFiles[0].path)
+      .toBe('Testbench/tb.gtkw');
+  });
+});
+
 describe('a pasta do estado mudou de lugar', () => {
   // O estado saiu de `testbench/` para `.aurora/testbench/`, porque no Windows
   // a primeira colidia com a pasta `Testbench/` dos .v do usuario. Todo projeto

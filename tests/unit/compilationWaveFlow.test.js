@@ -317,6 +317,78 @@ describe('runGtkWave, Icarus com GTKWave', () => {
     });
 });
 
+describe('o .gtkw escolhido pelo usuario, que e o caso do aluno', () => {
+    // ESTE CAMINHO NAO TINHA TESTE, e era justamente o que quebrou em campo: um
+    // aluno levou um projeto para outra maquina, o `.gtkw` escolhido estava
+    // gravado em caminho absoluto da maquina de origem, e o fluxo foi abrir um
+    // arquivo que nao existia ali.
+    //
+    // O que se exercita e o fluxo inteiro, `runGtkWave()`, e nao o store
+    // sozinho: interessa que o caminho resolvido chegue ao GTKWave, e nao que a
+    // funcao de resolver devolva a string certa.
+
+    /**
+     * Escreve o estado do testbench no disco falso, como o seletor escreveria.
+     *
+     * Por `_escrever`, e NUNCA por `_arquivos.set`: o disco falso guarda
+     * `{ conteudo, mtime }`, e uma string crua no lugar faz o `readFile`
+     * devolver `undefined`. O store trata isso como JSON ilegivel, diz
+     * "unparseable; treating as missing" no stderr e devolve null, e o teste
+     * falha como se o estado nao existisse em vez de como se estivesse
+     * malformado.
+     */
+    function estadoComGtkwAtivo(caminhoGravado) {
+        api._escrever(PROJ + '/.aurora/testbench/' + SIM_TOP + '.json', JSON.stringify({
+            tbModule: SIM_TOP,
+            gtkwFiles: [{ name: 'meu.gtkw', path: caminhoGravado, isActive: true }],
+        }));
+    }
+
+    it('caminho RELATIVO no disco vira absoluto na linha do GTKWave', async () => {
+        estadoComGtkwAtivo('Testbench/meu.gtkw');
+        api._escrever(PROJ + '/Testbench/meu.gtkw', '[*] meu layout\n');
+
+        const mod = await novoModulo(CONFIG_PADRAO);
+        ligarExecutor(api);
+        await mod.runGtkWave();
+
+        expect(api.launchGtkwaveOnly).toHaveBeenCalledTimes(1);
+        const [chamada] = api.launchGtkwaveOnly.mock.calls[0];
+        // O escolhido vence o auto-gerado: e a precedencia que o seletor promete.
+        expect(chamada.args).toContain(PROJ + '/Testbench/meu.gtkw');
+        expect(chamada.args).not.toContain(TEMP + '/' + SIM_TOP + '.gtkw');
+    });
+
+    it('ABSOLUTO de outra maquina e resgatado, e o fluxo nao quebra', async () => {
+        // O estado que existe hoje nos projetos dos alunos.
+        estadoComGtkwAtivo('C:/Users/outro/Desktop/proj/Testbench/meu.gtkw');
+        api._escrever(PROJ + '/Testbench/meu.gtkw', '[*] meu layout\n');
+
+        const mod = await novoModulo(CONFIG_PADRAO);
+        ligarExecutor(api);
+        await mod.runGtkWave();
+
+        const [chamada] = api.launchGtkwaveOnly.mock.calls[0];
+        expect(chamada.args).toContain(PROJ + '/Testbench/meu.gtkw');
+        expect(houveErro()).toBe(false);
+    });
+
+    it('.gtkw que sumiu de verdade nao derruba o passo Wave', async () => {
+        // Nem resgate nem arquivo. A onda tem de abrir de todo jeito, porque o
+        // layout e conforto e o dump e o resultado: perder o layout nao pode
+        // custar a simulacao que acabou de rodar.
+        estadoComGtkwAtivo('Testbench/apagado.gtkw');
+
+        const mod = await novoModulo(CONFIG_PADRAO);
+        ligarExecutor(api);
+        await mod.runGtkWave();
+
+        expect(api.launchGtkwaveOnly).toHaveBeenCalledTimes(1);
+        const [chamada] = api.launchGtkwaveOnly.mock.calls[0];
+        expect(chamada.args).toContain(DUMP);
+    });
+});
+
 describe('as defesas do dump, confirmadas em campo no LABEL', () => {
     it('recusa antes de simular quando o dump existente esta bloqueado', async () => {
         const mod = await novoModulo(CONFIG_PADRAO);

@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.20.0](https://github.com/nipscernlab/aurora/compare/v6.19.1...v6.20.0) (2026-09-16)
+
+
+### Features
+
+* **yanc:** o compilador sobe para a v5.4, e a IDE reconhece a diretiva #FROUND ([8120536](https://github.com/nipscernlab/aurora/commit/812053675dca084eb58ef1a5f1bfe4829b73c3e5))
+
+
+### Bug Fixes
+
+* **components:** atualiza o YANC para a v5.4 ([96fbe86](https://github.com/nipscernlab/aurora/commit/96fbe8669b41af2703f15d9928492303df07a53b))
+
 ## [6.19.1](https://github.com/nipscernlab/aurora/compare/v6.19.0...v6.19.1) (2026-09-14)
 
 

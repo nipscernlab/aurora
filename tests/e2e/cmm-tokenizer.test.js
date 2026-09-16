@@ -55,6 +55,7 @@ const LINHAS = [
   'y # ⟨w|x⟩;',
   'out(0, r|s⟩);',
   '#PRNAME proc_rls',
+  '#FROUND 2',
   '#define N 4',
   'float P[N][N];',
 ];
@@ -106,6 +107,32 @@ describe('E2E — o tokenizador do C± aguenta a notação de Dirac', () => {
     }, LINHAS);
 
     expect(falhas).toEqual([]);
+  }, 60_000);
+
+  // O yanc v5.4 acrescentou a #FROUND, e ela aparece nos dois realces: no .cmm
+  // que a pessoa escreve e no .asm que o cmmcomp gera, porque o cabecalho de
+  // diretivas e copiado inteiro para o assembly. Uma diretiva que o tokenizador
+  // nao conhece nao quebra nada: ela so perde a cor e vira identificador, que e
+  // o tipo de defeito que ninguem reporta e todo mundo estranha. Por isso o
+  // teste compara com uma diretiva antiga em vez de fixar o nome do token.
+  it('a #FROUND vale como diretiva no realce do C+- e no do assembly', async () => {
+    const tipos = await window.evaluate(() => {
+      const primeiroTipo = (linha, lang) => {
+        const linhas = window.monaco.editor.tokenize(linha, lang);
+        return (linhas[0] || []).map((t) => t.type)[0] || '';
+      };
+      return {
+        cmmFround: primeiroTipo('#FROUND 2', 'cmm'),
+        cmmNubits: primeiroTipo('#NUBITS 32', 'cmm'),
+        asmFround: primeiroTipo('#FROUND 2', 'asm'),
+        asmNubits: primeiroTipo('#NUBITS 32', 'asm'),
+      };
+    });
+
+    expect(tipos.cmmFround).toContain('keyword.directive');
+    expect(tipos.asmFround).toContain('keyword.directive');
+    expect(tipos.cmmFround, 'no C+- a #FROUND tem que valer o mesmo que a #NUBITS').toBe(tipos.cmmNubits);
+    expect(tipos.asmFround, 'no assembly a #FROUND tem que valer o mesmo que a #NUBITS').toBe(tipos.asmNubits);
   }, 60_000);
 
   it('um arquivo inteiro no editor nao derruba o realce', async () => {

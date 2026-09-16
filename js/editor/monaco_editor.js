@@ -1145,7 +1145,7 @@ function setupASMLanguage() {
 
         directives: [
             'PRNAME', 'NUBITS', 'NBMANT', 'NBEXPO', 'NDSTAC', 'SDEPTH',
-            'NUIOIN', 'NUIOOU', 'NUGAIN', 'FFTSIZ', 'array', 'arrays', 'ITRAD', 'TOAQUI'
+            'NUIOIN', 'NUIOOU', 'NUGAIN', 'FROUND', 'FFTSIZ', 'array', 'arrays', 'ITRAD', 'TOAQUI'
         ],
 
         instructions: [
@@ -1170,7 +1170,7 @@ function setupASMLanguage() {
 
         tokenizer: {
             root: [
-                [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ|array|arrays|ITRAD|TOAQUI)\b/, 'keyword.directive'],
+                [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FROUND|FFTSIZ|array|arrays|ITRAD|TOAQUI)\b/, 'keyword.directive'],
                 [/\/\/.*$/, 'comment'],
                 [/;.*$/, 'comment'],
                 [/^\s*[a-zA-Z_]\w*:/, 'type.identifier'],
@@ -1491,7 +1491,7 @@ function buildCMMTokenizer(defineConstants) {
 
         tokenizer: {
             root: [
-                [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ|PRACA|TOAQUI)/, 'keyword.directive.cmm'],
+                [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FROUND|FFTSIZ|PRACA|TOAQUI)/, 'keyword.directive.cmm'],
 
                 // Object-like macro: `#define NAME body`. The directive + the
                 // name being defined are coloured here; every later use of NAME

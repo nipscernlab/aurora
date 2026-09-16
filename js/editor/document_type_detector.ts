@@ -48,7 +48,7 @@ function metaFor(type: string | null | undefined): TypeMeta | undefined {
     return undefined;
 }
 
-const CMM_DIRECTIVE_RE = /^#(?:PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN)\b/i;
+const CMM_DIRECTIVE_RE = /^#(?:PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FROUND)\b/i;
 const COMMENT_ONLY_RE = /^(?:\/\/|#(?!!)|\/\*|\*)/;
 
 function firstMeaningfulLine(content: string): string {

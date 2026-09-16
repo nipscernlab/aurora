@@ -5,9 +5,12 @@
  * Baixa yanc-bin-vX.zip do release pinado em
  * github.com/nipscernlab/yanc e extrai em components/. O zip contem:
  *   - bin/  (cmmcomp.exe, cppcomp.exe, asmcomp.exe, cpppp.exe,
- *            appcomp.exe, comp2gtkw.exe, 6 binarios desde v4)
+ *            appcomp.exe, comp2gtkw.exe desde v4, mais gen_gtkw.exe
+ *            desde v5.0: sao 7 binarios, nao 6)
  *   - HDL/  (processor.v, core.v, addr_dec.v, instr_dec.v, ula.v,
- *            myFIFO.v, bibliotecas verilog do toolchain SAPHO, v2+)
+ *            myFIFO.v, bibliotecas verilog do toolchain SAPHO, v2+.
+ *            v5.4 acrescentou o parametro FROUND, o nivel de
+ *            arredondamento do float, em processor/core/ula.)
  *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)

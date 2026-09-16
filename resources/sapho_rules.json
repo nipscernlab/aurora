@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-14T21:30:22.747Z",
+  "generatedAt": "2026-09-16T13:28:46.329Z",
   "source": {
-    "yancPath": "C:/Users/chrys/Documents/GitHub/yanc",
-    "yancCommit": "37ca0392443b"
+    "yancPath": "C:/Users/LCOM/Documents/Github/yanc",
+    "yancCommit": "00fc89952930"
   },
   "language": {
     "keywords": [
@@ -181,6 +181,12 @@
       "symbol": "#FFTSIZ",
       "token": "FFTSIZ"
     },
+    "FROUND": {
+      "symbol": "#FROUND",
+      "token": "FROUND",
+      "description": "float rounding level (#FROUND)",
+      "default": 0
+    },
     "TOAQUI": {
       "symbol": "#TOAQUI",
       "token": "TOAQUI"
@@ -215,6 +221,7 @@
       "FNUM",
       "FOR",
       "FOUT",
+      "FROUND",
       "GREQU",
       "ID",
       "IF",
@@ -369,6 +376,13 @@
       "category": "variable / number errors",
       "pt": "Erro na linha %d: símbolo 'i' é reservado para indicar a parte imaginária de uma constante complexa.\n",
       "en": "Error on line %d: the symbol 'i' is reserved for the imaginary part of a complex constant. Hands off!\n"
+    },
+    {
+      "code": "MSG_ERR_FROUND_RANGE",
+      "severity": "error",
+      "category": "variable / number errors",
+      "pt": "Erro na linha %d: #FROUND só aceita 0 (legado), 1 (truncamento exato + saturação) ou 2 (arredondamento ao par).\n",
+      "en": "Error on line %d: #FROUND only takes 0 (legacy), 1 (exact truncation + saturation) or 2 (round to nearest even).\n"
     },
     {
       "code": "MSG_ERR_INT_MAX_OVERFLOW",
@@ -1090,6 +1104,13 @@
       "category": "info messages",
       "pt": "Info: %d instruções assembly geradas\n",
       "en": "Info: %d assembly instructions generated\n"
+    },
+    {
+      "code": "MSG_WARN_CONST_FLUSHED",
+      "severity": "warning",
+      "category": "info messages",
+      "pt": "Atenção na linha %d: a constante %s é menor que o menor float normal (%g) e vira 0 com #FROUND %d. Use #FROUND 0 ou aumente #NBEXPO.\n",
+      "en": "Heads up on line %d: constant %s is below the smallest normal float (%g) and becomes 0 at #FROUND %d. Use #FROUND 0 or raise #NBEXPO.\n"
     },
     {
       "code": "MSG_INFO_CONST_APPROX",

@@ -158,7 +158,7 @@ const COMPONENTES = [
     essencial: true,
     requerParaCompilar: true,
     script: 'download-yanc.js',
-    versao: 'v5.3',
+    versao: 'v5.4',
     // O YANC ja tinha carimbo proprio antes dos outros; o nome fica.
     carimbo: 'bin/.yanc-version',
   },

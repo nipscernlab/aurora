@@ -718,10 +718,9 @@
       "exec": "Running",
       "reads": "reads",
       "openFolder": "Open this folder in the file tree (folder view)",
-      "toaquiAdded": "Added #TOAQUI before main()'s closing brace in {{file}}, the 'cheguei' pin now pulses at program end, so the sim stops as soon as the program finishes.",
-      "toaquiPresent": "{{file}} already has a #TOAQUI, leaving it as is.",
-      "toaquiNoMain": "Could not find main()'s closing brace in {{file}}, #TOAQUI not added; the sim will run the full clock budget.",
-      "chegueiEnd": "Program end reached at clock {{clock}} (cheguei pin), simulation stopped early."
+      "fimUnknown": "Could not find the program-end address of {{name}} (app_log.txt has no @fim line); the sim will run the full clock budget.",
+      "pcNotVisible": "The generated <proc>.v of {{name}} does not expose the PC to the harness (no simulation-visibility block): it ran the full clock budget instead of stopping at program end.",
+      "chegueiEnd": "Program end reached at clock {{clock}} (PC at @fim), simulation stopped early."
     },
     "cmd": {
       "placeholder": "Run a command (python, git, cd …) and press Enter"

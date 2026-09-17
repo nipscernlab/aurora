@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // cmm/asm rodam .exe externos via runSpec e dirigem status/abas, mockados aqui
 // pra exercitar o fluxo + o seam (lastCompiledCmmPath) sem tocar a toolchain.
-// Os builders (puros) e o insertChegueiToaqui rodam de verdade.
+// Os builders (puros) rodam de verdade.
 vi.mock('../../js/compilation/spec_runner.js', () => ({ runSpec: vi.fn() }));
 vi.mock('../../js/tabs/tab_manager.js', () => ({ TabManager: { saveAllFiles: vi.fn() } }));
 vi.mock('../../js/ui/status_updater.js', () => ({
@@ -15,14 +15,12 @@ vi.mock('../../js/ui/status_updater.js', () => ({
 
 import { runSpec } from '../../js/compilation/spec_runner.js';
 import {
-    getSelectedCmmFile, getTestbenchInfo, ensureChegueiToaqui,
+    getSelectedCmmFile, getTestbenchInfo,
     cmmCompilation, asmCompilation, stageProcessorMemoryFiles,
 } from '../../js/compilation/processor_compiler.js';
 
-// fixtures .cmm (insertChegueiToaqui real)
+// fixture .cmm: o que esta no disco tem de continuar la, byte a byte
 const CMM_WITH_MAIN = 'void main(){\n  int x;\n  x = 1;\n}\n';
-const CMM_NO_MAIN = 'int helper(){ return 0; }\n';
-const CMM_HAS_TOAQUI = 'void main(){\n  #TOAQUI\n}\n';
 
 function makeTerm() {
     const calls = [];
@@ -100,69 +98,36 @@ describe('getTestbenchInfo', () => {
     });
 });
 
-describe('ensureChegueiToaqui', () => {
-    const SW = '/proj/ProcX/Software';
-    it('adiciona #TOAQUI quando ha main() sem a diretiva (escreve + info)', async () => {
-        const d = makeDeps();
-        window.electronAPI._files.set(`${SW}/foo.cmm`, CMM_WITH_MAIN);
-        await ensureChegueiToaqui(d, SW, 'foo.cmm');
-        expect(window.electronAPI._files.get(`${SW}/foo.cmm`)).toContain('#TOAQUI');
-        expect(logged('info')).toBe(true);
-    });
-    it('idempotente: nao reescreve quando #TOAQUI ja existe (log plain)', async () => {
-        const d = makeDeps();
-        window.electronAPI._files.set(`${SW}/foo.cmm`, CMM_HAS_TOAQUI);
-        await ensureChegueiToaqui(d, SW, 'foo.cmm');
-        expect(window.electronAPI._files.get(`${SW}/foo.cmm`)).toBe(CMM_HAS_TOAQUI);
-        expect(deps.terminalManager.calls.some((c) => c.level === 'plain')).toBe(true);
-    });
-    it('warning quando nao acha main() pra instrumentar', async () => {
-        const d = makeDeps();
-        window.electronAPI._files.set(`${SW}/foo.cmm`, CMM_NO_MAIN);
-        await ensureChegueiToaqui(d, SW, 'foo.cmm');
-        expect(window.electronAPI._files.get(`${SW}/foo.cmm`)).toBe(CMM_NO_MAIN);
-        expect(logged('warning')).toBe(true);
-    });
-    it('silencioso (sem throw) quando o .cmm nao existe', async () => {
-        const d = makeDeps();
-        await expect(ensureChegueiToaqui(d, SW, 'missing.cmm')).resolves.toBeUndefined();
-        expect(deps.terminalManager.calls).toEqual([]);
-    });
-});
-
-describe('cmmCompilation (seam lastCompiledCmmPath + gating #TOAQUI)', () => {
+describe('cmmCompilation (seam lastCompiledCmmPath; o .cmm nunca e tocado)', () => {
     const proc = { name: 'ProcX', cmmFile: 'foo.cmm', showArrays: false };
 
     it('cacheia lastCompiledCmmPath e devolve o asmPath em sucesso', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
         const setLast = vi.fn();
-        const asmPath = await cmmCompilation(d, proc, null, setLast);
+        const asmPath = await cmmCompilation(d, proc, setLast);
         expect(setLast).toHaveBeenCalledTimes(1);
         expect(setLast).toHaveBeenCalledWith('/proj/ProcX/Software/foo.cmm');
         expect(asmPath).toBe('/proj/ProcX/Software/foo.asm');
     });
 
-    it('instrumenta #TOAQUI quando chegueiInstrumentProc === name', async () => {
+    it('roda so o cmmcomp, com as opcoes nomeadas, e nao toca o .cmm do usuario', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
         window.electronAPI._files.set('/proj/ProcX/Software/foo.cmm', CMM_WITH_MAIN);
-        await cmmCompilation(d, proc, 'ProcX', vi.fn());
-        expect(window.electronAPI._files.get('/proj/ProcX/Software/foo.cmm')).toContain('#TOAQUI');
-    });
-
-    it('NAO instrumenta quando chegueiInstrumentProc !== name', async () => {
-        const d = makeDeps();
-        runSpec.mockResolvedValue({ code: 0 });
-        window.electronAPI._files.set('/proj/ProcX/Software/foo.cmm', CMM_WITH_MAIN);
-        await cmmCompilation(d, proc, null, vi.fn());
+        await cmmCompilation(d, proc, vi.fn());
+        expect(runSpec).toHaveBeenCalledTimes(1);
+        const spec = runSpec.mock.calls[0][0];
+        expect(spec.step).toBe('cmm');
+        expect(spec.args).toEqual(expect.arrayContaining(['-i', 'foo.cmm', '-n', 'foo']));
+        expect(spec.args).not.toContain('-c');
         expect(window.electronAPI._files.get('/proj/ProcX/Software/foo.cmm')).toBe(CMM_WITH_MAIN);
     });
 
     it('lanca cmmFailed quando o cmmcomp retorna code != 0', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 2 });
-        await expect(cmmCompilation(d, proc, null, vi.fn())).rejects.toThrow('error.compilation.cmmFailed');
+        await expect(cmmCompilation(d, proc, vi.fn())).rejects.toThrow('error.compilation.cmmFailed');
     });
 });
 

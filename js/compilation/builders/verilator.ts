@@ -252,6 +252,14 @@ export function buildVerilatorTbBuildSpec(ctx: VerilatorTbBuildBuilderCtx): Comm
       // --timing porque la o testbench .v usa #delays pra gerar o clock.
       '--x-assign', 'fast',
       ...verilatorThreadsArgs(),
+      // Liga o bloco YANC_SIM_VIS do <proc>.v gerado (igual ao fluxo Wave).
+      // Aqui NAO e' pelo waveform: e' o unico jeito de o harness saber que o
+      // programa terminou, lendo `valr10` (a cadeia de atraso do PC, marcada
+      // `public_flat` la dentro) e comparando com o endereco do @fim, como o
+      // _tb.v do Icarus ja faz. Sem isso a sim roda o teto de clocks inteiro.
+      // O bloco e' simulacao-only por construcao: o <proc>.v o cerca de
+      // `ifdef YANC_SIM_VIS`, entao a sintese nunca o ve.
+      '+define+YANC_TRACE',
       // Runtime-first, igual ao fluxo Wave (sims de processador sao longas):
       // -O3 + -march=native pra maximizar a velocidade do .exe. Subiu de -O2.
       '-CFLAGS', VERILATOR_OPT_LEVEL,

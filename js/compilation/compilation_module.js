@@ -528,7 +528,7 @@ async loadConfig() {
 
     async cmmCompilation(processor) {
         return cmmCompilation(
-            this._instanceDeps(), processor, this._chegueiInstrumentProc,
+            this._instanceDeps(), processor,
             (p) => { this.lastCompiledCmmPath = p; },
         );
     }
@@ -2515,6 +2515,28 @@ _resolveProcessorTarget() {
     return procs.find((p) => p.name === activeName) || null;
 }
 
+    /**
+     * Endereco do laco de parada (@fim) do processador, lido da linha
+     * `@fim <n>` do app_log.txt que o appcomp escreve na Temp. E' a MESMA
+     * fonte que o asmcomp usa pra cravar o $finish do _tb.v do Icarus
+     * (labels.c: se o label e' "fim", chama sim_set_fim(val)), entao os
+     * dois fluxos param no mesmo endereco. null se o arquivo nao existe ou
+     * nao tem a linha.
+     *
+     * @param {string} tempBaseDir  Temp do projeto (.aurora/Temp)
+     * @param {string} procName
+     * @returns {Promise<number|null>}
+     */
+    async _readFimAddress(tempBaseDir, procName) {
+        try {
+            const logPath = await electronAPI.joinPath(tempBaseDir, procName, 'app_log.txt');
+            const text = await electronAPI.readFile(logPath, { encoding: 'utf8' });
+            const m = /^@fim\s+(\d+)\s*$/m.exec(String(text || ''));
+            if (m) return Number(m[1]);
+        } catch (_e) { /* sem arquivo: sem fim conhecido */ }
+        return null;
+    }
+
 /**
  * Pipeline do harness Verilator do processador CMM. Throws com mensagem
  * clara em qualquer falha de etapa.
@@ -2576,11 +2598,21 @@ async verilatorProcessorRun() {
     }
 
     // ---- Passo 3: gera o harness C++ ----
+    // Fim do programa: o harness le `valr10` (a cadeia de atraso do PC que o
+    // bloco YANC_SIM_VIS do <proc>.v declara public_flat) e para quando ela
+    // chega ao laco de parada @fim, cujo endereco vem do app_log.txt do
+    // appcomp -- a mesma fonte do $finish do _tb.v do Icarus. Sem o arquivo,
+    // roda o teto de clocks e avisa. Nenhum pino, nenhum #TOAQUI, nenhuma
+    // mudanca no hardware, e o .cmm do usuario nao e tocado.
+    const fimAddr = await this._readFimAddress(tempBaseDir, procName);
+    if (fimAddr == null) {
+        this.terminalManager.appendToTerminal(T, tr('terminal.htest.fimUnknown', { name: procName }), 'warning');
+    }
     this.terminalManager.appendToTerminal(T, tr('terminal.htest.genCpp', { name: procName }), 'info');
     const gen = generateVerilatorProcTb({
         topModule: procName, ports,
         inputs: wiring.inputs, outputs: wiring.outputs,
-        numClocks,
+        numClocks, fimAddr,
     });
     const cppPath = await electronAPI.joinPath(tempBaseDir, `tl_proc_${procName}.cpp`);
     await electronAPI.writeFile(cppPath, gen.source);
@@ -2627,11 +2659,15 @@ async verilatorProcessorRun() {
     // ~1% dos clocks (com fflush). Essas linhas movem a barra e NAO sao
     // ecoadas; o formato mora no progress_line.js, junto com os demais, e a
     // barra e alimentada pelo mesmo _consumirProgresso dos outros caminhos.
-    // O @@AURORA_CHEGUEI <clock> nao e progresso e sim o fim: o pino `cheguei`
-    // (#TOAQUI) encerrou a simulacao, e guardamos o clock para avisar o
+    // O @@AURORA_CHEGUEI <clock> nao e progresso e sim o fim: o PC chegou ao
+    // @fim e o harness encerrou a simulacao; guardamos o clock para avisar o
     // usuario. Tambem e consumido; o resto do stdout vai como plain (so no
     // verbose).
     const CHEGUEI_RE = /^@@AURORA_CHEGUEI\s+(\d+)/;
+    // @@AURORA_NOPC: a HDL embarcada e' anterior ao `public_flat_rd` do PC
+    // (YANC <= v5.4); o harness nao enxerga o fim e roda o teto de clocks.
+    const NOPC_RE = /^@@AURORA_NOPC\b/;
+    let pcNotVisible = false;
     const execLabel = tr('terminal.htest.exec');
     let chegueiClock = null;
     let lastReads = null;
@@ -2653,6 +2689,7 @@ async verilatorProcessorRun() {
                 }
                 const ch = line.match(CHEGUEI_RE);
                 if (ch) { chegueiClock = +ch[1]; continue; }
+                if (NOPC_RE.test(line)) { pcNotVisible = true; continue; }
                 if (!line.trim()) continue;
                 this.terminalManager.processStreamedLine(T, line.trim());
             }
@@ -2677,6 +2714,9 @@ async verilatorProcessorRun() {
     });
 
     // Encerrou pelo pino `cheguei` (programa terminou antes do teto de clocks).
+    if (pcNotVisible) {
+        this.terminalManager.appendToTerminal(T, tr('terminal.htest.pcNotVisible', { name: procName }), 'warning');
+    }
     if (chegueiClock != null) {
         this.terminalManager.appendToTerminal(T,
             tr('terminal.htest.chegueiEnd', { clock: chegueiClock }), 'success');

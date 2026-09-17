@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   basenameOfPath, moduleStemFromPath, isPythonFile,
-  parseCocotbToplevelDirective, insertChegueiToaqui, decideCocotbDut,
+  parseCocotbToplevelDirective, decideCocotbDut,
   isVerilogLikeFile, assertPythonModuleName, safeNamePart,
 } from '../../js/compilation/compilation_helpers.ts';
 
@@ -70,41 +70,6 @@ describe('safeNamePart', () => {
     expect(safeNamePart('')).toBe('cocotb');
     expect(safeNamePart('!!!')).toBe('cocotb');
     expect(safeNamePart(null)).toBe('cocotb');
-  });
-});
-
-describe('insertChegueiToaqui', () => {
-  it('inserts #TOAQUI before the closing brace of main()', () => {
-    const src = 'void main() {\n  int x = 1;\n}';
-    const out = insertChegueiToaqui(src);
-    expect(out).toContain('#TOAQUI');
-    // must sit before the final closing brace
-    expect(out.indexOf('#TOAQUI')).toBeLessThan(out.lastIndexOf('}'));
-    expect(out).toContain('int x = 1;');
-  });
-  it('matches the correct brace past nested blocks and comments', () => {
-    const src = [
-      'int main() {',
-      '  if (a) { // } not the end',
-      '    b = 1; /* } still not */',
-      '  }',
-      '}',
-    ].join('\n');
-    const out = insertChegueiToaqui(src);
-    // exactly one insertion, before the outermost closing brace
-    expect(out.match(/#TOAQUI/g)).toHaveLength(1);
-    expect(out.trimEnd().endsWith('}')).toBe(true);
-  });
-  it('returns the source unchanged when there is no main()', () => {
-    const src = 'void helper() {\n  return;\n}';
-    expect(insertChegueiToaqui(src)).toBe(src);
-  });
-  it('returns the source unchanged when braces are unbalanced', () => {
-    const src = 'int main() {\n  if (a) {\n';
-    expect(insertChegueiToaqui(src)).toBe(src);
-  });
-  it('is null-safe', () => {
-    expect(insertChegueiToaqui(null)).toBe('');
   });
 });
 

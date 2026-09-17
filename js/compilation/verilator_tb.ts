@@ -215,6 +215,9 @@ export interface GenProcTbInput {
   outputs: ProcOutput[];
   /** nº de clocks (config de sim do processador) */
   numClocks?: number;
+  /** endereco do laco de parada @fim (indice da linha END no pc_<proc>_mem.txt);
+   *  null/undefined = desconhecido, roda numClocks inteiros */
+  fimAddr?: number | null;
 }
 
 /**
@@ -225,9 +228,22 @@ export interface GenProcTbInput {
  * - rst: pulso de 1 ciclo (alto so no 1o posedge).
  * - itr: dirigido a 0 SO se a porta existir (alguns procs nao tem).
  * - I/O: decimal COM SINAL (mesmo formato dos input_/output_ do iverilog).
- * - Roda numClocks fixos.
+ * - Roda ate numClocks, ou ate o PC chegar ao @fim (fimAddr). O PC vem de
+ *   `valr10` do <proc>.v: o bloco YANC_SIM_VIS (ligado por +define+YANC_TRACE,
+ *   que o build deste harness passa) declara essa cadeia de atraso do PC como
+ *   `public_flat` (o atributo de comentario do Verilator), e e' exatamente
+ *   contra ela que o _tb.v
+ *   do Icarus compara o @fim (`proc.valr10 == fim`). Nada de pino `cheguei`,
+ *   nada de #TOAQUI: o hardware do processador nao muda, e a visibilidade
+ *   existe so na simulacao.
+ * - valr10 e' o PC atrasado 10 ciclos, entao a parada acontece 10 ciclos
+ *   depois do fim real; o _tb.v do Icarus tem o mesmo atraso.
+ * - O membro pode nao existir (um <proc>.v gerado sem o bloco, ou compilado
+ *   sem o define). O leitor e' um template com SFINAE (como era o do pino
+ *   `cheguei`): sem ele o harness ainda compila, roda o teto de clocks e
+ *   imprime @@AURORA_NOPC uma vez pra Aurora avisar.
  */
-export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, numClocks = 2000 }: GenProcTbInput): GenProcTbResult {
+export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, numClocks = 2000, fimAddr = null }: GenProcTbInput): GenProcTbResult {
   const clk = findPort(ports, 'clk') || ports.find((p) => p.direction === 'input' && p.width === 1 && isClockName(p.name));
   const rst = findPort(ports, 'rst') || findPort(ports, 'reset');
   const itr = findPort(ports, 'itr');
@@ -284,11 +300,11 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   // num IData de 32), e nao garante os bits extras zerados.
   const outW = outBus ? outBus.width : 0;
   const inW = inBus ? inBus.width : 0;
-  // Pino de fim-de-programa: o #TOAQUI no .cmm faz o asmcomp expor `cheguei`
-  // como porta top-level de saida do <proc>.v. Quando presente, o harness
-  // encerra o loop assim que ela pulsa (programa acabou) em vez de rodar o
-  // teto fixo de clocks. Pode nao existir (cmm sem #TOAQUI), entao null.
-  const cheguei = findPort(ports, 'cheguei');
+  // Fim de programa: valr10, a cadeia de atraso do PC no proprio <proc>.v
+  // (bloco YANC_SIM_VIS). O PC fica parado no @fim (JMP fim), entao amostrar
+  // a cada posedge basta.
+  const pcMember = `${topModule}__DOT__valr10`;
+  const stopAtFim = Number.isInteger(fimAddr) && (fimAddr as number) >= 0;
   const L: string[] = [];
 
   L.push(`// Auto-gerado por Aurora — harness Verilator do processador "${topModule}".`);
@@ -296,7 +312,17 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   L.push(`// reusando os mesmos input_<N>.txt / output_<N>.txt do sim iverilog.`);
   L.push(`// Roda ${numClocks} clocks (config de simulacao do processador).`);
   L.push(`#include "V${topModule}.h"`);
+  if (stopAtFim) L.push(`#include "V${topModule}___024root.h"`);
   L.push(`#include "verilated.h"`);
+  if (stopAtFim) {
+    L.push('');
+    L.push(`// PC do processador via rootp (<proc>.v: valr10, public_flat no bloco YANC_SIM_VIS).`);
+    L.push(`// SFINAE: se o membro nao existir (bloco ausente ou compilado sem YANC_TRACE),`);
+    L.push(`// a sobrecarga de reserva devolve ~0u e o harness roda o teto de clocks`);
+    L.push(`// (ver @@AURORA_NOPC).`);
+    L.push(`template <typename R> auto read_pc(R* r, int) -> decltype((unsigned)(r->${pcMember})) { return (unsigned)(r->${pcMember}); }`);
+    L.push(`template <typename R> unsigned read_pc(R*, ...) { return ~0u; }`);
+  }
   L.push(`#include <cstdint>`);
   L.push(`#include <cstdio>`);
   L.push(`#include <cstring>`);
@@ -350,8 +376,11 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   // uma vez antes do loop em vez de a cada ciclo. Nao muda nada no modelo
   // e tira um store do caminho quente.
   if (itr) L.push(`  top->${itr.name} = 0;`);
-  // Quantos clocks realmente rodaram (pode ser < nclk se `cheguei` encerrar).
+  // Quantos clocks realmente rodaram (pode ser < nclk se o @fim encerrar).
   L.push(`  unsigned ran = nclk;`);
+  if (stopAtFim) {
+    L.push(`  if(read_pc(top->rootp, 0) == ~0u){ printf("@@AURORA_NOPC\\n"); fflush(stdout); }`);
+  }
   L.push('');
   L.push(`  for(unsigned cyc=0; cyc<nclk; cyc++){`);
   L.push(`    top->${rst ? rst.name : 'rst'} = (cyc==0) ? 1 : 0;`);
@@ -374,10 +403,10 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
     }
     L.push(`    }`);
   }
-  if (cheguei) {
-    L.push(`    // #TOAQUI pulsou 'cheguei' -> programa terminou; encerra a sim agora`);
+  if (stopAtFim) {
+    L.push(`    // PC no @fim (laco de parada) -> programa terminou; encerra a sim agora`);
     L.push(`    // e sinaliza o clock do fim (@@AURORA_CHEGUEI) pra Aurora avisar.`);
-    L.push(`    if(top->${cheguei.name}){ ran = cyc + 1; printf("@@AURORA_CHEGUEI %u\\n", ran); fflush(stdout); break; }`);
+    L.push(`    if(read_pc(top->rootp, 0) == ${fimAddr}u){ ran = cyc + 1; printf("@@AURORA_CHEGUEI %u\\n", ran); fflush(stdout); break; }`);
   }
   L.push(`    // --- borda de descida: le a entrada que o processador pediu ---`);
   L.push(`    top->${clk!.name} = 0; top->eval(); main_time++;`);
@@ -393,7 +422,7 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   L.push(`    if((cyc % step) == 0){ printf("@@AURORA_PROG %u %u %llu\\n", cyc+1, nclk, reads); fflush(stdout); }`);
   L.push(`  }`);
   // Marcador final = clocks REALMENTE rodados (ran). Em run completo ran==nclk
-  // (100%); se 'cheguei' encerrou antes, reflete o clock de parada (ex: 1224).
+  // (100%); se o @fim encerrou antes, reflete o clock de parada (ex: 1224).
   L.push(`  printf("@@AURORA_PROG %u %u %llu\\n", ran, nclk, reads); fflush(stdout);`);
   // FILE* nao tem destrutor, fechar explicitamente pra dar flush das saidas
   // bufferizadas antes do processo terminar.

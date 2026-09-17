@@ -718,10 +718,9 @@
       "exec": "Executando",
       "reads": "leituras",
       "openFolder": "Abrir esta pasta na file tree (visão de pastas)",
-      "toaquiAdded": "Adicionei #TOAQUI antes do } que fecha o main() em {{file}}, o pino 'cheguei' agora pulsa no fim do programa, então a simulação encerra assim que o programa termina.",
-      "toaquiPresent": "{{file}} já tem um #TOAQUI, mantido como está.",
-      "toaquiNoMain": "Não encontrei o } que fecha o main() em {{file}}, #TOAQUI não adicionado; a simulação vai rodar o teto de clocks inteiro.",
-      "chegueiEnd": "Fim do programa alcançado no clock {{clock}} (pino cheguei), simulação encerrada antes do teto."
+      "fimUnknown": "Não achei o endereço de fim de programa de {{name}} (app_log.txt sem a linha @fim); a simulação vai rodar o teto de clocks inteiro.",
+      "pcNotVisible": "O <proc>.v de {{name}} não expõe o PC ao harness (sem o bloco de visibilidade de simulação): rodou o teto de clocks inteiro em vez de parar no fim do programa.",
+      "chegueiEnd": "Fim do programa alcançado no clock {{clock}} (PC no @fim), simulação encerrada antes do teto."
     },
     "cmd": {
       "placeholder": "Rode um comando (python, git, cd …) e tecle Enter"

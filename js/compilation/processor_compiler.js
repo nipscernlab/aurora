@@ -3,8 +3,8 @@
 // Extracted from compilation_module.js (A2 god-file decomposition #5, the last
 // one). These drive the per-processor toolchain: cmmcomp (.cmm → .asm), then
 // appcomp + asmcomp (.asm → <proc>.v + pc_*_mem.txt + <base>_tb.v), plus the
-// helpers that resolve which .cmm/testbench to use, instrument #TOAQUI, and
-// stage processor memory files into Temp/.
+// helpers that resolve which .cmm/testbench to use and stage processor memory
+// files into Temp/.
 //
 // They are NOT pure, they run external .exe via runSpec, save editor buffers,
 // drive the status bar, and stream to the terminal. Rather than capture instance
@@ -13,15 +13,18 @@
 // thin delegators for the public API (cmmCompilation / asmCompilation are called
 // by compilation_flow.js) and for _stageProcessorMemoryFiles.
 //
-// TWO instance-field seams stay OWNED by CompilationModule:
+// ONE instance-field seam stays OWNED by CompilationModule:
 //   - lastCompiledCmmPath: read by the terminal's "line N" click handler
 //     (terminal_module.js) via the instance. cmmCompilation writes it BEFORE the
 //     compile runs (so a click after a FAILED compile still resolves to the .cmm
 //     that failed). To preserve that exact timing, the caller passes a
 //     `setLastCompiledCmmPath` callback and cmmCompilation invokes it at the same
 //     point, the field is written inside the class, not here.
-//   - _chegueiInstrumentProc: set externally by compilation_flow.js to gate the
-//     #TOAQUI instrumentation. Passed in as `chegueiInstrumentProc`.
+//
+// The Verilator button used to need a #TOAQUI in the .cmm (so the <proc>.v
+// would grow a `cheguei` pin) and inserted one into the user's source. It no
+// longer does: the harness reads the program counter and stops at @fim
+// (verilator_tb.ts), so nothing here touches the source or the opcode set.
 //
 // Kept on `electronAPI` (live global) rather than the ../app/electron_api
 // re-export so the module stays unit-testable with the repo's
@@ -34,7 +37,7 @@ import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec } from './spec_runner.js';
 import { buildCmmSpec, buildAsmPreSpec, buildAsmSpec } from './builders/index.js';
 import * as CommandSpec from './command_spec.js';
-import { moduleStemFromPath, insertChegueiToaqui } from './compilation_helpers.js';
+import { moduleStemFromPath } from './compilation_helpers.js';
 import { analisarVerilog, totaisDoVerilog } from './verilog_stats.js';
 import { projectTempDir } from '../project/project_temp.js';
 
@@ -89,60 +92,14 @@ export async function getTestbenchInfo(deps, processor, cmmBaseName) {
 }
 
 /**
- * Garante que o .cmm tenha #TOAQUI antes do `}` de main(), sem isso o
- * pino `cheguei` nao vira porta do <proc>.v e o harness do botao Verilator
- * nao consegue detectar o fim do programa. Idempotente: se ja houver
- * #TOAQUI em qualquer lugar do arquivo, nao mexe. Roda DEPOIS do
- * saveAllFiles (sem corrida) e sincroniza o buffer do editor aberto pra
- * que um save manual posterior nao derrube a instrumentacao.
- *
- * @param {{ terminalManager: object }} deps
- * @param {string} softwarePath  <proj>/<proc>/Software
- * @param {string} cmmFile       nome do .cmm (ex: ProcDTW.cmm)
- */
-export async function ensureChegueiToaqui(deps, softwarePath, cmmFile) {
-    const cmmPath = await electronAPI.joinPath(softwarePath, cmmFile);
-    let src;
-    try {
-        src = await electronAPI.readFile(cmmPath, { encoding: 'utf8' });
-    } catch (_e) {
-        return; // sem .cmm — o proprio cmmcomp vai reclamar adiante
-    }
-
-    if (/#TOAQUI\b/.test(src)) {
-        deps.terminalManager.appendToTerminal('thtest',
-            tr('terminal.htest.toaquiPresent', { file: cmmFile }), 'plain', { internal: true });
-        return;
-    }
-
-    const out = insertChegueiToaqui(src);
-    if (out === src) {
-        deps.terminalManager.appendToTerminal('thtest',
-            tr('terminal.htest.toaquiNoMain', { file: cmmFile }), 'warning');
-        return;
-    }
-
-    await electronAPI.writeFile(cmmPath, out);
-    // Mantem o editor em sincronia com o disco (se o .cmm estiver aberto),
-    // pra que um Ctrl+S posterior nao reescreva sem o #TOAQUI.
-    const model = window.SharedModelRegistry?.getModel?.(cmmPath)
-        ?? window.EditorManager?.getEditorForFile?.(cmmPath)?.getModel?.();
-    if (model && model.getValue() !== out) model.setValue(out);
-
-    deps.terminalManager.appendToTerminal('thtest',
-        tr('terminal.htest.toaquiAdded', { file: cmmFile }), 'info');
-}
-
-/**
  * Compila o .cmm do processador via cmmcomp.exe → <proj>/<proc>/Software/<base>.asm.
  *
  * @param {{ projectPath: string, componentsPath: string, terminalManager: object }} deps
  * @param {object} processor                  entrada do .spf (name, cmmFile, showArrays)
- * @param {string|null} chegueiInstrumentProc nome do proc a instrumentar com #TOAQUI (botao Verilator), ou null
  * @param {(path: string) => void} setLastCompiledCmmPath  cacheia o .cmm corrente na instancia (lido pelo terminal)
  * @returns {Promise<string>} asmPath
  */
-export async function cmmCompilation(deps, processor, chegueiInstrumentProc, setLastCompiledCmmPath) {
+export async function cmmCompilation(deps, processor, setLastCompiledCmmPath) {
     const { name, showArrays } = processor;
     await deps.terminalManager.clearTerminal('tcmm');
 
@@ -169,15 +126,6 @@ export async function cmmCompilation(deps, processor, chegueiInstrumentProc, set
         const asmPath = await electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
 
         await TabManager.saveAllFiles();
-
-        // Botao Verilator: instrumenta o .cmm do processador-alvo com
-        // #TOAQUI (pino `cheguei` no fim do programa) ANTES do cmmcomp.exe
-        // ler o arquivo. Aqui, depois do saveAllFiles, pra que o save
-        // nao sobrescreva a instrumentacao com o buffer do editor. Idem-
-        // potente: pula se ja houver #TOAQUI em qualquer lugar.
-        if (chegueiInstrumentProc === name) {
-            await ensureChegueiToaqui(deps, softwarePath, selectedCmmFile);
-        }
 
         statusUpdater.startCompilation('cmm');
 

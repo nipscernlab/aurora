@@ -324,7 +324,7 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
     "vite-plugin-static-copy": "^4.1.1",
-    "vitest": "^4.1.5"
+    "vitest": "^5.0.1"
   },
   "allowScripts": {
     "@anthropic-ai/claude-code": true,

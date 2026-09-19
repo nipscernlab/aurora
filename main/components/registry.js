@@ -70,13 +70,17 @@ const path = require('path');
  * quebraria se algum dia ele fosse carregado antes do app estar pronto. O
  * caminho nao muda durante a execucao, entao a resolucao fica guardada.
  */
+/** @type {string|null} */
 let raizGuardada = null;
 function raiz() {
   if (raizGuardada === null) raizGuardada = require('../paths').componentsPath;
   return raizGuardada;
 }
 
-/** Aponta o catalogo para outra pasta. So os testes chamam. */
+/**
+ * Aponta o catalogo para outra pasta. So os testes chamam.
+ * @param {string} pasta
+ */
 function definirRaizParaTestes(pasta) {
   raizGuardada = pasta;
   memoria.clear();
@@ -247,18 +251,27 @@ const PORCHAVE = new Map(COMPONENTES.map((c) => [c.chave, c]));
 /** @type {Map<string, {quando: number, presente: boolean}>} */
 const memoria = new Map();
 
-/** Descarta a memória. Chamado ao instalar ou remover um componente. */
+/**
+ * Descarta a memória. Chamado ao instalar ou remover um componente.
+ * @param {string} [chave]
+ */
 function invalidarCache(chave) {
   if (chave) memoria.delete(chave);
   else memoria.clear();
 }
 
-/** O componente, ou undefined. */
+/**
+ * O componente, ou undefined.
+ * @param {string} chave
+ */
 function obter(chave) {
   return PORCHAVE.get(chave);
 }
 
-/** O caminho absoluto da sentinela. */
+/**
+ * O caminho absoluto da sentinela.
+ * @param {string} chave
+ */
 function caminhoDaSentinela(chave) {
   const c = PORCHAVE.get(chave);
   if (!c) return null;
@@ -274,6 +287,7 @@ function caminhoDaSentinela(chave) {
  * catálogo, o certo é ele continuar funcionando e o teste de integridade
  * acusar a falta de dono, e não a ferramenta parar de funcionar em produção por
  * uma linha esquecida aqui.
+ * @param {string} chave
  */
 function estaInstalado(chave) {
   if (!PORCHAVE.has(chave)) return true;
@@ -296,6 +310,7 @@ function estaInstalado(chave) {
  * Null é "não se sabe", e não "errada": toda instalação anterior ao carimbo
  * está assim, e tratá-la como desatualizada mandaria laboratórios inteiros
  * re-baixar 272 MB por nada.
+ * @param {string} chave
  */
 function versaoInstalada(chave) {
   const c = PORCHAVE.get(chave);
@@ -325,6 +340,7 @@ function versaoInstalada(chave) {
  * por componente e dispararia antivírus em máquina de laboratório; a presença
  * dos arquivos pega o defeito real sem esse preço.
  *
+ * @param {string} chave
  * @returns {{chave: string, estado: 'ok'|'ausente'|'incompleto'|'desatualizado', faltando: string[], versaoInstalada: string|null}}
  */
 function diagnosticar(chave) {
@@ -378,6 +394,7 @@ function listar() {
  * notificação, no retorno da API e no que a Aurora Intelligence recebe. Frases
  * diferentes para a mesma causa é o que faz um usuário achar que são problemas
  * diferentes.
+ * @param {string} chave
  */
 function mensagemDeAusencia(chave) {
   const c = PORCHAVE.get(chave);

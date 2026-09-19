@@ -145,7 +145,7 @@ function agentScratchDir() {
  * @param {Map<string,any>} host.sessions
  * @param {(tokens:number, costUsd:number)=>void} host.addUsage
  * @param {(info:any)=>void} host.setRateLimit
- * @param {()=>string} host.workspaceDir
+ * @param {(webContents?: any)=>string} host.workspaceDir
  * @returns {Promise<boolean>} true when the turn was handled here (success
  *   OR failure-with-error-event); false when the SDK is unavailable and the
  *   caller should fall back to the legacy spawn path.
@@ -253,7 +253,7 @@ async function tryStart(p, webContents, host) {
   // context rebuild. Measured against the real CLI (see promptStream below).
   /** @type {string[]} */
   const followUps = [];
-  /** @type {(() => void)|null} */
+  /** @type {((value?: unknown) => void)|null} */
   let wakeInput = null;
   let inputClosed = false;
   // True while a user message is in flight (yielded, `result` not back yet).

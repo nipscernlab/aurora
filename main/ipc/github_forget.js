@@ -59,6 +59,7 @@ const { app, ipcMain } = require('electron');
 const log = require('electron-log');
 
 const githubAuth = require('./github_auth');
+/** @type {typeof import('./gitlab_auth') | null} */
 let gitlabAuth = null;
 try { gitlabAuth = require('./gitlab_auth'); } catch (_) { /* opcional */ }
 
@@ -96,6 +97,9 @@ const TEMPO_LIMITE = 15000;
  * `shell: false` é deliberado: os argumentos aqui carregam nome de host e de
  * alvo, e passar isso por um shell abriria injeção por um caminho que não tem
  * motivo nenhum para existir.
+ * @param {string} cmd
+ * @param {string[]} args
+ * @param {string} [entrada]
  */
 function rodar(cmd, args, entrada) {
   return new Promise((resolve) => {
@@ -191,6 +195,7 @@ function apagarArquivoDeCredenciais() {
  * como `git:https://github.com.exemplo.net` contém `//github.com` e passava,
  * então a limpeza apagaria a credencial de um domínio de terceiro. Apagar o que
  * não é nosso é o único erro aqui que não dá para desfazer.
+ * @param {unknown} alvo
  */
 function alvoEhDeForja(alvo) {
   const t = String(alvo == null ? '' : alvo).trim().toLowerCase();
@@ -372,6 +377,7 @@ function limparAoSair() {
   return decidirLimparAoSair(lerPreferenciaBruta());
 }
 
+/** @param {boolean} ligado */
 function definirLimparAoSair(ligado) {
   try {
     fs.writeFileSync(caminhoPreferencia(), JSON.stringify({ limparAoSair: !!ligado }, null, 2));

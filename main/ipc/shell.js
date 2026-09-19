@@ -46,7 +46,7 @@ function ensureContextFile() {
   }
 }
 
-/** @type {import('@lydell/node-pty') | null} */
+/** @type {typeof import('@lydell/node-pty') | null} */
 let pty = null;
 try {
   pty = require('@lydell/node-pty');
@@ -54,7 +54,7 @@ try {
   log.error('[shell] node-pty unavailable:', err instanceof Error ? err.message : err);
 }
 
-/** @type {Map<string, { proc: any, dispose: () => void }>} */
+/** @type {Map<string, { proc: any, dispose: () => void, cwd: string }>} */
 const sessions = new Map();
 
 /** Caminho do interpretador embarcado, ou '' se o bundle nao esta instalado. */
@@ -85,6 +85,7 @@ function shellCommand() {
   return { file: process.env.SHELL || '/bin/bash', args: [] };
 }
 
+/** @param {string} id */
 function killSession(id) {
   const s = sessions.get(id);
   if (!s) return;
@@ -129,8 +130,8 @@ function register() {
     }
 
     const wc = event.sender;
-    const onData = proc.onData((data) => { if (!wc.isDestroyed()) wc.send('shell:data', { id, data }); });
-    const onExit = proc.onExit(({ exitCode }) => {
+    const onData = proc.onData((/** @type {string} */ data) => { if (!wc.isDestroyed()) wc.send('shell:data', { id, data }); });
+    const onExit = proc.onExit((/** @type {{ exitCode: number, signal?: number }} */ { exitCode }) => {
       if (sessions.get(id)?.proc === proc) sessions.delete(id);
       if (!wc.isDestroyed()) wc.send('shell:exit', { id, code: exitCode });
     });

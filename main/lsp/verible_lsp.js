@@ -63,7 +63,7 @@ const pending = new Map();
 /**
  * The renderer's view of open buffers, kept across server restarts so a
  * respawned server can be re-seeded transparently.
- * @type {Map<string, {version:number, text:string, languageId:string}>}
+ * @type {Map<string, {version:number, text:string, languageId:string, owner?:number|null}>}
  */
 const openDocs = new Map();
 /**

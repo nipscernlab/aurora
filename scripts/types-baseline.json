@@ -18,83 +18,39 @@
     "TS7034": 2,
     "TS7053": 3
   },
-  "main/ai/chat.js": {
-    "TS2339": 4,
-    "TS7031": 1
-  },
   "main/ai/citacoes.js": {
     "TS2353": 1
-  },
-  "main/ai/claude_agent.js": {
-    "TS2322": 1,
-    "TS2554": 1
   },
   "main/ai/claude_code.js": {
     "TS2339": 3,
     "TS2353": 1
   },
-  "main/ai/cli_downloader.js": {
-    "TS2554": 3,
-    "TS7005": 1,
-    "TS7034": 1
-  },
   "main/ai/codex_cli.js": {
     "TS2339": 3,
     "TS2353": 1
   },
-  "main/ai/prompt_cache.js": {
-    "TS1016": 1,
-    "TS18048": 2,
-    "TS2322": 1,
-    "TS2339": 2,
-    "TS7006": 1
-  },
   "main/ai/provider.js": {
     "TS7053": 1
   },
-  "main/compile/binary_allowlist.js": {
-    "TS2353": 1,
-    "TS7006": 1
-  },
-  "main/compile/executor.js": {
-    "TS2339": 2,
-    "TS7005": 3,
-    "TS7006": 1,
-    "TS7034": 1,
-    "TS7053": 1
-  },
   "main/components/registry.js": {
-    "TS2345": 1,
-    "TS7005": 2,
-    "TS7006": 8,
-    "TS7034": 1
+    "TS2345": 1
   },
   "main/exemplos/instalar.js": {
-    "TS2322": 2,
-    "TS7006": 5
+    "TS2322": 2
   },
   "main/format/clang_format.js": {
     "TS18047": 5
   },
   "main/ipc/bug_report.js": {
     "TS18048": 2,
-    "TS2339": 1,
-    "TS2345": 1,
-    "TS2741": 1,
-    "TS7006": 7
+    "TS2345": 1
   },
   "main/ipc/components.js": {
     "TS18047": 2,
-    "TS2345": 1,
-    "TS7005": 4,
-    "TS7006": 5,
-    "TS7034": 1
+    "TS2345": 1
   },
   "main/ipc/files.js": {
-    "TS2339": 3,
-    "TS2353": 1,
-    "TS2740": 1,
-    "TS7006": 3
+    "TS2740": 1
   },
   "main/ipc/git.js": {
     "TS2349": 6,
@@ -111,10 +67,7 @@
   },
   "main/ipc/github_forget.js": {
     "TS2339": 1,
-    "TS2532": 1,
-    "TS7005": 3,
-    "TS7006": 5,
-    "TS7034": 1
+    "TS2532": 1
   },
   "main/ipc/gitlab_auth.js": {
     "TS2551": 2,
@@ -139,60 +92,31 @@
   },
   "main/ipc/prism.js": {
     "TS18047": 4,
-    "TS2339": 1,
-    "TS7006": 3
+    "TS2339": 1
   },
   "main/ipc/prism_vcd.js": {
     "TS2532": 2
   },
   "main/ipc/project.js": {
-    "TS2339": 2,
-    "TS7005": 2,
-    "TS7006": 1,
-    "TS7034": 1
+    "TS2339": 2
   },
   "main/ipc/run_log.js": {
-    "TS2339": 3,
-    "TS7006": 6
+    "TS2339": 3
   },
   "main/ipc/search_worker.js": {
     "TS18047": 2,
     "TS2304": 1
   },
-  "main/ipc/shell.js": {
-    "TS1340": 1,
-    "TS2339": 1,
-    "TS2353": 1,
-    "TS7006": 2,
-    "TS7031": 1
-  },
   "main/ipc/surfer_tab.js": {
-    "TS2339": 1,
-    "TS7005": 1,
-    "TS7006": 5,
-    "TS7034": 1,
-    "TS7053": 1
+    "TS2339": 1
   },
   "main/lsp/slang_lsp.js": {
     "TS18047": 2,
-    "TS2339": 3,
-    "TS2353": 2,
-    "TS2810": 1,
-    "TS7005": 3,
-    "TS7006": 2,
-    "TS7034": 1
+    "TS2810": 1
   },
   "main/lsp/verible_lsp.js": {
     "TS18047": 2,
-    "TS2339": 2,
-    "TS2353": 2,
     "TS2810": 1
-  },
-  "main/net/fetcher.js": {
-    "TS2345": 2,
-    "TS2554": 12,
-    "TS7005": 1,
-    "TS7034": 1
   },
   "main/python/pylib_manager.js": {
     "TS18048": 16,
@@ -206,10 +130,7 @@
   },
   "main/windows.js": {
     "TS2339": 1,
-    "TS2345": 1,
-    "TS7005": 1,
-    "TS7006": 1,
-    "TS7034": 1
+    "TS2345": 1
   },
   "scripts/check-component-drift.js": {
     "TS2339": 1,

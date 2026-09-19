@@ -81,6 +81,7 @@ const { mensagemDeErroDeSpawn } = require('./spawn_hint');
  * e o bloqueio so cai quando o ultimo termina. Falha em silencio de
  * proposito: nao poder segurar a tela nunca pode impedir uma compilacao.
  */
+/** @type {number|null} */
 let _telaBloqueioId = null;
 let _telaRefs = 0;
 function segurarTela() {
@@ -120,12 +121,14 @@ function buildChildEnv(spec) {
   // adulterado. Aceita so chaves de env validas (`^[A-Za-z_][A-Za-z0-9_]*$`) com
   // valor string sem null byte; specs legitimos (OMP_*, MAKEFLAGS, OBJCACHE...)
   // passam intactos.
+  /** @type {Record<string, string>} */
   const safeSpecEnv = {};
   for (const [k, v] of Object.entries(spec.env || {})) {
     if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(k) && typeof v === 'string' && !v.includes('\0')) {
       safeSpecEnv[k] = v;
     }
   }
+  /** @type {Record<string, string|undefined>} */
   const env = {
     ...process.env,
     OMP_NUM_THREADS: cpuCount.toString(),
@@ -140,7 +143,7 @@ function buildChildEnv(spec) {
   if (Array.isArray(spec.prependPath) && spec.prependPath.length) {
     // So dirs string, nao-vazios, sem null byte e SEM o separador de PATH (uma
     // entrada com `;`/`:` smugglearia varias) entram no prefixo do PATH.
-    const safeDirs = spec.prependPath.filter((p) =>
+    const safeDirs = spec.prependPath.filter((/** @type {unknown} */ p) =>
       typeof p === 'string' && p.length > 0 && !p.includes('\0') && !p.includes(sep));
     if (safeDirs.length) env.PATH = safeDirs.join(sep) + sep + (env.PATH || '');
   }

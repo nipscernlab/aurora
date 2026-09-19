@@ -1153,7 +1153,7 @@ function comandarPrism(cmd, donoId = null) {
     }
     const id = `prism-cmd-${Date.now()}-${++seqComando}`;
     let pronto = false;
-    const encerrar = (r) => {
+    const encerrar = (/** @type {{ ok: boolean, error?: string, [k: string]: any }} */ r) => {
       if (pronto) return;
       pronto = true;
       clearTimeout(prazo);
@@ -1352,8 +1352,8 @@ function register() {
       // O retrato dos sinais vai junto, sem as mudancas: e com ele que o
       // renderer monta o layout para a onda abrir ja no lugar.
       const sinais = (payload && Array.isArray(payload.sinais) ? payload.sinais : [])
-        .filter((s) => s && typeof s.nome === 'string')
-        .map((s) => ({
+        .filter((/** @type {any} */ s) => s && typeof s.nome === 'string')
+        .map((/** @type {any} */ s) => ({
           nome: s.nome,
           caminho: Array.isArray(s.caminho) ? s.caminho.map(String) : [],
           bits: Number(s.bits) || 1,

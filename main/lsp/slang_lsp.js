@@ -111,7 +111,7 @@ let startPromise = null;
 let nextId = 1;
 /** @type {Map<number, {resolve:(v:any)=>void, reject:(e:any)=>void, timer:NodeJS.Timeout}>} */
 const pending = new Map();
-/** @type {Map<string, {version:number, text:string, languageId:string}>} */
+/** @type {Map<string, {version:number, text:string, languageId:string, owner?:number|null}>} */
 const openDocs = new Map();
 /**
  * Leitor dos quadros Content-Length do stdout, linear no tamanho da resposta.
@@ -145,7 +145,10 @@ const disjuntorSpawn = criarDisjuntor({
 });
 /** Um servidor que sobrevive a isto depois de pronto conta como sucesso do spawn. */
 const SPAWN_ESTAVEL_MS = 10000;
-/** Project dir the live server was started for (null = none / not started). */
+/**
+ * Project dir the live server was started for (null = none / not started).
+ * @type {string|null}
+ */
 let currentProjectDir = null;
 /** @type {import('chokidar').FSWatcher | null} */
 let watcher = null;
@@ -597,7 +600,7 @@ function handleMessage(/** @type {any} */ msg) {
       const diagnostics = Array.isArray(msg.params.diagnostics) ? msg.params.diagnostics : [];
       // O .spf so e lido quando ha um `unknown module` para julgar: no caso
       // comum (nenhum) a publicacao nao toca no disco.
-      const temDesconhecido = diagnostics.some((d) => d && typeof d.message === 'string' && RE_UNKNOWN_MODULE.test(d.message));
+      const temDesconhecido = diagnostics.some((/** @type {{ message?: unknown }} */ d) => d && typeof d.message === 'string' && RE_UNKNOWN_MODULE.test(d.message));
       sendToOwner(msg.params.uri, 'slang:diagnostics', {
         uri: msg.params.uri,
         diagnostics: temDesconhecido
@@ -764,7 +767,10 @@ async function ensureReady(/** @type {number | null} */ donoId = null) {
   return ready;
 }
 
-/** Kill the live server. clearDiag drops the markers the renderer shows. */
+/**
+ * Kill the live server. clearDiag drops the markers the renderer shows.
+ * @param {boolean} [clearDiag]
+ */
 function stop(clearDiag) {
   if (clearDiag) {
     for (const uri of openDocs.keys()) sendToOwner(uri, 'slang:diagnostics', { uri, diagnostics: [] });

@@ -420,7 +420,7 @@ function createMainWindow(opts = {}) {
   // keeps running untouched as long as its panel is alive.
   // So as sessoes DESTA janela: o killAll sem filtro derrubava a IA de todas
   // as janelas quando qualquer uma recarregava.
-  const reapAbandonedAi = (why) => {
+  const reapAbandonedAi = (/** @type {string} */ why) => {
     const dono = mainWindow.webContents.id;
     try { require('./ai/claude_code').killAll(dono); } catch (_) { /* not loaded */ }
     try { require('./ai/codex_cli').killAll(dono); } catch (_) { /* not loaded */ }
@@ -692,6 +692,7 @@ function createUpdateWindow() {
 // from the command palette ("Open Design Lab"). A normal framed window (OS
 // controls) and a singleton so it never clutters. No preload: the gallery is a
 // static page that talks to nothing.
+/** @type {import('electron').BrowserWindow|null} */
 let designLabWindow = null;
 function createDesignLabWindow() {
   if (designLabWindow && !designLabWindow.isDestroyed()) {

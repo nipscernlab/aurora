@@ -94,7 +94,10 @@ const SURFER_CSP = [
   "form-action 'none'",
 ].join('; ');
 
-/** So o que um bundle trunk contem de verdade, mais os layouts. */
+/**
+ * So o que um bundle trunk contem de verdade, mais os layouts.
+ * @type {Record<string, string>}
+ */
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -173,7 +176,11 @@ function isSurferTabUrl(url) {
   return !!origin && typeof url === 'string' && url.startsWith(`${origin}/`);
 }
 
-/** Responde um arquivo estatico do bundle web. */
+/**
+ * Responde um arquivo estatico do bundle web.
+ * @param {string} rel
+ * @param {import('http').ServerResponse} res
+ */
 function serveWebFile(rel, res) {
   const root = webRoot();
   const target = path.resolve(root, rel);
@@ -195,6 +202,9 @@ function serveWebFile(rel, res) {
  * Repassa uma requisicao ao surver da aba. So GET (e tudo que o protocolo do
  * surver usa) e so para o alvo REGISTRADO — o cliente nunca escolhe host nem
  * porta, so o resto do caminho depois do id.
+ * @param {string} proxyId
+ * @param {string} rest
+ * @param {import('http').ServerResponse} res
  */
 function serveProxy(proxyId, rest, res) {
   const alvo = proxies.get(proxyId);
@@ -246,6 +256,7 @@ function ensureHttpServer() {
           const id = p.slice('/savestate/'.length).split('/')[0];
           const target = saveTargets.get(id);
           if (!target) { res.writeHead(404); res.end('Unknown save target'); return; }
+          /** @type {Buffer[]} */
           const chunks = [];
           let size = 0;
           req.on('data', (c) => {

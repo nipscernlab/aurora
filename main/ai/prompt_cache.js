@@ -117,6 +117,7 @@ function montarComCache({ providerName, system, systemFixoDaConversa, systemVari
   /** @type {Array<any>} */
   const out = [];
   let comCache = false;
+  /** @type {string | Array<{ role: string, content: string, providerOptions?: any }> | undefined} */
   let instructionsArg = (estavel + daConversa + variavel) || undefined;
   if (estavel && estavel.length > minimoChars) {
     // A marca fica no FIM DO ESTAVEL, e nao no fim de tudo. O bloco variavel
@@ -154,6 +155,7 @@ function montarComCache({ providerName, system, systemFixoDaConversa, systemVari
  * Puro: nao mede tokens (so a API sabe), mede caracteres, que e a proporcao.
  * @param {string} [estavel]
  * @param {string} [variavel]
+ * @param {string} [daConversa]
  */
 function proporcaoEstavel(estavel, variavel, daConversa) {
   const e = (estavel || '').length;

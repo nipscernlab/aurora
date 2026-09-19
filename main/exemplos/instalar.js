@@ -57,7 +57,7 @@ function lerCatalogo(base = raiz()) {
 
 /** O catalogo para a interface: o que mostrar, sem caminho de disco. */
 function listar(base = raiz()) {
-  return lerCatalogo(base).map((e) => ({
+  return lerCatalogo(base).map((/** @type {{ chave: string, nome: string, resumo: string, linguagem: string, processadores?: string[] }} */ e) => ({
     chave: e.chave,
     nome: e.nome,
     resumo: e.resumo,
@@ -66,7 +66,11 @@ function listar(base = raiz()) {
   }));
 }
 
-/** Copia uma arvore inteira, criando o que faltar. */
+/**
+ * Copia uma arvore inteira, criando o que faltar.
+ * @param {string} origem
+ * @param {string} destino
+ */
 function copiarArvore(origem, destino) {
   fs.mkdirSync(destino, { recursive: true });
   for (const entrada of fs.readdirSync(origem, { withFileTypes: true })) {
@@ -90,9 +94,9 @@ function copiarArvore(origem, destino) {
 function montarSpf(destinoProjeto, exemplo) {
   const { ProjectFile } = require('../ipc/project');
   const projeto = new ProjectFile(destinoProjeto);
-  const abs = (rel) => path.join(destinoProjeto, ...String(rel).split('/'));
+  const abs = (/** @type {string} */ rel) => path.join(destinoProjeto, ...String(rel).split('/'));
 
-  projeto.structure.processors = (exemplo.processadores || []).map((name) => ({ name }));
+  projeto.structure.processors = (exemplo.processadores || []).map((/** @type {string} */ name) => ({ name }));
 
   if (exemplo.testbench) {
     const tb = abs(exemplo.testbench);

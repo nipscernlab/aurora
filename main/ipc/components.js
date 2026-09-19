@@ -57,6 +57,7 @@ const { componentsPath } = require('../paths');
 const { spawnTracked, GROUP } = require('../process_registry');
 
 /** Um download por vez. Dois puxando ao mesmo tempo só disputam a mesma banda. */
+/** @type {string|null} */
 let emAndamento = null;
 
 /** A pasta dos instaladores, ao lado dos componentes. */
@@ -64,14 +65,21 @@ function pastaDosScripts() {
   return path.join(componentsPath, 'Scripts');
 }
 
-/** Manda uma linha de progresso para a janela que pediu. */
+/**
+ * Manda uma linha de progresso para a janela que pediu.
+ * @param {import('electron').BrowserWindow|null} janela
+ * @param {unknown} carga
+ */
 function avisar(janela, carga) {
   try {
     if (janela && !janela.isDestroyed()) janela.webContents.send('componentes:progresso', carga);
   } catch (_) { /* a janela pode ter fechado no meio do download */ }
 }
 
-/** "[surfer] 42% (18.1 / 43.0 MB)" -> 42 */
+/**
+ * "[surfer] 42% (18.1 / 43.0 MB)" -> 42
+ * @param {string} linha
+ */
 function lerPercentual(linha) {
   const m = /(\d{1,3})%/.exec(linha);
   if (!m) return null;
@@ -121,7 +129,7 @@ function instalar(chave, janela, forcar = false) {
     }, GROUP.SERVICE);
 
     let ultimaLinha = '';
-    const digerir = (buf) => {
+    const digerir = (/** @type {Buffer|string} */ buf) => {
       // O progresso vem com \r, sem \n, para reescrever a mesma linha no
       // terminal. Separar pelos dois e o que faz cada atualizacao chegar.
       for (const parte of String(buf).split(/[\r\n]+/)) {
@@ -209,6 +217,7 @@ async function instalarIA(chave, janela) {
  *
  * O caminho apagado é o diretório do componente, derivado da sentinela do
  * catálogo. Nada vem do renderer além da chave.
+ * @param {string} chave
  */
 async function remover(chave) {
   if (ia.conhece(chave)) {

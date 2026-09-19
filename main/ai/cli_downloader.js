@@ -34,6 +34,7 @@ const { entryFor, platformKey } = require('./cli_manifest');
 const { trackChild } = require('../process_registry');
 const { EXTRACT_MS } = require('../net/timeouts');
 
+/** @type {Pick<Console, 'info'|'warn'|'error'>} */
 let log;
 try { log = require('electron-log'); } catch (_) { log = console; }
 
@@ -111,7 +112,8 @@ function downloadToFile(url, dest, onChunk) {
     const file = fs.createWriteStream(dest);
     const hash = crypto.createHash('sha512');
     let settled = false;
-    const done = (/** @type {Error|null} */ err, /** @type {any} */ val) => {
+    /** @param {Error|null} err @param {any} [val] */
+    const done = (err, val) => {
       if (settled) return;
       settled = true;
       if (err) { try { fs.unlinkSync(dest); } catch (_) { /* best-effort */ } reject(err); }

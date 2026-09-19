@@ -28,12 +28,17 @@ const PASTA = path.join('.aurora', 'execucoes');
 /** O mesmo formato que `idDe` produz: data, hora e o pedido. */
 const ID_VALIDO = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}-[\w-]{1,32}$/;
 
+/** @param {unknown} projeto */
 function pastaDe(projeto) {
   if (!projeto || typeof projeto !== 'string' || !path.isAbsolute(projeto)) return null;
   return path.join(projeto, PASTA);
 }
 
-/** Grava uma execucao e poda as antigas. */
+/**
+ * Grava uma execucao e poda as antigas.
+ * @param {unknown} projeto
+ * @param {({ id?: string } & Record<string, unknown>) | null | undefined} exec
+ */
 async function gravar(projeto, exec) {
   const dir = pastaDe(projeto);
   if (!dir || !exec || !ID_VALIDO.test(String(exec.id || ''))) {
@@ -62,7 +67,10 @@ async function gravar(projeto, exec) {
   return { ok: true, id: exec.id };
 }
 
-/** As execucoes gravadas, da mais recente para a mais antiga, so o resumo. */
+/**
+ * As execucoes gravadas, da mais recente para a mais antiga, so o resumo.
+ * @param {unknown} projeto
+ */
 async function listar(projeto) {
   const dir = pastaDe(projeto);
   if (!dir) return { ok: false, execucoes: [] };
@@ -91,7 +99,11 @@ async function listar(projeto) {
   return { ok: true, execucoes };
 }
 
-/** Uma execucao inteira, para a tela de detalhe. */
+/**
+ * Uma execucao inteira, para a tela de detalhe.
+ * @param {unknown} projeto
+ * @param {unknown} id
+ */
 async function ler(projeto, id) {
   const dir = pastaDe(projeto);
   if (!dir || !ID_VALIDO.test(String(id || ''))) return { ok: false, erro: 'id invalido' };

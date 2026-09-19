@@ -109,7 +109,7 @@ function toPosix(/** @type {string} */ p) {
  *   dentro delas o V<top>.exe gerado pelo Verilator e aceito. Vazio por
  *   padrao, de proposito: quem nao souber dizer quais projetos estao abertos
  *   fica com a regra estreita, a de components/Temp.
- * @returns {{ok:true} | {ok:false, error:string}}
+ * @returns {{ok:true} | {ok:false, error:string, motivo?:string, componente?:string}}
  */
 function isAllowed(binaryPath, raizesDeProjeto = []) {
   if (typeof binaryPath !== 'string' || !binaryPath) {
@@ -216,7 +216,10 @@ function listAllowedBinaries() {
   return staticRows.concat(pythonRows);
 }
 
-/** O componente dono de um binario, pelo nome do arquivo. */
+/**
+ * O componente dono de um binario, pelo nome do arquivo.
+ * @param {unknown} baseName
+ */
 function donoDoBinario(baseName) {
   const alvo = String(baseName || '').toLowerCase();
   const achado = RAW_ALLOWLIST.find(([nome]) => nome.toLowerCase() === alvo);

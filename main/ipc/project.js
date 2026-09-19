@@ -975,10 +975,11 @@ void main()
     // gets step-by-step completion feedback and, on failure, the exact step
     // it died on. We return a STRUCTURED verdict instead of throwing so the
     // caller never sees an opaque IPC rejection (the old "timed out" symptom).
+    /** @type {Array<{ step: string, ok: boolean, ms: number, where: string }>} */
     const steps = [];
     const t0 = Date.now();
     let failedStep = 'validate';
-    const mark = (step) => { steps.push({ step, ok: true, ms: Date.now() - t0, where: 'main' }); };
+    const mark = (/** @type {string} */ step) => { steps.push({ step, ok: true, ms: Date.now() - t0, where: 'main' }); };
     try {
       const spfAberto = spfDaJanela(event);
       if (!spfAberto) throw new Error('No open project');

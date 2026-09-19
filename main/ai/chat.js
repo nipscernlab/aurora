@@ -125,6 +125,10 @@ function toSdkMessage(m) {
  * @param {string} [payload.modelId]
  * @param {{role:string, content:string}[]} payload.messages
  * @param {string} [payload.system]
+ * @param {string} [payload.systemContext]
+ * @param {string} [payload.systemFixo]
+ * @param {string|null} [payload.effort]
+ * @param {string|null} [payload.operacao]
  * @param {Electron.WebContents} webContents
  */
 async function start(payload, webContents) {
@@ -258,7 +262,7 @@ async function start(payload, webContents) {
       // e zelo: o AI SDK diz que a troca de mensagens do prepareStep CARREGA
       // para os passos seguintes, entao sem tirar, a mesma pagina seria
       // reenviada uma vez por passo ate o fim do turno.
-      prepareStep: ({ messages: msgsDoPasso }) => (paginasCitaveis.length
+      prepareStep: (/** @type {{ messages: any[] }} */ { messages: msgsDoPasso }) => (paginasCitaveis.length
         ? { messages: citacoes.comDocumentos(msgsDoPasso, paginasCitaveis) }
         : undefined),
       stopWhen: stepCountIs(MAX_STEPS),

@@ -133,6 +133,11 @@ function projetoDaJanela(event) {
   return spf ? path.dirname(spf) : null;
 }
 
+/**
+ * @param {{ sender?: { id?: number } } | null} event
+ * @param {string} alvo
+ * @param {string} rotulo
+ */
 function exigirEscritaPermitida(event, alvo, rotulo) {
   const spf = spfDaJanela(event);
   const permitido = escritaPermitida(alvo, {
@@ -685,7 +690,7 @@ function register() {
       }
 
       const watcherId = `dir_watcher_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      /** @type {{ id: string, watcher: import('chokidar').FSWatcher, path: string, senders: Set<any> }} */
+      /** @type {{ id: string, watcher: import('chokidar').FSWatcher, path: string, senders: Set<any>, sumiu: boolean }} */
       const info = {
         id: watcherId, watcher: /** @type {any} */ (null), path: directoryPath,
         senders: new Set([event.sender]),

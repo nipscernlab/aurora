@@ -103,7 +103,8 @@ function downloadToFile(url, dest, opts = {}) {
 
     const cleanupTmp = () => { try { fs.unlinkSync(tmp); } catch (_) { /* best-effort */ } };
 
-    const done = (/** @type {Error|null} */ err, /** @type {any} */ val) => {
+    /** @param {Error|null} err @param {any} [val] */
+    const done = (err, val) => {
       if (settled) return;
       settled = true;
       if (opts.signal) opts.signal.removeEventListener('abort', onAbort);
@@ -244,7 +245,7 @@ function listArchive(/** @type {string} */ archive) {
  * Um processo morto pelo prazo chega como erro com `killed` e sinal, sem
  * stderr; a mensagem precisa dizer que foi o prazo, senao o log fala em
  * SIGTERM e ninguem entende.
- * @param {NodeJS.ErrnoException & {killed?: boolean}} err
+ * @param {(NodeJS.ErrnoException | import('child_process').ExecException) & {killed?: boolean}} err
  * @param {string|Buffer} [stderr]
  */
 function descreverFalha(err, stderr) {
@@ -268,7 +269,8 @@ function getJson(url, opts = {}) {
 
   return new Promise((resolve, reject) => {
     let settled = false;
-    const done = (/** @type {Error|null} */ err, /** @type {any} */ val) => {
+    /** @param {Error|null} err @param {any} [val] */
+    const done = (err, val) => {
       if (settled) return;
       settled = true;
       if (err) reject(err); else resolve(val);
@@ -294,6 +296,7 @@ function getJson(url, opts = {}) {
         }
         if (code !== 200) { res.resume(); done(new Error(`HTTP ${code} em ${u}`)); return; }
 
+        /** @type {Buffer[]} */
         const chunks = [];
         let size = 0;
         res.on('data', (c) => {

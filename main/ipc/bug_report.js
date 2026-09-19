@@ -75,6 +75,7 @@ function endpoint() {
  * Não é perfeito, e o consentimento diz isso: um caminho de projeto com nome
  * próprio ("C:\...\tcc-do-joao") ainda passa, porque não há como saber o que é
  * nome de gente no meio de nomes de pasta.
+ * @param {unknown} texto
  */
 function anonimizar(texto) {
   let saida = String(texto || '');
@@ -168,6 +169,8 @@ function coletarDiagnostico() {
  * nenhum, e foi assim que o primeiro envio real morreu: o apex do site
  * responde 301 para www, o POST parava ali e o usuário via "HTTP 301" sem
  * ter feito nada de errado.
+ * @param {string} url
+ * @param {unknown} corpo
  */
 function postar(url, corpo, saltos = 0) {
   return new Promise((resolve) => {
@@ -219,7 +222,10 @@ function postar(url, corpo, saltos = 0) {
   });
 }
 
-/** O tamanho da carga, em bytes, como ela vai pela rede. */
+/**
+ * O tamanho da carga, em bytes, como ela vai pela rede.
+ * @param {unknown} carga
+ */
 function tamanhoDa(carga) {
   return Buffer.byteLength(JSON.stringify(carga), 'utf8');
 }
@@ -244,8 +250,8 @@ function tamanhoDa(carga) {
 function encolherParaCaber(carga) {
   // Do menos precioso para o mais precioso.
   const campos = [
-    { ler: () => carga.diagnostico.log, gravar: (v) => { carga.diagnostico.log = v; }, piso: 500 },
-    { ler: () => carga.terminal || '', gravar: (v) => { carga.terminal = v; }, piso: 1000 },
+    { ler: () => carga.diagnostico.log, gravar: (/** @type {string} */ v) => { carga.diagnostico.log = v; }, piso: 500 },
+    { ler: () => carga.terminal || '', gravar: (/** @type {string} */ v) => { carga.terminal = v; }, piso: 1000 },
   ];
 
   for (const campo of campos) {
@@ -267,6 +273,7 @@ function encolherParaCaber(carga) {
  * Validacao de forma, nao de existencia: o campo e opcional e um endereco
  * digitado errado so custa a resposta, nunca o relato. Um valor sem @ e
  * descartado em silencio pelo mesmo motivo.
+ * @param {unknown} valor
  */
 function emailDeContato(valor) {
   const v = String(valor || '').trim().slice(0, 120);
@@ -276,7 +283,7 @@ function emailDeContato(valor) {
 /**
  * Envia o relato.
  *
- * @param {{oQueAconteceu: string, oQueEsperava?: string, comoReproduzir?: string, email?: string}} texto
+ * @param {{oQueAconteceu?: string, oQueEsperava?: string, comoReproduzir?: string, email?: string, terminal?: string}} [texto]
  */
 async function enviar(texto = {}) {
   const oQue = String(texto.oQueAconteceu || '').trim();

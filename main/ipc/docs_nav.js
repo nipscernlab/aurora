@@ -91,7 +91,10 @@ function decidirNavegacao(raiz, url) {
   return { acao: 'bloquear', destino: texto };
 }
 
-/** Protocolo da URL, ou '' quando ela não é analisável. */
+/**
+ * Protocolo da URL, ou '' quando ela não é analisável.
+ * @param {unknown} url
+ */
 function protocoloDe(url) {
   try { return new URL(String(url)).protocol; } catch (_) { return ''; }
 }

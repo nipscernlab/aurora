@@ -64,7 +64,10 @@ let timer = null;
 /** @type {NodeJS.Timeout|null} */
 let focoAgendado = null;
 let lastCheck = 0;
-/** Resultado mais recente, servido ao painel sem refazer o trabalho. */
+/**
+ * Resultado mais recente, servido ao painel sem refazer o trabalho.
+ * @type {Record<string, any>|null}
+ */
 let lastResult = null;
 /** A ronda em curso, para duas chamadas seguidas nao varrerem duas vezes. */
 /** @type {Promise<any> | null} */

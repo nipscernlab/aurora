@@ -34,7 +34,10 @@
 
 'use strict';
 
-/** Espacos colapsados, pontas aparadas. A mesma dos dois lados da comparacao. */
+/**
+ * Espacos colapsados, pontas aparadas. A mesma dos dois lados da comparacao.
+ * @param {unknown} texto
+ */
 function normalizar(texto) {
   return String(texto || '').replace(/\s+/g, ' ').trim();
 }

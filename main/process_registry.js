@@ -48,6 +48,7 @@ let toolchainEverRan = false;
 // one) would hand its close the old, already-resolved promise and kill nothing,
 // leaving its compiles running headless. Same reasoning for a close that starts
 // the teardown and is then vetoed.
+/** @type {Promise<void>|null} */
 let stopPromise = null;
 
 /**

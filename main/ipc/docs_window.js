@@ -60,6 +60,7 @@ let ultimoRealce = null;
  * Silencioso por escolha quando nao acha: a janela ja esta aberta na pagina
  * certa, que e a metade que sempre funciona. Quem quiser explicar a outra
  * metade pergunta em `desfechoDoRealce()`.
+ * @param {string|null|undefined} trecho
  */
 async function aplicarRealce(trecho) {
   if (!view || view.webContents.isDestroyed()) return;

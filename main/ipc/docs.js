@@ -79,6 +79,8 @@ function hasDocs(/** @type {string} */ dir) {
 /**
  * Compara versões no formato 1.2.3. Devolve true se `a` é mais nova que `b`.
  * Comparar como texto erraria em 6.10.0 contra 6.9.0.
+ * @param {string|null|undefined} a
+ * @param {string|null|undefined} b
  */
 function isNewer(a, b) {
   const pa = String(a || '').split('.').map((n) => parseInt(n, 10) || 0);

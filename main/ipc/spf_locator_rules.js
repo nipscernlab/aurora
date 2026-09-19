@@ -54,7 +54,7 @@ function dirEntra(nome) {
  */
 function ordenarRaizes(home, drives) {
   const sep = home.includes('/') ? '/' : '\\';
-  const dentro = (n) => `${home}${sep}${n}`;
+  const dentro = (/** @type {string} */ n) => `${home}${sep}${n}`;
   const lista = [
     dentro('Desktop'), dentro('Documents'), dentro('Downloads'),
     dentro('OneDrive'), home, ...(drives || []),
@@ -82,7 +82,7 @@ function ordenarRaizes(home, drives) {
  * @returns {string|null} a chave vencedora
  */
 function melhorAlvo(chaves, achado) {
-  const seg = (p) => String(p || '').toLowerCase().split(/[\\/]+/).filter(Boolean);
+  const seg = (/** @type {string|null|undefined} */ p) => String(p || '').toLowerCase().split(/[\\/]+/).filter(Boolean);
   const novo = seg(achado);
   let melhor = null;
   let melhorPonto = -1;

@@ -100,6 +100,8 @@ function buscarNoWorker(rootDir, payload) {
  * Resultado truncado faz o pedido inteiro ser RECUSADO. A varredura para em
  * 2000 ocorrencias ou 500 arquivos, e substituir "o que coube" deixaria o
  * projeto pela metade, num estado que ninguem pediu e que a lista nao mostrou.
+ * @param {string} rootDir
+ * @param {{ query: string, caseSensitive?: boolean, wholeWord?: boolean, regex?: boolean, replacement: string }} payload
  */
 async function substituirNoProjeto(rootDir, payload) {
   const { query, caseSensitive, wholeWord, regex, replacement } = payload;

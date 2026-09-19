@@ -38,7 +38,7 @@ const path = require('path');
 const { getJson } = require('../main/net/fetcher');
 
 const OUT = path.join(__dirname, '..', 'resources', 'pylib-catalog.json');
-const PYPI = (name) => `https://pypi.org/pypi/${encodeURIComponent(name)}/json`;
+const PYPI = (/** @type {string} */ name) => `https://pypi.org/pypi/${encodeURIComponent(name)}/json`;
 
 /**
  * As bibliotecas oferecidas. `deps` e o fecho COMPLETO de dependencias, fixado a
@@ -564,20 +564,30 @@ const COMPILED = [
  */
 const PURE_SUFFIX = '-none-any.whl';
 
-/** Escolhe a wheel pura de um release da PyPI. Retorna null se nao houver. */
+/**
+ * Um arquivo de um release na API da PyPI, so os campos que este gerador le.
+ * @typedef {{ packagetype: string, filename: string, url: string, size: number, digests: { sha256: string } }} PypiUrl
+ */
+
+/**
+ * Escolhe a wheel pura de um release da PyPI. Retorna null se nao houver.
+ * @param {PypiUrl[]|undefined} urls
+ * @returns {PypiUrl|null}
+ */
 function pickPureWheel(urls) {
   return (urls || []).find((u) => u.packagetype === 'bdist_wheel'
     && typeof u.filename === 'string'
     && u.filename.endsWith(PURE_SUFFIX)) || null;
 }
 
+/** @param {string} pypiName */
 async function resolvePackage(pypiName) {
   const meta = await getJson(PYPI(pypiName));
   const version = meta.info.version;
   const wheel = pickPureWheel(meta.urls);
   if (!wheel) {
-    const tags = (meta.urls || []).filter((u) => u.packagetype === 'bdist_wheel')
-      .map((u) => u.filename).slice(0, 3);
+    const tags = (meta.urls || []).filter((/** @type {PypiUrl} */ u) => u.packagetype === 'bdist_wheel')
+      .map((/** @type {PypiUrl} */ u) => u.filename).slice(0, 3);
     throw new Error(
       `${pypiName} ${version} nao publica wheel pura (*${PURE_SUFFIX}) (tem: ${tags.join(', ') || 'nenhuma wheel'}) `
       + '— tem extensao em C, nao roda no Python embarcado',

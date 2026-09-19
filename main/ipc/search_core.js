@@ -177,6 +177,7 @@ function buscar(rootDir, payload) {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+  /** @type {Array<{ file: string, abs: string, matches: Array<{ line: number, col: number, preview: string }> }>} */
   const results = [];
   const budget = { matches: 0, truncated: false };
   try {

@@ -40,7 +40,10 @@ const TRECHO = 320;
 /** dir -> { carimbo, paginas } */
 const cache = new Map();
 
-/** Sem acento, sem maiúscula, para comparar consulta com texto. */
+/**
+ * Sem acento, sem maiúscula, para comparar consulta com texto.
+ * @param {unknown} texto
+ */
 function normalizar(texto) {
   return String(texto || '')
     .normalize('NFD')
@@ -54,6 +57,7 @@ function normalizar(texto) {
  * A ordem importa: script e style saem INTEIROS antes de qualquer coisa, senão
  * o corpo deles viraria texto e a busca acharia palavra dentro de código de
  * navegação. Depois caem as tags, e por último as entidades mais comuns.
+ * @param {string} html
  */
 function textoDe(html) {
   return html
@@ -66,12 +70,15 @@ function textoDe(html) {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#(\d+);/g, (/** @type {string} */ _, /** @type {string} */ n) => String.fromCharCode(Number(n)))
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-/** O título da página: o `<title>` sem o sufixo do tema, ou o primeiro `<h1>`. */
+/**
+ * O título da página: o `<title>` sem o sufixo do tema, ou o primeiro `<h1>`.
+ * @param {string} html
+ */
 function tituloDe(html) {
   const t = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
   if (t) {
@@ -85,10 +92,15 @@ function tituloDe(html) {
   return h ? textoDe(h[1]).replace(/¶$/, '').trim() : '';
 }
 
-/** Todos os .html do manual, em caminho relativo, com barra normal. */
+/**
+ * Todos os .html do manual, em caminho relativo, com barra normal.
+ * @param {string} dir
+ * @returns {string[]}
+ */
 function listarPaginas(dir) {
+  /** @type {string[]} */
   const achados = [];
-  const andar = (atual, prefixo) => {
+  const andar = (/** @type {string} */ atual, /** @type {string} */ prefixo) => {
     let entradas = [];
     try { entradas = fs.readdirSync(atual, { withFileTypes: true }); }
     catch (_) { return; }
@@ -111,6 +123,7 @@ function listarPaginas(dir) {
  * A validade é o `mtime` do `index.html`, que a atualização do manual reescreve.
  * Assim o índice se refaz sozinho quando a documentação é atualizada com o
  * aplicativo aberto, que é exatamente quando um cache velho enganaria.
+ * @param {string} dir
  */
 function indexar(dir) {
   let carimbo = 0;
@@ -139,7 +152,12 @@ function indexar(dir) {
   return paginas;
 }
 
-/** Um trecho em volta da primeira ocorrência, para o resultado ter contexto. */
+/**
+ * Um trecho em volta da primeira ocorrência, para o resultado ter contexto.
+ * @param {string} texto
+ * @param {string} textoNorm
+ * @param {string} alvo
+ */
 function trechoEmVolta(texto, textoNorm, alvo) {
   const i = textoNorm.indexOf(alvo);
   if (i < 0) return texto.slice(0, TRECHO).trim();
@@ -202,6 +220,7 @@ function buscar(dir, consulta, opcoes = {}) {
  * @param {string} dir
  * @param {string} caminhoRelativo
  * @param {{ limite?: number }} [opcoes]
+ * @returns {{ ok: true, caminho: string, titulo: string, texto: string, truncado: boolean } | { ok: false, erro: string }}
  */
 function ler(dir, caminhoRelativo, opcoes = {}) {
   const pedido = String(caminhoRelativo || '').replace(/\\/g, '/').replace(/^\/+/, '');
@@ -229,7 +248,10 @@ function ler(dir, caminhoRelativo, opcoes = {}) {
   };
 }
 
-/** Quantas páginas o manual tem, para o diagnóstico do painel. */
+/**
+ * Quantas páginas o manual tem, para o diagnóstico do painel.
+ * @param {string} dir
+ */
 function contar(dir) {
   return indexar(dir).length;
 }

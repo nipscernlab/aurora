@@ -29,6 +29,7 @@ const exemplos = require('../exemplos/instalar');
  *
  * Best-effort inteiro: os projetos ja estao no disco, e falhar em decorar a
  * lista de recentes nao pode transformar uma instalacao boa num erro.
+ * @param {Array<{chave: string, nome: string, spf: string}>|null|undefined} criados
  */
 function registrarNosRecentes(criados) {
   if (!Array.isArray(criados) || criados.length === 0) return;

@@ -42,7 +42,11 @@ function cleanupTempImages(maxAgeMs = 60 * 60 * 1000) {
   } catch (_) { /* dir doesn't exist yet — nothing to clean */ }
 }
 
-/** Write an image attachment (a `data:…;base64,…` URL) to a temp file. */
+/**
+ * Write an image attachment (a `data:…;base64,…` URL) to a temp file.
+ * @param {{ dataUrl?: string, name?: string }} att
+ * @returns {string|null}
+ */
 function writeTempImage(att) {
   try {
     const m = /^data:([^;]+);base64,(.*)$/s.exec((att && att.dataUrl) || '');

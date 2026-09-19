@@ -37,6 +37,12 @@ const crypto = require('crypto');
 const REPO = path.resolve(__dirname, '..');
 const PASTA_FEED = path.join(REPO, 'release', 'feed-local');
 
+/**
+ * @template T
+ * @param {string} nome
+ * @param {T} padrao
+ * @returns {string|T}
+ */
 function arg(nome, padrao) {
   const i = process.argv.indexOf(nome);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : padrao;
@@ -53,6 +59,7 @@ function instaladorMaisNovo() {
   return exes.length ? path.join(dir, exes[0].f) : null;
 }
 
+/** @param {string} arquivo */
 function sha512De(arquivo) {
   const h = crypto.createHash('sha512');
   h.update(fs.readFileSync(arquivo));

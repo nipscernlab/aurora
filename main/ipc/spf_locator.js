@@ -43,6 +43,10 @@ const PASSO_PROGRESSO = 1500;
  */
 const estado = { alvos: new Map(), cancelada: false, rodando: false, sender: null };
 
+/**
+ * @param {string} canal
+ * @param {unknown} carga
+ */
 function avisar(canal, carga) {
   try {
     if (estado.sender && !estado.sender.isDestroyed()) estado.sender.send(canal, carga);
@@ -52,6 +56,7 @@ function avisar(canal, carga) {
 /** As raízes de disco que existem agora (C:\, D:\, ...). */
 async function raizesDeDisco() {
   const letras = 'CDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  /** @type {string[]} */
   const existentes = [];
   await Promise.all(letras.map(async (l) => {
     try { await fs.stat(`${l}:\\`); existentes.push(`${l}:\\`); } catch (_e) { /* sem esse disco */ }
@@ -109,7 +114,7 @@ async function varrer() {
           const chaves = indice.get(entrada.name.toLowerCase());
           if (!chaves || !chaves.length) continue;
           const achado = path.join(dir, entrada.name);
-          const vencedora = melhorAlvo(chaves.filter((c) => estado.alvos.has(c)), achado);
+          const vencedora = melhorAlvo(chaves.filter((/** @type {string} */ c) => estado.alvos.has(c)), achado);
           if (!vencedora) continue;
           estado.alvos.delete(vencedora);
           avisar('recents:locate-found', { key: vencedora, path: achado });

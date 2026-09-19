@@ -20,6 +20,11 @@ const { execSync } = require('child_process');
 
 const ROOT = process.cwd();
 
+/**
+ * @param {object} obj
+ * @param {string} prefix
+ * @param {Record<string, any>} out
+ */
 function flatten(obj, prefix, out) {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? `${prefix}.${k}` : k;
@@ -29,6 +34,7 @@ function flatten(obj, prefix, out) {
   return out;
 }
 
+/** @param {string} name */
 function loadLocale(name) {
   const p = path.join(ROOT, 'locales', name);
   return flatten(JSON.parse(fs.readFileSync(p, 'utf8')), '', {});
@@ -71,6 +77,11 @@ for (const f of files) {
 const refMissing = [...referenced].filter((k) => !enKeys.has(k));
 
 let bad = false;
+/**
+ * @param {string} title
+ * @param {string[]} arr
+ * @param {boolean} fail
+ */
 function report(title, arr, fail) {
   if (!arr.length) return;
   if (fail) bad = true;

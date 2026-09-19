@@ -56,6 +56,7 @@ function criarDisjuntor(opcoes = {}) {
 
   let falhas = 0;
   let abertoAte = 0;
+  /** @type {string|null} */
   let ultimoMotivo = null;
 
   return {

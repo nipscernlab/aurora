@@ -1,7 +1,4 @@
 {
-  "components/Scripts/download-docs.js": {
-    "TS7006": 1
-  },
   "html/prism/prism.js": {
     "TS18046": 4,
     "TS18047": 23,
@@ -20,9 +17,6 @@
     "TS7031": 2,
     "TS7034": 2,
     "TS7053": 3
-  },
-  "main/ai/attachments.js": {
-    "TS7006": 1
   },
   "main/ai/chat.js": {
     "TS2339": 4,
@@ -48,9 +42,6 @@
     "TS2339": 3,
     "TS2353": 1
   },
-  "main/ai/effort_policy.js": {
-    "TS7006": 1
-  },
   "main/ai/prompt_cache.js": {
     "TS1016": 1,
     "TS18048": 2,
@@ -60,11 +51,6 @@
   },
   "main/ai/provider.js": {
     "TS7053": 1
-  },
-  "main/ai/tool_args.js": {
-    "TS7005": 1,
-    "TS7006": 3,
-    "TS7034": 1
   },
   "main/compile/binary_allowlist.js": {
     "TS2353": 1,
@@ -77,25 +63,11 @@
     "TS7034": 1,
     "TS7053": 1
   },
-  "main/components/ia.js": {
-    "TS7006": 7
-  },
   "main/components/registry.js": {
     "TS2345": 1,
     "TS7005": 2,
     "TS7006": 8,
     "TS7034": 1
-  },
-  "main/docs/busca.js": {
-    "TS7005": 1,
-    "TS7006": 13,
-    "TS7034": 1
-  },
-  "main/docs/citar.js": {
-    "TS7006": 1
-  },
-  "main/docs/realce.js": {
-    "TS7006": 1
   },
   "main/exemplos/instalar.js": {
     "TS2322": 2,
@@ -113,22 +85,10 @@
   },
   "main/ipc/components.js": {
     "TS18047": 2,
-    "TS2345": 2,
+    "TS2345": 1,
     "TS7005": 4,
     "TS7006": 5,
     "TS7034": 1
-  },
-  "main/ipc/docs.js": {
-    "TS7006": 2
-  },
-  "main/ipc/docs_nav.js": {
-    "TS7006": 1
-  },
-  "main/ipc/docs_window.js": {
-    "TS7006": 1
-  },
-  "main/ipc/exemplos.js": {
-    "TS7006": 1
   },
   "main/ipc/files.js": {
     "TS2339": 3,
@@ -195,13 +155,6 @@
     "TS2339": 3,
     "TS7006": 6
   },
-  "main/ipc/search.js": {
-    "TS7006": 2
-  },
-  "main/ipc/search_core.js": {
-    "TS7005": 2,
-    "TS7034": 1
-  },
   "main/ipc/search_worker.js": {
     "TS18047": 2,
     "TS2304": 1
@@ -213,27 +166,12 @@
     "TS7006": 2,
     "TS7031": 1
   },
-  "main/ipc/shell_bootstrap.js": {
-    "TS7006": 2
-  },
-  "main/ipc/spf_locator.js": {
-    "TS7005": 1,
-    "TS7006": 3,
-    "TS7034": 1
-  },
-  "main/ipc/spf_locator_rules.js": {
-    "TS7006": 2
-  },
   "main/ipc/surfer_tab.js": {
     "TS2339": 1,
     "TS7005": 1,
     "TS7006": 5,
     "TS7034": 1,
     "TS7053": 1
-  },
-  "main/lsp/disjuntor.js": {
-    "TS7005": 1,
-    "TS7034": 1
   },
   "main/lsp/slang_lsp.js": {
     "TS18047": 2,
@@ -256,24 +194,11 @@
     "TS7005": 1,
     "TS7034": 1
   },
-  "main/process_registry.js": {
-    "TS7005": 1,
-    "TS7034": 1
-  },
-  "main/python/pylib_catalog.js": {
-    "TS7005": 5,
-    "TS7006": 4,
-    "TS7034": 1
-  },
   "main/python/pylib_manager.js": {
     "TS18048": 16,
     "TS2339": 1,
     "TS7005": 4,
     "TS7006": 15,
-    "TS7034": 1
-  },
-  "main/python/pylib_watch.js": {
-    "TS7005": 1,
     "TS7034": 1
   },
   "main/treesitter/grammars.js": {
@@ -291,12 +216,6 @@
     "TS7006": 23,
     "TS7053": 1
   },
-  "scripts/check-i18n.js": {
-    "TS7006": 7
-  },
-  "scripts/feed-local.js": {
-    "TS7006": 3
-  },
   "scripts/fetch-fonts.js": {
     "TS1005": 1,
     "TS1141": 1,
@@ -304,14 +223,6 @@
     "TS2353": 1,
     "TS7005": 2,
     "TS7006": 2,
-    "TS7034": 1
-  },
-  "scripts/gen-pylib-catalog.js": {
-    "TS7006": 6
-  },
-  "scripts/gen-pylib-icons.js": {
-    "TS7005": 1,
-    "TS7006": 4,
     "TS7034": 1
   },
   "scripts/verify-components.js": {

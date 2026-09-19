@@ -76,7 +76,7 @@ function get(/** @type {string} */ url, /** @type {(res: any) => void} */ onResp
 
 async function fetchJson(/** @type {string} */ url) {
   let body = '';
-  await get(url, (res) => { res.setEncoding('utf8'); res.on('data', (c) => { body += c; }); });
+  await get(url, (res) => { res.setEncoding('utf8'); res.on('data', (/** @type {string} */ c) => { body += c; }); });
   return JSON.parse(stripBom(body));
 }
 

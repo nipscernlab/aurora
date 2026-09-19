@@ -39,7 +39,7 @@ const OUT = path.join(__dirname, '..', 'assets', 'icons', 'pylibs.svg');
 // esta versao da AURORA ainda nao tem, e um <use> apontando para um simbolo
 // inexistente nao desenha NADA, fica um buraco na linha, sem erro nenhum.
 const INDEX_OUT = path.join(__dirname, '..', 'assets', 'icons', 'pylibs.json');
-const CDN = (slug) => `https://cdn.jsdelivr.net/npm/simple-icons@15/icons/${slug}.svg`;
+const CDN = (/** @type {string} */ slug) => `https://cdn.jsdelivr.net/npm/simple-icons@15/icons/${slug}.svg`;
 
 /**
  * id no catalogo -> slug no Simple Icons. So entram as bibliotecas que de fato
@@ -195,6 +195,11 @@ const NEUTRAL = {
             stroke-width="1.6" opacity=".5"/>`,
 };
 
+/**
+ * @param {string} url
+ * @param {number} [redirects]
+ * @returns {Promise<string>}
+ */
 function get(url, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > 5) { reject(new Error('redirecionamentos demais')); return; }
@@ -205,6 +210,7 @@ function get(url, redirects = 0) {
         return;
       }
       if (res.statusCode !== 200) { res.resume(); reject(new Error(`HTTP ${res.statusCode} em ${url}`)); return; }
+      /** @type {Buffer[]} */
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
@@ -213,7 +219,11 @@ function get(url, redirects = 0) {
   });
 }
 
-/** Extrai o `d` do path unico de um icone do Simple Icons. */
+/**
+ * Extrai o `d` do path unico de um icone do Simple Icons.
+ * @param {string} svg
+ * @param {string} slug
+ */
 function extractPath(svg, slug) {
   const m = svg.match(/<path\s+d="([^"]+)"/);
   if (!m) throw new Error(`nao achei o path em ${slug}`);

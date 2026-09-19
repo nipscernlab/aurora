@@ -128,7 +128,10 @@ function esforcoPara(operacao, daInterface) {
   return daInterface || null;
 }
 
-/** O motivo de uma operacao, para log e para teste. */
+/**
+ * O motivo de uma operacao, para log e para teste.
+ * @param {string|null|undefined} operacao
+ */
 function porqueDe(operacao) {
   const linha = operacao ? POLITICA[operacao] : null;
   return linha ? linha.porque : null;

@@ -136,7 +136,7 @@ function encodeBootstrap(parts) {
  * @returns {{cols: number, rows: number}}
  */
 function clampGrid(entrada) {
-  const um = (valor, padrao) => {
+  const um = (/** @type {unknown} */ valor, /** @type {number} */ padrao) => {
     const n = Number(valor);
     if (!Number.isFinite(n) || n <= 0) return padrao;
     return Math.max(MIN_GRID, Math.trunc(n));

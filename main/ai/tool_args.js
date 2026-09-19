@@ -31,7 +31,10 @@
 
 'use strict';
 
-/** O tipo JSON de um valor, no vocabulario do esquema. */
+/**
+ * O tipo JSON de um valor, no vocabulario do esquema.
+ * @param {unknown} v
+ */
 function tipoDe(v) {
   if (v === null) return 'null';
   if (Array.isArray(v)) return 'array';
@@ -42,6 +45,8 @@ function tipoDe(v) {
 /**
  * O valor serve para o tipo pedido?
  * `integer` aceita inteiro; `number` aceita qualquer numero, inteiro incluso.
+ * @param {unknown} valor
+ * @param {string|string[]|undefined} esperado
  */
 function tipoServe(valor, esperado) {
   if (!esperado) return true;
@@ -68,6 +73,7 @@ function tipoServe(valor, esperado) {
  */
 function validar(args, schema) {
   if (!schema || typeof schema !== 'object') return [];
+  /** @type {string[]} */
   const problemas = [];
 
   if (schema.type && !tipoServe(args, schema.type)) {

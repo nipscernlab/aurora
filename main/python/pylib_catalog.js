@@ -41,6 +41,7 @@ const path = require('path');
 const fetcher = require('../net/fetcher');
 const { pylibRoot, ensureDirs } = require('./pylib_paths');
 
+/** @type {Pick<Console, 'info'|'warn'|'error'>} */
 let log;
 try { log = require('electron-log'); } catch (_) { log = console; }
 
@@ -140,6 +141,7 @@ function validate(obj) {
  * sumir da tela, ela vai para "Outras". E o mesmo principio do icone: o
  * catalogo pode descrever mais do que o app entende, e o app acomoda em vez de
  * quebrar.
+ * @param {{ categories: Record<string, any>, libraries: Array<{ category?: string|null } & Record<string, any>> }} catalog
  */
 function normalize(catalog) {
   const categories = { ...catalog.categories };
@@ -250,7 +252,7 @@ async function refresh(opts = {}) {
     return { ok: false, source: active().source, reason: v.reason };
   }
 
-  const before = JSON.stringify(active().libraries.map((l) => `${l.id}@${l.version}`));
+  const before = JSON.stringify(active().libraries.map((/** @type {{ id: string, version: string }} */ l) => `${l.id}@${l.version}`));
 
   const file = cacheFile();
   if (!file) return { ok: false, source: active().source, reason: 'sem diretorio de cache' };
@@ -261,7 +263,7 @@ async function refresh(opts = {}) {
   }, null, 2)}\n`);
   invalidate();
 
-  const after = JSON.stringify(active().libraries.map((l) => `${l.id}@${l.version}`));
+  const after = JSON.stringify(active().libraries.map((/** @type {{ id: string, version: string }} */ l) => `${l.id}@${l.version}`));
   const changed = before !== after;
   log.info(`[pylibs] catalogo remoto atualizado (${v.catalog.libraries.length} bibliotecas${changed ? ', com mudancas' : ''})`);
   return { ok: true, source: 'remote', changed };

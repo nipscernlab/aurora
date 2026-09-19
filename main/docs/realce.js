@@ -46,6 +46,7 @@
  * lado da citacao vem do texto ja extraido. So se encontram depois desta
  * normalizacao, e ela tem de ser a MESMA nos dois lados, senao a busca falha
  * por causa de um espaco e o leitor conclui que a assistente inventou a frase.
+ * @param {unknown} texto
  */
 function normalizar(texto) {
   return String(texto || '').replace(/\s+/g, ' ').trim();

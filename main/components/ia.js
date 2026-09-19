@@ -72,17 +72,24 @@ const CATALOGO = [
   },
 ];
 
+/** @type {Map<string, ComponenteIA>} */
 const PORCHAVE = new Map(CATALOGO.map((c) => [c.chave, c]));
 
-/** Este modulo responde por esta chave? */
+/**
+ * Este modulo responde por esta chave?
+ * @param {string} chave
+ * @returns {chave is 'claude'|'codex'}
+ */
 function conhece(chave) {
   return PORCHAVE.has(chave);
 }
 
+/** @param {string} chave */
 function obter(chave) {
   return PORCHAVE.get(chave);
 }
 
+/** @param {string|null|undefined} p */
 function existe(p) {
   try { return !!p && fs.statSync(p).isFile(); }
   catch (_) { return false; }
@@ -94,6 +101,7 @@ function existe(p) {
  * O nome da pasta e `<pacote-seguro>@<versao>`; o prefixo ate o arroba
  * identifica o pacote, igual ao pruneStaleVersions do downloader.
  *
+ * @param {'claude'|'codex'} chave
  * @returns {{ pasta: string, versao: string }[]}
  */
 function pastasDoCache(chave) {
@@ -111,6 +119,7 @@ function pastasDoCache(chave) {
 }
 
 /**
+ * @param {'claude'|'codex'} chave
  * @returns {{chave: string, estado: 'ok'|'ausente'|'desatualizado', faltando: string[], versaoInstalada: string|null}}
  */
 function diagnosticar(chave) {
@@ -180,7 +189,7 @@ async function instalar(chave, avisar) {
   await downloader.ensureCli(chave, {
     onProgress: (p) => {
       if (p.phase === 'download') {
-        const mb = (n) => (n / 1e6).toFixed(1);
+        const mb = (/** @type {number} */ n) => (n / 1e6).toFixed(1);
         const detalhe = p.total ? ` (${mb(p.received || 0)} / ${mb(p.total)} MB)` : '';
         avisar(`[${chave}] ${p.pct}%${detalhe}`, p.pct);
       } else if (p.phase === 'verify') {
@@ -196,6 +205,7 @@ async function instalar(chave, avisar) {
  * Remove o CLI: todas as versoes no cache, nao so a atual. O que a pessoa quer
  * ao clicar em Remover e o espaco de volta, e uma versao antiga esquecida
  * seria o contrario disso.
+ * @param {'claude'|'codex'} chave
  */
 async function remover(chave) {
   const c = obter(chave);

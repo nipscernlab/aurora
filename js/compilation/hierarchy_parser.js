@@ -77,6 +77,7 @@ function parseYosysHierarchy(jsonData, topLevelModule) {
   const modules = (jsonData && jsonData.modules) || {};
   const memo = new Map();
 
+  /** @param {string} moduleName */
   const isPrimitive = (moduleName) => {
     const cleanName = parseYosysIdentifier(moduleName).cleanName;
     if (PRIMITIVE_PATTERNS.some((pattern) => pattern.test(cleanName))) return true;
@@ -89,6 +90,7 @@ function parseYosysHierarchy(jsonData, topLevelModule) {
     return false;
   };
 
+  /** @param {string} moduleName */
   const buildDefinitionTree = (moduleName) => {
     if (memo.has(moduleName)) return memo.get(moduleName);
     if (isPrimitive(moduleName)) return null;
@@ -110,7 +112,8 @@ function parseYosysHierarchy(jsonData, topLevelModule) {
       name: cleanName,
       filePath: sourceFilePath,
       lineNumber: sourceLineNumber,
-      children: [],
+      // Sem o tipo, o strict infere `never[]` e recusa o push logo abaixo.
+      children: /** @type {any[]} */ ([]),
     };
     memo.set(moduleName, definitionNode);
 

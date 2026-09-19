@@ -162,7 +162,7 @@ if (acquiredLock) {
     // mostrar uma janela que vai morrer em seguida. Se nao houver pendente, ou
     // se a rede nao responder no prazo curto, a funcao devolve falso na hora e
     // o arranque segue como sempre.
-    const { isDev } = require('./main/paths');
+    const { isDev, componentsPath } = require('./main/paths');
     if (!isDev && await updater.aplicarAtualizacaoPendente()) return;
 
     // MSYS tools (bash/make under the Verilator build, and cocotb) resolve
@@ -174,7 +174,6 @@ if (acquiredLock) {
     try {
       const fs = require('fs');
       const path = require('path');
-      const { componentsPath } = require('./main/paths');
       fs.mkdirSync(path.join(componentsPath, 'Packages', 'msys', 'tmp'), { recursive: true });
     } catch (_) { /* best-effort */ }
 
@@ -184,7 +183,6 @@ if (acquiredLock) {
     // build can read stale artifacts. Synchronous on purpose — ordered strictly
     // before the renderer (and thus any compile) comes up. See main/temp_gc.js.
     try {
-      const { componentsPath } = require('./main/paths');
       require('./main/temp_gc').clearTempFolderSync(componentsPath);
     } catch (_) { /* best-effort */ }
 

@@ -21,13 +21,6 @@
     "TS7034": 2,
     "TS7053": 3
   },
-  "js/compilation/hierarchy_parser.js": {
-    "TS2345": 1,
-    "TS7006": 2
-  },
-  "main.js": {
-    "TS2300": 2
-  },
   "main/ai/attachments.js": {
     "TS7006": 1
   },

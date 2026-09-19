@@ -12,6 +12,16 @@ updates:
     labels:
       - "deps"
     groups:
+      # O @vitest/coverage-v8 exige como peer o vitest na versao EXATA dele
+      # (coverage-v8 5.0.1 pede vitest 5.0.1). Em major o dev-dependencies nao
+      # os pega, e cada um vinha num PR proprio (#119 e #121): sozinho, cada
+      # um quebra o `npm ci` com ERESOLVE, entao nenhum dos dois passava nunca.
+      # Fica ANTES do dev-dependencies porque a dependencia vai para o
+      # primeiro grupo que casa.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       dev-dependencies:
         dependency-type: "development"
         update-types:
@@ -75,3 +85,13 @@ updates:
     labels:
       - "deps"
       - "ci"
+    groups:
+      # O init e o analyze do CodeQL tem que andar na mesma versao: o analyze
+      # recusa a configuracao gravada por um init de outra ("Loaded a
+      # configuration file for version X, but running version Y"). Separados,
+      # o auto-merge levou o #131 (analyze) e nao conseguiu o #133 (init),
+      # porque a soma dos dois gera um workflow que o GITHUB_TOKEN nao tem
+      # permissao de escrever, e a main ficou com o CodeQL quebrado.
+      codeql-action:
+        patterns:
+          - "github/codeql-action/*"

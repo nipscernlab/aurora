@@ -66,7 +66,9 @@ beforeEach(() => {
   montarMonaco();
 
   globalThis.window = globalThis.window || {};
-  window.localStorage = { getItem: () => 'true', setItem: () => {} };
+  // O localStorage do happy-dom so tem getter (o vitest 5 repassa a atribuicao
+  // ao window de verdade), entao grava-se a chave que o slang_integration le.
+  window.localStorage.setItem('slangEnabled', 'true');
   window.slangAPI = {
     setEnabled: () => {},
     onDiagnostics: () => {},
@@ -171,7 +173,7 @@ describe('dica inline: quando nao ha nada a mostrar', () => {
   });
 
   it('nao pergunta nada com o slang desligado', async () => {
-    window.localStorage = { getItem: () => 'false', setItem: () => {} };
+    window.localStorage.setItem('slangEnabled', 'false');
     resposta = [dicaDoSlang(1, 1, 'clk:')];
     const r = await (await provider()).provideInlayHints(modelo, FAIXA);
 

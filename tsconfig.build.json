@@ -1,0 +1,16 @@
+{
+  // Emite o .js ao lado de cada .ts (a app carrega o .js). Os gerados estao
+  // no .gitignore, e scripts/check-no-generated-js.js impede que entrem no
+  // git. Roda via `npm run build:ts`. A VERIFICACAO de tipos e do
+  // tsconfig.json, que este estende: la entram tambem os .js com
+  // `// @ts-check`, e por isso o allowJs precisa voltar a false aqui, senao o
+  // tsc tentaria gravar cada .js por cima dele mesmo.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "allowJs": false,
+    "rootDir": ".",
+    "outDir": "."
+  },
+  "include": ["js/**/*.ts"]
+}

@@ -35,8 +35,13 @@ jobs:
       - name: ESLint
         run: npx eslint . --max-warnings=0
 
-      - name: Typecheck (tsc --noEmit)
-        run: npx tsc --noEmit
+      # Catraca de tipos. O tsconfig.json enxerga todo .js com `// @ts-check`
+      # (main/, scripts, PRISM) em strict, e sao 961 erros hoje, quase todos
+      # JSDoc que falta. Cada arquivo carrega em scripts/types-baseline.json o
+      # numero que tem, e o que quebra e passar dele. A lista inteira continua
+      # em `npx tsc --noEmit`.
+      - name: Typecheck (catraca de tipos)
+        run: node scripts/check-types.js
 
       - name: No generated .js committed (B4/B5 guard)
         run: node scripts/check-no-generated-js.js

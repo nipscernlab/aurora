@@ -2014,7 +2014,8 @@ formalmente, não consertado.
   `capturePage` e leitura de pixels; a sessão de 22/08 fez assim.
 - Os portões antes de um commit não são quatro, são seis, e os dois esquecidos
   mordem no CI: além de `npx eslint . --max-warnings=0`, `npx vitest run`,
-  `npx tsc --noEmit` e `node scripts/check-i18n.js`, o CI roda
+  `node scripts/check-types.js` (catraca de tipos; `npx tsc --noEmit` mostra a
+  lista inteira) e `node scripts/check-i18n.js`, o CI roda
   `node scripts/check-design-tokens.js` (catraca de cor e duração) e
   `node scripts/check-no-generated-js.js` (nenhum `.js` gerado de `.ts` pode
   estar versionado). Em 23/08/2026 os dois estavam vermelhos em `main` sem

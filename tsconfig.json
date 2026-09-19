@@ -1,4 +1,12 @@
 {
+  // Quem VERIFICA tipos le este arquivo: o CI (scripts/check-types.js, a
+  // catraca), o VS Code e o `npx tsc --noEmit`. Quem EMITE os .js dos .ts e
+  // o tsconfig.build.json, que estende este (`npm run build:ts`).
+  //
+  // allowJs + checkJs:false = so os .js que abrem com `// @ts-check` sao
+  // verificados; e o proprio arquivo que se declara pronto. Sem o allowJs,
+  // os 132 .js do main/, dos scripts e do PRISM com a diretiva nunca eram
+  // lidos pelo CI, so pelo VS Code, e sem strict.
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -8,48 +16,22 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "removeComments": false,
-    "rootDir": ".",
-    "outDir": "."
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false
   },
   "include": [
-    "js/types/aurora-globals.d.ts",
-    "js/utils/path_utils.ts",
-    "js/compilation/compilation_helpers.ts",
-    "js/wave/signal_parser.ts",
-    "js/wave/selection_validator.ts",
-    "js/wave/testbench_instrumenter.ts",
-    "js/wave/vcd_parser.ts",
-    "js/project/verilog_classifier.ts",
-    "js/editor/document_type_detector.ts",
-    "js/wave/gtkw_writer.ts",
-    "js/wave/gtkw_proc_writer.ts",
-    "js/wave/surfer_layout_writer.ts",
-    "js/wave/complex_decode.ts",
-    "js/wave/event_markers.ts",
-    "js/project/processor_list.ts",
-    "js/project/caminho_de_projeto.ts",
-    "js/wave/wave_state_store.ts",
-    "js/project/spf_store.ts",
-    "js/compilation/command_spec.ts",
-    "js/compilation/verilator_tb.ts",
-    "js/compilation/builders/cmm.ts",
-    "js/compilation/builders/asm.ts",
-    "js/compilation/builders/cocotb.ts",
-    "js/compilation/builders/iverilog.ts",
-    "js/compilation/builders/vvp.ts",
-    "js/compilation/builders/wave_tools.ts",
-    "js/compilation/builders/yosys.ts",
-    "js/compilation/builders/verilator.ts",
-    "js/compilation/builders/index.ts",
-    "js/compilation/command_overrides.ts",
-    "js/compilation/spec_runner.ts",
-    "js/compilation/spec_factory.ts"
+    "js",
+    "main",
+    "main.js",
+    "scripts",
+    "components/Scripts",
+    "html"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "release",
-    "components",
     "tests"
   ]
 }

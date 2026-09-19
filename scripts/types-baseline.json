@@ -1,0 +1,332 @@
+{
+  "components/Scripts/download-docs.js": {
+    "TS7006": 1
+  },
+  "html/prism/prism.js": {
+    "TS18046": 4,
+    "TS18047": 23,
+    "TS2339": 117,
+    "TS2345": 3,
+    "TS2531": 10,
+    "TS2532": 3,
+    "TS2533": 78,
+    "TS2769": 1,
+    "TS7005": 2,
+    "TS7006": 153,
+    "TS7008": 3,
+    "TS7016": 3,
+    "TS7022": 1,
+    "TS7023": 1,
+    "TS7031": 2,
+    "TS7034": 2,
+    "TS7053": 3
+  },
+  "js/compilation/hierarchy_parser.js": {
+    "TS2345": 1,
+    "TS7006": 2
+  },
+  "main.js": {
+    "TS2300": 2
+  },
+  "main/ai/attachments.js": {
+    "TS7006": 1
+  },
+  "main/ai/chat.js": {
+    "TS2339": 4,
+    "TS7031": 1
+  },
+  "main/ai/citacoes.js": {
+    "TS2353": 1
+  },
+  "main/ai/claude_agent.js": {
+    "TS2322": 1,
+    "TS2554": 1
+  },
+  "main/ai/claude_code.js": {
+    "TS2339": 3,
+    "TS2353": 1
+  },
+  "main/ai/cli_downloader.js": {
+    "TS2554": 3,
+    "TS7005": 1,
+    "TS7034": 1
+  },
+  "main/ai/codex_cli.js": {
+    "TS2339": 3,
+    "TS2353": 1
+  },
+  "main/ai/effort_policy.js": {
+    "TS7006": 1
+  },
+  "main/ai/prompt_cache.js": {
+    "TS1016": 1,
+    "TS18048": 2,
+    "TS2322": 1,
+    "TS2339": 2,
+    "TS7006": 1
+  },
+  "main/ai/provider.js": {
+    "TS7053": 1
+  },
+  "main/ai/tool_args.js": {
+    "TS7005": 1,
+    "TS7006": 3,
+    "TS7034": 1
+  },
+  "main/compile/binary_allowlist.js": {
+    "TS2353": 1,
+    "TS7006": 1
+  },
+  "main/compile/executor.js": {
+    "TS2339": 2,
+    "TS7005": 3,
+    "TS7006": 1,
+    "TS7034": 1,
+    "TS7053": 1
+  },
+  "main/components/ia.js": {
+    "TS7006": 7
+  },
+  "main/components/registry.js": {
+    "TS2345": 1,
+    "TS7005": 2,
+    "TS7006": 8,
+    "TS7034": 1
+  },
+  "main/docs/busca.js": {
+    "TS7005": 1,
+    "TS7006": 13,
+    "TS7034": 1
+  },
+  "main/docs/citar.js": {
+    "TS7006": 1
+  },
+  "main/docs/realce.js": {
+    "TS7006": 1
+  },
+  "main/exemplos/instalar.js": {
+    "TS2322": 2,
+    "TS7006": 5
+  },
+  "main/format/clang_format.js": {
+    "TS18047": 5
+  },
+  "main/ipc/bug_report.js": {
+    "TS18048": 2,
+    "TS2339": 1,
+    "TS2345": 1,
+    "TS2741": 1,
+    "TS7006": 7
+  },
+  "main/ipc/components.js": {
+    "TS18047": 2,
+    "TS2345": 2,
+    "TS7005": 4,
+    "TS7006": 5,
+    "TS7034": 1
+  },
+  "main/ipc/docs.js": {
+    "TS7006": 2
+  },
+  "main/ipc/docs_nav.js": {
+    "TS7006": 1
+  },
+  "main/ipc/docs_window.js": {
+    "TS7006": 1
+  },
+  "main/ipc/exemplos.js": {
+    "TS7006": 1
+  },
+  "main/ipc/files.js": {
+    "TS2339": 3,
+    "TS2353": 1,
+    "TS2740": 1,
+    "TS7006": 3
+  },
+  "main/ipc/git.js": {
+    "TS2349": 6,
+    "TS7005": 5,
+    "TS7006": 38,
+    "TS7034": 3,
+    "TS7053": 1
+  },
+  "main/ipc/github_auth.js": {
+    "TS2810": 2,
+    "TS7005": 1,
+    "TS7006": 10,
+    "TS7034": 1
+  },
+  "main/ipc/github_forget.js": {
+    "TS2339": 1,
+    "TS2532": 1,
+    "TS7005": 3,
+    "TS7006": 5,
+    "TS7034": 1
+  },
+  "main/ipc/gitlab_auth.js": {
+    "TS2551": 2,
+    "TS2810": 2,
+    "TS7005": 1,
+    "TS7006": 17,
+    "TS7034": 1
+  },
+  "main/ipc/history.js": {
+    "TS18048": 2,
+    "TS2322": 1,
+    "TS2339": 2,
+    "TS2345": 1,
+    "TS2353": 1,
+    "TS7005": 1,
+    "TS7006": 26,
+    "TS7034": 1
+  },
+  "main/ipc/preview.js": {
+    "TS2339": 1,
+    "TS7053": 1
+  },
+  "main/ipc/prism.js": {
+    "TS18047": 4,
+    "TS2339": 1,
+    "TS7006": 3
+  },
+  "main/ipc/prism_vcd.js": {
+    "TS2532": 2
+  },
+  "main/ipc/project.js": {
+    "TS2339": 2,
+    "TS7005": 2,
+    "TS7006": 1,
+    "TS7034": 1
+  },
+  "main/ipc/run_log.js": {
+    "TS2339": 3,
+    "TS7006": 6
+  },
+  "main/ipc/search.js": {
+    "TS7006": 2
+  },
+  "main/ipc/search_core.js": {
+    "TS7005": 2,
+    "TS7034": 1
+  },
+  "main/ipc/search_worker.js": {
+    "TS18047": 2,
+    "TS2304": 1
+  },
+  "main/ipc/shell.js": {
+    "TS1340": 1,
+    "TS2339": 1,
+    "TS2353": 1,
+    "TS7006": 2,
+    "TS7031": 1
+  },
+  "main/ipc/shell_bootstrap.js": {
+    "TS7006": 2
+  },
+  "main/ipc/spf_locator.js": {
+    "TS7005": 1,
+    "TS7006": 3,
+    "TS7034": 1
+  },
+  "main/ipc/spf_locator_rules.js": {
+    "TS7006": 2
+  },
+  "main/ipc/surfer_tab.js": {
+    "TS2339": 1,
+    "TS7005": 1,
+    "TS7006": 5,
+    "TS7034": 1,
+    "TS7053": 1
+  },
+  "main/lsp/disjuntor.js": {
+    "TS7005": 1,
+    "TS7034": 1
+  },
+  "main/lsp/slang_lsp.js": {
+    "TS18047": 2,
+    "TS2339": 3,
+    "TS2353": 2,
+    "TS2810": 1,
+    "TS7005": 3,
+    "TS7006": 2,
+    "TS7034": 1
+  },
+  "main/lsp/verible_lsp.js": {
+    "TS18047": 2,
+    "TS2339": 2,
+    "TS2353": 2,
+    "TS2810": 1
+  },
+  "main/net/fetcher.js": {
+    "TS2345": 2,
+    "TS2554": 12,
+    "TS7005": 1,
+    "TS7034": 1
+  },
+  "main/process_registry.js": {
+    "TS7005": 1,
+    "TS7034": 1
+  },
+  "main/python/pylib_catalog.js": {
+    "TS7005": 5,
+    "TS7006": 4,
+    "TS7034": 1
+  },
+  "main/python/pylib_manager.js": {
+    "TS18048": 16,
+    "TS2339": 1,
+    "TS7005": 4,
+    "TS7006": 15,
+    "TS7034": 1
+  },
+  "main/python/pylib_watch.js": {
+    "TS7005": 1,
+    "TS7034": 1
+  },
+  "main/treesitter/grammars.js": {
+    "TS7053": 1
+  },
+  "main/windows.js": {
+    "TS2339": 1,
+    "TS2345": 1,
+    "TS7005": 1,
+    "TS7006": 1,
+    "TS7034": 1
+  },
+  "scripts/check-component-drift.js": {
+    "TS2339": 1,
+    "TS7006": 23,
+    "TS7053": 1
+  },
+  "scripts/check-i18n.js": {
+    "TS7006": 7
+  },
+  "scripts/feed-local.js": {
+    "TS7006": 3
+  },
+  "scripts/fetch-fonts.js": {
+    "TS1005": 1,
+    "TS1141": 1,
+    "TS2339": 2,
+    "TS2353": 1,
+    "TS7005": 2,
+    "TS7006": 2,
+    "TS7034": 1
+  },
+  "scripts/gen-pylib-catalog.js": {
+    "TS7006": 6
+  },
+  "scripts/gen-pylib-icons.js": {
+    "TS7005": 1,
+    "TS7006": 4,
+    "TS7034": 1
+  },
+  "scripts/verify-components.js": {
+    "TS2339": 34,
+    "TS7005": 1,
+    "TS7006": 27,
+    "TS7031": 1,
+    "TS7034": 1,
+    "TS7053": 1
+  }
+}

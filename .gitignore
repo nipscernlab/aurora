@@ -104,7 +104,6 @@ js/project/processor_list.js
 js/project/spf_store.js
 js/project/verilog_classifier.js
 js/wave/complex_decode.js
-js/wave/event_markers.js
 js/wave/generate_blocks.js
 js/wave/gtkw_proc_writer.js
 js/wave/gtkw_writer.js

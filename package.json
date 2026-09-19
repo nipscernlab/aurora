@@ -325,5 +325,9 @@
     "vite": "^8.3.0",
     "vite-plugin-static-copy": "^4.1.1",
     "vitest": "^4.1.5"
+  },
+  "allowScripts": {
+    "@anthropic-ai/claude-code": true,
+    "electron-winstaller": true
   }
 }

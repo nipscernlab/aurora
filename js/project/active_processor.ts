@@ -1,5 +1,5 @@
 /**
- * active_processor.js, "qual processador esta ativo?"
+ * active_processor.ts, "qual processador esta ativo?"
  *
  * Dominio, nao UI: o processador ATIVO e o cruzamento do arquivo em
  * foco no editor (.cmm) com a lista de processadores do projeto. A
@@ -17,6 +17,9 @@
  *   - getAvailableProcessors(), lista sincrona de nomes, semeada do
  *     .spf (processor_list). Consumidores com uma lista mais fresca em
  *     maos (ex: status bar acabou de ler o .spf) podem passa-la.
+ *
+ * Compilado por `tsc` (npm run build:ts) num active_processor.js ao lado, e
+ * esse .js que o runtime carrega; os imports usam a extensao `.js`.
  */
 
 import { TabManager } from '../tabs/tab_manager.js';
@@ -29,7 +32,7 @@ import { getAvailableProcessors } from './processor_list.js';
  * pro basename como fallback. Retorna null se o arquivo em foco
  * nao for .cmm ou nao casar com nenhum processador.
  */
-function matchProcessorFromPath(filePath, processors) {
+function matchProcessorFromPath(filePath: string, processors: readonly string[]): string | null {
     if (!filePath || !filePath.toLowerCase().endsWith('.cmm')) return null;
     const parts = filePath.split(/[\\/]/);
     const swIdx = parts.findIndex((p) => p.toLowerCase() === 'software');
@@ -48,10 +51,10 @@ function matchProcessorFromPath(filePath, processors) {
  * (sincrono). Retorna null quando nao ha processador ativo (nenhum
  * .cmm de processador em foco).
  *
- * @param {string[]} [processors] lista de nomes; default e a lista
- *   sincrona do processor_list (mesmo conjunto que o .spf semeia).
+ * @param processors lista de nomes; default e a lista sincrona do
+ *   processor_list (mesmo conjunto que o .spf semeia).
  */
-export function getActiveProcessorName(processors = getAvailableProcessors()) {
+export function getActiveProcessorName(processors: readonly string[] = getAvailableProcessors()): string | null {
     const editingPath = TabManager.getEditingFilePath?.() || '';
     return matchProcessorFromPath(editingPath, processors);
 }

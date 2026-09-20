@@ -413,7 +413,7 @@ const TOOL_MANIFEST = [
       type: 'object',
       properties: {
         task: { type: 'string', enum: ['compile_all', 'compile_step'], description: 'Short description of what is running, shown to the user in the status bar.' },
-        step: { type: 'string', enum: ['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'], description: 'Required when task is compile_step' },
+        step: { type: 'string', enum: ['cmm', 'cpp', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'], description: 'Required when task is compile_step' },
         note: { type: 'string', description: 'Short description of the goal, echoed back to you on completion' },
       },
       required: ['task'],
@@ -422,7 +422,9 @@ const TOOL_MANIFEST = [
   {
     name: 'compile_step',
     description:
-      'Run a single compilation step. "cmm" regenerates the .asm from .cmm and assembles; ' +
+      'Run a single compilation step. "cmm" (or "cpp", the same step) regenerates the .asm from the ' +
+      'processor source and assembles: the front end is picked by the source in focus, cmmcomp for ' +
+      'a .cmm, cpppp + cppcomp for a .cpp; ' +
       '"asm" SKIPS cmmcomp and runs asmcomp + iverilog -tnull (use this to test an .asm you ' +
       'hand-optimised — typically combined with a `set_command_override` on the asm step\'s ' +
       '-i flag pointing at <proc>/Software/_aurora_opt/<proc>.asm); "verilog" elaborates the ' +
@@ -437,7 +439,7 @@ const TOOL_MANIFEST = [
     argNames: ['step'],
     inputSchema: {
       type: 'object',
-      properties: { step: { type: 'string', enum: ['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'], description: 'Which pipeline step to run. Call list_compile_steps for the valid ids.' } },
+      properties: { step: { type: 'string', enum: ['cmm', 'cpp', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'], description: 'Which pipeline step to run. Call list_compile_steps for the valid ids.' } },
       required: ['step'],
     },
   },
@@ -1777,7 +1779,7 @@ const TOOL_MANIFEST = [
     name: 'list_compile_steps',
     description:
       'Enumerate every toolchain step whose command line Aurora Intelligence can override ' +
-      '(cmm, asm, iverilog-check, iverilog-build, vvp-run, verilator-build, ' +
+      '(cmm, cpp-pp, cpp, asm-pre, asm, iverilog-check, iverilog-build, vvp-run, verilator-build, ' +
       'verilator-run, fst2vcd, gtkwave, yosys-hierarchy, prism-yosys). ' +
       'Each entry includes a short description of when the step runs.',
     access: 'read',
@@ -1799,8 +1801,8 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        step: { type: 'string', description: 'One of: cmm, asm-pre, asm, iverilog-check, iverilog-build, vvp-run, verilator-build, verilator-run, fst2vcd, gtkwave, yosys-hierarchy, prism-yosys' },
-        processorName: { type: 'string', description: 'For per-processor steps (cmm, asm-pre, asm). Omit for global steps.' },
+        step: { type: 'string', description: 'One of: cmm, cpp-pp, cpp, asm-pre, asm, iverilog-check, iverilog-build, vvp-run, verilator-build, verilator-run, fst2vcd, gtkwave, yosys-hierarchy, prism-yosys' },
+        processorName: { type: 'string', description: 'For per-processor steps (cmm, cpp-pp, cpp, asm-pre, asm). Omit for global steps.' },
       },
       required: ['step'],
     },

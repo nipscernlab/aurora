@@ -4,12 +4,12 @@
  * O override pode ACRESCENTAR o que quiser; nao pode remover nem esvaziar o
  * que o pipeline da AURORA depende para o passo seguinte achar o arquivo. O
  * modulo nao tinha teste; este fixa a verificacao nos tres tipos de regra e
- * o retrato que o list_allowed_flags mostra,.
+ * o retrato que o list_allowed_flags mostra, e cobre os passos do C++.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import { check, describe as descrever } from '../../main/compile/protected_flags.ts';
+import { RULES, check, describe as descrever } from '../../main/compile/protected_flags.ts';
 
 const spec = (args, env) => ({ args, ...(env ? { env } : {}) });
 
@@ -61,10 +61,23 @@ describe('check: literalArgs e envKeys', () => {
     });
 });
 
+describe('os passos do front end C++', () => {
+    it('cpp-pp protege -i, -o e -I; cpp protege -i, -p, -n e -t (sem -m: nao tem)', () => {
+        expect(RULES['cpp-pp']).toEqual({ flagWithValue: ['-i', '-o', '-I'] });
+        expect(RULES['cpp']).toEqual({ flagWithValue: ['-i', '-p', '-n', '-t'] });
+    });
+
+    it('um override que tira o -o do cpppp deixa o cppcomp sem pp.cpp: recusado', () => {
+        const base = spec(['-i', 'a.cpp', '-o', '/t/pp.cpp', '-I', '/h', '-I', '/s']);
+        expect(check('cpp-pp', base, spec(['-i', 'a.cpp', '-I', '/h', '-I', '/s'])).ok).toBe(false);
+        expect(check('cpp', spec(['-i', '/t/pp.cpp', '-p', '/p', '-n', 'a', '-t', '/t']), spec(['-p', '/p', '-n', 'a', '-t', '/t'])).ok).toBe(false);
+    });
+});
+
 describe('describe: o retrato para list_allowed_flags', () => {
     it('devolve as tres listas, vazias quando a regra nao tem', () => {
-        expect(descrever('cmm')).toEqual({
-            step: 'cmm', protectedLiteralArgs: [], protectedFlagWithValue: ['-i', '-n', '-p', '-m', '-t'], protectedEnv: [],
+        expect(descrever('cpp')).toEqual({
+            step: 'cpp', protectedLiteralArgs: [], protectedFlagWithValue: ['-i', '-p', '-n', '-t'], protectedEnv: [],
         });
         expect(descrever('nada')).toEqual({ step: 'nada', protectedLiteralArgs: [], protectedFlagWithValue: [], protectedEnv: [] });
     });

@@ -86,7 +86,7 @@ const MCP_TOOL_RULES = [
   'cpppp, appcomp, asmcomp), nor yanc, iverilog, vvp, verilator or gtkwave',
   'from a shell. The Bash tool is disabled on purpose. Use:',
   '  - mcp__aurora__compile_all — full pipeline (CMM, ASM, Verilog, wave, PRISM)',
-  '  - mcp__aurora__compile_step({step:"cmm"|"verilog"|"wave"|"prism"}) — one',
+  '  - mcp__aurora__compile_step({step:"cmm"|"cpp"|"verilog"|"wave"|"prism"}) — one',
   '    step; "wave" opens GTKWave, "prism" opens the PRISM RTL viewer',
   '  - mcp__aurora__cancel_compilation',
   '',

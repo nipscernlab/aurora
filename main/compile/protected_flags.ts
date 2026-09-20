@@ -42,6 +42,15 @@ export const RULES: Record<string, ProtectedFlagRule> = {
   'cmm': {
     flagWithValue: ['-i', '-n', '-p', '-m', '-t'],
   },
+  // O front end C++ (builders/cpp.ts). O -o do cpppp e o -i do cppcomp sao
+  // o mesmo pp.cpp: tirar um deles deixa o outro sem arquivo. O cppcomp nao
+  // tem -m, por isso a lista e mais curta que a do cmm.
+  'cpp-pp': {
+    flagWithValue: ['-i', '-o', '-I'],
+  },
+  'cpp': {
+    flagWithValue: ['-i', '-p', '-n', '-t'],
+  },
   'asm-pre': {
     flagWithValue: ['-i', '-t'],
   },

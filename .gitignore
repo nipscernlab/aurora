@@ -108,6 +108,7 @@ js/project/active_processor.js
 js/project/processor_list.js
 js/project/spf_store.js
 js/project/verilog_classifier.js
+js/tabs/tab_utils.js
 js/wave/complex_decode.js
 js/wave/generate_blocks.js
 js/wave/gtkw_proc_writer.js

@@ -1,10 +1,13 @@
-// tab_utils.js: pure filename/string helpers for the tab manager (extracted
+// tab_utils.ts: pure filename/string helpers for the tab manager (extracted
 // from tab_manager.js, A2 god-file decomposition). No TabManager state, no DOM:
 // basename/extension parsing, key normalization, name sanitizers, the C±
 // (.cmm) starter template, file-type/icon detection, and save-name
 // validation. Imported back into tab_manager.js for internal use.
+//
+// Compilado por `tsc` (npm run build:ts) num tab_utils.js ao lado, e esse .js
+// que o runtime carrega; os imports usam a extensao `.js`.
 
-import { getExtensionForDocumentType } from '../editor/document_type_detector.js';
+import { getExtensionForDocumentType, type DocumentType } from '../editor/document_type_detector.js';
 
 const CMM_DEFAULTS = Object.freeze({
     nBits: 23,
@@ -17,24 +20,24 @@ const CMM_DEFAULTS = Object.freeze({
     gain: 128,
 });
 
-export function basenameOf(filePath) {
-    return String(filePath || '').split(/[\\/]/).pop();
+export function basenameOf(filePath: unknown): string {
+    return String(filePath || '').split(/[\\/]/).pop() as string;
 }
 
-export function withoutExtension(fileName) {
+export function withoutExtension(fileName: unknown): string {
     return String(fileName || '').replace(/\.[^.\\/]+$/, '');
 }
 
-export function extensionOf(filePath) {
+export function extensionOf(filePath: unknown): string {
     const match = String(filePath || '').match(/\.([^.\\/]+)$/);
     return match ? match[1].toLowerCase() : '';
 }
 
-export function normalizeKey(filePath) {
+export function normalizeKey(filePath: unknown): string {
     return String(filePath || '').replace(/\\/g, '/').toLowerCase();
 }
 
-export function sanitizeVerilogFileName(baseName) {
+export function sanitizeVerilogFileName(baseName: unknown): string {
     const cleaned = String(baseName || '')
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zA-Z0-9_-]+/g, '_')
@@ -43,7 +46,7 @@ export function sanitizeVerilogFileName(baseName) {
     return cleaned || 'untitled';
 }
 
-export function sanitizePythonModuleName(baseName) {
+export function sanitizePythonModuleName(baseName: unknown): string {
     let cleaned = String(baseName || 'test_dut')
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zA-Z0-9_]+/g, '_')
@@ -54,7 +57,7 @@ export function sanitizePythonModuleName(baseName) {
     return cleaned;
 }
 
-export function sanitizeProcessorName(baseName) {
+export function sanitizeProcessorName(baseName: unknown): string {
     const cleaned = String(baseName || 'processor')
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zA-Z0-9_-]+/g, '_')
@@ -63,7 +66,7 @@ export function sanitizeProcessorName(baseName) {
     return cleaned || 'processor';
 }
 
-export function createCmmTemplate(processorName = 'processor') {
+export function createCmmTemplate(processorName = 'processor'): string {
     return `#PRNAME ${processorName}
 #NUBITS ${CMM_DEFAULTS.nBits}
 #NDSTAC ${CMM_DEFAULTS.dataStackSize}
@@ -81,7 +84,7 @@ void main()
 `;
 }
 
-export function ensureCmmPrname(content, processorName) {
+export function ensureCmmPrname(content: unknown, processorName: string): string {
     const source = String(content || '').trim()
         ? String(content)
         : createCmmTemplate(processorName);
@@ -91,7 +94,7 @@ export function ensureCmmPrname(content, processorName) {
     return `#PRNAME ${processorName}\n${source.replace(/^\s+/, '')}`;
 }
 
-export function typeFromExtension(filePath) {
+export function typeFromExtension(filePath: unknown): DocumentType | null {
     const ext = extensionOf(filePath);
     if (ext === 'py') return 'python';
     if (ext === 'v') return 'verilog';
@@ -111,29 +114,29 @@ const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'sv
 const pdfExtensions = new Set(['pdf']);
 
 // Utility method to check if file is an image
-export function isImageFile(filePath) {
-    const extension = filePath.split('.')
-        .pop()
+export function isImageFile(filePath: string): boolean {
+    const extension = (filePath.split('.')
+        .pop() as string)
         .toLowerCase();
     return imageExtensions.has(extension);
 }
 
 // Utility method to check if file is a PDF
-export function isPdfFile(filePath) {
-    const extension = filePath.split('.')
-        .pop()
+export function isPdfFile(filePath: string): boolean {
+    const extension = (filePath.split('.')
+        .pop() as string)
         .toLowerCase();
     return pdfExtensions.has(extension);
 }
 
 // Utility method to check if file is binary (image or PDF)
-export function isBinaryFile(filePath) {
+export function isBinaryFile(filePath: string): boolean {
     return isImageFile(filePath) || isPdfFile(filePath);
 }
 
 // getFileIcon, returns Phosphor classes (no FA dependency)
-export function getFileIcon(filename) {
-    const extension = filename.split('.').pop().toLowerCase();
+export function getFileIcon(filename: string): string {
+    const extension = (filename.split('.').pop() as string).toLowerCase();
 
     // Images
     if (imageExtensions.has(extension)) {
@@ -142,7 +145,7 @@ export function getFileIcon(filename) {
 
     if (extension === 'pdf') return 'ph ph-file-pdf';
 
-    const iconMap = {
+    const iconMap: Record<string, string> = {
         // SAPHO/AURORA file types, distinctive icons per family so the
         // hardware toolchain reads at a glance (Verilog = a chip, C± = a
         // custom C±-lettered document, assembly = binary, waves = waveform).
@@ -263,13 +266,13 @@ const VALID_VERILOG_FILENAME_RE = /^[a-zA-Z0-9_-]+$/;
 const VALID_PYTHON_MODULE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const VALID_PROCESSOR_NAME_RE = /^[a-zA-Z0-9_-]+$/;
 
-export function appendDefaultExtension(filePath, documentType) {
+export function appendDefaultExtension(filePath: string, documentType: string | null | undefined): string {
     if (/\.(?:py|v|cmm)$/i.test(filePath)) return filePath;
     const extension = getExtensionForDocumentType(documentType) || 'v';
     return `${filePath}.${extension}`;
 }
 
-export function validateSaveName(filePath) {
+export function validateSaveName(filePath: string): { ok: true } | { ok: false, suggestion: string } {
     const ext = extensionOf(filePath);
     const baseName = withoutExtension(basenameOf(filePath));
     if (ext === 'py' && !VALID_PYTHON_MODULE_RE.test(baseName)) {

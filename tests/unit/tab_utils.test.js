@@ -5,7 +5,7 @@ import {
     createCmmTemplate, ensureCmmPrname, typeFromExtension,
     isImageFile, isPdfFile, isBinaryFile, getFileIcon,
     appendDefaultExtension, validateSaveName,
-} from '../../js/tabs/tab_utils.js';
+} from '../../js/tabs/tab_utils.ts';
 
 describe('path helpers', () => {
     it('basenameOf strips dirs (both separators) and tolerates empty', () => {

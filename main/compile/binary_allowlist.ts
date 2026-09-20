@@ -46,6 +46,15 @@ export const RAW_ALLOWLIST: Array<[string, string[], string]> = [
   ['appcomp.exe',   ['bin'], 'yanc'],
   ['asmcomp.exe',   ['bin'], 'yanc'],
 
+  // O front end C++ do yanc, que converge no mesmo .asm que o cmmcomp
+  // produz: o cpppp resolve #include/#define e escreve um pp.cpp na Temp, e o
+  // cppcomp compila esse pp.cpp. Do appcomp em diante o pipeline e o mesmo.
+  // Os dois ja vem no mesmo bin/ do yanc, e por isso o componente tambem e o
+  // 'yanc': quem nao tiver o componente instalado e barrado aqui como ja era
+  // barrado para o cmmcomp.
+  ['cpppp.exe',     ['bin'], 'yanc'],
+  ['cppcomp.exe',   ['bin'], 'yanc'],
+
   // Unified mingw bundle: iverilog, vvp, verilator, perl, g++, make, yosys
   // (+ python, handled by the python branch in isAllowed) all live in
   // Packages/msys/mingw64/bin.

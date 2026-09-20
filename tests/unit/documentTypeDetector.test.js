@@ -22,6 +22,17 @@ describe('document type detector', () => {
         expect(detectDocumentType('#PRNAME my_proc\n#NUBITS 23\n')).toBe('cmm');
     });
 
+    it('detects a C++ processor by its #pragma yanc header', () => {
+        expect(detectDocumentType('#pragma yanc prname proc_cpp\nint g = 7;\n')).toBe('cpp');
+        expect(detectDocumentType('# pragma YANC nubits 32\n')).toBe('cpp');
+        // a armadilha: `#` no comeco da linha e comentario para o detector
+        // (estilo Python/shell), entao o pragma tem de ser lido ANTES do
+        // filtro de comentario, como as diretivas do C+- ja sao
+        expect(detectDocumentType('// cabecalho\n\n#pragma yanc prname p\nvoid main(void) {}\n')).toBe('cpp');
+        // um #pragma qualquer nao e processador
+        expect(detectDocumentType('#pragma once\nint x;\n')).toBeNull();
+    });
+
     it('skips leading comments before detecting the source type', () => {
         expect(detectDocumentType('// draft\n\nmodule top;\nendmodule\n')).toBe('verilog');
         expect(detectDocumentType('# draft\n\nfrom cocotb.triggers import Timer\n')).toBe('python');
@@ -39,6 +50,14 @@ describe('document type detector', () => {
         expect(getSaveDialogFilters(null).map((filter) => filter.extensions[0]))
             .toEqual(['v', 'py']);
         expect(getSaveDialogFilters(null, { includeCmmFallback: true }).map((filter) => filter.extensions[0]))
-            .toEqual(['v', 'py', 'cmm']);
+            .toEqual(['v', 'py', 'cmm', 'cpp']);
+    });
+
+    it('cpp is a first-class type: language, extension, and both processor filters', () => {
+        expect(getLanguageForDocumentType('cpp')).toBe('cpp');
+        expect(getExtensionForDocumentType('cpp')).toBe('cpp');
+        // o proprio tipo primeiro, a outra linguagem de processador logo depois
+        expect(getSaveDialogFilters('cpp').map((f) => f.extensions[0])).toEqual(['cpp', 'cmm', 'v', 'py']);
+        expect(getSaveDialogFilters('cmm').map((f) => f.extensions[0])).toEqual(['cmm', 'cpp', 'v', 'py']);
     });
 });

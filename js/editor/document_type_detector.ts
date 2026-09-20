@@ -1,13 +1,16 @@
 /**
  * document_type_detector.ts: sniff a document's language (python / verilog /
- * cmm) from its first meaningful line, plus the per-type metadata used by the
- * editor and save dialogs.
+ * cmm / cpp) from its first meaningful line, plus the per-type metadata used
+ * by the editor and save dialogs.
+ *
+ * cpp aqui e o C++ de PROCESSADOR (o front end cpppp + cppcomp do yanc), a
+ * segunda linguagem ao lado do C+-: mesma pasta Software/, mesmo .asm.
  *
  * Compilado por `tsc` (npm run build:ts) num document_type_detector.js ao lado:
  * é esse .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
-export type DocumentType = 'python' | 'verilog' | 'cmm';
+export type DocumentType = 'python' | 'verilog' | 'cmm' | 'cpp';
 
 interface SaveFilter {
     name: string;
@@ -40,15 +43,24 @@ const TYPE_META: Record<DocumentType, TypeMeta> = Object.freeze({
         defaultBaseName: 'processor',
         filter: { name: 'CMM Files', extensions: ['cmm'] },
     },
+    cpp: {
+        language: 'cpp',
+        extension: 'cpp',
+        defaultBaseName: 'processor',
+        filter: { name: 'C++ Files', extensions: ['cpp'] },
+    },
 });
 
 /** Narrow an arbitrary string to a known TypeMeta, or undefined. */
 function metaFor(type: string | null | undefined): TypeMeta | undefined {
-    if (type === 'python' || type === 'verilog' || type === 'cmm') return TYPE_META[type];
+    if (type === 'python' || type === 'verilog' || type === 'cmm' || type === 'cpp') return TYPE_META[type];
     return undefined;
 }
 
 const CMM_DIRECTIVE_RE = /^#(?:PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FROUND)\b/i;
+// O cabecalho de um processador C++: `#pragma yanc <chave> <valor>` (prname,
+// nubits, ndstac...), o equivalente das diretivas #PRNAME/#NUBITS do C+-.
+const CPP_PRAGMA_RE = /^#\s*pragma\s+yanc\b/i;
 const COMMENT_ONLY_RE = /^(?:\/\/|#(?!!)|\/\*|\*)/;
 
 function firstMeaningfulLine(content: string): string {
@@ -59,6 +71,7 @@ function firstMeaningfulLine(content: string): string {
         const line = rawLine.trim();
         if (!line) continue;
         if (CMM_DIRECTIVE_RE.test(line)) return line;
+        if (CPP_PRAGMA_RE.test(line)) return line;
         if (COMMENT_ONLY_RE.test(line)) continue;
         return line;
     }
@@ -79,6 +92,10 @@ export function detectDocumentType(content: string): DocumentType | null {
 
     if (CMM_DIRECTIVE_RE.test(firstLine)) {
         return 'cmm';
+    }
+
+    if (CPP_PRAGMA_RE.test(firstLine)) {
+        return 'cpp';
     }
 
     if (/^void\s+main\s*\(/i.test(firstLine)) {
@@ -128,9 +145,11 @@ export function getSaveDialogFilters(
     type: string | null | undefined,
     { includeCmmFallback = false }: { includeCmmFallback?: boolean } = {},
 ): SaveFilter[] {
-    if (type === 'cmm') return [TYPE_META.cmm.filter, TYPE_META.verilog.filter, TYPE_META.python.filter];
+    if (type === 'cmm') return [TYPE_META.cmm.filter, TYPE_META.cpp.filter, TYPE_META.verilog.filter, TYPE_META.python.filter];
+    if (type === 'cpp') return [TYPE_META.cpp.filter, TYPE_META.cmm.filter, TYPE_META.verilog.filter, TYPE_META.python.filter];
     if (type === 'python') return [TYPE_META.python.filter, TYPE_META.verilog.filter];
     if (type === 'verilog') return [TYPE_META.verilog.filter, TYPE_META.python.filter];
     const fallbackFilters = [TYPE_META.verilog.filter, TYPE_META.python.filter];
-    return includeCmmFallback ? [...fallbackFilters, TYPE_META.cmm.filter] : fallbackFilters;
+    // includeCmmFallback: as duas linguagens de processador, nao so o C+-.
+    return includeCmmFallback ? [...fallbackFilters, TYPE_META.cmm.filter, TYPE_META.cpp.filter] : fallbackFilters;
 }

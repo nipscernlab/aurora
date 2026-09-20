@@ -66,6 +66,7 @@ async function openTreeFile(filePath, fileName, options, ctx) {
 import { RenderMixin } from './project_tree_render.js';
 import { ActionsMixin } from './project_tree_actions.js';
 import { classifyVerilogContent } from './verilog_classifier.js';
+import { sourceExtensions } from '../compilation/processor_source.js';
 
 class ProjectTreeManager {
     constructor() {
@@ -81,9 +82,10 @@ class ProjectTreeManager {
         // mas nao recebem toggle synth/tb, delete, nem entram no
         // synthesizableFiles do .spf.
         // .asm e GERADO (C± → ASM) e nao deve poluir a arvore, so o
-        // fonte .cmm aparece. (A compilacao le o .asm direto do disco,
-        // independente da arvore.)
-        this.SOFTWARE_EXTENSIONS = ['.cmm'];
+        // fonte aparece. (A compilacao le o .asm direto do disco,
+        // independente da arvore.) Quais extensoes sao fonte de
+        // processador (.cmm e .cpp) e o processor_source.ts que diz.
+        this.SOFTWARE_EXTENSIONS = sourceExtensions();
 
         // State management. currentProjectPath is intentionally NOT
         // cached here, vive em ProjectStore (single source of truth).

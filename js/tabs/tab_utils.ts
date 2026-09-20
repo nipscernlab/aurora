@@ -99,6 +99,7 @@ export function typeFromExtension(filePath: unknown): DocumentType | null {
     if (ext === 'py') return 'python';
     if (ext === 'v') return 'verilog';
     if (ext === 'cmm') return 'cmm';
+    if (ext === 'cpp') return 'cpp';
     return null;
 }
 
@@ -267,7 +268,7 @@ const VALID_PYTHON_MODULE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const VALID_PROCESSOR_NAME_RE = /^[a-zA-Z0-9_-]+$/;
 
 export function appendDefaultExtension(filePath: string, documentType: string | null | undefined): string {
-    if (/\.(?:py|v|cmm)$/i.test(filePath)) return filePath;
+    if (/\.(?:py|v|cmm|cpp)$/i.test(filePath)) return filePath;
     const extension = getExtensionForDocumentType(documentType) || 'v';
     return `${filePath}.${extension}`;
 }
@@ -287,10 +288,12 @@ export function validateSaveName(filePath: string): { ok: true } | { ok: false, 
             suggestion: `${sanitizeVerilogFileName(baseName)}.v`,
         };
     }
-    if (ext === 'cmm' && !VALID_PROCESSOR_NAME_RE.test(baseName)) {
+    // As duas linguagens de processador: o nome do fonte vira o -n do
+    // compilador e o nome do .asm, entao a mesma regra vale para .cpp.
+    if ((ext === 'cmm' || ext === 'cpp') && !VALID_PROCESSOR_NAME_RE.test(baseName)) {
         return {
             ok: false,
-            suggestion: `${sanitizeProcessorName(baseName)}.cmm`,
+            suggestion: `${sanitizeProcessorName(baseName)}.${ext}`,
         };
     }
     return { ok: true };

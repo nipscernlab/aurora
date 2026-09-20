@@ -51,6 +51,7 @@ describe('typeFromExtension', () => {
         expect(typeFromExtension('x.py')).toBe('python');
         expect(typeFromExtension('x.v')).toBe('verilog');
         expect(typeFromExtension('x.cmm')).toBe('cmm');
+        expect(typeFromExtension('x.cpp')).toBe('cpp');
         expect(typeFromExtension('x.txt')).toBeNull();
     });
 });
@@ -122,6 +123,7 @@ describe('getFileIcon', () => {
 describe('appendDefaultExtension', () => {
     it('maps the document type to its extension', () => {
         expect(appendDefaultExtension('proc', 'cmm')).toBe('proc.cmm');
+        expect(appendDefaultExtension('proc', 'cpp')).toBe('proc.cpp');
         expect(appendDefaultExtension('mod', 'python')).toBe('mod.py');
         expect(appendDefaultExtension('top', 'verilog')).toBe('top.v');
     });
@@ -133,6 +135,9 @@ describe('appendDefaultExtension', () => {
         expect(appendDefaultExtension('core.v', 'cmm')).toBe('core.v');
         expect(appendDefaultExtension('mod.PY', 'verilog')).toBe('mod.PY');
         expect(appendDefaultExtension('p.CMM', 'python')).toBe('p.CMM');
+        // antes desta linha, 'main.cpp' virava 'main.cpp.v'
+        expect(appendDefaultExtension('main.cpp', 'verilog')).toBe('main.cpp');
+        expect(appendDefaultExtension('main.CPP', null)).toBe('main.CPP');
     });
     it('appends when the existing extension is not a source one', () => {
         expect(appendDefaultExtension('notes.txt', 'python')).toBe('notes.txt.py');
@@ -142,11 +147,14 @@ describe('appendDefaultExtension', () => {
 describe('validateSaveName', () => {
     it('accepts valid names per language', () => {
         expect(validateSaveName('proc.cmm')).toEqual({ ok: true });
+        expect(validateSaveName('proc.cpp')).toEqual({ ok: true });
         expect(validateSaveName('core.v')).toEqual({ ok: true });
         expect(validateSaveName('test_dut.py')).toEqual({ ok: true });
     });
     it('rejects + suggests a sanitized name per language', () => {
         expect(validateSaveName('my proc.cmm')).toEqual({ ok: false, suggestion: 'my_proc.cmm' });
+        // a mesma regra de nome de processador, mantendo a extensao pedida
+        expect(validateSaveName('my proc.cpp')).toEqual({ ok: false, suggestion: 'my_proc.cpp' });
         expect(validateSaveName('bad name.v')).toEqual({ ok: false, suggestion: 'bad_name.v' });
         expect(validateSaveName('123mod.py')).toEqual({ ok: false, suggestion: 'test_123mod.py' });
     });

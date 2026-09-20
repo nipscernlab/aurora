@@ -40,7 +40,11 @@ import * as CommandSpec from './command_spec.js';
 import { moduleStemFromPath } from './compilation_helpers.js';
 import { analisarVerilog, totaisDoVerilog } from './verilog_stats.js';
 import { projectTempDir } from '../project/project_temp.js';
-import type { EntradaDeProcessador } from './processor_source.js';
+import {
+    resolveProcessorSource,
+    stripSourceExtension,
+    type EntradaDeProcessador,
+} from './processor_source.js';
 
 /**
  * O terminal, visto daqui: so os metodos que estes passos chamam. E estrutural
@@ -91,11 +95,21 @@ const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? windo
 const canceladoPeloUsuario = () =>
     (typeof window !== 'undefined' && !!window.isCompilationCanceled?.());
 
-export async function getSelectedCmmFile(processor: ProcessorEntry): Promise<string> {
-    if (!processor.cmmFile) {
+/**
+ * O nome do fonte que este processador compila, como o fluxo o declarou.
+ *
+ * Continua exigindo que alguem tenha declarado: quem chama monta a entrada
+ * com o arquivo dentro (compilation_flow.js), e um processador que chega aqui
+ * sem fonte nenhum e erro de configuracao, nao um caso a adivinhar. O que
+ * mudou e de onde a resposta vem: processor_source.ts, que tambem entende o
+ * campo novo `sourceFile` e deriva a linguagem. Para uma entrada com
+ * `cmmFile`, que e tudo o que existe hoje, a string e a mesma de antes.
+ */
+export async function getSelectedSourceFile(processor: ProcessorEntry): Promise<string> {
+    if (!processor.sourceFile && !processor.cmmFile) {
         throw new Error(tr('error.config.noCmm'));
     }
-    return processor.cmmFile;
+    return resolveProcessorSource(processor).sourceFile;
 }
 
 /**
@@ -150,8 +164,8 @@ export async function cmmCompilation(
     deps.terminalManager.appendToTerminal('tcmm', tr('terminal.cmm.starting', { name }));
 
     try {
-        const selectedCmmFile = await getSelectedCmmFile(processor);
-        const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+        const selectedCmmFile = await getSelectedSourceFile(processor);
+        const cmmBaseName = stripSourceExtension(selectedCmmFile);
 
         // 1. Caminhos
         const macrosPath = await electronAPI.joinPath(deps.componentsPath, 'Macros');
@@ -261,8 +275,8 @@ export async function asmCompilation(
         const appCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'appcomp.exe');
         const asmCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'asmcomp.exe');
         const hdlPath = await electronAPI.joinPath(deps.componentsPath, 'HDL');
-        const selectedCmmFile = await getSelectedCmmFile(processor);
-        const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
+        const selectedCmmFile = await getSelectedSourceFile(processor);
+        const cmmBaseName = stripSourceExtension(selectedCmmFile);
         const softwarePath = await electronAPI.joinPath(deps.projectPath, name, 'Software');
         const asmPath = await electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
         const macrosPath = await electronAPI.joinPath(deps.componentsPath, 'Macros');

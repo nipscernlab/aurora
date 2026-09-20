@@ -15,7 +15,7 @@ vi.mock('../../js/ui/status_updater.js', () => ({
 
 import { runSpec } from '../../js/compilation/spec_runner.js';
 import {
-    getSelectedCmmFile, getTestbenchInfo,
+    getSelectedSourceFile, getTestbenchInfo,
     cmmCompilation, asmCompilation, stageProcessorMemoryFiles,
 } from '../../js/compilation/processor_compiler.ts';
 
@@ -76,12 +76,12 @@ afterEach(() => {
     vi.clearAllMocks();
 });
 
-describe('getSelectedCmmFile', () => {
-    it('devolve o cmmFile do processador', async () => {
-        expect(await getSelectedCmmFile({ cmmFile: 'foo.cmm' })).toBe('foo.cmm');
+describe('getSelectedSourceFile', () => {
+    it('devolve o fonte declarado no cmmFile', async () => {
+        expect(await getSelectedSourceFile({ cmmFile: 'foo.cmm' })).toBe('foo.cmm');
     });
-    it('lanca noCmm quando o processador nao tem cmmFile', async () => {
-        await expect(getSelectedCmmFile({})).rejects.toThrow('error.config.noCmm');
+    it('lanca noCmm quando o processador nao declara fonte nenhum', async () => {
+        await expect(getSelectedSourceFile({})).rejects.toThrow('error.config.noCmm');
     });
 });
 

@@ -88,10 +88,13 @@ function writeFixtureProject(rootDir) {
   const sourcePath = path.join(procDir, 'Software', 'proc_cpp.cpp');
   fs.writeFileSync(sourcePath, programaCpp());
 
-  const spfPath = path.join(rootDir, 'procprj.spf');
+  // O .spf TEM de se chamar como a pasta: o handler create-processor-project
+  // monta o caminho dele como <projectLocation>/<basename>.spf, e um nome
+  // diferente faz a criacao de processador morrer com ENOENT.
+  const spfPath = path.join(rootDir, `${path.basename(rootDir)}.spf`);
   fs.writeFileSync(spfPath, JSON.stringify({
     metadata: {
-      projectName: 'procprj',
+      projectName: path.basename(rootDir),
       createdAt: new Date().toISOString(),
       lastModified: new Date().toISOString(),
       computerName: 'e2e-test',
@@ -191,6 +194,63 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     expect(fs.existsSync(path.join(hardware, 'proc_cpp_data.mif'))).toBe(true);
     expect(fs.readFileSync(path.join(hardware, 'proc_cpp.v'), 'utf8')).toMatch(/module\s+proc_cpp\b/);
   }, 180_000);
+
+  it('criar um processador C++ pela API escreve o .cpp com pragmas e grava a linguagem no .spf', async () => {
+    const criado = await window.evaluate(() => window.AuroraAPI.project.createProcessor({
+      processorName: 'proc_novo',
+      language: 'cpp',
+      inputPorts: 2,
+      outputPorts: 3,
+      // Os campos numericos do C+- vao junto de proposito: a API tem de
+      // ignora-los no modo C++, e nao cravar pragma nenhum com eles.
+      nBits: 23, nbMantissa: 16, nbExponent: 6, gain: 128,
+      dataStackSize: 5, instructionStackSize: 5,
+    }));
+    expect(criado.ok, JSON.stringify(criado)).toBe(true);
+
+    const fonte = path.join(projectDir, 'proc_novo', 'Software', 'proc_novo.cpp');
+    expect(fs.existsSync(fonte)).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, 'proc_novo', 'Software', 'proc_novo.cmm'))).toBe(false);
+
+    const texto = fs.readFileSync(fonte, 'utf8');
+    expect(texto).toContain('#pragma yanc prname proc_novo');
+    expect(texto).toContain('#pragma yanc nuioin 2');
+    expect(texto).toContain('#pragma yanc nuioou 3');
+    // largura, mantissa, expoente, ganho e pilhas NAO viram pragma
+    expect(texto.match(/#pragma yanc/g)).toHaveLength(3);
+    expect(texto).toContain('void main(void)');
+
+    // A linguagem fica registrada no .spf, e e ela que desempata quando
+    // houver um .cmm e um .cpp com o mesmo nome na pasta.
+    const spf = JSON.parse(fs.readFileSync(fixture.spfPath, 'utf8'));
+    const entrada = spf.structure.processors.find((p) => p.name === 'proc_novo');
+    expect(entrada).toBeDefined();
+    expect(entrada.language).toBe('cpp');
+
+    // E o processador recem-criado compila, sem nada em foco no editor.
+    const compilado = await window.evaluate(() => window.AuroraAPI.compile.compileStep('cpp'));
+    expect(compilado.ok, JSON.stringify(compilado)).toBe(true);
+  }, 180_000);
+
+  it('criar em C+- continua escrevendo o .cmm e NAO grava linguagem no .spf', async () => {
+    const criado = await window.evaluate(() => window.AuroraAPI.project.createProcessor({
+      processorName: 'proc_cmm',
+      inputPorts: 1, outputPorts: 1,
+      nBits: 23, nbMantissa: 16, nbExponent: 6, gain: 128,
+      dataStackSize: 5, instructionStackSize: 5,
+    }));
+    expect(criado.ok, JSON.stringify(criado)).toBe(true);
+
+    const fonte = path.join(projectDir, 'proc_cmm', 'Software', 'proc_cmm.cmm');
+    expect(fs.existsSync(fonte)).toBe(true);
+    expect(fs.readFileSync(fonte, 'utf8')).toContain('#PRNAME proc_cmm');
+
+    // A entrada de um processador C+- continua sendo o que sempre foi.
+    const spf = JSON.parse(fs.readFileSync(fixture.spfPath, 'utf8'));
+    const entrada = spf.structure.processors.find((p) => p.name === 'proc_cmm');
+    expect(entrada).toBeDefined();
+    expect('language' in entrada).toBe(false);
+  }, 60_000);
 
   it('o terminal C+- diz que foi o front end C++, e a barra mostra o processador ativo pelo .cpp', async () => {
     const terminal = await window.evaluate(

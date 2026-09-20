@@ -539,14 +539,18 @@ const TOOL_MANIFEST = [
   },
   {
     name: 'create_processor',
-    description: 'Generate a processor in the open project. Hardware widths (nBits/nbMantissa/nbExponent) are in bits.',
+    description: 'Generate a processor in the open project, in C± (default) or C++ (language: "cpp"). Hardware widths (nBits/nbMantissa/nbExponent) are in bits and apply to C± only.',
     access: 'write',
     api: ['project', 'createProcessor'],
     argStyle: 'object',
     inputSchema: {
       type: 'object',
       properties: {
-        processorName: { type: 'string', description: 'Name of the processor. Becomes the folder name and the .cmm basename, so keep it a valid identifier.' },
+        processorName: { type: 'string', description: 'Name of the processor. Becomes the folder name and the source basename, so keep it a valid identifier.' },
+        language: {
+          type: 'string', enum: ['cmm', 'cpp'],
+          description: 'Source language. "cmm" (the default) writes <name>.cmm with the #NUBITS header and uses every numeric field below. "cpp" writes <name>.cpp with `#pragma yanc prname/nuioin/nuioou` and IGNORES the other numeric fields: the C++ front end assumes 32-bit IEEE-754 single unless the source adds the pragma by hand. The language is also recorded in the .spf.',
+        },
         nBits: { type: 'number', description: 'NUBITS — overall data width' },
         nbMantissa: { type: 'number', description: 'NBMANT — mantissa width' },
         nbExponent: { type: 'number', description: 'NBEXPO — exponent width' },

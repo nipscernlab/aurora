@@ -1257,9 +1257,16 @@ const projectNs = {
 
   /**
    * Generate a processor in the open project.
-   * `config`: { processorName, nBits, nbMantissa, nbExponent,
+   * `config`: { processorName, language, nBits, nbMantissa, nbExponent,
    *             dataStackSize, instructionStackSize, inputPorts,
    *             outputPorts, gain }
+   *
+   * `language` e 'cmm' (o padrao, e o que todo projeto de hoje tem) ou
+   * 'cpp'. Em C++ so o nome e as duas contagens de porta viram fonte, como
+   * `#pragma yanc prname/nuioin/nuioou`; os outros campos numericos sao
+   * ignorados, porque o cppcomp assume o float de precisao simples sozinho.
+   * A linguagem tambem vai para a entrada do processador no .spf, e e ela
+   * que tira a ambiguidade quando ha um .cmm e um .cpp com o mesmo nome.
    */
   async createProcessor(config) {
     const root = window.currentProjectPath || null;
@@ -3233,7 +3240,7 @@ const NAMESPACES = Object.freeze({
     deleteFile:         'Delete a file or directory',
     renameFile:         'Rename or move a file',
     listProcessors:     'Processors of the open project + their config',
-    createProcessor:    'Generate a processor in the open project (refuses to duplicate one whose folder already exists on disk; recreates a name that is only a dangling .spf reference)',
+    createProcessor:    'Generate a processor in the open project, C± or C++ (refuses to duplicate one whose folder already exists on disk; recreates a name that is only a dangling .spf reference)',
     renameProcessor:    'Rename a processor (dir, .cmm, #PRNAME, .spf, artifacts)',
     createProject:      'Create a new SAPHO project and open it',
     renameProject:      'Rename the open project (folder + .spf + every stored path)',

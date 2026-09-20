@@ -26,7 +26,7 @@ passam pelo cartao de permissao do painel, conforme o modo configurado.
 | `close_project` | write | nenhum | Close the project currently open and return the IDE to its empty state. The user still confirms in a dialog, and unsaved files are handled there, so this REQUESTS the close rather than forcing it. |
 | `create_file` | write | `filePath`, `content`? | Create a new file (or overwrite an existing one) with the given content. |
 | `create_folder` | write | `dirPath` | Create a directory, including any missing parent folders. Use a project-relative path; creating one that already exists is not an error. |
-| `create_processor` | write | `processorName`, `nBits`?, `nbMantissa`?, `nbExponent`?, `dataStackSize`?, `instructionStackSize`?, `inputPorts`?, `outputPorts`?, `gain`? | Generate a processor in the open project. Hardware widths (nBits/nbMantissa/nbExponent) are in bits. |
+| `create_processor` | write | `processorName`, `language`?, `nBits`?, `nbMantissa`?, `nbExponent`?, `dataStackSize`?, `instructionStackSize`?, `inputPorts`?, `outputPorts`?, `gain`? | Generate a processor in the open project, in C± (default) or C++ (language: "cpp"). Hardware widths (nBits/nbMantissa/nbExponent) are in bits and apply to C± only. |
 | `create_project` | write | `name`, `location` | Create a new SAPHO project under location/name and open it. The name may contain only letters, numbers, underscore or hyphen. |
 | `delete_file` | write | `filePath` | Delete a file or directory. |
 | `delete_processor` | write | `processorName` | Delete a processor from the open project: removes its folder (Hardware/Simulation/Software + .cmm) and its SPF entries. Irreversible — prefer backup_project first. |

@@ -29,6 +29,7 @@ const { entradaOcultaNaArvore } = require('./files_ops');
 const { prepararTempDoProjeto } = require('../project_temp');
 const janelas = require('../main_windows');
 const { autorizarExclusao, criarLixeiraDeProjeto, dentroDe } = require('./project_trash');
+const { processorSourceFile } = require('./processor_template');
 
 // ---- ProjectFile schema ----
 
@@ -590,23 +591,12 @@ function register() {
         await fse.mkdir(hardwarePath, { recursive: true });
         await fse.mkdir(simulationPath, { recursive: true });
 
-        const cmmContent = `#PRNAME ${formData.processorName}
-#NUBITS ${formData.nBits}
-#NDSTAC ${formData.dataStackSize}
-#SDEPTH ${formData.instructionStackSize}
-#NUIOIN ${formData.inputPorts}
-#NUIOOU ${formData.outputPorts}
-#NBMANT ${formData.nbMantissa}
-#NBEXPO ${formData.nbExponent}
-#NUGAIN ${formData.gain}
-
-void main()
-{
-    // Øk. Você criou um processador em C±, mas e agora?
-}`;
-
-        const cmmFilePath = path.join(softwarePath, `${formData.processorName}.cmm`);
-        await fse.writeFile(cmmFilePath, cmmContent, 'utf8');
+        // A linguagem decide o nome e o conteudo do fonte: as diretivas
+        // `#NUBITS` do C+- ou os `#pragma yanc` do C++. Ver
+        // main/ipc/processor_template.ts. Sem `language`, C+-, como sempre.
+        const { fileName, content } = processorSourceFile(formData, formData.language);
+        const sourceFilePath = path.join(softwarePath, fileName);
+        await fse.writeFile(sourceFilePath, content, 'utf8');
 
         const spfPath = path.join(
           formData.projectLocation,
@@ -627,8 +617,15 @@ void main()
           (/** @type {any} */ p) => (typeof p === 'string' ? p : p?.name)?.toLowerCase() === targetLower
         );
         if (!already) {
+          // `language` so e gravada quando NAO e a padrao: uma entrada C+-
+          // continua sendo `{ name }`, byte a byte o que era, e quem le
+          // (js/compilation/processor_source.ts) ja trata a ausencia como C+-.
+          // Para o C++ o campo e o que tira a ambiguidade quando existem um
+          // .cmm e um .cpp com o mesmo nome na pasta.
+          const ehCpp = String(formData.language || '').toLowerCase() === 'cpp';
           spfData.structure.processors.push({
             name: formData.processorName,
+            ...(ehCpp ? { language: 'cpp' } : {}),
           });
         }
 

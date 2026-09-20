@@ -38,6 +38,8 @@ import { addRunObserver } from './spec_runner.js';
 import { abrirExecucao, anotarPasso, fecharExecucao, resumo, desfechoDaExecucao, problemasParaRegistro } from './run_log.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
+import { isProcessorSourcePath } from './processor_source.js';
+import { compileProcessorSource, locateProcessorSource } from './processor_dispatch.js';
 import { statusUpdater } from '../ui/status_updater.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -93,6 +95,10 @@ const STEP_TERMINALS = Object.freeze({
     // C± roda cmm + asm em sequencia (gera .asm via cmmcomp, depois
     // <proc>.v via asmcomp). Limpa ambos os terminais.
     cmm:     ['tcmm', 'tasm'],
+    // 'cpp' e o mesmo passo de fonte que 'cmm': o despacho por linguagem
+    // (processor_dispatch.ts) escolhe o front end. Aceito como nome
+    // alternativo para a IA e a API poderem dizer o que querem dizer.
+    cpp:     ['tcmm', 'tasm'],
     // ASM-only: pula cmmcomp e roda apenas asmcomp + iverilog -tnull.
     // Esse passo existe para a Aurora Intelligence testar um .asm
     // otimizado a mao (com override em -i apontando pra _aurora_opt/)
@@ -282,6 +288,7 @@ const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
 // Map per-step → terminal pra mensagens de erro fatal.
 const ERROR_TERMINAL = Object.freeze({
     cmm:     'tcmm',
+    cpp:     'tcmm',
     asm:     'tasm',
     verilog: 'tveri',
     wave:    'twave',
@@ -403,12 +410,13 @@ export async function exigirComponentesDeCompilacao(terminalId) {
 let lastActiveProcessor = null;
 
 /**
- * Resolve o .cmm canonico a compilar quando NENHUM .cmm esta em foco
+ * Resolve o fonte canonico a compilar quando NENHUM fonte esta em foco
  * (caso tipico de um compile disparado pela Aurora Intelligence). Ordem:
  *   1. o ultimo processador que esteve em foco (sticky), se ainda existe;
  *   2. se o projeto tem exatamente um processador, esse.
- * Retorna o path `<proj>/<proc>/Software/<proc>.cmm` ou null se nao da pra
- * decidir com seguranca (varios processadores e nenhum foi focado ainda).
+ * Retorna o path `<proj>/<proc>/Software/<proc>.<cmm|cpp>` (o que existir,
+ * por locateProcessorSource) ou null se nao da pra decidir com seguranca
+ * (varios processadores e nenhum foi focado ainda, ou nenhum fonte no disco).
  */
 async function resolveFallbackCmmPath() {
     if (!window.currentProjectPath) return null;
@@ -419,9 +427,9 @@ async function resolveFallbackCmmPath() {
         : null;
     if (!proc && procs.length === 1) proc = procs[0];
     if (!proc) return null;
-    return electronAPI?.joinPath
-        ? electronAPI.joinPath(window.currentProjectPath, proc, 'Software', `${proc}.cmm`)
-        : `${window.currentProjectPath}/${proc}/Software/${proc}.cmm`;
+    const entry = collectProcessors().find((p) => p.name === proc) || { name: proc };
+    const fonte = await locateProcessorSource(window.currentProjectPath, entry, electronAPI);
+    return fonte ? fonte.sourcePath : null;
 }
 
 // Step do run em andamento, usado por logFatalError pra reportar a
@@ -572,8 +580,8 @@ function readProcessorConfig(procEntry) {
  * For-loop sobre array vazio (projeto sem processador) e no-op
  * natural, nao ha branch sobre "tem processador?".
  *
- * Pulamos processadores cuja convencao <proj>/<proc>/Software/<proc>.cmm
- * nao existe em disco (sem .cmm, cmmcomp falharia).
+ * Pulamos processadores sem fonte em <proj>/<proc>/Software/ (nem .cmm nem
+ * .cpp; o front end falharia). Quem acha o fonte e o processor_dispatch.
  *
  * @returns contagem de processadores efetivamente compilados.
  */
@@ -598,21 +606,18 @@ async function precompileAllProcessors(compiler, terminalId) {
     const tm = getTM();
     tm?.appendToTerminal?.(
         terminalId,
-        `Info: pre-compiling ${procs.length} processor(s) (C± + ASM).`,
+        `Info: pre-compiling ${procs.length} processor(s) (source + ASM).`,
         'tips',
     );
 
     let compiled = 0;
     for (const proc of procs) {
         checkCancellation();
-        const cmmFileName = `${proc.name}.cmm`;
-        const cmmPath = await electronAPI.joinPath(
-            window.currentProjectPath, proc.name, 'Software', cmmFileName,
-        );
-        if (!(await electronAPI.fileExists(cmmPath))) {
+        const fonte = await locateProcessorSource(window.currentProjectPath, proc, electronAPI);
+        if (!fonte || !(await electronAPI.fileExists(fonte.sourcePath))) {
             tm?.appendToTerminal?.(
                 terminalId,
-                `Warning: no ${cmmFileName} at ${cmmPath} — skipping ${proc.name}.`,
+                `Warning: no ${fonte ? fonte.sourceFile : `${proc.name}.cmm / ${proc.name}.cpp`} in ${proc.name}/Software — skipping ${proc.name}.`,
                 'warning',
             );
             continue;
@@ -621,11 +626,11 @@ async function precompileAllProcessors(compiler, terminalId) {
         const overrideProcessor = {
             ...proc,
             ...readProcessorConfig(proc),
-            cmmFile: cmmFileName,
+            sourceFile: fonte.sourceFile,
         };
 
         await compiler.ensureDirectories(proc.name);
-        await compiler.cmmCompilation(overrideProcessor);
+        await compileProcessorSource(compiler, overrideProcessor);
         await compiler.asmCompilation(overrideProcessor);
         compiled++;
     }
@@ -656,9 +661,9 @@ async function runProjectPipeline(compiler) {
 // =====================================================================
 
 /**
- * Botao C±: roda o pipeline completo do processador a partir do .cmm
- * aberto no Monaco:
- *   1. cmmcomp.exe   -> Software/<base>.asm + cmm_log.txt
+ * Botao C± (e o passo 'cpp' da API): roda o pipeline completo do
+ * processador a partir do fonte aberto no Monaco, .cmm ou .cpp:
+ *   1. cmmcomp.exe (ou cpppp + cppcomp) -> Software/<base>.asm + cmm_log.txt
  *   2. asmcomp.exe   -> Hardware/<proc>.v + pc_<proc>_mem.txt +
  *                       Simulation/<proc>_tb.v
  *
@@ -666,23 +671,23 @@ async function runProjectPipeline(compiler) {
  * deixar o fluxo "do .cmm ate o .v" num clique so, quem quer parar
  * no .asm usa o botao ASM (que tambem aceita .asm em foco).
  *
- * Se o arquivo em foco nao for .cmm, no-op com mensagem.
+ * Se o arquivo em foco nao for fonte de processador, no-op com mensagem.
  */
 async function handleCmmStep() {
     let editingPath = TabManager.getEditingFilePath?.();
-    // Quando nao ha .cmm em foco (compile disparado pela Aurora Intelligence
+    // Quando nao ha fonte em foco (compile disparado pela Aurora Intelligence
     // com o chat focado), nao no-op: mira o processador em que o usuario
     // estava trabalhando (resolveFallbackCmmPath), igual ao botao manual.
-    if (!editingPath || !editingPath.toLowerCase().endsWith('.cmm')) {
+    if (!isProcessorSourcePath(editingPath)) {
         editingPath = await resolveFallbackCmmPath();
     }
-    if (!editingPath || !editingPath.toLowerCase().endsWith('.cmm')) {
+    if (!isProcessorSourcePath(editingPath)) {
         switchTerminal('terminal-tcmm');
         getTM()?.appendToTerminal?.(
             'tcmm',
             window.currentProjectPath
-                ? 'Nenhum .cmm em foco e nao consegui inferir o processador (o projeto tem varios). Abra o .cmm do processador desejado e tente de novo.'
-                : 'No .cmm file is open in the editor. Open a .cmm and try again.',
+                ? 'Nenhum fonte (.cmm ou .cpp) em foco e nao consegui inferir o processador (o projeto tem varios). Abra o fonte do processador desejado e tente de novo.'
+                : 'No processor source (.cmm or .cpp) is open in the editor. Open one and try again.',
             'tips',
         );
         return;
@@ -712,20 +717,21 @@ async function handleCmmStep() {
             );
         }
 
-        const cmmFileName = editingPath.split(/[\\/]/).pop();
+        const sourceFileName = editingPath.split(/[\\/]/).pop();
         // clk/numClocks/showArrays vem do .spf via readProcessorConfig
-        // (defaults aplicados pra entries sem config).
+        // (defaults aplicados pra entries sem config). A linguagem vem da
+        // extensao do fonte em foco (processor_source.ts).
         const overrideProcessor = {
             ...procFromPath,
             ...readProcessorConfig(procFromPath),
-            cmmFile: cmmFileName,
+            sourceFile: sourceFileName,
         };
 
         await compiler.ensureDirectories(overrideProcessor.name);
 
-        // Passo 1, C± (cmmcomp)
+        // Passo 1, o front end da linguagem (cmmcomp, ou cpppp + cppcomp)
         switchTerminal('terminal-tcmm');
-        await compiler.cmmCompilation(overrideProcessor);
+        await compileProcessorSource(compiler, overrideProcessor);
 
         // Passo 2, ASM (asmcomp). Foco vai pro tasm pra que o output
         // do asmcomp apareca no terminal certo.
@@ -768,11 +774,13 @@ async function precompileAsmOnly(compiler, terminalId) {
     let compiled = 0;
     for (const proc of procs) {
         checkCancellation();
-        const cmmFileName = `${proc.name}.cmm`;
+        // O nome do .asm segue a base do fonte; sem fonte no disco, a
+        // convencao <nome>.cmm de sempre (o asmcomp e quem vai reclamar).
+        const fonte = await locateProcessorSource(window.currentProjectPath, proc, electronAPI);
         const overrideProcessor = {
             ...proc,
             ...readProcessorConfig(proc),
-            cmmFile: cmmFileName,
+            sourceFile: fonte ? fonte.sourceFile : `${proc.name}.cmm`,
         };
         await compiler.ensureDirectories(proc.name);
         // NOTE: cmmCompilation deliberately skipped, the .asm on disk
@@ -974,7 +982,8 @@ async function buildPrismCompilationPaths(projectPath) {
 // =====================================================================
 
 /**
- * Habilita o botao C± so quando o arquivo em foco no Monaco e .cmm.
+ * Habilita o botao C± so quando o arquivo em foco no Monaco e fonte de
+ * processador (.cmm ou .cpp; processor_source.ts decide).
  * Chamado por listeners do evento `aurora:editing-file-changed` e por
  * `updateButtonStates` (apos runs / cancel / project load).
  *
@@ -986,7 +995,7 @@ function syncCmmcompEnabled() {
     const btn = document.getElementById('cmmcomp');
     if (!btn) return;
     const path = TabManager.getEditingFilePath?.();
-    const isCmm = !!path && path.toLowerCase().endsWith('.cmm');
+    const isCmm = isProcessorSourcePath(path);
     btn.disabled = !isCmm;
     btn.style.cursor = isCmm ? 'pointer' : 'not-allowed';
 }
@@ -1235,7 +1244,8 @@ class CompilationFlowManager {
             // o botao foi removido da toolbar (commit 5121cc2) e
             // handleVerilatorStep nao existe mais. 'verilator-proc'
             // (Verilator no processador CMM) continua suportado.
-            case 'cmm':       await handleCmmStep(); break;
+            case 'cmm':
+            case 'cpp':       await handleCmmStep(); break;
             case 'asm':       await handleAsmStep(); break;
             case 'verilog':   await handleVerilogStep(); break;
             case 'wave':      await handleWaveStep(); break;

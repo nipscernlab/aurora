@@ -24,23 +24,25 @@
 
 import { TabManager } from '../tabs/tab_manager.js';
 import { getAvailableProcessors } from './processor_list.js';
+import { isProcessorSourcePath, stripSourceExtension } from '../compilation/processor_source.js';
 
 /**
- * Determina o processador "ativo" a partir do .cmm em foco. Aceita
- * o caminho convencional `<projectDir>/<procName>/Software/<x>.cmm`
- * (prioriza o segmento de pasta, robusto a renames do .cmm) e cai
+ * Determina o processador "ativo" a partir do fonte em foco (.cmm ou
+ * .cpp; quem sabe quais extensoes sao fonte e o processor_source.ts).
+ * Aceita o caminho convencional `<projectDir>/<procName>/Software/<x>`
+ * (prioriza o segmento de pasta, robusto a renames do fonte) e cai
  * pro basename como fallback. Retorna null se o arquivo em foco
- * nao for .cmm ou nao casar com nenhum processador.
+ * nao for fonte de processador ou nao casar com nenhum processador.
  */
 function matchProcessorFromPath(filePath: string, processors: readonly string[]): string | null {
-    if (!filePath || !filePath.toLowerCase().endsWith('.cmm')) return null;
+    if (!isProcessorSourcePath(filePath)) return null;
     const parts = filePath.split(/[\\/]/);
     const swIdx = parts.findIndex((p) => p.toLowerCase() === 'software');
     if (swIdx > 0) {
         const candidate = parts[swIdx - 1];
         if (processors.includes(candidate)) return candidate;
     }
-    const base = parts[parts.length - 1].replace(/\.cmm$/i, '');
+    const base = stripSourceExtension(parts[parts.length - 1]);
     if (processors.includes(base)) return base;
     return null;
 }
@@ -49,7 +51,7 @@ function matchProcessorFromPath(filePath: string, processors: readonly string[])
  * Nome do processador ATIVO, exatamente o que a status bar mostra.
  * Recalcula a cada chamada a partir do arquivo em foco atual
  * (sincrono). Retorna null quando nao ha processador ativo (nenhum
- * .cmm de processador em foco).
+ * fonte de processador em foco).
  *
  * @param processors lista de nomes; default e a lista sincrona do
  *   processor_list (mesmo conjunto que o .spf semeia).

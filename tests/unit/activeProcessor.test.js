@@ -61,11 +61,13 @@ describe('getActiveProcessorName', () => {
         expect(getActiveProcessorName(PROCS)).toBeNull();
     });
 
-    it('um .cpp em Software/ ainda nao ativa: o portao e so .cmm por enquanto', () => {
-        // Este caso fixa o comportamento ATUAL. O commit do despacho por
-        // linguagem inverte a expectativa, e e assim que a mudanca fica
-        // visivel no diff em vez de calada.
+    it('um .cpp em Software/ ativa o processador igual a um .cmm', () => {
+        // Ate o despacho por linguagem este caso esperava null: era o
+        // portao mais duro que a varredura do C++ achou. Quem diz o que e
+        // fonte de processador agora e o processor_source.ts.
         foco('C:\\proj\\ProcX\\Software\\ProcX.cpp');
-        expect(getActiveProcessorName(PROCS)).toBeNull();
+        expect(getActiveProcessorName(PROCS)).toBe('ProcX');
+        foco('C:\\solto\\soma.cpp');
+        expect(getActiveProcessorName(PROCS)).toBe('soma');
     });
 });

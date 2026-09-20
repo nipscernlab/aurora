@@ -88,6 +88,7 @@ js/compilation/compilation_helpers.js
 js/compilation/command_spec.js
 js/compilation/command_overrides.js
 js/compilation/processor_compiler.js
+js/compilation/processor_dispatch.js
 js/compilation/processor_source.js
 js/compilation/spec_factory.js
 js/compilation/spec_runner.js

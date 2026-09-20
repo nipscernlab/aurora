@@ -1945,7 +1945,9 @@ const compileNs = {
   async compileStep(step) {
     const cf = window.compilationFlowManager;
     if (!cf) return err('compilation flow not initialised');
-    if (!['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'].includes(step)) {
+    // 'cpp' e o mesmo passo de fonte que 'cmm'; o despacho por linguagem
+    // (processor_dispatch.ts) escolhe o front end pelo fonte em foco.
+    if (!['cmm', 'cpp', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'].includes(step)) {
       return err(`unknown compile step: ${step}`);
     }
     emit('compile:started', { scope: step });

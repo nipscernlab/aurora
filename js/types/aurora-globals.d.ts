@@ -37,6 +37,15 @@ interface AuroraElectronAPI {
   copyAnyPath(src: string, dest: string, opts?: { overwrite?: boolean }):
     Promise<{ success: boolean; code?: string; error?: string; path?: string }>;
   getComponentsPath(): Promise<string>;
+  /** Cria a pasta do processador, o fonte e a entrada no .spf. */
+  createProcessorProject(formData: Record<string, unknown>):
+    Promise<{ success: boolean, path?: string, message?: string }>;
+  /** Pede ao main que a arvore de arquivos se redesenhe. */
+  triggerFileTreeRefresh(): Promise<void>;
+  /** O main avisa que o botao do Processor Hub pode habilitar. */
+  onProcessorHubState?(cb: (...args: unknown[]) => void): void;
+  /** O main avisa que a lista de processadores do projeto mudou. */
+  onProcessorsUpdated?(cb: (data: { projectPath: string }) => void): void;
   /** Pasta do usuario; a lista de recentes a resolve uma vez e encurta caminhos com ela. */
   getHomePath(): Promise<string>;
   /** Manda a pasta do projeto que esta janela acabou de fechar para a Lixeira. */

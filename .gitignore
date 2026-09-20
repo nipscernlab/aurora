@@ -104,6 +104,7 @@ js/compilation/builders/vvp.js
 js/compilation/builders/wave_tools.js
 js/compilation/builders/yosys.js
 js/editor/document_type_detector.js
+js/processors/processor_hub.js
 js/project/active_processor.js
 js/project/processor_list.js
 js/project/spf_store.js

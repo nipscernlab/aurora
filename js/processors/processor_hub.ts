@@ -1,40 +1,52 @@
 import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
 
+/*
+ * Compilado por `tsc` (npm run build:ts) num processor_hub.js ao lado, e esse
+ * .js que o runtime carrega; os imports usam a extensao `.js`.
+ */
+
+/** Os campos do formulario, todos <input>. */
+type CampoDoFormulario = HTMLInputElement | null;
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 1. Element Selection ---
-    const processorHubButton = document.getElementById('processorHub'); 
-    const form = document.getElementById('processorHubForm');
-    const generateButton = document.getElementById('generateProcessor'); 
-    const modalContainer = document.getElementById('modalContainer'); 
+    const processorHubButton = document.getElementById('processorHub') as HTMLButtonElement | null;
+    const form = document.getElementById('processorHubForm') as HTMLFormElement | null;
+    const generateButton = document.getElementById('generateProcessor') as HTMLButtonElement | null;
+    const modalContainer = document.getElementById('modalContainer');
 
     // Input Map
-    const inputs = {
-        name: document.getElementById('processorName'),
-        nBits: document.getElementById('nBits'),
-        gain: document.getElementById('gain'),
-        mantissa: document.getElementById('nbMantissa'),
-        exponent: document.getElementById('nbExponent'),
-        iStack: document.getElementById('instructionStackSize'),
-        dStack: document.getElementById('dataStackSize'),
-        inPorts: document.getElementById('inputPorts'),
-        outPorts: document.getElementById('outputPorts')
+    const campo = (id: string): CampoDoFormulario =>
+        document.getElementById(id) as HTMLInputElement | null;
+
+    const inputs: Record<string, CampoDoFormulario> = {
+        name: campo('processorName'),
+        nBits: campo('nBits'),
+        gain: campo('gain'),
+        mantissa: campo('nbMantissa'),
+        exponent: campo('nbExponent'),
+        iStack: campo('instructionStackSize'),
+        dStack: campo('dataStackSize'),
+        inPorts: campo('inputPorts'),
+        outPorts: campo('outputPorts')
     };
 
     // --- State Management ---
-    let currentProjectPath = null;
+    let currentProjectPath: string | null = null;
 
     // --- 2. Visual Feedback (Live Red Border) ---
 
-    const setErrorStyle = (element) => {
+    const setErrorStyle = (element: HTMLElement) => {
         // Increased border width to 3px as requested
         element.style.setProperty('border', '3px solid #ff4444', 'important');
         element.style.setProperty('box-shadow', '0 0 6px rgba(255, 68, 68, 0.4)', 'important');
         element.style.setProperty('outline', 'none', 'important');
     };
 
-    const resetInputStyle = (element) => {
+    const resetInputStyle = (element: HTMLElement | null) => {
+        if (!element) return;
         element.style.removeProperty('border');
         element.style.removeProperty('box-shadow');
         element.style.removeProperty('outline');
@@ -43,7 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 3. Validation Logic ---
 
     // Helper: Validates a single field based on a condition function
-    const validateField = (element, conditionFn) => {
+    const validateField = (element: CampoDoFormulario, conditionFn: (v: string) => boolean): boolean => {
+        if (!element) return false;
         const value = element.value;
         const isValid = conditionFn(value);
 
@@ -62,14 +75,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const checkName = () => {
         return validateField(inputs.name, (val) => {
             if (!val) return false; // Empty check
-            
+
             // Regex Explanation:
             // ^             : Start of line
             // [a-zA-Z0-9_-] : Character set allowing letters, numbers, dash, underscore
             // +             : One or more of the preceding set
             // $             : End of line
             const validNameRegex = /^[a-zA-Z0-9_-]+$/;
-            
+
             return validNameRegex.test(val);
         });
     };
@@ -77,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Rule B: Positive Integers (> 0). Empty strings are rejected explicitly
     //, `Number("")` is 0 which would otherwise pass the >0 guard for fields
     // whose JS check is non-negative; we don't want any field accepting empty.
-    const checkPositiveInteger = (element) => {
+    const checkPositiveInteger = (element: CampoDoFormulario): boolean => {
         return validateField(element, (val) => {
             if (val === '' || val == null) return false;
             const num = Number(val);
@@ -96,14 +109,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Rule E: Bit Consistency (Total = Mantissa + Exponent + 1)
     const checkBitConsistency = () => {
-        const nBits = parseInt(inputs.nBits.value) || 0;
-        const mantissa = parseInt(inputs.mantissa.value) || 0;
-        const exponent = parseInt(inputs.exponent.value) || 0;
+        const nBits = parseInt(inputs.nBits?.value ?? '') || 0;
+        const mantissa = parseInt(inputs.mantissa?.value ?? '') || 0;
+        const exponent = parseInt(inputs.exponent?.value ?? '') || 0;
 
         const isConsistent = nBits === (mantissa + exponent + 1);
 
         if (!isConsistent) {
-            setErrorStyle(inputs.nBits);
+            if (inputs.nBits) setErrorStyle(inputs.nBits);
         } else {
             // Only reset if it also passes the basic integer check
             if (nBits > 0) resetInputStyle(inputs.nBits);
@@ -156,13 +169,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (electronAPI) {
         if (electronAPI.onProcessorHubState) {
-            electronAPI.onProcessorHubState((state) => {
+            electronAPI.onProcessorHubState(() => {
                 if (processorHubButton) processorHubButton.disabled = false;
             });
         }
 
         if (electronAPI.onProcessorsUpdated) {
-            electronAPI.onProcessorsUpdated((data) => {
+            electronAPI.onProcessorsUpdated((data: { projectPath: string }) => {
                 currentProjectPath = data.projectPath;
             });
         }
@@ -192,10 +205,10 @@ document.addEventListener('DOMContentLoaded', () => {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            if (!validateAll()) return; 
+            if (!validateAll()) return;
 
             if (!currentProjectPath) {
-                const tr = (k) => (window.t ? window.t(k) : k);
+                const tr = (k: string) => (window.t ? window.t(k) : k);
                 await showDialog({
                     title: tr('dialog.common.error'),
                     message: tr('dialog.hub.noProjectMessage'),
@@ -205,21 +218,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // UI Loading
-            const originalButtonText = generateButton.innerHTML;
-            generateButton.innerHTML = '<i class="ph ph-spinner animate-spin"></i> <span>Generating...</span>';
-            generateButton.disabled = true;
+            const originalButtonText = generateButton?.innerHTML ?? '';
+            if (generateButton) {
+                generateButton.innerHTML = '<i class="ph ph-spinner animate-spin"></i> <span>Generating...</span>';
+                generateButton.disabled = true;
+            }
 
             const formData = {
                 projectLocation: currentProjectPath,
-                processorName: inputs.name.value.trim(), // Trim strictly just in case
-                nBits: parseInt(inputs.nBits.value),
-                nbMantissa: parseInt(inputs.mantissa.value),
-                nbExponent: parseInt(inputs.exponent.value),
-                dataStackSize: parseInt(inputs.dStack.value),
-                instructionStackSize: parseInt(inputs.iStack.value),
-                inputPorts: parseInt(inputs.inPorts.value),
-                outputPorts: parseInt(inputs.outPorts.value),
-                gain: parseInt(inputs.gain.value),
+                processorName: (inputs.name?.value ?? '').trim(), // Trim strictly just in case
+                nBits: parseInt(inputs.nBits?.value ?? ''),
+                nbMantissa: parseInt(inputs.mantissa?.value ?? ''),
+                nbExponent: parseInt(inputs.exponent?.value ?? ''),
+                dataStackSize: parseInt(inputs.dStack?.value ?? ''),
+                instructionStackSize: parseInt(inputs.iStack?.value ?? ''),
+                inputPorts: parseInt(inputs.inPorts?.value ?? ''),
+                outputPorts: parseInt(inputs.outPorts?.value ?? ''),
+                gain: parseInt(inputs.gain?.value ?? ''),
             };
 
             try {
@@ -233,15 +248,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         await electronAPI.triggerFileTreeRefresh();
                     } catch (err) { console.error(err); }
 
-                    document.getElementById('cancelProcessorHub').click();
+                    (document.getElementById('cancelProcessorHub') as HTMLButtonElement | null)?.click();
                 } else {
-                    const tr = (k) => (window.t ? window.t(k) : k);
+                    const tr = (k: string) => (window.t ? window.t(k) : k);
                     throw new Error(result.message || tr('dialog.processorHub.unknownError'));
                 }
 
-            } catch (error) {
+            } catch (e) {
+                const error = e instanceof Error ? e : new Error(String(e));
                 console.error(error);
-                const tr = (k, p) => (window.t ? window.t(k, p) : k);
+                const tr = (k: string, p?: Record<string, unknown>) => (window.t ? window.t(k, p) : k);
                 await showDialog({
                     title: tr('dialog.processorHub.errorTitle'),
                     // Technical detail (error.message) stays as-is, it may
@@ -251,8 +267,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     buttons: [{ label: tr('dialog.common.close'), action: 'close', type: 'cancel' }]
                 });
             } finally {
-                generateButton.innerHTML = originalButtonText;
-                validateAll(); 
+                if (generateButton) generateButton.innerHTML = originalButtonText;
+                validateAll();
             }
         });
     }

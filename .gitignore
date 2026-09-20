@@ -121,6 +121,7 @@ js/wave/vcd_parser.js
 js/wave/wave_state_store.js
 # main/ (CommonJS, emitido por tsconfig.main.json via scripts/build-ts.js)
 main/compile/binary_allowlist.js
+main/compile/protected_flags.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

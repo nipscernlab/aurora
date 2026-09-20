@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * protected_flags.js: per-step lists of flags that override layers
+ * protected_flags.ts: per-step lists of flags that override layers
  * cannot remove or replace.
  *
  * Aurora Intelligence's command-override surface lets the AI add/
@@ -24,17 +23,22 @@
  * (--binary, --main, -fst), we check the literal.
  */
 
-'use strict';
+export interface ProtectedFlagRule {
+  /** tokens that must remain present verbatim */
+  literalArgs?: string[];
+  /** flag names (e.g. '-o') that must remain followed by some value */
+  flagWithValue?: string[];
+  /** env keys that the base set and override-applied set must agree on */
+  envKeys?: string[];
+}
 
-/**
- * @typedef {Object} ProtectedFlagRule
- * @property {string[]} [literalArgs]   tokens that must remain present verbatim
- * @property {string[]} [flagWithValue] flag names (e.g. '-o') that must remain followed by some value
- * @property {string[]} [envKeys]       env keys that the base set and override-applied set must agree on
- */
+/** O pedaco de uma CommandSpec que a verificacao olha. */
+export interface SpecShape {
+  args: string[];
+  env?: Record<string, string> | null;
+}
 
-/** @type {Object.<string, ProtectedFlagRule>} */
-const RULES = {
+export const RULES: Record<string, ProtectedFlagRule> = {
   'cmm': {
     flagWithValue: ['-i', '-n', '-p', '-m', '-t'],
   },
@@ -105,13 +109,12 @@ const RULES = {
 /**
  * Validate that the override-applied spec preserves the protected
  * shape of the base spec.
- *
- * @param {string} step
- * @param {{args:string[], env?:object}} baseSpec
- * @param {{args:string[], env?:object}} appliedSpec
- * @returns {{ok:true} | {ok:false, error:string}}
  */
-function check(step, baseSpec, appliedSpec) {
+export function check(
+  step: string,
+  baseSpec: SpecShape | null | undefined,
+  appliedSpec: SpecShape | null | undefined,
+): { ok: true } | { ok: false, error: string } {
   const rule = RULES[step];
   if (!rule) return { ok: true };
 
@@ -151,8 +154,8 @@ function check(step, baseSpec, appliedSpec) {
   }
 
   if (Array.isArray(rule.envKeys)) {
-    const baseEnv = /** @type {Record<string, any>} */ (baseSpec?.env || {});
-    const appliedEnv = /** @type {Record<string, any>} */ (appliedSpec?.env || {});
+    const baseEnv: Record<string, string> = baseSpec?.env || {};
+    const appliedEnv: Record<string, string> = appliedSpec?.env || {};
     for (const key of rule.envKeys) {
       if (key in baseEnv && baseEnv[key] !== appliedEnv[key]) {
         return {
@@ -167,7 +170,9 @@ function check(step, baseSpec, appliedSpec) {
 }
 
 /** Snapshot for the AI's `list_allowed_flags` introspection tool. */
-function describe(/** @type {string} */ step) {
+export function describe(step: string): {
+  step: string, protectedLiteralArgs: string[], protectedFlagWithValue: string[], protectedEnv: string[],
+} {
   const rule = RULES[step];
   if (!rule) return { step, protectedLiteralArgs: [], protectedFlagWithValue: [], protectedEnv: [] };
   return {
@@ -177,5 +182,3 @@ function describe(/** @type {string} */ step) {
     protectedEnv: rule.envKeys || [],
   };
 }
-
-module.exports = { check, describe, RULES };

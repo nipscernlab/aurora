@@ -107,7 +107,12 @@ function apiGet(/** @type {string} */ apiPath, /** @type {string} */ token) {
   });
 }
 
-/** POST JSON to https://api.github.com<path> with a bearer token → parsed JSON. */
+/**
+ * POST JSON to https://api.github.com<path> with a bearer token → parsed JSON.
+ * @param {string} apiPath
+ * @param {string} token
+ * @param {unknown} payload
+ */
 function apiPost(apiPath, token, payload) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(payload);
@@ -143,7 +148,11 @@ function apiPost(apiPath, token, payload) {
   });
 }
 
-/** Create a repo under the connected account. Returns clone/html URLs. */
+/**
+ * Create a repo under the connected account. Returns clone/html URLs.
+ * @param {string} name
+ * @param {boolean} isPrivate
+ */
 async function createRepo(name, isPrivate) {
   const token = getToken();
   if (!token) throw new Error('Conecte sua conta GitHub primeiro.');
@@ -158,7 +167,9 @@ async function createRepo(name, isPrivate) {
 }
 
 /** Fetch an image URL and return it as a `data:` URL (so it passes the renderer
- *  CSP `img-src 'self' data:` without loosening the policy for github.com). */
+ *  CSP `img-src 'self' data:` without loosening the policy for github.com).
+ * @param {string} url
+ * @returns {Promise<string|null>} */
 function fetchDataUrl(url, depth = 0) {
   return new Promise((resolve) => {
     if (depth > 3) return resolve(null);
@@ -171,6 +182,7 @@ function fetchDataUrl(url, depth = 0) {
         }
         if (sc !== 200) { res.resume(); return resolve(null); }
         const type = res.headers['content-type'] || 'image/png';
+        /** @type {Buffer[]} */
         const chunks = [];
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => resolve(`data:${type};base64,${Buffer.concat(chunks).toString('base64')}`));
@@ -195,7 +207,10 @@ function getToken() {
   }
 }
 
-/** Validate a token against the API, then store it encrypted + cache the user. */
+/**
+ * Validate a token against the API, then store it encrypted + cache the user.
+ * @param {unknown} token
+ */
 async function connect(token) {
   if (typeof token !== 'string' || !token.trim()) {
     throw new Error('Token is empty.');
@@ -271,7 +286,9 @@ async function ensureUserAvatar() {
 }
 
 /** POST JSON to https://github.com<path> (the OAuth endpoints live on the web
- *  host, not api.github.com) and parse the JSON reply. */
+ *  host, not api.github.com) and parse the JSON reply.
+ * @param {string} pathname
+ * @param {unknown} payload */
 function oauthPostJson(pathname, payload) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(payload);
@@ -303,6 +320,7 @@ function oauthPostJson(pathname, payload) {
  * proximo tique.
  * @param {number} ms
  * @param {AbortSignal} [signal]
+ * @returns {Promise<void>}
  */
 const sleep = (ms, signal) => new Promise((r) => {
   const t = setTimeout(() => { signal?.removeEventListener('abort', acordar); r(); }, ms);
@@ -328,6 +346,7 @@ function cancelarFluxo() {
  * renderer displays it + we open the verification page), then poll until they
  * authorize. On success we store the access token exactly like the PAT path, so
  * the rest of git.js is unchanged. `sender` is the webContents for the live code.
+ * @param {Electron.WebContents} sender
  */
 async function deviceFlowLogin(sender) {
   if (!OAUTH_CLIENT_ID) throw new Error('OAuth is not configured (missing Client ID).');

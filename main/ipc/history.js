@@ -102,12 +102,19 @@ function chaveDe(relativo) {
   return crypto.createHash('sha1').update(String(relativo).toLowerCase(), 'utf8').digest('hex').slice(0, 20);
 }
 
+/**
+ * @param {string} projeto
+ * @param {string} relativo
+ */
 function pastaDoArquivo(projeto, relativo) {
   const base = pastaDoProjeto(projeto);
   return base ? path.join(base, chaveDe(relativo)) : null;
 }
 
-/** `2026-09-13T10-42-07-318`: ordena por nome e e seguro como nome de arquivo. */
+/**
+ * `2026-09-13T10-42-07-318`: ordena por nome e e seguro como nome de arquivo.
+ * @param {number} agora
+ */
 function idDe(agora) {
   return new Date(agora).toISOString().replace(/[:.]/g, '-').replace(/Z$/, '');
 }
@@ -158,6 +165,7 @@ function podarVersoes(versoes, { limiteVersoes = LIMITE_VERSOES, limiteBytes = L
 
 // ── indice ───────────────────────────────────────────────────────────────────────
 
+/** @param {string} pasta */
 function lerIndice(pasta) {
   try {
     const bruto = fs.readFileSync(path.join(pasta, 'indice.json'), 'utf8');
@@ -169,6 +177,10 @@ function lerIndice(pasta) {
   }
 }
 
+/**
+ * @param {string} pasta
+ * @param {unknown} indice
+ */
 function gravarIndice(pasta, indice) {
   const alvo = path.join(pasta, 'indice.json');
   const tmp = `${alvo}.tmp`;
@@ -219,7 +231,7 @@ function gravarVersao(projeto, arquivo, conteudo, { origem = 'salvar', rotulo = 
   // Duas gravacoes no mesmo milissegundo (o "antes" e o "depois" da primeira
   // gravacao, por exemplo): a segunda ganha um sufixo em vez de sobrescrever.
   let n = 1;
-  while (indice.versoes.some((v) => v.id === id)) { id = `${idDe(agora)}-${n}`; n += 1; }
+  while (indice.versoes.some((/** @type {{ id: string }} */ v) => v.id === id)) { id = `${idDe(agora)}-${n}`; n += 1; }
 
   const alvo = path.join(pasta, `${id}.txt`);
   const tmp = `${alvo}.tmp`;
@@ -237,7 +249,7 @@ function gravarVersao(projeto, arquivo, conteudo, { origem = 'salvar', rotulo = 
   });
 
   for (const velha of podarVersoes(indice.versoes)) {
-    indice.versoes = indice.versoes.filter((v) => v.id !== velha);
+    indice.versoes = indice.versoes.filter((/** @type {{ id: string }} */ v) => v.id !== velha);
     try { fs.unlinkSync(path.join(pasta, `${velha}.txt`)); } catch { /* ja nao estava */ }
   }
   gravarIndice(pasta, indice);
@@ -280,7 +292,7 @@ function listar(projeto, arquivo) {
   const versoes = indice.versoes
     .slice()
     .reverse()
-    .map((v) => ({ id: v.id, quando: v.quando, bytes: v.bytes, linhas: v.linhas, origem: v.origem, rotulo: v.rotulo || null }));
+    .map((/** @type {{ id: string, quando: number, bytes: number, linhas: number, origem: string, rotulo?: string|null }} */ v) => ({ id: v.id, quando: v.quando, bytes: v.bytes, linhas: v.linhas, origem: v.origem, rotulo: v.rotulo || null }));
   return { ok: true, arquivo: relativo, versoes };
 }
 
@@ -333,7 +345,7 @@ function ler(projeto, arquivo, id) {
 const PASTA_PONTOS = 'pontos';
 const ARQUIVO_VISTA = 'vista.json';
 
-/*
+/**
  * A VISTA: o tamanho e a data de cada fonte na ultima vez que foi olhada.
  *
  * Medido antes dela existir: com 300 arquivos o SEGUNDO ponto custava 224 ms,
@@ -349,6 +361,7 @@ const ARQUIVO_VISTA = 'vista.json';
  *
  * Um arquivo so em `historico/vista.json`, e nao um campo por indice de
  * arquivo: ler um JSON por fonte custaria quase o mesmo que ler a fonte.
+ * @param {string} projeto
  */
 function lerVista(projeto) {
   const base = pastaDoProjeto(projeto);
@@ -361,6 +374,10 @@ function lerVista(projeto) {
   }
 }
 
+/**
+ * @param {string} projeto
+ * @param {unknown} vista
+ */
 function gravarVista(projeto, vista) {
   const base = pastaDoProjeto(projeto);
   if (!base) return;
@@ -374,7 +391,10 @@ function gravarVista(projeto, vista) {
   }
 }
 
-/** `stat` de um arquivo reduzido ao que a vista compara. */
+/**
+ * `stat` de um arquivo reduzido ao que a vista compara.
+ * @param {string} abs
+ */
 function marcaDoDisco(abs) {
   try {
     const st = fs.statSync(abs);
@@ -384,6 +404,10 @@ function marcaDoDisco(abs) {
   }
 }
 
+/**
+ * @param {{ mtimeMs: number, size: number } | null | undefined} a
+ * @param {{ mtimeMs: number, size: number } | null | undefined} b
+ */
 function mesmaMarca(a, b) {
   return !!a && !!b && a.mtimeMs === b.mtimeMs && a.size === b.size;
 }
@@ -392,10 +416,15 @@ const PULAR_PASTAS = new Set([
   '.git', 'node_modules', 'dist', 'build', 'components', 'Temp', 'Backup', '.vite', '.aurora', '.slang',
 ]);
 
-/** As fontes do projeto, em caminho absoluto. Melhor esforco e com teto. */
+/**
+ * As fontes do projeto, em caminho absoluto. Melhor esforco e com teto.
+ * @param {string} projeto
+ * @param {number} [teto]
+ */
 function fontesDoProjeto(projeto, teto = MAX_ARQUIVOS_POR_PONTO) {
+  /** @type {string[]} */
   const saida = [];
-  const andar = (dir, profundidade) => {
+  const andar = (/** @type {string} */ dir, /** @type {number} */ profundidade) => {
     if (saida.length >= teto || profundidade > 12) return;
     let entradas;
     try { entradas = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
@@ -417,6 +446,8 @@ function fontesDoProjeto(projeto, teto = MAX_ARQUIVOS_POR_PONTO) {
 /**
  * O estado do projeto reduzido a um texto: cada arquivo com a versao que vale
  * agora. Dois pontos com a mesma assinatura apontam para o mesmo lugar.
+ * @param {string} projeto
+ * @param {string[]} arquivos
  */
 function assinaturaDoEstado(projeto, arquivos) {
   const partes = [];
@@ -430,7 +461,10 @@ function assinaturaDoEstado(projeto, arquivos) {
   return crypto.createHash('sha1').update(partes.join('\n'), 'utf8').digest('hex');
 }
 
-/** O ponto mais recente ja gravado, ou null. */
+/**
+ * O ponto mais recente ja gravado, ou null.
+ * @param {string} dir
+ */
 function ultimoPonto(dir) {
   try {
     const nomes = fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort();
@@ -441,6 +475,7 @@ function ultimoPonto(dir) {
   }
 }
 
+/** @param {string} projeto */
 function pastaDePontos(projeto) {
   const base = pastaDoProjeto(projeto);
   return base ? path.join(base, PASTA_PONTOS) : null;
@@ -450,7 +485,7 @@ function pastaDePontos(projeto) {
  * Abre um ponto de restauracao. Sincrono e de melhor esforco.
  *
  * @param {string} projeto
- * @param {{ rotulo?: string|null, mensagemId?: string|null, agora?: number }} [meta]
+ * @param {{ rotulo?: string|null, motivo?: string|null, mensagemId?: string|null, manual?: boolean, agora?: number }} [meta]
  */
 function criarPonto(projeto, { rotulo = null, motivo = null, mensagemId = null, manual = false, agora = Date.now() } = {}) {
   const dir = pastaDePontos(projeto);
@@ -547,7 +582,10 @@ function criarPonto(projeto, { rotulo = null, motivo = null, mensagemId = null, 
   return { ok: true, id, arquivos: arquivos.length };
 }
 
-/** Os pontos gravados, do mais recente para o mais antigo. */
+/**
+ * Os pontos gravados, do mais recente para o mais antigo.
+ * @param {string} projeto
+ */
 function listarPontos(projeto) {
   const dir = pastaDePontos(projeto);
   if (!dir || !fs.existsSync(dir)) return { ok: true, pontos: [] };
@@ -561,6 +599,10 @@ function listarPontos(projeto) {
   return { ok: true, pontos };
 }
 
+/**
+ * @param {string} projeto
+ * @param {string} id
+ */
 function lerPonto(projeto, id) {
   const dir = pastaDePontos(projeto);
   if (!dir || !ID_VALIDO.test(String(id || ''))) return null;
@@ -591,11 +633,12 @@ function versaoNoInstante(versoes, quando) {
  *
  * @param {string} projeto
  * @param {string} id
+ * @returns {{ ok: true, quando: number, rotulo: string|null, restaurar: Array<{ arquivo: string, versao: string }>, novos: string[] } | { ok: false, erro: string }}
  */
 function previaDoPonto(projeto, id) {
   const ponto = lerPonto(projeto, id);
   if (!ponto) return { ok: false, erro: 'ponto nao encontrado' };
-  const doPonto = new Set((ponto.arquivos || []).map((r) => String(r).toLowerCase()));
+  const doPonto = new Set((ponto.arquivos || []).map((/** @type {unknown} */ r) => String(r).toLowerCase()));
 
   const restaurar = [];
   for (const rel of (ponto.arquivos || [])) {
@@ -629,7 +672,7 @@ function previaDoPonto(projeto, id) {
  *
  * @param {string} projeto
  * @param {string} id
- * @param {{ trashItem?: (p: string) => Promise<void> }} [deps]
+ * @param {{ trashItem?: ((p: string) => Promise<void>) | null }} [deps]
  */
 async function rebobinar(projeto, id, { trashItem = null } = {}) {
   const previa = previaDoPonto(projeto, id);

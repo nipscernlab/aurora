@@ -151,6 +151,7 @@ function erroDeCriacao(mensagem, nome) {
  *
  * @param {any} me
  * @param {string} host
+ * @returns {{ login: any, name: any, avatarUrl: any, webUrl: any, host: string, avatarDataUrl?: string|null }}
  */
 function mapUser(me, host) {
   return {

@@ -35,8 +35,10 @@ const {
   normalizarArquivos,
 } = require('./git_parse');
 
+/** @type {typeof import('./github_auth') | null} */
 let githubAuth = null;
 try { githubAuth = require('./github_auth'); } catch (_) { /* optional */ }
+/** @type {typeof import('./gitlab_auth') | null} */
 let gitlabAuth = null;
 try { gitlabAuth = require('./gitlab_auth'); } catch (_) { /* optional */ }
 
@@ -139,6 +141,7 @@ function gitFor(opts, ev) {
  * de git sabia de que janela vinha o pedido: todos caiam no ultimo projeto
  * aberto em qualquer janela. Passar por ultimo nao serviria, porque um
  * handler chamado sem argumentos receberia o evento no lugar de `opts`.
+ * @param {(ev: Electron.IpcMainInvokeEvent, ...args: any[]) => any} fn
  */
 function safe(fn) {
   return async (/** @type {any} */ ev, /** @type {any} */ ...args) => {
@@ -156,10 +159,12 @@ function safe(fn) {
  * pass a custom env, passing process.env (which usually has EDITOR set) trips
  * simple-git's editor-safety guard ("Use of EDITOR is not permitted"), which is
  * exactly what broke fetch/pull/push. git inherits the real env on its own.
+ * @param {Electron.IpcMainInvokeEvent} ev
  */
 async function remoteGit(ev) {
   const dir = projectDir(ev);
   if (!dir) throw new Error('No project is open.');
+  /** @type {string[]} */
   let config = [];
   try {
     // Qual token, decidido pelo REMOTO e nao pelo que houver guardado: mandar
@@ -176,7 +181,10 @@ async function remoteGit(ev) {
   return simpleGit(opcoesGit({ baseDir: dir, config }));
 }
 
-/** O endereco do `origin`, ou do primeiro remoto que houver. Vazio sem remoto. */
+/**
+ * O endereco do `origin`, ou do primeiro remoto que houver. Vazio sem remoto.
+ * @param {string} dir
+ */
 async function urlDoRemoto(dir) {
   try {
     const remotos = await simpleGit(opcoesGit({ baseDir: dir })).getRemotes(true);
@@ -188,7 +196,9 @@ async function urlDoRemoto(dir) {
 
 // Per-file +/- for the WORKING tree (staged + unstaged combined), for the
 // Changes list. Two cheap numstat diffs, merged by path.
+/** @param {import('simple-git').SimpleGit} git */
 async function workNumstat(git) {
+  /** @type {Record<string, {additions: number, deletions: number, binary: boolean}>} */
   const map = {};
   acumularNumstat(map, await git.diff(['--numstat']));             // unstaged
   acumularNumstat(map, await git.diff(['--staged', '--numstat'])); // staged

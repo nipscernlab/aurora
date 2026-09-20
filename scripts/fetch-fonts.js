@@ -2,7 +2,7 @@
 /**
  * fetch-fonts.js: vendor the web fonts locally (regeneration tool).
  *
- * Aurora used to @import Inter / JetBrains Mono / Mrs Saint Delafield straight
+ * Aurora used to `@import` Inter / JetBrains Mono / Mrs Saint Delafield straight
  * from fonts.googleapis.com, a render-blocking network fetch on every launch
  * that left the UI on system fonts when offline. This script downloads the
  * woff2 files (latin + latin-ext subsets, which cover English and Portuguese)
@@ -41,6 +41,7 @@ const KEEP_SUBSETS = new Set(['latin', 'latin-ext']);
 // problema deixa de existir e o script de bootstrap que baixava do dafont pode
 // sumir. Sao duas porque o painel usa a fonte para duas coisas: o letreiro em
 // letras latinas e a runa Dagaz, e so a Noto Sans Runic cobre U+16A0-16F8.
+/** @type {Array<{ family: string, slug: string, css: string, subsets?: string[] }>} */
 const FAMILIES = [
   { family: 'Inter', slug: 'inter', css: 'Inter:wght@400..700' },
   { family: 'JetBrains Mono', slug: 'jetbrains-mono', css: 'JetBrains+Mono:wght@400..600' },
@@ -49,6 +50,10 @@ const FAMILIES = [
   { family: 'Noto Sans Runic', slug: 'noto-sans-runic', css: 'Noto+Sans+Runic', subsets: ['runic'] },
 ];
 
+/**
+ * @param {string} url
+ * @param {boolean} [asBuffer]
+ */
 function get(url, asBuffer) {
   return new Promise((resolve, reject) => {
     https.get(url, { headers: { 'User-Agent': CHROME_UA } }, (res) => {
@@ -57,6 +62,7 @@ function get(url, asBuffer) {
         return;
       }
       if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode} for ${url}`)); return; }
+      /** @type {Buffer[]} */
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => resolve(asBuffer ? Buffer.concat(chunks) : Buffer.concat(chunks).toString('utf8')));

@@ -53,38 +53,14 @@
     "TS2740": 1
   },
   "main/ipc/git.js": {
-    "TS2349": 6,
-    "TS7005": 5,
-    "TS7006": 38,
-    "TS7034": 3,
-    "TS7053": 1
-  },
-  "main/ipc/github_auth.js": {
-    "TS2810": 2,
-    "TS7005": 1,
-    "TS7006": 10,
-    "TS7034": 1
+    "TS2349": 6
   },
   "main/ipc/github_forget.js": {
     "TS2339": 1,
     "TS2532": 1
   },
-  "main/ipc/gitlab_auth.js": {
-    "TS2551": 2,
-    "TS2810": 2,
-    "TS7005": 1,
-    "TS7006": 17,
-    "TS7034": 1
-  },
   "main/ipc/history.js": {
-    "TS18048": 2,
-    "TS2322": 1,
-    "TS2339": 2,
-    "TS2345": 1,
-    "TS2353": 1,
-    "TS7005": 1,
-    "TS7006": 26,
-    "TS7034": 1
+    "TS2345": 1
   },
   "main/ipc/preview.js": {
     "TS2339": 1,
@@ -133,25 +109,6 @@
     "TS2345": 1
   },
   "scripts/check-component-drift.js": {
-    "TS2339": 1,
-    "TS7006": 23,
-    "TS7053": 1
-  },
-  "scripts/fetch-fonts.js": {
-    "TS1005": 1,
-    "TS1141": 1,
-    "TS2339": 2,
-    "TS2353": 1,
-    "TS7005": 2,
-    "TS7006": 2,
-    "TS7034": 1
-  },
-  "scripts/verify-components.js": {
-    "TS2339": 34,
-    "TS7005": 1,
-    "TS7006": 27,
-    "TS7031": 1,
-    "TS7034": 1,
-    "TS7053": 1
+    "TS2339": 1
   }
 }

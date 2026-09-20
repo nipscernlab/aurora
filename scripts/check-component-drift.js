@@ -194,18 +194,26 @@ const COMPONENTS = [
 
 const UA = 'aurora-component-drift';
 
+/**
+ * @param {string} url
+ * @param {Record<string, string>} [headers]
+ */
 async function getJson(url, headers = {}) {
   const res = await fetch(url, { headers: { 'User-Agent': UA, ...headers } });
   if (!res.ok) throw new Error(`HTTP ${res.status} em ${url}`);
   return res.json();
 }
 
-/** @returns {Promise<Published[]>} mais novas primeiro */
+/**
+ * @param {{ kind: string, repo?: string, project?: string, name?: string }} upstream
+ * @returns {Promise<Published[]>} mais novas primeiro
+ */
 async function fetchPublished(upstream) {
   if (upstream.kind === 'github-releases') {
     // Sem `/releases/latest`: ele ignora pre-release, e o bundle da toolchain e
     // publicado exatamente assim. A lista traz tudo, ja da mais nova pra mais
     // velha. O token, quando existe, so sobe o limite de requisicoes.
+    /** @type {Record<string, string>} */
     const headers = { Accept: 'application/vnd.github+json' };
     const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -232,8 +240,8 @@ async function fetchPublished(upstream) {
  * ──────────────────────────────────────────────────────────────────────── */
 
 const argv = process.argv.slice(2);
-const has = (f) => argv.includes(f);
-const valueOf = (f) => {
+const has = (/** @type {string} */ f) => argv.includes(f);
+const valueOf = (/** @type {string} */ f) => {
   const i = argv.indexOf(f);
   return i >= 0 && argv[i + 1] ? argv[i + 1] : null;
 };
@@ -245,13 +253,14 @@ const FLAG = {
 };
 
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
-const c = (code, s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
-const bold = (s) => c('1', s);
-const green = (s) => c('32', s);
-const red = (s) => c('31', s);
-const yellow = (s) => c('33', s);
-const dim = (s) => c('2', s);
+const c = (/** @type {string} */ code, /** @type {string} */ s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
+const bold = (/** @type {string} */ s) => c('1', s);
+const green = (/** @type {string} */ s) => c('32', s);
+const red = (/** @type {string} */ s) => c('31', s);
+const yellow = (/** @type {string} */ s) => c('33', s);
+const dim = (/** @type {string} */ s) => c('2', s);
 
+/** @param {(typeof COMPONENTS)[number]} comp */
 async function inspect(comp) {
   const row = {
     key: comp.key,
@@ -301,6 +310,7 @@ async function inspect(comp) {
   return row;
 }
 
+/** @param {Awaited<ReturnType<typeof inspect>>[]} rows */
 function render(rows) {
   const LABEL = {
     ok: green('[ EM DIA ]'),
@@ -353,6 +363,7 @@ function render(rows) {
  * Corpo da issue que o workflow mantém. Fica aqui, e não no YAML, porque quem
  * mexe no que é reportado é quem mexe nesta tabela, e YAML com lógica dentro é
  * onde erro de formatação passa despercebido.
+ * @param {Awaited<ReturnType<typeof inspect>>[]} rows
  */
 function renderMarkdown(rows) {
   const out = [];

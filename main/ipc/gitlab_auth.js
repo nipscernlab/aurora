@@ -162,10 +162,16 @@ function apiCall(metodo, base, rota, token, corpo, tipo = 'pat') {
   });
 }
 
+/** @param {string} base @param {string} rota @param {string} token @param {'pat'|'oauth'} [tipo] */
 const apiGet = (base, rota, token, tipo) => apiCall('GET', base, rota, token, undefined, tipo);
+/** @param {string} base @param {string} rota @param {string} token @param {any} [corpo] @param {'pat'|'oauth'} [tipo] */
 const apiPost = (base, rota, token, corpo, tipo) => apiCall('POST', base, rota, token, corpo, tipo);
 
-/** Busca uma imagem e devolve como `data:`, para passar pela CSP do renderer. */
+/**
+ * Busca uma imagem e devolve como `data:`, para passar pela CSP do renderer.
+ * @param {string} url
+ * @returns {Promise<string|null>}
+ */
 function fetchDataUrl(url, depth = 0) {
   return new Promise((resolve) => {
     if (depth > 3) return resolve(null);
@@ -178,6 +184,7 @@ function fetchDataUrl(url, depth = 0) {
         }
         if (sc !== 200) { res.resume(); return resolve(null); }
         const type = res.headers['content-type'] || 'image/png';
+        /** @type {Buffer[]} */
         const chunks = [];
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => resolve(`data:${type};base64,${Buffer.concat(chunks).toString('base64')}`));
@@ -208,7 +215,10 @@ function getHost() {
   return typeof host === 'string' && host ? host : 'gitlab.com';
 }
 
-/** O que sobra depois do cofre: base para as chamadas, ou null sem conta. */
+/**
+ * O que sobra depois do cofre: base para as chamadas, ou null sem conta.
+ * @returns {{ token: string, host: string, base: string, tipo: 'pat'|'oauth' } | null}
+ */
 function contaAtual() {
   const token = getToken();
   if (!token) return null;
@@ -223,7 +233,11 @@ function contaAtual() {
   };
 }
 
-/** Valida o token contra a instância, guarda cifrado e cacheia o usuário. */
+/**
+ * Valida o token contra a instância, guarda cifrado e cacheia o usuário.
+ * @param {unknown} token
+ * @param {unknown} hostBruto
+ */
 async function connect(token, hostBruto) {
   if (typeof token !== 'string' || !token.trim()) {
     throw new Error('O token está vazio.');
@@ -282,6 +296,8 @@ async function listProjects() {
  * `namespace_id` fica de fora: sem ele o GitLab cria no espaço pessoal, que é
  * o que "criar um repositório meu" quer dizer. Criar dentro de um grupo é
  * outra decisão (qual grupo?) e pede interface própria.
+ * @param {string} name
+ * @param {boolean} isPrivate
  */
 async function createProject(name, isPrivate) {
   const conta = contaAtual();
@@ -317,6 +333,7 @@ function disconnect() {
  * na hora em que o usuario desiste, e nao no proximo tique.
  * @param {number} ms
  * @param {AbortSignal} [signal]
+ * @returns {Promise<void>}
  */
 const sleep = (ms, signal) => new Promise((r) => {
   const t = setTimeout(() => { signal?.removeEventListener('abort', acordar); r(); }, ms);
@@ -341,6 +358,9 @@ function cancelarFluxo() {
  *
  * O corpo de erro tambem e JSON, e e ele que diz "ainda nao autorizou":
  * rejeitar por codigo de status trataria a espera normal como falha.
+ * @param {string} base
+ * @param {string} rota
+ * @param {Record<string, string>} payload
  */
 function oauthPostJson(base, rota, payload) {
   return new Promise((resolve, reject) => {

@@ -1,5 +1,5 @@
 /**
- * O V<top>.exe do Verilator na Temp do projeto (main/compile/binary_allowlist.js).
+ * O V<top>.exe do Verilator na Temp do projeto (main/compile/binary_allowlist.ts).
  *
  * O executor so roda binario que o allowlist aceita. O V<top>.exe e gerado, nao
  * embarcado, entao a regra dele e por forma e lugar: pasta obj_dir*, nome
@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { isAllowed } from '../../main/compile/binary_allowlist.js';
+import { isAllowed } from '../../main/compile/binary_allowlist.ts';
 import { componentsPath } from '../../main/paths.js';
 
 const proj = path.resolve('C:', 'alunos', 'contador');

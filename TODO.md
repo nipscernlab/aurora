@@ -119,7 +119,7 @@ diretório, e tudo acima continua valendo.
 O que costuma travar: a IDE executa compiladores a partir do perfil do usuário,
 e políticas do tipo "bloquear execução fora de Arquivos de Programas" impedem o
 funcionamento mesmo com a instalação bem-sucedida. Os binários são um conjunto
-fechado por allowlist em [main/compile/binary_allowlist.js](main/compile/binary_allowlist.js):
+fechado por allowlist em [main/compile/binary_allowlist.ts](main/compile/binary_allowlist.ts):
 compiladores SAPHO (`cmmcomp`, `appcomp`, `asmcomp`, `cppcomp`, `cpppp`),
 Icarus (`iverilog`, `vvp`), Verilator com `g++`/`make`/`perl`, Yosys, GTKWave,
 Python 3.12, e as ferramentas de linguagem (`verible-verilog-ls`,

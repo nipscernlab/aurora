@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { RAW_ALLOWLIST, donoDoBinario } from '../../main/compile/binary_allowlist.js';
+import { RAW_ALLOWLIST, donoDoBinario } from '../../main/compile/binary_allowlist.ts';
 import {
   COMPONENTES, obter, estaInstalado, mensagemDeAusencia,
   diagnosticar, listar, definirRaizParaTestes,

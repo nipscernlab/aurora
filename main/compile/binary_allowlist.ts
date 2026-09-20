@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * binary_allowlist.js: the closed set of executables Aurora's
+ * binary_allowlist.ts: the closed set of executables Aurora's
  * structured-spec executor will spawn.
  *
  * Why: the new `exec-spec` IPC lets the renderer (and through it,
@@ -27,15 +26,11 @@
  * by the cwd the spec names, which the executor already confines.
  */
 
-'use strict';
-
-const path = require('path');
-const { componentsPath } = require('../paths');
-const {
-  getBundledPythonPath,
-  isBundledPythonPath,
-} = require('./python_locator');
-const componentes = require('../components/registry');
+import path from 'node:path';
+import { componentsPath } from '../paths.js';
+import { getBundledPythonPath, isBundledPythonPath } from './python_locator.js';
+import * as componentes from '../components/registry.js';
+import { anunciarAusencia } from '../components/notify.js';
 
 /**
  * Each entry: [basename, [allowed-subdirs-under-components], componentKey].
@@ -46,8 +41,7 @@ const componentes = require('../components/registry');
  * todos os caminhos de execucao passam antes de nascer um processo. Ver
  * main/components/registry.js.
  */
-/** @type {Array<[string, string[], string]>} */
-const RAW_ALLOWLIST = [
+export const RAW_ALLOWLIST: Array<[string, string[], string]> = [
   ['cmmcomp.exe',   ['bin'], 'yanc'],
   ['appcomp.exe',   ['bin'], 'yanc'],
   ['asmcomp.exe',   ['bin'], 'yanc'],
@@ -99,19 +93,22 @@ const RAW_ALLOWLIST = [
  */
 const VERILATOR_GENERATED_PREFIX = path.posix.join(toPosix(componentsPath), 'Temp/');
 
-function toPosix(/** @type {string} */ p) {
+function toPosix(p: string): string {
   return String(p || '').replace(/\\/g, '/');
 }
 
+export type Veredito =
+  | { ok: true }
+  | { ok: false; error: string; motivo?: string; componente?: string };
+
 /**
- * @param {string} binaryPath  absolute path to the candidate binary
- * @param {string[]} [raizesDeProjeto] pastas dos projetos abertos agora; so
- *   dentro delas o V<top>.exe gerado pelo Verilator e aceito. Vazio por
- *   padrao, de proposito: quem nao souber dizer quais projetos estao abertos
- *   fica com a regra estreita, a de components/Temp.
- * @returns {{ok:true} | {ok:false, error:string, motivo?:string, componente?:string}}
+ * @param binaryPath  absolute path to the candidate binary
+ * @param raizesDeProjeto pastas dos projetos abertos agora; so dentro delas o
+ *   V<top>.exe gerado pelo Verilator e aceito. Vazio por padrao, de
+ *   proposito: quem nao souber dizer quais projetos estao abertos fica com a
+ *   regra estreita, a de components/Temp.
  */
-function isAllowed(binaryPath, raizesDeProjeto = []) {
+export function isAllowed(binaryPath: string, raizesDeProjeto: string[] = []): Veredito {
   if (typeof binaryPath !== 'string' || !binaryPath) {
     return { ok: false, error: 'binary path must be a non-empty string' };
   }
@@ -179,7 +176,7 @@ function isAllowed(binaryPath, raizesDeProjeto = []) {
           // Avisa a janela do MESMO ponto que barrou. Quem chamou continua
           // recebendo o erro abaixo; sao coisas diferentes, e as duas precisam
           // acontecer. Ver main/components/notify.js.
-          require('../components/notify').anunciarAusencia(dono, mensagem);
+          anunciarAusencia(dono, mensagem);
           return {
             ok: false,
             motivo: 'componente-ausente',
@@ -203,7 +200,7 @@ function isAllowed(binaryPath, raizesDeProjeto = []) {
 }
 
 /** Read-only snapshot for diagnostics + AI listing tool. */
-function listAllowedBinaries() {
+export function listAllowedBinaries(): Array<{ binary: string; allowedDirs: string[] }> {
   const staticRows = RAW_ALLOWLIST.map(([name, dirs]) => ({
     binary: name,
     allowedDirs: dirs.map((d) => path.posix.join(toPosix(componentsPath), d)),
@@ -216,14 +213,9 @@ function listAllowedBinaries() {
   return staticRows.concat(pythonRows);
 }
 
-/**
- * O componente dono de um binario, pelo nome do arquivo.
- * @param {unknown} baseName
- */
-function donoDoBinario(baseName) {
+/** O componente dono de um binario, pelo nome do arquivo. */
+export function donoDoBinario(baseName: unknown): string | null {
   const alvo = String(baseName || '').toLowerCase();
   const achado = RAW_ALLOWLIST.find(([nome]) => nome.toLowerCase() === alvo);
   return achado ? achado[2] : null;
 }
-
-module.exports = { isAllowed, listAllowedBinaries, donoDoBinario, RAW_ALLOWLIST };

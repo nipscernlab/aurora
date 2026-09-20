@@ -1,0 +1,33 @@
+{
+  // Emite os .js dos .ts do PROCESSO PRINCIPAL (main/). O main/ e CommonJS:
+  // o Electron carrega main.js com require, e cada modulo faz
+  // `require('./x')` sem extensao. O tsconfig.build.json emite ESM para o
+  // renderer, entao um .ts no main/ precisa deste config a parte, com
+  // module NodeNext: sem "type": "module" no package.json o tsc trata cada
+  // .ts daqui como CJS e converte `import`/`export` em `require`/`exports`.
+  // No .ts se escreve sintaxe ESM; quem consome continua fazendo require.
+  //
+  // allowJs fica true porque o .ts importa os .js vizinhos (paths.js,
+  // python_locator.js...) e sem allowJs o tsc nao os enxerga (TS7016). Mas
+  // com allowJs o tsc quer emitir esses .js tambem, e emitir no lugar seria
+  // gravar cada .js por cima dele mesmo (TS5055). Por isso a saida vai para
+  // um diretorio a parte, e scripts/build-ts.js copia de la so os .js que
+  // vieram de um .ts.
+  //
+  // noCheck: este config so EMITE. Com allowJs o tsc honraria o `// @ts-check`
+  // de cada .js vizinho e derrubaria o build por erro que a catraca ja conhece
+  // (registry.js tinha um). A VERIFICACAO, do .ts daqui inclusive, e do
+  // tsconfig.json em strict, por scripts/check-types.js: arquivo novo com
+  // erro nao passa por la.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "noCheck": true,
+    "allowJs": true,
+    "rootDir": ".",
+    "outDir": "node_modules/.cache/tsc-main"
+  },
+  "include": ["main/**/*.ts"]
+}

@@ -1,4 +1,4 @@
-// processor_compiler.js: SAPHO processor compile steps (C±/.cmm → .asm → .v).
+// processor_compiler.ts: SAPHO processor compile steps (C±/.cmm → .asm → .v).
 //
 // Extracted from compilation_module.js (A2 god-file decomposition #5, the last
 // one). These drive the per-processor toolchain: cmmcomp (.cmm → .asm), then
@@ -40,9 +40,48 @@ import * as CommandSpec from './command_spec.js';
 import { moduleStemFromPath } from './compilation_helpers.js';
 import { analisarVerilog, totaisDoVerilog } from './verilog_stats.js';
 import { projectTempDir } from '../project/project_temp.js';
+import type { EntradaDeProcessador } from './processor_source.js';
+
+/**
+ * O terminal, visto daqui: so os metodos que estes passos chamam. E estrutural
+ * de proposito, o terminalManager real (terminal_module.js) tem muito mais
+ * superficie e nao e tipado.
+ */
+export interface TerminalManager {
+    clearTerminal(id: string): Promise<void> | void;
+    appendToTerminal(id: string, texto: string, tipo?: string, opcoes?: { internal?: boolean }): void;
+    processExecutableOutput(id: string, resultado: unknown): void;
+}
+
+/** A sacola que CompilationModule._instanceDeps() monta. */
+export interface CompileDeps {
+    projectPath: string;
+    componentsPath: string;
+    terminalManager: TerminalManager;
+    projectConfig?: { processors?: unknown[] } | null;
+}
+
+/** Entrada do .spf mais o que o fluxo injeta por cima antes de compilar. */
+export interface ProcessorEntry extends EntradaDeProcessador {
+    clk?: number | string;
+    numClocks?: number | string;
+    showArrays?: boolean;
+    testbenchFile?: string | null;
+}
+
+/**
+ * O erro que sobe daqui depois de ja ter sido escrito no terminal. A bandeira
+ * evita que quem o pegou o imprima de novo; ver compilation_flow.js.
+ */
+type ErroDeCompilacao = Error & { jaNoTerminal?: boolean };
+
+/** Normaliza o `unknown` do catch sem mudar o que corre em execucao. */
+function comoErro(e: unknown): ErroDeCompilacao {
+    return (e instanceof Error ? e : new Error(String(e))) as ErroDeCompilacao;
+}
 
 // i18n shim, falls back to the key path if i18n didn't boot yet.
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
 // O usuario ja mandou parar? Depois de um Cancelar, o .exe morto reporta a
 // morte como falha propria ("code 1") e o catch carimbava isso em vermelho no
@@ -52,7 +91,7 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
 const canceladoPeloUsuario = () =>
     (typeof window !== 'undefined' && !!window.isCompilationCanceled?.());
 
-export async function getSelectedCmmFile(processor) {
+export async function getSelectedCmmFile(processor: ProcessorEntry): Promise<string> {
     if (!processor.cmmFile) {
         throw new Error(tr('error.config.noCmm'));
     }
@@ -69,15 +108,18 @@ export async function getSelectedCmmFile(processor) {
  *     <proj>/<proc>/Simulation/ (testbench auto-gerado pelo
  *     asmcomp).
  *
- * @param {{ projectPath: string }} deps
  */
-export async function getTestbenchInfo(deps, processor, cmmBaseName) {
-    let tbModule, tbFile;
+export async function getTestbenchInfo(
+    deps: Pick<CompileDeps, 'projectPath'>,
+    processor: ProcessorEntry,
+    cmmBaseName: string,
+): Promise<{ tbModule: string, tbFile: string }> {
+    let tbModule: string, tbFile: string;
     const testbenchFilePath = processor.testbenchFile;
 
     if (testbenchFilePath && testbenchFilePath !== 'standard') {
         tbFile = testbenchFilePath;
-        const tbFileName = testbenchFilePath.split(/[\\\\/]/).pop();
+        const tbFileName = testbenchFilePath.split(/[\\\\/]/).pop() ?? '';
         tbModule = moduleStemFromPath(tbFileName);
     } else {
         tbModule = `${cmmBaseName}_tb`;
@@ -94,12 +136,14 @@ export async function getTestbenchInfo(deps, processor, cmmBaseName) {
 /**
  * Compila o .cmm do processador via cmmcomp.exe → <proj>/<proc>/Software/<base>.asm.
  *
- * @param {{ projectPath: string, componentsPath: string, terminalManager: object }} deps
- * @param {object} processor                  entrada do .spf (name, cmmFile, showArrays)
- * @param {(path: string) => void} setLastCompiledCmmPath  cacheia o .cmm corrente na instancia (lido pelo terminal)
- * @returns {Promise<string>} asmPath
+ * @param setLastCompiledCmmPath  cacheia o .cmm corrente na instancia (lido pelo terminal)
+ * @returns asmPath
  */
-export async function cmmCompilation(deps, processor, setLastCompiledCmmPath) {
+export async function cmmCompilation(
+    deps: CompileDeps,
+    processor: ProcessorEntry,
+    setLastCompiledCmmPath: (caminho: string) => void,
+): Promise<string> {
     const { name, showArrays } = processor;
     await deps.terminalManager.clearTerminal('tcmm');
 
@@ -138,7 +182,7 @@ export async function cmmCompilation(deps, processor, setLastCompiledCmmPath) {
         //
         // -A / --array liga o showArrays do .spf (campo per-processador):
         // dump de arrays no waveform. Era -P no yanc v3.
-        const lang = window.getYancLang?.() ?? 'pt';
+        const lang = (window.getYancLang?.() ?? 'pt') as 'pt' | 'en';
         const cmmSpec = buildCmmSpec({
             cmmCompPath,
             inputFile: selectedCmmFile,
@@ -172,7 +216,8 @@ export async function cmmCompilation(deps, processor, setLastCompiledCmmPath) {
         }
         statusUpdater.compilationSuccess('cmm');
         return asmPath;
-    } catch (error) {
+    } catch (e) {
+        const error = comoErro(e);
         if (!canceladoPeloUsuario()) {
             deps.terminalManager.appendToTerminal('tcmm', tr('terminal.common.error', { message: error.message }), 'error');
             error.jaNoTerminal = true;
@@ -187,9 +232,12 @@ export async function cmmCompilation(deps, processor, setLastCompiledCmmPath) {
  * pc_*_mem.txt; copia o testbench auto-gerado pra <proc>/Simulation/ quando
  * o processador usa o testbench "standard".
  *
- * @param {{ projectPath: string, componentsPath: string, terminalManager: object }} deps
  */
-export async function asmCompilation(deps, processor, preamble = null) {
+export async function asmCompilation(
+    deps: CompileDeps,
+    processor: ProcessorEntry,
+    preamble: string | null = null,
+): Promise<void> {
     const {
         name,
         clk,
@@ -230,7 +278,7 @@ export async function asmCompilation(deps, processor, preamble = null) {
         // consome a flag antes do cli_parse() ler as named options. Aplicado
         // igual em appcomp e asmcomp pra que stdout/stderr dos dois passos
         // saiam na mesma lingua.
-        const lang = window.getYancLang?.() ?? 'pt';
+        const lang = (window.getYancLang?.() ?? 'pt') as 'pt' | 'en';
 
         // appcomp: named options -i input  -t temp-dir (APP/Sources/args.c).
         const asmPreSpec = buildAsmPreSpec({
@@ -254,8 +302,8 @@ export async function asmCompilation(deps, processor, preamble = null) {
         // e sai com usage. O -P (project mode = sem $finish no _tb.v) foi
         // removido no v4: o $finish agora e sempre emitido; multi-proc
         // workflows ignoram o _tb.v individual e usam um top-level proprio.
-        const freq = Number.parseInt(clk, 10) || 0;
-        const clocks = Number.parseInt(numClocks, 10) || 0;
+        const freq = Number.parseInt(String(clk), 10) || 0;
+        const clocks = Number.parseInt(String(numClocks), 10) || 0;
         const asmSpec = buildAsmSpec({
             asmCompPath,
             asmFile: asmPath,
@@ -291,7 +339,7 @@ export async function asmCompilation(deps, processor, preamble = null) {
             !processor.testbenchFile || processor.testbenchFile === 'standard';
         if (usesStandardTestbench) {
             const tbFileName = tbFile.split(/[\\\\/]/)
-                .pop();
+                .pop() ?? '';
             const sourceTestbench = await electronAPI.joinPath(tempPath, tbFileName);
             const destinationTestbench = tbFile;
 
@@ -313,7 +361,8 @@ export async function asmCompilation(deps, processor, preamble = null) {
             const analise = analisarVerilog(fonte);
             const t = totaisDoVerilog(analise);
             const instancias = analise.modules
-                .flatMap((m) => m.instances.map((i) => `${i.module} ${i.name}`))
+                .flatMap((m: { instances: Array<{ module: string, name: string }> }) =>
+                    m.instances.map((i) => `${i.module} ${i.name}`))
                 .join(', ');
             deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.verilogStats', {
                 file: `${name}.v`,
@@ -327,7 +376,8 @@ export async function asmCompilation(deps, processor, preamble = null) {
         } catch (_e) { /* o resumo e cortesia; o .v foi gerado do mesmo jeito */ }
 
         statusUpdater.compilationSuccess('asm');
-    } catch (error) {
+    } catch (e) {
+        const error = comoErro(e);
         if (!canceladoPeloUsuario()) {
             deps.terminalManager.appendToTerminal('tasm', tr('terminal.common.error', { message: error.message }), 'error');
             error.jaNoTerminal = true;
@@ -345,9 +395,12 @@ export async function asmCompilation(deps, processor, preamble = null) {
  * buildDir dele. No-op (silencioso) em projeto sem processador; warning
  * claro quando ha processador mas nenhum pc_*_mem.txt foi achado.
  *
- * @param {{ projectConfig: object, terminalManager: object }} deps
  */
-export async function stageProcessorMemoryFiles(deps, tempBaseDir, destDir = tempBaseDir) {
+export async function stageProcessorMemoryFiles(
+    deps: Pick<CompileDeps, 'projectConfig' | 'terminalManager'>,
+    tempBaseDir: string,
+    destDir: string = tempBaseDir,
+): Promise<void> {
     // Projeto sem processador no .spf nunca gera pc_*_mem.txt, o
     // $readmemb que consome esses arquivos so existe dentro do .v do
     // processador SAPHO. Pular o staging inteiro (incluindo o warning
@@ -355,11 +408,11 @@ export async function stageProcessorMemoryFiles(deps, tempBaseDir, destDir = tem
     // de processador num design que nao tem processador so confunde.
     const procs = Array.isArray(deps.projectConfig?.processors)
         ? deps.projectConfig.processors.filter(
-            (p) => p && (typeof p === 'string' ? p.trim() : p.name))
+            (p) => p && (typeof p === 'string' ? p.trim() : (p as { name?: string }).name))
         : [];
     if (procs.length === 0) return;
 
-    let entries;
+    let entries: unknown;
     try {
         entries = await electronAPI.getFolderFiles(tempBaseDir);
     } catch (_e) {
@@ -373,11 +426,11 @@ export async function stageProcessorMemoryFiles(deps, tempBaseDir, destDir = tem
     if (!Array.isArray(entries)) return;
 
     let staged = 0;
-    const failedSubdirs = [];
-    for (const entry of entries) {
+    const failedSubdirs: string[] = [];
+    for (const entry of entries as Array<{ isDirectory?: boolean, path: string }>) {
         if (!entry?.isDirectory) continue;
         const subDir = entry.path;
-        let subFiles;
+        let subFiles: unknown;
         try {
             subFiles = await electronAPI.listFilesInDirectory(subDir);
         } catch (_e) {

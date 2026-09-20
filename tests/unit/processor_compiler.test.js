@@ -17,7 +17,7 @@ import { runSpec } from '../../js/compilation/spec_runner.js';
 import {
     getSelectedCmmFile, getTestbenchInfo,
     cmmCompilation, asmCompilation, stageProcessorMemoryFiles,
-} from '../../js/compilation/processor_compiler.js';
+} from '../../js/compilation/processor_compiler.ts';
 
 // fixture .cmm: o que esta no disco tem de continuar la, byte a byte
 const CMM_WITH_MAIN = 'void main(){\n  int x;\n  x = 1;\n}\n';

@@ -25,6 +25,11 @@ interface AuroraElectronAPI {
   readFile(path: string, options?: { encoding?: string }): Promise<string>;
   writeFile(path: string, content: string): Promise<void>;
   mkdir(path: string): Promise<void>;
+  /** mkdir -p: cria .aurora, Temp e a pasta do processador de uma vez. */
+  createDirectory(path: string): Promise<void>;
+  copyFile(src: string, dest: string): Promise<void>;
+  /** Entradas de uma pasta, com a marca de quem e diretorio. */
+  getFolderFiles(path: string): Promise<Array<{ path: string, isDirectory?: boolean }>>;
   listFilesInDirectory(dir: string): Promise<string[]>;
   renamePath(oldPath: string, newPath: string, opts?: { overwrite?: boolean }):
     Promise<{ success: boolean; code?: string; error?: string; path?: string }>;
@@ -59,6 +64,10 @@ declare global {
     currentOpenProjectPath?: string | null;
     /** Returns the active yanc message language ('pt' | 'en'). */
     getYancLang?: () => string;
+    /** i18n do renderer; os modulos usam o shim `tr()`, que cai na chave se ela nao tiver subido. */
+    t?: (chave: string, params?: Record<string, unknown>) => string;
+    /** Ligada pelo compilation_flow ao Cancelar: o .exe morto reporta a morte como falha propria. */
+    isCompilationCanceled?: () => boolean;
     /** Owned by processor_list.ts. */
     availableProcessors?: string[];
     /** Set by command_overrides.ts for non-module callers. */

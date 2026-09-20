@@ -87,6 +87,7 @@ js/utils/path_utils.js
 js/compilation/compilation_helpers.js
 js/compilation/command_spec.js
 js/compilation/command_overrides.js
+js/compilation/processor_compiler.js
 js/compilation/processor_source.js
 js/compilation/spec_factory.js
 js/compilation/spec_runner.js

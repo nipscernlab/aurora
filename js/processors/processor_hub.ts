@@ -33,6 +33,37 @@ document.addEventListener('DOMContentLoaded', () => {
         outPorts: campo('outputPorts')
     };
 
+    // O seletor de linguagem e os campos que ele governa.
+    //
+    // O front end C++ do yanc (cpppp + cppcomp) le do fonte so o nome e as
+    // duas contagens de porta, como `#pragma yanc prname/nuioin/nuioou`. Para
+    // largura, mantissa, expoente, ganho e as duas pilhas ele usa os padroes
+    // dele (Compilers/CPPComp/Headers/config.h), e escrever ali os numeros
+    // deste formulario cravaria no fonte um valor que ninguem escolheu. Por
+    // isso, em C++, estes seis campos ficam desabilitados, mostrando o que o
+    // compilador vai de fato assumir, e saem da validacao.
+    const radioCmm = campo('languageCmm');
+    const radioCpp = campo('languageCpp');
+    const dicaLinguagem = document.getElementById('processorLanguageHint');
+
+    /** Os campos que SO existem em C+-. Nome e portas ficam de fora. */
+    const CAMPOS_SO_DO_CMM = ['nBits', 'gain', 'mantissa', 'exponent', 'iStack', 'dStack'] as const;
+
+    /**
+     * O que o cppcomp assume quando o fonte nao traz o pragma. Espelha o
+     * PADROES_DO_CPPCOMP de main/ipc/processor_template.ts; os dois lados nao
+     * compartilham modulo porque um roda no main e o outro no renderer.
+     */
+    const PADROES_DO_CPPCOMP: Record<string, string> = {
+        nBits: '32', mantissa: '23', exponent: '8',
+        gain: '128', dStack: '128', iStack: '128',
+    };
+
+    /** O que a pessoa digitou em C+-, para voltar quando ela desmarcar C++. */
+    const valoresDoCmm: Record<string, string> = {};
+
+    const linguagemEscolhida = (): 'cmm' | 'cpp' => (radioCpp?.checked ? 'cpp' : 'cmm');
+
     // --- State Management ---
     let currentProjectPath: string | null = null;
 
@@ -130,12 +161,17 @@ document.addEventListener('DOMContentLoaded', () => {
         let isValid = true;
 
         if (!checkName()) isValid = false;
-        if (!checkPositiveInteger(inputs.nBits)) isValid = false;
-        if (!checkPositiveInteger(inputs.mantissa)) isValid = false;
-        if (!checkPositiveInteger(inputs.exponent)) isValid = false;
-        if (!checkGain()) isValid = false;
-        if (!checkPositiveInteger(inputs.iStack)) isValid = false;
-        if (!checkPositiveInteger(inputs.dStack)) isValid = false;
+
+        // Em C++ estes seis nao sao perguntados, entao nao sao validados: o
+        // que esta neles e o padrao do cppcomp, so para a pessoa ver.
+        if (linguagemEscolhida() === 'cmm') {
+            if (!checkPositiveInteger(inputs.nBits)) isValid = false;
+            if (!checkPositiveInteger(inputs.mantissa)) isValid = false;
+            if (!checkPositiveInteger(inputs.exponent)) isValid = false;
+            if (!checkGain()) isValid = false;
+            if (!checkPositiveInteger(inputs.iStack)) isValid = false;
+            if (!checkPositiveInteger(inputs.dStack)) isValid = false;
+        }
         // Ports must be a positive integer like every other numeric field:
         // we used to accept 0 (and silently empty) which let users submit
         // a half-blank Processor Hub form.
@@ -143,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!checkPositiveInteger(inputs.outPorts)) isValid = false;
 
         // Logical Check (Must be last to override style if needed)
-        if (!checkBitConsistency()) isValid = false;
+        if (linguagemEscolhida() === 'cmm' && !checkBitConsistency()) isValid = false;
 
         // Update Button State
         if (generateButton) {
@@ -152,6 +188,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return isValid;
     };
+
+    /**
+     * Poe o formulario no estado da linguagem escolhida. Em C++ os seis
+     * campos do C+- ficam desabilitados e passam a MOSTRAR o que o cppcomp
+     * assume; ao voltar para C+-, o que a pessoa tinha digitado volta.
+     */
+    const aplicarLinguagem = () => {
+        const ehCpp = linguagemEscolhida() === 'cpp';
+        for (const chave of CAMPOS_SO_DO_CMM) {
+            const el = inputs[chave];
+            if (!el) continue;
+            if (ehCpp) {
+                if (!el.disabled) valoresDoCmm[chave] = el.value;
+                el.value = PADROES_DO_CPPCOMP[chave] ?? el.value;
+                el.disabled = true;
+                resetInputStyle(el);
+            } else {
+                el.disabled = false;
+                if (chave in valoresDoCmm) el.value = valoresDoCmm[chave];
+            }
+            el.closest('.form-group')?.classList.toggle('is-disabled', ehCpp);
+        }
+        dicaLinguagem?.classList.toggle('hidden', !ehCpp);
+        validateAll();
+    };
+
+    for (const radio of [radioCmm, radioCpp]) {
+        radio?.addEventListener('change', aplicarLinguagem);
+    }
 
     // --- 5. Event Listeners (Live) ---
 
@@ -190,6 +255,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (form) form.reset();
         Object.values(inputs).forEach(input => resetInputStyle(input));
+        // O form.reset() devolve o radio ao C+-, que e o `checked` do HTML;
+        // aplicarLinguagem reabilita os campos e limpa os valores guardados.
+        for (const chave of Object.keys(valoresDoCmm)) delete valoresDoCmm[chave];
+        aplicarLinguagem();
         setTimeout(validateAll, 50);
     };
 
@@ -227,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = {
                 projectLocation: currentProjectPath,
                 processorName: (inputs.name?.value ?? '').trim(), // Trim strictly just in case
+                language: linguagemEscolhida(),
                 nBits: parseInt(inputs.nBits?.value ?? ''),
                 nbMantissa: parseInt(inputs.mantissa?.value ?? ''),
                 nbExponent: parseInt(inputs.exponent?.value ?? ''),
@@ -274,5 +344,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 9. Initial Run ---
-    validateAll();
+    aplicarLinguagem();
 });

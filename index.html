@@ -1148,6 +1148,26 @@
           <input type="text" id="processorName" name="processorName" class="form-input" required value="procTest_00" />
         </div>
 
+        <!-- Linguagem do fonte. O C++ usa o front end cpppp + cppcomp do yanc,
+             que converge no mesmo assembly do C+-; ele so le nome e portas, e
+             assume o float de precisao simples para o resto, entao marcar C++
+             desabilita a secao de formato numerico e as duas pilhas. Quem
+             muda o estado dos campos e o js/processors/processor_hub.ts. -->
+        <div class="form-group full-width">
+          <span class="form-label" id="processorLanguageLabel" data-i18n="modal.processorHub.language">Source Language</span>
+          <div class="radio-row" role="radiogroup" aria-labelledby="processorLanguageLabel">
+            <label class="radio-option">
+              <input type="radio" id="languageCmm" name="processorLanguage" value="cmm" checked />
+              <span data-i18n="modal.processorHub.languageCmm">C± (.cmm)</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" id="languageCpp" name="processorLanguage" value="cpp" />
+              <span data-i18n="modal.processorHub.languageCpp">C++ (.cpp)</span>
+            </label>
+          </div>
+          <small class="form-hint hidden" id="processorLanguageHint" data-i18n="modal.processorHub.languageCppHint">In C++ only the name and the port counts are written to the source, as #pragma yanc. The numeric format and the stacks use the C++ front end's own defaults.</small>
+        </div>
+
         <section class="config-section">
           <h3 class="section-title">
             <i class="ph ph-binary" aria-hidden="true"></i>

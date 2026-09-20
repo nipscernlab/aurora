@@ -252,6 +252,42 @@
 
 .full-width { grid-column: 1 / -1; }
 
+/* Escolha da linguagem do processador (Processor Hub). Duas opcoes que se
+   excluem, entao radio e nao caixa de marcar: o fonte e .cmm ou .cpp, nunca
+   os dois. A dica embaixo so aparece no modo C++, explicando por que metade
+   do formulario ficou apagada. */
+.radio-row {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  margin-top: var(--space-1);
+}
+
+.radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.radio-option input[type="radio"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Campo que a linguagem desabilitou: continua legivel, mas visivelmente
+   fora de uso. O `disabled` sozinho quase nao muda a cara do input aqui. */
+.form-group.is-disabled .form-label,
+.form-group.is-disabled .form-input:disabled {
+  opacity: 0.45;
+}
+
+.form-group.is-disabled .form-input:disabled {
+  cursor: not-allowed;
+}
+
 /* Info tooltip pill, sits on the right of the form label */
 .info-tip {
   display: inline-flex;

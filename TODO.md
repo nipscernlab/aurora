@@ -1162,15 +1162,31 @@ converge no mesmo assembly, então o trabalho é integração do lado da AURORA
 mais um painel próprio. Vale a regra do ARCHITECTURE §13: toda capacidade sai
 como API chamável pela IA antes de sair como botão.
 
-Nada disto foi implementado: `js/compilation/builders/` não tem `cpp` e o
-`binary_allowlist.js` não menciona `cpppp` nem `cppcomp`.
+A Fase 1 foi entregue em 2026-09-20 (13 commits, de e4cf100c a
+9aac16f2, mais o E2E). A varredura que a precedeu está resumida no
+ARCHITECTURE §13: o nome do fonte era remontado como `${nome}.cmm` em nove
+lugares e `endsWith('.cmm')` decidia "isto é fonte?" em outros oito, e o
+`.spf` nunca gravou `cmmFile` (só `name`).
 
-**Decidir antes de começar**: renomear o campo `cmmFile` do `.spf` para
-`sourceFile`, com migração automática na abertura do projeto. Manter o nome
-antigo apontando para um `.cpp` é dissonante, e o custo do rename cresce com a
-base de projetos.
+**Decisão do `.spf` (tomada)**: sem migração. `processor_source.ts` lê o
+`cmmFile` legado e o `sourceFile` novo, deriva a linguagem da extensão
+quando o campo `language` não existe, e uma entrada só com `name` continua
+sendo C± exatamente como era. Migrar um campo que nenhum `.spf` tinha seria
+risco sem ganho.
 
-- [ ] **Fase 1, pipeline funcionando, só AURORA.** `cpppp.exe` e `cppcomp.exe`
+- [x] **Fase 1, pipeline funcionando, só AURORA.** Entregue: allowlist,
+      `builders/cpp.ts`, ramo `cpp-pp`/`cpp` no `spec_factory.ts`,
+      `cppCompilation`, despacho por linguagem (`processor_dispatch.ts`,
+      extraído do `compilation_flow.js`), `.cpp` na árvore, na detecção de
+      tipo e nos diálogos, `'cpp'` na API e nos enums de `tools.js` (mesmo
+      passo que `'cmm'`), regras `cpp-pp`/`cpp` nas flags protegidas, aviso
+      de `#include` no terminal, e o E2E `tests/e2e/cpp-processor.test.js`.
+      Ficou para a Fase 2, de propósito: o "salvar como processador" do
+      `tab_manager` (template, `#PRNAME`, registro) segue `.cmm`; o
+      `lifecycle.js` abre-com só `spf|cmm|v`; o Monaco abre `.cpp` em
+      `vs-dark`; o `sapho_rules.json` é 100% C±; os erros do `cppcomp`
+      apontam para `Temp/pp.cpp` (o aviso no terminal cobre). Texto
+      original do item, para referência: `cpppp.exe` e `cppcomp.exe`
       na allowlist sob `bin`; `js/compilation/builders/cpp.ts` com
       `buildCppPpSpec` e `buildCppSpec` no molde do `cmm.ts`, reexportado no
       `builders/index.ts`; ramo `'cpp-pp' | 'cpp'` no `spec_factory.ts`,

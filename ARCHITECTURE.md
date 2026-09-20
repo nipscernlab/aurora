@@ -373,11 +373,17 @@ diante o pipeline é idêntico, então a divisão fica confinada a um passo na f
 
 Dois invariantes governam esse trabalho, e valem para código escrito antes de ele
 chegar. O passo de front end é escolhido a partir da linguagem do fonte, não
-assumido; os pontos que hoje assumem `.cmm` e vão precisar despachar são o
-[spec_factory.ts](js/compilation/spec_factory.ts), o
-[processor_compiler.js](js/compilation/processor_compiler.js), o
-[compilation_flow.js](js/compilation/compilation_flow.js) e o
-[file_mode.js](js/project/file_mode.js). Não acrescente um quinto.
+assumido. Desde 2026-09-20 há um lugar só que responde "qual é o fonte deste
+processador e em que linguagem": [processor_source.ts](js/compilation/processor_source.ts)
+(linguagem, nome do fonte e base, a partir da entrada do `.spf`, com `cmmFile`
+legado e `sourceFile` novo, sem migração) e, por cima dele,
+[processor_dispatch.ts](js/compilation/processor_dispatch.ts) (acha o fonte no
+disco quando o `.spf` não declara, `.cmm` antes de `.cpp`, e chama o front end
+certo). A varredura que precedeu o C++ achou o nome do fonte remontado como
+`${nome}.cmm` em nove lugares e um `endsWith('.cmm')` em outros oito; o que
+sobrou disso está listado na seção 7 do TODO como Fase 2. Não escreva um
+`endsWith('.cmm')` nem um `${nome}.cmm` novo: pergunte ao `processor_source`
+(`isProcessorSourcePath`, `sourceExtensions`, `resolveProcessorSource`).
 
 E toda capacidade de processador é uma API chamável pela IA antes de ser um botão.
 O caminho é [aurora_api.js](js/api/aurora_api.js), depois

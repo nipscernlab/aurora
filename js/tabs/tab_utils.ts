@@ -8,6 +8,7 @@
 // que o runtime carrega; os imports usam a extensao `.js`.
 
 import { getExtensionForDocumentType, type DocumentType } from '../editor/document_type_detector.js';
+import { glyphClassForFile } from '../ui/language_glyph.js';
 
 const CMM_DEFAULTS = Object.freeze({
     nBits: 23,
@@ -139,6 +140,11 @@ export function isBinaryFile(filePath: string): boolean {
 export function getFileIcon(filename: string): string {
     const extension = (filename.split('.').pop() as string).toLowerCase();
 
+    // Fonte de processador tem glifo proprio, desenhado pela AURORA, e o
+    // mesmo nas abas e nas duas arvores.
+    const glifo = glyphClassForFile(filename);
+    if (glifo) return glifo;
+
     // Images
     if (imageExtensions.has(extension)) {
         return extension === 'svg' ? 'ph ph-file-svg' : 'ph ph-file-image';
@@ -148,9 +154,10 @@ export function getFileIcon(filename: string): string {
 
     const iconMap: Record<string, string> = {
         // SAPHO/AURORA file types, distinctive icons per family so the
-        // hardware toolchain reads at a glance (Verilog = a chip, C± = a
-        // custom C±-lettered document, assembly = binary, waves = waveform).
-        'cmm':       'aurora-icon-cmm',
+        // hardware toolchain reads at a glance (Verilog = a chip, assembly =
+        // binary, waves = waveform). Os fontes de processador (.cmm e .cpp)
+        // NAO entram nesta tabela: o glifo deles e da familia propria da
+        // AURORA e quem responde e o language_glyph.ts, logo abaixo.
         'asm':       'ph ph-binary',
         'v':         'ph ph-cpu',
         'vh':        'ph ph-cpu',

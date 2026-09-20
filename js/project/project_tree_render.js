@@ -481,7 +481,12 @@ export const RenderMixin = {
         const ext = this.getFileExtension(name);
         if (ext === '.v' || ext === '.sv' || ext === '.vh') return 'ph ph-cpu';
         if (ext === '.py') return 'ph ph-file-py';
+        // Fonte de processador: espelha o js/ui/language_glyph.ts de proposito,
+        // em vez de importa-lo. Este mixin nao importa nada (ver o cabecalho) e
+        // isto aqui e o galho defensivo: o caminho real e o TabManager logo
+        // acima, que ja pergunta ao language_glyph.
         if (ext === '.cmm') return 'aurora-icon-cmm';
+        if (ext === '.cpp') return 'aurora-icon-cpp';
         if (ext === '.txt') return 'ph ph-file-text';
         if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'].includes(ext)) return 'ph ph-image';
         return 'ph ph-file';

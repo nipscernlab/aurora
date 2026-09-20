@@ -530,3 +530,17 @@ body {
   mask: url('../../assets/icons/cmm_file.svg') center / contain no-repeat;
 }
 
+/* O irmao C++: mesmo documento, mesmo C, e o traco de baixo do mais-menos
+   virou um segundo mais. Quem escolhe entre os dois e js/ui/language_glyph.ts,
+   e nao um endsWith('.cmm') espalhado pelas arvores. */
+.aurora-icon-cpp {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask: url('../../assets/icons/cpp_file.svg') center / contain no-repeat;
+  mask: url('../../assets/icons/cpp_file.svg') center / contain no-repeat;
+}
+

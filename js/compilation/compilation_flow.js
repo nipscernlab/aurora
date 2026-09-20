@@ -38,7 +38,8 @@ import { addRunObserver } from './spec_runner.js';
 import { abrirExecucao, anotarPasso, fecharExecucao, resumo, desfechoDaExecucao, problemasParaRegistro } from './run_log.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
-import { isProcessorSourcePath } from './processor_source.js';
+import { isProcessorSourcePath, resolveProcessorLanguage } from './processor_source.js';
+import { languageLabel, setDrawnGlyphLanguage } from '../ui/language_glyph.js';
 import { compileProcessorSource, locateProcessorSource } from './processor_dispatch.js';
 import { statusUpdater } from '../ui/status_updater.js';
 
@@ -998,6 +999,22 @@ function syncCmmcompEnabled() {
     const isCmm = isProcessorSourcePath(path);
     btn.disabled = !isCmm;
     btn.style.cursor = isCmm ? 'pointer' : 'not-allowed';
+    sincronizarGlifoDaLinguagem(path);
+}
+
+/**
+ * O simbolo desenhado segue o fonte em foco: C± com um .cmm, C++ com um .cpp.
+ * O botao compila as duas linguagens e o terminal e o mesmo para as duas,
+ * entao o que o desenho tem a dizer e qual delas vai rodar se a pessoa
+ * clicar agora. Sem fonte em foco o simbolo fica como estava, para o botao
+ * nao piscar entre dois desenhos a cada clique numa aba qualquer.
+ */
+function sincronizarGlifoDaLinguagem(path) {
+    if (!isProcessorSourcePath(path)) return;
+    const lang = resolveProcessorLanguage({ name: '', sourceFile: String(path).split(/[\\/]/).pop() });
+    setDrawnGlyphLanguage(document, lang);
+    const rotulo = document.querySelector('[data-terminal="tcmm"] .tab-label');
+    if (rotulo) rotulo.textContent = languageLabel(lang);
 }
 
 if (typeof window !== 'undefined') {

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+     fill="none" stroke="#000" stroke-width="1.5"
+     stroke-linecap="round" stroke-linejoin="round">
+  <!-- Custom C++ file glyph, Phosphor-regular style. Drawn with stroke
+       paths only (no SVG label element) so it renders reliably when the file is
+       used as a CSS mask. A folded document with a C++ mark in the lower half. Irmao do cmm_file.svg:
+       mesmo documento, mesmo C, e o traco de baixo do mais-menos virou um
+       segundo mais. -->
+  <path d="M13.5 2.75 H6.5 A1.25 1.25 0 0 0 5.25 4 V20 A1.25 1.25 0 0 0 6.5 21.25 H17.5 A1.25 1.25 0 0 0 18.75 20 V8 Z"/>
+  <path d="M13.5 2.75 V8 H18.75"/>
+  <!-- C arc, open to the right -->
+  <path d="M11.2 12.1 a2.55 2.55 0 1 0 0 4.8"/>
+  <!-- plus -->
+  <path d="M14.9 12.7 v2 M13.9 13.7 h2"/>
+  <!-- second plus (where the ± lower bar is in cmm_file.svg) -->
+  <path d="M14.9 15.3 v2 M13.9 16.3 h2"/>
+</svg>

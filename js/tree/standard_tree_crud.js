@@ -59,6 +59,7 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { standardTreeRenderer } from './standard_tree_render.js';
 import { treeView } from './tree_view.js';
 import { iconUrlForFile, iconUrlForFolder } from './material_icons.js';
+import { applyGlyphToIcon, glyphClasses } from '../ui/language_glyph.js';
 import { TreeHistory, Op } from './tree_history.js';
 import { ProjectStore } from '../project/project_store.js';
 import { switchTerminal } from '../terminal/terminal.js';
@@ -872,17 +873,15 @@ class StandardTreeCrud {
         const pintarIcone = () => {
             const nome = baseName(input.value.trim()) || (kind === 'folder' ? 'nova-pasta' : 'novo-arquivo');
             iconEl.style.backgroundImage = '';
-            iconEl.classList.remove('aurora-icon-cmm');
+            for (const classe of glyphClasses()) iconEl.classList.remove(classe);
             if (kind === 'folder') {
                 iconEl.style.backgroundImage = `url("${iconUrlForFolder(nome)}")`;
                 return;
             }
-            // .cmm nao tem equivalente no tema Material e mantem o glifo
-            // proprio da AURORA, como nas abas e no resto da arvore.
-            if (nome.toLowerCase().endsWith('.cmm')) {
-                iconEl.classList.add('aurora-icon-cmm');
-                return;
-            }
+            // Fonte de processador (.cmm ou .cpp) nao tem equivalente no tema
+            // Material e mantem o glifo proprio da AURORA, como nas abas e no
+            // resto da arvore.
+            if (applyGlyphToIcon(iconEl, nome)) return;
             iconEl.style.backgroundImage = `url("${iconUrlForFile(nome)}")`;
         };
         pintarIcone();

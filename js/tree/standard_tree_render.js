@@ -26,6 +26,7 @@ import { treeView } from './tree_view.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ensureManifest, iconUrlForFile, iconUrlForFolder } from './material_icons.js';
 import { parseInv, isInvHidden } from './inv_filter.js';
+import { applyGlyphToIcon } from '../ui/language_glyph.js';
 // CRUD layer (context menu, inline create/rename, cut/copy/paste, delete).
 // Imported for its side effect: registers the singleton + window hook that
 // project_tree_actions routes right-clicks to when this view is active.
@@ -44,11 +45,9 @@ function isIgnored(entry) {
         || name.endsWith('.spf');
 }
 
-// .cmm has no Material icon, it keeps Aurora's custom masked glyph
-// (.aurora-icon-cmm, currentColor) used across the tabs and verilog tree.
-function isCmm(name) {
-    return String(name || '').toLowerCase().endsWith('.cmm');
-}
+// Os fontes de processador (.cmm e .cpp) nao tem icone no tema Material e
+// ficam com o glifo mascarado da AURORA (currentColor), o mesmo das abas e
+// da arvore do projeto. Quem escolhe entre os dois e o language_glyph.
 
 // Path of `p` relative to project root `root` (forward-slashed, root-relative,
 // no leading slash). '' when p IS the root; full path if p is outside root.
@@ -402,14 +401,14 @@ class StandardTreeRenderer {
 
         // Icon, Material Icon Theme SVG in its OWN colours, painted as a
         // background-image (no recolouring; the old per-ext/per-depth tinting
-        // is gone). Folders get name-specific glyphs; .cmm keeps Aurora's
-        // custom masked currentColor glyph (no Material equivalent).
+        // is gone). Folders get name-specific glyphs; os fontes de processador
+        // ficam com o glifo mascarado da AURORA (sem equivalente Material).
         const icon = document.createElement('span');
         icon.className = 'file-item-icon';
         if (entry.isDirectory) {
             this._setFolderIcon(icon, entry.name, this.isExpanded(entry.path));
-        } else if (isCmm(entry.name)) {
-            icon.classList.add('aurora-icon-cmm');
+        } else if (applyGlyphToIcon(icon, entry.name)) {
+            /* glifo da AURORA ja pintado */
         } else {
             icon.style.backgroundImage = `url("${iconUrlForFile(entry.name)}")`;
         }

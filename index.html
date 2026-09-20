@@ -43,6 +43,12 @@
          herdado, entao vale onde quer que o glifo apareca. */
       .glyph-cpm .cpm-c  { stroke: var(--color-cmm-c,  #5BB8E8); }
       .glyph-cpm .cpm-pm { stroke: var(--color-cmm-pm, #F4D35E); }
+      /* O traco de baixo do simbolo: menos no C±, segundo mais no C++. O
+         desenho traz os dois e a classe is-cpp escolhe, para nao haver
+         reescrita de path em JavaScript. */
+      .glyph-cpm .cpm-plus2 { display: none; }
+      .glyph-cpm.is-cpp .cpm-minus { display: none; }
+      .glyph-cpm.is-cpp .cpm-plus2 { display: inline; }
     </style>
 </head>
 <body class="theme-dark">
@@ -110,8 +116,10 @@
                   <path class="cpm-c" d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
                   <!-- Plus sign, centred on x=18 y=6 -->
                   <path class="cpm-pm" d="M18 4.2 v3.6 M16.2 6 h3.6"/>
-                  <!-- Minus sign, centred on x=18 y=11.2 (no divider between them) -->
-                  <path class="cpm-pm" d="M16.2 11.2 h3.6"/>
+                  <!-- Traco de baixo: menos no C±, segundo mais no C++. Os dois
+                       ficam no desenho e o CSS acende um; ver js/ui/language_glyph.ts. -->
+                  <path class="cpm-pm cpm-minus" d="M16.2 11.2 h3.6"/>
+                  <path class="cpm-pm cpm-plus2" d="M18 9.4 v3.6 M16.2 11.2 h3.6"/>
                 </svg>
               </span>
           </button>
@@ -475,7 +483,8 @@
                           <svg viewBox="0 0 24 16">
                             <path class="cpm-c" d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
                             <path class="cpm-pm" d="M18 4.2 v3.6 M16.2 6 h3.6"/>
-                            <path class="cpm-pm" d="M16.2 11.2 h3.6"/>
+                            <path class="cpm-pm cpm-minus" d="M16.2 11.2 h3.6"/>
+                            <path class="cpm-pm cpm-plus2" d="M18 9.4 v3.6 M16.2 11.2 h3.6"/>
                           </svg>
                         </span>
                         <span class="tab-label" data-i18n="toolbar.termTabLabel.cmm">C±</span>

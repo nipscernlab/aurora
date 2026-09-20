@@ -154,6 +154,49 @@ describe('Aurora E2E — o seletor de linguagem do Processor Hub', () => {
         expect(habilitado).toBe(true);
     });
 
+    it('o simbolo desenhado do botao segue o fonte em foco', async () => {
+        // O botao compila as duas linguagens; o simbolo diz qual delas vai
+        // rodar se a pessoa clicar agora. O desenho tem os dois tracos de
+        // baixo e a classe is-cpp escolhe entre menos e segundo mais.
+        const lerGlifos = () => window.evaluate(() => {
+            const glifos = [...document.querySelectorAll('.glyph-cpm')];
+            const botao = document.querySelector('#cmmcomp .glyph-cpm');
+            return {
+                quantos: glifos.length,
+                todosComCpp: glifos.every((g) => g.classList.contains('is-cpp')),
+                botaoComCpp: !!botao?.classList.contains('is-cpp'),
+                // os dois tracos existem no desenho, e so um aparece por vez
+                temMinus: !!botao?.querySelector('.cpm-minus'),
+                temPlus2: !!botao?.querySelector('.cpm-plus2'),
+                rotuloTerminal: document.querySelector('[data-terminal="tcmm"] .tab-label')?.textContent,
+            };
+        });
+
+        // Finge um .cpp em foco e roda o sincronizador que o evento de troca
+        // de arquivo chama.
+        await window.evaluate(() => {
+            window.TabManager.getEditingFilePath = () => 'C:\\proj\\P\\Software\\P.cpp';
+            window.syncCmmcompEnabled();
+        });
+        const comCpp = await lerGlifos();
+        expect(comCpp.quantos).toBeGreaterThanOrEqual(2);
+        expect(comCpp.temMinus).toBe(true);
+        expect(comCpp.temPlus2).toBe(true);
+        expect(comCpp.botaoComCpp).toBe(true);
+        expect(comCpp.todosComCpp).toBe(true);
+        expect(comCpp.rotuloTerminal).toBe('C++');
+
+        // E volta ao mais-menos com um .cmm em foco.
+        await window.evaluate(() => {
+            window.TabManager.getEditingFilePath = () => 'C:\\proj\\P\\Software\\P.cmm';
+            window.syncCmmcompEnabled();
+        });
+        const comCmm = await lerGlifos();
+        expect(comCmm.botaoComCpp).toBe(false);
+        expect(comCmm.todosComCpp).toBe(false);
+        expect(comCmm.rotuloTerminal).toBe('C\u00b1');
+    }, 30_000);
+
     it('voltar para C+- reabre os campos e devolve o que a pessoa tinha digitado', async () => {
         // Digita um valor proprio em C+-, vai para C++ e volta.
         await escolherLinguagem(window, 'languageCmm');

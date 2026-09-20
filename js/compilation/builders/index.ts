@@ -11,6 +11,7 @@
  */
 
 export * from './cmm.js';
+export * from './cpp.js';
 export * from './asm.js';
 export * from './iverilog.js';
 export * from './vvp.js';

@@ -94,6 +94,7 @@ js/compilation/spec_runner.js
 js/compilation/verilator_tb.js
 js/compilation/builders/asm.js
 js/compilation/builders/cmm.js
+js/compilation/builders/cpp.js
 js/compilation/builders/cocotb.js
 js/compilation/builders/index.js
 js/compilation/builders/iverilog.js

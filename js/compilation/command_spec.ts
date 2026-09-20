@@ -20,7 +20,7 @@
  */
 
 export type CompileStepId =
-  | 'cmm' | 'asm-pre' | 'asm'
+  | 'cmm' | 'cpp-pp' | 'cpp' | 'asm-pre' | 'asm'
   | 'iverilog-check' | 'iverilog-build'
   | 'vvp-run' | 'cocotb-run'
   | 'verilator-build' | 'verilator-run'
@@ -68,7 +68,7 @@ export interface SpecDiff {
 }
 
 export const STEP_IDS = Object.freeze([
-  'cmm', 'asm-pre', 'asm',
+  'cmm', 'cpp-pp', 'cpp', 'asm-pre', 'asm',
   'iverilog-check', 'iverilog-build',
   'vvp-run',
   'cocotb-run',
@@ -80,6 +80,8 @@ export const STEP_IDS = Object.freeze([
 
 export const STEP_DESCRIPTIONS: Record<CompileStepId, string> = Object.freeze({
   'cmm':              'CMM compiler (cmmcomp.exe) — .cmm → .asm + cmm_log.txt',
+  'cpp-pp':           'C++ preprocessor (cpppp.exe) — .cpp → Temp/pp.cpp (resolves #include / #define)',
+  'cpp':              'C++ compiler (cppcomp.exe) — Temp/pp.cpp → .asm + cmm_log.txt (same assembly the CMM compiler emits)',
   'asm-pre':          'Assembly preprocessor (appcomp.exe) — expand macros into Temp/',
   'asm':              'Assembly compiler (asmcomp.exe) — .asm → Hardware/<proc>.v + pc_*_mem.txt + Simulation/<proc>_tb.v',
   'iverilog-check':   'Icarus Verilog syntax/elab check (iverilog -tnull) — Verilog button + Wave-Config gate',

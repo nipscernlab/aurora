@@ -561,6 +561,7 @@
   "compilation": {
     "type": {
       "cmm": "C±",
+      "cpp": "C++",
       "asm": "Assembly",
       "verilog": "Verilog",
       "wave": "Waveform",
@@ -662,6 +663,12 @@
     },
     "cmm": {
       "starting": "Starting C± compilation for {{name}}..."
+    },
+    "cpp": {
+      "starting": "Starting C++ compilation for {{name}}...",
+      "preprocessing": "Preprocessing with cpppp (resolving #include / #define)...",
+      "includeWarning": "Note: this source has #include, so cppcomp reports line numbers of the expanded file (Temp/pp.cpp), not of {{name}}.",
+      "englishOnly": "Note: the C++ front end reports only in English."
     },
     "asm": {
       "starting": "Starting ASM compilation process for {{name}}...",
@@ -823,6 +830,8 @@
     },
     "compilation": {
       "cmmFailed": "CMM compilation failed with code {{code}}",
+      "cppPpFailed": "C++ preprocessing failed with code {{code}}",
+      "cppFailed": "C++ compilation failed with code {{code}}",
       "asmFailed": "ASM compilation failed with code {{code}}",
       "asmPrepFailed": "ASM Preprocessor failed with code {{code}}",
       "iverilogFailedBuild": "Iverilog compilation failed with exit code {{code}}",

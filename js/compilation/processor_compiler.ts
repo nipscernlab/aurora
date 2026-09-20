@@ -35,7 +35,10 @@ import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec } from './spec_runner.js';
-import { buildCmmSpec, buildAsmPreSpec, buildAsmSpec } from './builders/index.js';
+import {
+    buildCmmSpec, buildAsmPreSpec, buildAsmSpec,
+    buildCppPpSpec, buildCppSpec,
+} from './builders/index.js';
 import * as CommandSpec from './command_spec.js';
 import { moduleStemFromPath } from './compilation_helpers.js';
 import { analisarVerilog, totaisDoVerilog } from './verilog_stats.js';
@@ -237,6 +240,123 @@ export async function cmmCompilation(
             error.jaNoTerminal = true;
         }
         statusUpdater.compilationError('cmm', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Compila o .cpp do processador via cpppp.exe + cppcomp.exe ->
+ * <proj>/<proc>/Software/<base>.asm. Irmao do cmmCompilation: mesmo terminal,
+ * mesmo .asm de saida, mesmo contrato de erro. Do asmCompilation em diante o
+ * pipeline nao sabe qual das duas linguagens passou por aqui.
+ *
+ * Dois passos em vez de um. O cpppp resolve #include/#define e escreve um
+ * pp.cpp na Temp; o cppcomp compila ESSE pp.cpp. E por isso que as linhas que
+ * o cppcomp reporta sao as do arquivo expandido, e nao as do fonte da pessoa,
+ * e e por isso que o terminal avisa quando o fonte tem #include: sem o aviso,
+ * um "line 812" num arquivo de 40 linhas nao faz sentido nenhum.
+ *
+ * @param setLastCompiledCmmPath  cacheia o fonte corrente na instancia (lido pelo terminal)
+ * @returns asmPath
+ */
+export async function cppCompilation(
+    deps: CompileDeps,
+    processor: ProcessorEntry,
+    setLastCompiledCmmPath: (caminho: string) => void,
+): Promise<string> {
+    const { name } = processor;
+    await deps.terminalManager.clearTerminal('tcmm');
+
+    deps.terminalManager.appendToTerminal('tcmm', tr('terminal.cpp.starting', { name }));
+
+    try {
+        const sourceFile = await getSelectedSourceFile(processor);
+        const baseName = stripSourceExtension(sourceFile);
+
+        // 1. Caminhos
+        const tempPath = await electronAPI.joinPath(await projectTempDir(deps.projectPath), name);
+        await electronAPI.createDirectory(tempPath);
+
+        const cppPpPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'cpppp.exe');
+        const cppCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'cppcomp.exe');
+        // Header/ e o lado C++ do yanc (array, cmath, cstdint, vector...),
+        // irmao do Macros/ que o cmmcomp e o asmcomp usam.
+        const headerPath = await electronAPI.joinPath(deps.componentsPath, 'Header');
+        const projectPath = await electronAPI.joinPath(deps.projectPath, name);
+        const softwarePath = await electronAPI.joinPath(projectPath, 'Software');
+        const sourcePath = await electronAPI.joinPath(softwarePath, sourceFile);
+        const asmPath = await electronAPI.joinPath(softwarePath, `${baseName}.asm`);
+
+        await TabManager.saveAllFiles();
+
+        statusUpdater.startCompilation('cpp');
+
+        // O mesmo seam do cmmCompilation, e ANTES de rodar: um clique no
+        // terminal depois de uma compilacao que FALHOU tem que resolver para
+        // o fonte que falhou. Aponta para o .cpp da pessoa, nao para o
+        // pp.cpp: o pp.cpp ja vem no texto dos erros do cppcomp, e o que
+        // falta ao terminal e justamente o arquivo de origem.
+        setLastCompiledCmmPath(sourcePath);
+
+        // O cppcomp nao tem parse_lang_flag: as mensagens do lado C++ saem so
+        // em ingles. Dizer isso uma vez e melhor do que deixar a pessoa achar
+        // que o toggle de idioma quebrou.
+        deps.terminalManager.appendToTerminal('tcmm', tr('terminal.cpp.englishOnly'), 'tips');
+
+        // 2. cpppp, o pre-processador
+        deps.terminalManager.appendToTerminal('tcmm', tr('terminal.cpp.preprocessing'), 'info');
+        const ppSpec = buildCppPpSpec({
+            cppPpPath,
+            inputFile: sourcePath,
+            tempPath,
+            headerPath,
+            softwarePath,
+            processorName: name,
+        });
+        deps.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd: CommandSpec.formatSpec(ppSpec) }), 'info', { internal: true });
+        const ppResult = await runSpec(ppSpec, { consumeEphemeral: true });
+        deps.terminalManager.processExecutableOutput('tcmm', ppResult);
+
+        if (ppResult.code !== 0) {
+            statusUpdater.compilationError('cpp', `C++ preprocessing failed with code ${ppResult.code}`);
+            throw new Error(tr('error.compilation.cppPpFailed', { code: ppResult.code }));
+        }
+
+        // Aviso de numeracao de linha, depois do cpppp ter corrido: se o
+        // fonte tem #include, o que o cppcomp vai numerar e o expandido.
+        // Leitura de cortesia, falhando nao atrapalha a compilacao.
+        try {
+            const fonte = await electronAPI.readFile(sourcePath, { encoding: 'utf8' });
+            if (/^[ \t]*#\s*include\b/m.test(fonte)) {
+                deps.terminalManager.appendToTerminal('tcmm', tr('terminal.cpp.includeWarning', { name: sourceFile }), 'warning');
+            }
+        } catch (_e) { /* o aviso e cortesia; a compilacao segue */ }
+
+        // 3. cppcomp, que compila o pp.cpp no mesmo .asm do cmmcomp
+        const cppSpec = buildCppSpec({
+            cppCompPath,
+            tempPath,
+            projectPath,
+            baseName,
+            processorName: name,
+        });
+        deps.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd: CommandSpec.formatSpec(cppSpec) }), 'info', { internal: true });
+        const result = await runSpec(cppSpec, { consumeEphemeral: true });
+        deps.terminalManager.processExecutableOutput('tcmm', result);
+
+        if (result.code !== 0) {
+            statusUpdater.compilationError('cpp', `C++ compilation failed with code ${result.code}`);
+            throw new Error(tr('error.compilation.cppFailed', { code: result.code }));
+        }
+        statusUpdater.compilationSuccess('cpp');
+        return asmPath;
+    } catch (e) {
+        const error = comoErro(e);
+        if (!canceladoPeloUsuario()) {
+            deps.terminalManager.appendToTerminal('tcmm', tr('terminal.common.error', { message: error.message }), 'error');
+            error.jaNoTerminal = true;
+        }
+        statusUpdater.compilationError('cpp', error.message);
         throw error;
     }
 }

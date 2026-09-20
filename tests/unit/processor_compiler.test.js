@@ -16,7 +16,7 @@ vi.mock('../../js/ui/status_updater.js', () => ({
 import { runSpec } from '../../js/compilation/spec_runner.js';
 import {
     getSelectedSourceFile, getTestbenchInfo,
-    cmmCompilation, asmCompilation, stageProcessorMemoryFiles,
+    cmmCompilation, cppCompilation, asmCompilation, stageProcessorMemoryFiles,
 } from '../../js/compilation/processor_compiler.ts';
 
 // fixture .cmm: o que esta no disco tem de continuar la, byte a byte
@@ -128,6 +128,82 @@ describe('cmmCompilation (seam lastCompiledCmmPath; o .cmm nunca e tocado)', () 
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 2 });
         await expect(cmmCompilation(d, proc, vi.fn())).rejects.toThrow('error.compilation.cmmFailed');
+    });
+});
+
+describe('cppCompilation (cpppp + cppcomp, irmao do cmmCompilation)', () => {
+    const proc = { name: 'ProcX', sourceFile: 'foo.cpp' };
+    const CPP_SEM_INCLUDE = '#pragma yanc prname foo\nvoid main(void) { int a = 1; }\n';
+    const CPP_COM_INCLUDE = '#include <cstdint>\n' + CPP_SEM_INCLUDE;
+
+    it('roda cpppp e depois cppcomp, nessa ordem, e devolve o mesmo asmPath do cmm', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValue({ code: 0 });
+        window.electronAPI._files.set('/proj/ProcX/Software/foo.cpp', CPP_SEM_INCLUDE);
+        const asmPath = await cppCompilation(d, proc, vi.fn());
+        expect(runSpec).toHaveBeenCalledTimes(2);
+        const [pp, cpp] = runSpec.mock.calls.map((c) => c[0]);
+        expect(pp.step).toBe('cpp-pp');
+        expect(cpp.step).toBe('cpp');
+        // o cpppp recebe o fonte por caminho absoluto e escreve na Temp do projeto
+        expect(pp.args).toEqual(expect.arrayContaining(['-i', '/proj/ProcX/Software/foo.cpp', '-I', '/comp/Header']));
+        expect(pp.args[pp.args.indexOf('-o') + 1]).toMatch(/\/proj\/\.aurora\/Temp\/ProcX.pp\.cpp$/);
+        // o cppcomp le o que o cpppp escreveu, e o -n segue a base do fonte
+        expect(cpp.args[cpp.args.indexOf('-i') + 1]).toBe(pp.args[pp.args.indexOf('-o') + 1]);
+        expect(cpp.args).toEqual(expect.arrayContaining(['-n', 'foo', '-p', '/proj/ProcX']));
+        expect(asmPath).toBe('/proj/ProcX/Software/foo.asm');
+    });
+
+    it('cacheia o .cpp da pessoa (nao o pp.cpp) antes de rodar, como o cmm faz', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValue({ code: 0 });
+        const setLast = vi.fn();
+        await cppCompilation(d, proc, setLast);
+        expect(setLast).toHaveBeenCalledTimes(1);
+        expect(setLast).toHaveBeenCalledWith('/proj/ProcX/Software/foo.cpp');
+        // antes do primeiro runSpec: um clique apos falha resolve para o fonte
+        expect(setLast.mock.invocationCallOrder[0]).toBeLessThan(runSpec.mock.invocationCallOrder[0]);
+    });
+
+    it('avisa da numeracao de linha so quando o fonte tem #include', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValue({ code: 0 });
+        window.electronAPI._files.set('/proj/ProcX/Software/foo.cpp', CPP_COM_INCLUDE);
+        await cppCompilation(d, proc, vi.fn());
+        expect(d.terminalManager.calls.some((c) => c.msg === 'terminal.cpp.includeWarning')).toBe(true);
+
+        const d2 = makeDeps();
+        window.electronAPI._files.set('/proj/ProcX/Software/foo.cpp', CPP_SEM_INCLUDE);
+        await cppCompilation(d2, proc, vi.fn());
+        expect(d2.terminalManager.calls.some((c) => c.msg === 'terminal.cpp.includeWarning')).toBe(false);
+    });
+
+    it('diz uma vez que o lado C++ so fala ingles', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValue({ code: 0 });
+        await cppCompilation(d, proc, vi.fn());
+        expect(d.terminalManager.calls.filter((c) => c.msg === 'terminal.cpp.englishOnly')).toHaveLength(1);
+    });
+
+    it('falha do cpppp para antes do cppcomp, com cppPpFailed', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValueOnce({ code: 1 });
+        await expect(cppCompilation(d, proc, vi.fn())).rejects.toThrow('error.compilation.cppPpFailed');
+        expect(runSpec).toHaveBeenCalledTimes(1);
+    });
+
+    it('falha do cppcomp lanca cppFailed', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValueOnce({ code: 0 }).mockResolvedValueOnce({ code: 1 });
+        await expect(cppCompilation(d, proc, vi.fn())).rejects.toThrow('error.compilation.cppFailed');
+        expect(runSpec).toHaveBeenCalledTimes(2);
+    });
+
+    it('aceita o campo legado cmmFile apontando para um .cpp', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValue({ code: 0 });
+        const asmPath = await cppCompilation(d, { name: 'ProcX', cmmFile: 'bar.cpp' }, vi.fn());
+        expect(asmPath).toBe('/proj/ProcX/Software/bar.asm');
     });
 });
 

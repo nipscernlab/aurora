@@ -8,7 +8,7 @@
  * persisted/ephemeral overrides on top, and hand back the result for
  * display.
  *
- * For per-processor steps (cmm, asm-pre, asm), `processorName` is
+ * For per-processor steps (cmm, cpp-pp, cpp, asm-pre, asm), `processorName` is
  * required, otherwise we pick the first processor in the project (or
  * fail with a helpful message). For pipeline-wide steps (iverilog-*,
  * vvp-*, verilator-*, gtkwave, prism-yosys), processor is ignored.
@@ -22,6 +22,7 @@ import { SpfStore } from '../project/spf_store.js';
 import { projectTempDir } from '../project/project_temp.js';
 import {
   buildCmmSpec,
+  buildCppPpSpec, buildCppSpec,
   buildAsmPreSpec, buildAsmSpec,
   buildIverilogCheckSpec, buildIverilogBuildSpec,
   buildVvpRunSpec,
@@ -155,6 +156,29 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
       processorName: proc.name,
       lang,
       showArrays: proc.showArrays,
+    });
+  }
+
+  // O front end C++: dois passos que convergem no mesmo .asm do cmm. Os
+  // caminhos espelham o cppCompilation (processor_compiler.ts).
+  if (step === 'cpp-pp' || step === 'cpp') {
+    const proc = await loadProcessorContext(processorName);
+    const procDir      = await electronAPI.joinPath(projectPath, proc.name);
+    const tempPath     = await electronAPI.joinPath(tempBaseDir, proc.name);
+    if (step === 'cpp-pp') {
+      const cppPpPath    = await joinComponents('bin', 'cpppp.exe');
+      const headerPath   = await joinComponents('Header');
+      const softwarePath = await electronAPI.joinPath(procDir, 'Software');
+      const inputFile    = await electronAPI.joinPath(softwarePath, proc.source.sourceFile);
+      return buildCppPpSpec({ cppPpPath, inputFile, tempPath, headerPath, softwarePath, processorName: proc.name });
+    }
+    const cppCompPath = await joinComponents('bin', 'cppcomp.exe');
+    return buildCppSpec({
+      cppCompPath,
+      tempPath,
+      projectPath: procDir,
+      baseName: proc.source.baseName,
+      processorName: proc.name,
     });
   }
 

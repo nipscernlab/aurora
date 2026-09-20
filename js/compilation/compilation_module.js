@@ -81,7 +81,7 @@ import {
   resolveCocotbWaveSelection, parseProjectSources, buildHierarchyFromFiles,
 } from './wave_signal_validator.js';
 import {
-  cmmCompilation, asmCompilation, stageProcessorMemoryFiles,
+  cmmCompilation, cppCompilation, asmCompilation, stageProcessorMemoryFiles,
 } from './processor_compiler.js';
 import {
   buildIverilogCheckSpec, buildIverilogBuildSpec,
@@ -528,6 +528,15 @@ async loadConfig() {
 
     async cmmCompilation(processor) {
         return cmmCompilation(
+            this._instanceDeps(), processor,
+            (p) => { this.lastCompiledCmmPath = p; },
+        );
+    }
+
+    // O front end C++ (cpppp + cppcomp), irmao do cmmCompilation: mesmo seam
+    // do lastCompiledCmmPath, que aponta para o .cpp da pessoa.
+    async cppCompilation(processor) {
+        return cppCompilation(
             this._instanceDeps(), processor,
             (p) => { this.lastCompiledCmmPath = p; },
         );

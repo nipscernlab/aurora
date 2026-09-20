@@ -561,6 +561,7 @@
   "compilation": {
     "type": {
       "cmm": "C±",
+      "cpp": "C++",
       "asm": "Assembly",
       "verilog": "Verilog",
       "wave": "Forma de Onda",
@@ -662,6 +663,12 @@
     },
     "cmm": {
       "starting": "Iniciando compilação C± para {{name}}..."
+    },
+    "cpp": {
+      "starting": "Iniciando a compilação C++ de {{name}}...",
+      "preprocessing": "Pré-processando com o cpppp (resolvendo #include / #define)...",
+      "includeWarning": "Atenção: este fonte tem #include, então o cppcomp indica as linhas do arquivo expandido (Temp/pp.cpp), e não as de {{name}}.",
+      "englishOnly": "Atenção: o front end C++ só reporta em inglês."
     },
     "asm": {
       "starting": "Iniciando processo de compilação ASM para {{name}}...",
@@ -823,6 +830,8 @@
     },
     "compilation": {
       "cmmFailed": "Compilação CMM falhou com código {{code}}",
+      "cppPpFailed": "O pré-processamento C++ falhou com o código {{code}}",
+      "cppFailed": "A compilação C++ falhou com o código {{code}}",
       "asmFailed": "Compilação ASM falhou com código {{code}}",
       "asmPrepFailed": "Pré-processador ASM falhou com código {{code}}",
       "iverilogFailedBuild": "Compilação Iverilog falhou com código {{code}}",

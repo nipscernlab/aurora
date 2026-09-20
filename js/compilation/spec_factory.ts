@@ -31,15 +31,17 @@ import {
   buildYosysHierarchySpec,
 } from './builders/index.js';
 import type { CommandSpec } from './command_spec.js';
+import {
+  resolveProcessorSource,
+  type EntradaDeProcessador,
+  type FonteDoProcessador,
+} from './processor_source.js';
 
 /** A processor entry as it appears in the .spf (string legacy or object). */
-interface SpfProcessor {
-  name: string;
+interface SpfProcessor extends EntradaDeProcessador {
   clk?: number | string;
   numClocks?: number | string;
   showArrays?: boolean;
-  cmmFile?: string;
-  [key: string]: unknown;
 }
 
 /** Resolved processor preview context. */
@@ -48,7 +50,8 @@ interface ProcessorContext {
   clk: number;
   numClocks: number;
   showArrays: boolean;
-  cmmFile: string;
+  /** Linguagem, nome do fonte e base, por processor_source.ts. */
+  source: FonteDoProcessador;
 }
 
 function moduleStem(filePath: string | null | undefined): string {
@@ -79,7 +82,8 @@ async function findProcessor(processorName: string | null | undefined): Promise<
 }
 
 /**
- * Read a processor's clk/numClocks/showArrays + currently-active .cmm,
+ * Read a processor's clk/numClocks/showArrays + o fonte que ele compila
+ * (nome e linguagem, por processor_source.ts),
  * mirroring the lookup CompilationModule does at runtime. Used so the
  * preview spec matches what would actually be executed.
  */
@@ -92,7 +96,7 @@ async function loadProcessorContext(processorName: string | null | undefined): P
     clk: Number(proc.clk) || 50,
     numClocks: Number(proc.numClocks) || 1000,
     showArrays: !!proc.showArrays,
-    cmmFile: proc.cmmFile || `${proc.name}.cmm`,
+    source: resolveProcessorSource(proc),
   };
 }
 
@@ -140,10 +144,10 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
     const cmmCompPath = await joinComponents('bin', 'cmmcomp.exe');
     const procDir     = await electronAPI.joinPath(projectPath, proc.name);
     const tempPath    = await electronAPI.joinPath(tempBaseDir, proc.name);
-    const baseName    = (proc.cmmFile || `${proc.name}.cmm`).replace(/\.cmm$/i, '');
+    const baseName    = proc.source.baseName;
     return buildCmmSpec({
       cmmCompPath,
-      inputFile: proc.cmmFile,
+      inputFile: proc.source.sourceFile,
       baseName,
       projectPath: procDir,
       macrosPath,
@@ -161,7 +165,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
     const procDir     = await electronAPI.joinPath(projectPath, proc.name);
     const tempPath    = await electronAPI.joinPath(tempBaseDir, proc.name);
     const softwareDir = await electronAPI.joinPath(procDir, 'Software');
-    const baseName    = (proc.cmmFile || `${proc.name}.cmm`).replace(/\.cmm$/i, '');
+    const baseName    = proc.source.baseName;
     const asmFile     = await electronAPI.joinPath(softwareDir, `${baseName}.asm`);
     if (step === 'asm-pre') {
       return buildAsmPreSpec({ appCompPath, asmFile, tempPath, processorName: proc.name, lang });

@@ -1,5 +1,5 @@
 /**
- * verilog_stats.js: quantos modulos, portas e instancias uma compilacao
+ * verilog_stats.ts: quantos modulos, portas e instancias uma compilacao
  * produziu, para o terminal dizer em uma linha o que saiu dela.
  *
  * Duas fontes, porque sao dois momentos:
@@ -15,6 +15,35 @@
  *
  * Puro e sem DOM, para ter teste. Quem escreve no terminal e quem chama.
  */
+
+export interface PortaVerilog {
+  name: string;
+  dir: string;
+}
+
+export interface InstanciaVerilog {
+  name: string;
+  module: string;
+}
+
+export interface ModuloVerilog {
+  name: string;
+  ports: PortaVerilog[];
+  instances: InstanciaVerilog[];
+}
+
+export interface AnaliseVerilog {
+  modules: ModuloVerilog[];
+}
+
+export interface TotaisVerilog {
+  modules: number;
+  ports: number;
+  inputs: number;
+  outputs: number;
+  inouts: number;
+  instances: number;
+}
 
 const PALAVRAS = new Set([
   'module', 'endmodule', 'input', 'output', 'inout', 'wire', 'reg', 'assign',
@@ -36,7 +65,7 @@ const PALAVRAS = new Set([
  * vezes, uma em cada ramo de um `ifdef`, e a palavra depois do `ifdef` era
  * lida como se fosse o tipo da instancia.
  */
-function semComentarios(texto) {
+function semComentarios(texto: string): string {
   return String(texto || '')
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/\/\/[^\n]*/g, ' ')
@@ -44,7 +73,7 @@ function semComentarios(texto) {
 }
 
 /** Tira os blocos `#( ... )` balanceados, que sao parametros e nao portas. */
-function semParametros(texto) {
+function semParametros(texto: string): string {
   let out = '';
   let i = 0;
   while (i < texto.length) {
@@ -73,7 +102,7 @@ function semParametros(texto) {
  * corpo): cada `input|output|inout` seguido de tipo/faixa opcionais e de uma
  * lista de nomes ate `,` do proximo direcional, `)` ou `;`.
  */
-function portasDe(corpo) {
+function portasDe(corpo: string): PortaVerilog[] {
   const vistas = new Map();
   const re = /\b(input|output|inout)\b([^;)]*?)(?=\b(?:input|output|inout)\b|[;)])/g;
   let m;
@@ -93,7 +122,7 @@ function portasDe(corpo) {
 }
 
 /** As instancias de um corpo: `Tipo nome (` fora das palavras da linguagem. */
-function instanciasDe(corpo) {
+function instanciasDe(corpo: string): InstanciaVerilog[] {
   const vistas = new Map();
   const re = /\b([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/g;
   let m;
@@ -111,7 +140,7 @@ function instanciasDe(corpo) {
  * @param {string} texto
  * @returns {{ modules: Array<{ name: string, ports: Array<{name: string, dir: string}>, instances: Array<{name: string, module: string}> }> }}
  */
-export function analisarVerilog(texto) {
+export function analisarVerilog(texto: string): AnaliseVerilog {
   const limpo = semParametros(semComentarios(texto));
   const modules = [];
   const re = /\bmodule\s+([A-Za-z_][A-Za-z0-9_]*)([\s\S]*?)\bendmodule\b/g;
@@ -128,7 +157,7 @@ export function analisarVerilog(texto) {
  * Totais de uma analise, prontos para uma linha de terminal.
  * @param {{ modules: Array<{ ports: Array<{dir: string}>, instances: any[] }> }} analise
  */
-export function totaisDoVerilog(analise) {
+export function totaisDoVerilog(analise: AnaliseVerilog | null | undefined): TotaisVerilog {
   const t = { modules: 0, ports: 0, inputs: 0, outputs: 0, inouts: 0, instances: 0 };
   for (const mod of analise?.modules || []) {
     t.modules += 1;
@@ -146,10 +175,22 @@ export function totaisDoVerilog(analise) {
 // ── Yosys ───────────────────────────────────────────────────────────────────
 
 /** Tipos de celula que o Yosys cria ao elaborar, nao modulos do usuario. */
+/** O que `resumirHierarquiaYosys` devolve: quem instancia o que, e quantas. */
+export interface ResumoHierarquia {
+  top: string;
+  encontrouTop: boolean;
+  modules: number;
+  moduleNames: string[];
+  instances: number;
+  topPorts: { inputs: number, outputs: number, inouts: number, total: number };
+  cells: number;
+  families: Record<string, number>;
+}
+
 const PRIMITIVA = /^\$/;
 
 /** A familia legivel de uma celula primitiva do Yosys. */
-function familiaDe(tipo) {
+function familiaDe(tipo: unknown): string {
   const base = String(tipo).replace(/^\$+/, '').replace(/^_/, '').replace(/_$/, '').replace(/_v\d+$/, '').toLowerCase();
   if (/^(dff|dffe|adff|adffe|sdff|sdffe|dlatch|dlatchsr|dffsr|aldff)/.test(base)) return 'registers';
   if (/^(mem|memrd|memwr|meminit)/.test(base)) return 'memories';
@@ -171,9 +212,9 @@ function familiaDe(tipo) {
  * @param {{ modules?: Record<string, any> }} json
  * @param {string} top nome limpo do top level
  */
-export function resumirHierarquiaYosys(json, top) {
+export function resumirHierarquiaYosys(json: any, top: string): ResumoHierarquia {
   const modules = (json && json.modules) || {};
-  const limpo = (nome) => {
+  const limpo = (nome: unknown) => {
     let n = String(nome);
     if (n.startsWith('$paramod')) {
       const partes = n.split('\\');
@@ -183,17 +224,17 @@ export function resumirHierarquiaYosys(json, top) {
   };
 
   const chaveDoTop = Object.keys(modules).find((k) => limpo(k) === top) || null;
-  const usuario = new Set();
-  const familias = {};
+  const usuario = new Set<string>();
+  const familias: Record<string, number> = {};
   let instancias = 0;
 
-  const visitar = (chave) => {
+  const visitar = (chave: string) => {
     const mod = modules[chave];
     if (!mod) return;
     const nome = limpo(chave);
     if (usuario.has(nome)) return;
     usuario.add(nome);
-    for (const cell of Object.values(mod.cells || {})) {
+    for (const cell of Object.values(mod.cells || {}) as any[]) {
       const tipo = String(cell.type || '');
       if (PRIMITIVA.test(tipo) && !tipo.startsWith('$paramod')) {
         const f = familiaDe(tipo);
@@ -208,7 +249,7 @@ export function resumirHierarquiaYosys(json, top) {
 
   const portasDoTop = { inputs: 0, outputs: 0, inouts: 0, total: 0 };
   const topMod = chaveDoTop ? modules[chaveDoTop] : null;
-  for (const p of Object.values(topMod?.ports || {})) {
+  for (const p of Object.values(topMod?.ports || {}) as any[]) {
     portasDoTop.total += 1;
     if (p.direction === 'input') portasDoTop.inputs += 1;
     else if (p.direction === 'output') portasDoTop.outputs += 1;

@@ -1,5 +1,5 @@
 /**
- * project_temp.js: onde ficam os intermediarios de compilacao de um projeto.
+ * project_temp.ts: onde ficam os intermediarios de compilacao de um projeto.
  *
  * Ate 09/2026 tudo ia para components/Temp, uma pasta so para o aplicativo
  * inteiro, e o nome de cada artefato vinha do modulo do testbench: dois
@@ -25,7 +25,7 @@
 import { electronAPI } from '../app/electron_api.js';
 
 /** Os dois segmentos, na ordem, para quem monta caminho sem joinPath. */
-export const PROJECT_TEMP_SEGMENTS = Object.freeze(['.aurora', 'Temp']);
+export const PROJECT_TEMP_SEGMENTS: readonly ['.aurora', 'Temp'] = Object.freeze(['.aurora', 'Temp']);
 
 /**
  * `<projectPath>/.aurora/Temp`, com o separador da plataforma.
@@ -33,7 +33,7 @@ export const PROJECT_TEMP_SEGMENTS = Object.freeze(['.aurora', 'Temp']);
  * @param {string} projectPath pasta do projeto (a do `.spf`)
  * @returns {Promise<string>}
  */
-export async function projectTempDir(projectPath) {
+export async function projectTempDir(projectPath: string): Promise<string> {
     if (!projectPath) throw new Error('projectTempDir: projeto sem caminho');
     return electronAPI.joinPath(projectPath, ...PROJECT_TEMP_SEGMENTS);
 }

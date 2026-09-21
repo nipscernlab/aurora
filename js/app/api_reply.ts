@@ -15,7 +15,7 @@
  */
 
 /** Tira o motivo de qualquer das formas que as APIs da casa usam. */
-function motivoBruto(res) {
+function motivoBruto(res: any): string {
   if (res == null) return '';
   if (typeof res === 'string') return res;
   const m = res.error ?? res.erro ?? res.message ?? res.mensagem;
@@ -26,7 +26,7 @@ function motivoBruto(res) {
 }
 
 /** Um retrato curto da resposta, para a mensagem de "respondeu sem motivo". */
-function retrato(res) {
+function retrato(res: unknown): string {
   if (res === undefined) return 'undefined';
   if (res === null) return 'null';
   try {
@@ -46,7 +46,7 @@ function retrato(res) {
  * @returns {string} `operacao: motivo`, ou, sem motivo, `operacao: a API
  *   respondeu sem dizer o erro (resposta: ...)`
  */
-export function motivoDe(res, operacao) {
+export function motivoDe(res: unknown, operacao: string): string {
   const motivo = motivoBruto(res).trim();
   if (motivo) return operacao ? `${operacao}: ${motivo}` : motivo;
   const t = typeof window !== 'undefined' && window.t ? window.t : null;

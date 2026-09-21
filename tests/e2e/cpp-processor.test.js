@@ -269,6 +269,48 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     expect('language' in entrada).toBe(false);
   }, 60_000);
 
+  it('o cabecalho de hardware chega pela API nas duas linguagens', async () => {
+    // O defeito que este caso fecha: o cabecalho era lido por um laco escrito
+    // a mao aqui na API e por um gemeo dele no processo principal, e os dois
+    // so conheciam `#NUBITS`. Um processador C++ chegava com `header: {}`,
+    // calado, como se nao declarasse nada. Agora os dois chamam o mesmo
+    // js/compilation/processor_header.ts, que le as duas formas.
+    const cpp = await window.evaluate(
+      () => window.AuroraAPI.project.getProcessorConfig('proc_novo'));
+    expect(cpp.ok, JSON.stringify(cpp)).toBe(true);
+    // Os pragmas sao minusculos no fonte e chegam em MAIUSCULA, que e a forma
+    // que quem consome usa, sem precisar saber a linguagem.
+    expect(cpp.data.header).toEqual({
+      PRNAME: 'proc_novo',
+      NUIOIN: '2',
+      NUIOOU: '3',
+    });
+
+    const cmm = await window.evaluate(
+      () => window.AuroraAPI.project.getProcessorConfig('proc_cmm'));
+    expect(cmm.ok, JSON.stringify(cmm)).toBe(true);
+    expect(cmm.data.header).toEqual({
+      PRNAME: 'proc_cmm',
+      NUBITS: '23',
+      NDSTAC: '5',
+      SDEPTH: '5',
+      NUIOIN: '1',
+      NUIOOU: '1',
+      NBMANT: '16',
+      NBEXPO: '6',
+      NUGAIN: '128',
+    });
+
+    // E o mesmo cabecalho pelo caminho do processo principal, que e o que
+    // enriquece a lista de processadores da interface.
+    const lista = await window.evaluate(
+      () => window.AuroraAPI.project.listProcessors());
+    expect(lista.ok, JSON.stringify(lista)).toBe(true);
+    const daLista = lista.data.find((p) => p.name === 'proc_novo');
+    expect(daLista, JSON.stringify(lista.data)).toBeDefined();
+    expect(daLista.header).toEqual(cpp.data.header);
+  }, 60_000);
+
   it('renomear um processador C++ leva o .cpp e o pragma junto, e ele volta a compilar', async () => {
     // O defeito que este caso fecha: criar processador C++ passou a funcionar,
     // mas o rename so conhecia C+-. O .cpp ficava com o nome antigo e o

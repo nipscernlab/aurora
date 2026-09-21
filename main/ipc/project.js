@@ -30,6 +30,8 @@ const { prepararTempDoProjeto } = require('../project_temp');
 const janelas = require('../main_windows');
 const { autorizarExclusao, criarLixeiraDeProjeto, dentroDe } = require('./project_trash');
 const { processorSourceFile } = require('./processor_template');
+const { parseProcessorHeader } = require('../../js/compilation/processor_header.js');
+const { resolveProcessorSource } = require('../../js/compilation/processor_source.js');
 const {
   artefatosDoProcessador, fontesPossiveis, reescreverNomeNoFonte,
 } = require('./processor_rename');
@@ -659,31 +661,29 @@ function register() {
   });
 
   ipcMain.handle('get-available-processors', async (event, projectPath) => {
-    // Parse #DIRECTIVE value lines from a .cmm file header.
-    async function parseCmmHeader(/** @type {any} */ projectDir, /** @type {any} */ procName) {
-      const cmmPath = path.join(projectDir, procName, 'Software', `${procName}.cmm`);
+    // Os parametros de hardware que o fonte declara: `#NUBITS 32` no C+- e
+    // `#pragma yanc nubits 32` no C++. Quem sabe ler os dois e o
+    // js/compilation/processor_header.ts; aqui so o disco.
+    async function lerCabecalho(/** @type {any} */ projectDir, /** @type {any} */ proc) {
+      const entrada = typeof proc === 'string' ? { name: proc } : proc;
+      const { language, sourceFile } = resolveProcessorSource(entrada);
+      const caminho = path.join(projectDir, entrada.name, 'Software', sourceFile);
       try {
-        const raw = await fse.readFile(cmmPath, 'utf8');
-        /** @type {Record<string, any>} */
-        const header = {};
-        for (const line of raw.split('\n')) {
-          const m = line.match(/^#([A-Z_]+)\s+(.+)/);
-          if (m) header[m[1]] = m[2].trim();
-        }
-        return header;
+        return parseProcessorHeader(await fse.readFile(caminho, 'utf8'), language);
       } catch (_) {
         return {};
       }
     }
 
-    // Enrich the raw SPF processors array with clk/numClocks and CMM directives.
+    // Enrich the raw SPF processors array with clk/numClocks and the source
+    // header directives (C+- or C++).
     async function enrichProcessors(/** @type {any} */ procs, /** @type {any} */ projectDir) {
       return Promise.all(procs.map(async (/** @type {any} */ p) => {
         const name = typeof p === 'string' ? p : p.name;
         const cfg  = typeof p === 'object' && p !== null ? p : {};
         const clk       = Number.isFinite(cfg.clk)       ? cfg.clk       : 100;
         const numClocks = Number.isFinite(cfg.numClocks)  ? cfg.numClocks : 2000;
-        const header = await parseCmmHeader(projectDir, name);
+        const header = await lerCabecalho(projectDir, p);
         return {
           name,
           clk,

@@ -69,6 +69,12 @@ import { buildCustomGtkw } from '../wave/gtkw_custom.js';
 
 import { memorySlug } from '../ai/memory.js';
 
+// O cabecalho de hardware que o fonte declara, nas duas linguagens. Era um
+// laco solto aqui dentro, gemeo de outro no main/ipc/project.js, e nenhum dos
+// dois entendia C++. Ver js/compilation/processor_header.ts.
+import { parseProcessorHeader } from '../compilation/processor_header.js';
+import { resolveProcessorSource } from '../compilation/processor_source.js';
+
 // Envelope de resposta e barramento de eventos. Moram em api_core.js, que nao
 // importa nada, porque importar ESTE arquivo inicializa a IDE inteira e por
 // isso nenhum teste alcancava o nucleo. Ver js/api/api_core.js.
@@ -1786,19 +1792,18 @@ const projectNs = {
           showArrays: !!raw.showArrays,
           simTime_us: numClocks > 0 && clk > 0 ? numClocks / clk : null,
         };
-        // Also surface the .cmm header directives (NUBITS / NBMANT / NBEXPO …)
-        // for the named processor, same enrichment the Verilog flow uses.
+        // Also surface the header directives (NUBITS / NBMANT / NBEXPO …) for
+        // the named processor, same enrichment the Verilog flow uses. Le as
+        // duas linguagens: `#NUBITS 32` no C+- e `#pragma yanc nubits 32` no
+        // C++, com a chave saindo em maiuscula nas duas.
         if (project && name) {
           try {
-            const cmm = `${project}\\${name}\\Software\\${name}.cmm`;
-            const raw2 = await electronAPI.readFile(cmm);
-            const header = {};
-            for (const line of String(raw2 || '').split('\n')) {
-              const m = line.match(/^#([A-Z_]+)\s+(.+)/);
-              if (m) header[m[1]] = m[2].trim();
-            }
-            cfg.header = header;
-          } catch (_) { /* missing .cmm — fine */ }
+            const { language, sourceFile } = resolveProcessorSource(
+              typeof p === 'string' ? { name } : raw
+            );
+            const fonte = await electronAPI.joinPath(project, name, 'Software', sourceFile);
+            cfg.header = parseProcessorHeader(await electronAPI.readFile(fonte), language);
+          } catch (_) { /* fonte ausente — tudo bem */ }
         }
         return cfg;
       }));

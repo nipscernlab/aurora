@@ -1205,19 +1205,37 @@ risco sem ganho.
       expandido. Testes de unidade sobre o builder novo, sobre a derivação de
       linguagem e sobre o despacho, mais um E2E compilando o `proc_cpp` do yanc
       dentro de um projeto AURORA.
-- [ ] **Fase 2, painel e API completa.** Extrair a validação e os nove campos de
-      hardware do `processor_hub.js` para módulo comum e construir por cima
-      dele o painel de criação de processador C++, com template e headers;
-      template `.cpp` com pragmas no handler `create-processor-project` de
-      `main/ipc/project.js`; parser irmão do `parseCmmHeader` para
-      `#pragma yanc`; renomeador corrigindo `#pragma yanc prname` no `.cpp`;
-      `language` em `createProcessor`, `getProcessorConfig` e `listProcessors`;
-      `setProcessorSource` novo na API e `set_processor_source` em tools.js;
-      seção `pragmas` no `resources/sapho_rules.json` com
-      `rules.listPragmas`/`getPragma` e as tools correspondentes;
-      `rules.getCppStdlib` e a tool `get_cpp_stdlib`; parágrafo C++ no
-      `system_prompt.js` com os limites declarados; ícone de `.cpp` na árvore;
-      `showArrays` escondido para processadores C++.
+- [ ] **Fase 2, painel e API completa.** Parcialmente entregue; o que já saiu
+      está marcado abaixo.
+  - [x] Seletor de linguagem no Processor Hub, com os campos de hardware
+        desabilitados no modo C++ e mostrando os padrões do `cppcomp`.
+  - [x] Template `.cpp` com pragmas no `create-processor-project`
+        (`main/ipc/processor_template.ts`), e `language: 'cpp'` no `.spf`.
+  - [x] Renomeador corrigindo `#pragma yanc prname` no `.cpp`
+        (`main/ipc/processor_rename.ts`).
+  - [x] Parser irmão do `parseCmmHeader` para `#pragma yanc`
+        (`js/compilation/processor_header.ts`, 2026-09-21). Era duplicado à
+        mão no `main/ipc/project.js` e no `getProcessorConfig` da
+        `aurora_api.js`, e nenhuma das duas cópias via C++: um processador
+        C++ chegava aos dois lugares com `header: {}`. As chaves saem em
+        MAIÚSCULA nas duas linguagens.
+  - [x] Ícone (glifo) próprio do `.cpp` na árvore e na aba
+        (`js/ui/language_glyph.ts`).
+  - [x] Os passos `cpp-pp` e `cpp` com nome legível no histórico de execuções
+        (`js/compilation/run_history_labels.ts`, 2026-09-21).
+  - [ ] Extrair a validação e os nove campos de hardware do `processor_hub.ts`
+        para módulo comum (hoje o `PADROES_DO_CPPCOMP` está espelhado à mão
+        entre `main/ipc/processor_template.ts` e `js/processors/processor_hub.ts`).
+  - [ ] `language` devolvido por `getProcessorConfig` e `listProcessors` (o
+        cabeçalho já vai; o campo em si, não).
+  - [ ] `setProcessorSource` novo na API e `set_processor_source` em tools.js.
+  - [ ] Seção `pragmas` no `resources/sapho_rules.json` com
+        `rules.listPragmas`/`getPragma` e as tools correspondentes.
+  - [ ] `rules.getCppStdlib` e a tool `get_cpp_stdlib`.
+  - [ ] Parágrafo C++ no `system_prompt.js` com os limites declarados.
+  - [ ] `showArrays` escondido para processadores C++.
+  - [ ] `lifecycle.js` abre-com ainda só aceita `spf|cmm|v`, e o Monaco abre
+        `.cpp` no tema `vs-dark`.
 - [ ] **Fase 3, paridade de linguagem, no repositório yanc.** Dono definido em
       22/08/2026: é o orientador quem mexe no yanc. As fases 1 e 2 são da
       AURORA e não dependem desta, tirando os limites já anotados no fim da

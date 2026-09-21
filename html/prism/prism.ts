@@ -138,7 +138,7 @@ function detectLocale() {
     if (v === 'en' || v === 'pt') return v;
     const legacy = localStorage.getItem('aurora-yanc-lang');
     if (legacy === 'en' || legacy === 'pt') return legacy;
-  } catch (_) { /* ignore */ }
+  } catch (_: any) { /* ignore */ }
   return 'pt';
 }
 
@@ -150,7 +150,7 @@ window.__prismI18n = T;
 
 // Apply initial text
 document.title = T.title;
-const _setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+const _setText = (id: any, txt: any) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
 _setText('t-title',     T.title);
 _setText('t-back',      T.back);
 _setText('t-fit',       T.fit);
@@ -171,6 +171,79 @@ window.gotosrc = () => {};
 //  PRISMViewer class
 // ---------------------------------------------------------------------------
 class PRISMViewer {
+  // Os campos da classe, declarados porque o TypeScript exige e o
+  // JavaScript nao exigia. Tipo `any` onde o campo guarda estrutura do
+  // digitaljs ou do Yosys, que nao tem tipo publicado; os demais saem do
+  // que o proprio construtor atribui. Declaracao some no emit.
+  declare _Circuit: any;
+  declare _avisoTimer: any;
+  declare _ctxCell: any;
+  declare _cursorLinha: any;
+  declare _cursorTick: any;
+  declare _desmontando: boolean;
+  declare _djs: any;
+  declare _escolhas: any;
+  declare _escolhasTimer: any;
+  declare _ioPanel: any;
+  declare _ioView: any;
+  declare _lastTouchDist: any;
+  declare _lastTouchPoint: any;
+  declare _monitor: any;
+  declare _monitorPanel: any;
+  declare _monitorView: any;
+  declare _navTimer: any;
+  declare _paper: any;
+  declare _paperPan: any;
+  declare _paperScale: number;
+  declare _paperTx: number;
+  declare _paperTy: number;
+  declare _resizeTimer: any;
+  declare _simAviso: any;
+  declare _simBar: any;
+  declare _simBusy: boolean;
+  declare _simChave: any;
+  declare _simDados: any;
+  declare _simErrTimer: any;
+  declare _simNome: any;
+  declare _simPilha: any[];
+  declare _zoomAnchor: any;
+  declare _zoomRAF: any;
+  declare backBtn: HTMLElement;
+  declare breadcrumbsEl: HTMLElement;
+  declare circuit: any;
+  declare compileBtn: HTMLElement;
+  declare currentModule: any;
+  declare currentModuleEl: HTMLElement;
+  declare currentPathEl: HTMLElement;
+  declare currentScale: number;
+  declare currentX: number;
+  declare currentY: number;
+  declare djsContainer: HTMLElement;
+  declare djsWrapper: any;
+  declare downloadBtn: HTMLElement;
+  declare draggingStartedInside: boolean;
+  declare embedded: any;
+  declare fitBtn: HTMLElement;
+  declare forwardHistory: any[];
+  declare helpBtn: HTMLElement;
+  declare isDragging: boolean;
+  declare lastMouseX: number;
+  declare lastMouseY: number;
+  declare navigationHistory: any[];
+  declare paperHost: any;
+  declare resetZoomBtn: HTMLElement;
+  declare simMode: boolean;
+  declare simToggle: HTMLElement;
+  declare statusOverlay: HTMLElement;
+  declare svgContainer: HTMLElement;
+  declare svgContent: HTMLElement;
+  declare svgWrapper: HTMLElement;
+  declare targetScale: number;
+  declare tempDir: any;
+  declare tooltip: HTMLElement;
+  declare zoomInBtn: HTMLElement;
+  declare zoomOutBtn: HTMLElement;
+
   constructor() {
     this.currentScale = 1;
     this.targetScale = 1;       // smooth-zoom goal; currentScale eases toward it
@@ -223,24 +296,24 @@ class PRISMViewer {
   }
 
   _initElements() {
-    this.svgContainer    = document.getElementById('svgContainer');
-    this.svgWrapper      = document.getElementById('svgWrapper');
-    this.svgContent      = document.getElementById('svgContent');
-    this.statusOverlay   = document.getElementById('statusOverlay');
-    this.currentModuleEl = document.getElementById('currentModule');
-    this.currentPathEl   = document.getElementById('currentPath');
-    this.breadcrumbsEl   = document.getElementById('breadcrumbs');
-    this.backBtn         = document.getElementById('backBtn');
-    this.compileBtn      = document.getElementById('compileBtn');
-    this.fitBtn          = document.getElementById('fitBtn');
-    this.downloadBtn     = document.getElementById('downloadBtn');
-    this.zoomInBtn       = document.getElementById('zoomInBtn');
-    this.zoomOutBtn      = document.getElementById('zoomOutBtn');
-    this.resetZoomBtn    = document.getElementById('resetZoomBtn');
-    this.tooltip         = document.getElementById('tooltip');
-    this.simToggle       = document.getElementById('simToggle');
-    this.helpBtn         = document.getElementById('helpBtn');
-    this.djsContainer    = document.getElementById('djsContainer');
+    this.svgContainer    = document.getElementById('svgContainer') as HTMLElement;
+    this.svgWrapper      = document.getElementById('svgWrapper') as HTMLElement;
+    this.svgContent      = document.getElementById('svgContent') as HTMLElement;
+    this.statusOverlay   = document.getElementById('statusOverlay') as HTMLElement;
+    this.currentModuleEl = document.getElementById('currentModule') as HTMLElement;
+    this.currentPathEl   = document.getElementById('currentPath') as HTMLElement;
+    this.breadcrumbsEl   = document.getElementById('breadcrumbs') as HTMLElement;
+    this.backBtn         = document.getElementById('backBtn') as HTMLElement;
+    this.compileBtn      = document.getElementById('compileBtn') as HTMLElement;
+    this.fitBtn          = document.getElementById('fitBtn') as HTMLElement;
+    this.downloadBtn     = document.getElementById('downloadBtn') as HTMLElement;
+    this.zoomInBtn       = document.getElementById('zoomInBtn') as HTMLElement;
+    this.zoomOutBtn      = document.getElementById('zoomOutBtn') as HTMLElement;
+    this.resetZoomBtn    = document.getElementById('resetZoomBtn') as HTMLElement;
+    this.tooltip         = document.getElementById('tooltip') as HTMLElement;
+    this.simToggle       = document.getElementById('simToggle') as HTMLElement;
+    this.helpBtn         = document.getElementById('helpBtn') as HTMLElement;
+    this.djsContainer    = document.getElementById('djsContainer') as HTMLElement;
   }
 
   _setupListeners() {
@@ -319,7 +392,7 @@ class PRISMViewer {
 
     // Maximize/restore button state
     if (window.electronAPI?.onWindowState) {
-      window.electronAPI.onWindowState((state) => {
+      window.electronAPI.onWindowState((state: any) => {
         document.body.classList.toggle('window-maximized', !!state.isMaximized);
       });
     }
@@ -328,7 +401,7 @@ class PRISMViewer {
     const toolbar = document.getElementById('prism-titlebar');
     if (toolbar) {
       toolbar.addEventListener('dblclick', (e) => {
-        if (e.target.closest('button, .prism-module-info, .window-controls')) return;
+        if ((e.target as HTMLElement).closest('button, .prism-module-info, .window-controls')) return;
         window.electronAPI?.windowMaximizeToggle?.();
       });
     }
@@ -372,7 +445,7 @@ class PRISMViewer {
       if (!e.ctrlKey) return;
       e.preventDefault();                 // block the browser's page-zoom in both modes
       if (this.simMode) return;           // sim mode: leave the circuit to JointJS
-      if (!this.svgContainer.contains(e.target)) this._onWheel(e);
+      if (!this.svgContainer.contains(e.target as Node)) this._onWheel(e);
     }, { passive: false });
 
     // Window resize → re-fit (schematic only; DigitalJS lays itself out)
@@ -385,7 +458,7 @@ class PRISMViewer {
   // -------------------------------------------------------------------------
   //  IPC handlers
   // -------------------------------------------------------------------------
-  _onCompilationComplete(data) {
+  _onCompilationComplete(data: any) {
     if (!data.success) {
       this._showStatus(`Compilation Error: ${data.message}`, true);
       return;
@@ -402,7 +475,7 @@ class PRISMViewer {
   // -------------------------------------------------------------------------
   //  SVG loading
   // -------------------------------------------------------------------------
-  async _loadSVG(svgPath, moduleName, { retomando = false } = {}) {
+  async _loadSVG(svgPath: any, moduleName: any, { retomando = false } = {}): Promise<any> {
     try {
       this._showStatus(`Loading ${moduleName}…`, false);
 
@@ -429,10 +502,10 @@ class PRISMViewer {
 
       // An SVG is now on screen — allow downloading it. Enabled on every
       // load so the button works at any navigation level, not just the top.
-      if (this.downloadBtn) this.downloadBtn.disabled = false;
+      if (this.downloadBtn) (this.downloadBtn as HTMLButtonElement).disabled = false;
 
       setTimeout(() => this.fitToScreen(), 100);
-    } catch (err) {
+    } catch (err: any) {
       // O SVG de um modulo ja visitado pode ter sumido do Temp (outra
       // compilacao limpou a pasta, por exemplo). O Voltar nao pode morrer por
       // isso: o modulo e reconstruivel, entao reconstroi, e se nem o JSON do
@@ -455,7 +528,7 @@ class PRISMViewer {
   }
 
   /** Regenera o SVG de um modulo; sem o JSON dele, recompila antes. */
-  async _reconstruirModulo(moduleName) {
+  async _reconstruirModulo(moduleName: any) {
     try {
       let r = await window.electronAPI.generateSVGFromModule(moduleName, this.tempDir);
       if (r && r.success) return r;
@@ -467,15 +540,15 @@ class PRISMViewer {
       this.tempDir = c.tempDir || this.tempDir;
       r = await window.electronAPI.generateSVGFromModule(moduleName, this.tempDir);
       return r && r.success ? r : null;
-    } catch (e) {
+    } catch (e: any) {
       this._log(`could not rebuild ${moduleName}: ${e && e.message ? e.message : e}`, 'error');
       return null;
     }
   }
 
   /** Manda uma linha ao terminal PRISM da AURORA. Nunca lanca. */
-  _log(message, type = 'info') {
-    try { window.electronAPI.logToTerminal?.(message, type); } catch (_) { /* sem ponte */ }
+  _log(message: any, type = 'info') {
+    try { window.electronAPI.logToTerminal?.(message, type); } catch (_: any) { /* sem ponte */ }
   }
 
   /**
@@ -492,7 +565,7 @@ class PRISMViewer {
     const svg = this.svgContent.querySelector('svg');
     if (!svg) return;
     const labels = this.svgContent.querySelectorAll('text[class*="busLabel_"]');
-    const caixas = [];
+    const caixas: any[] = [];
     labels.forEach((label) => {
       label.removeAttribute('dx');
       const rect = label.previousElementSibling;
@@ -500,7 +573,7 @@ class PRISMViewer {
       let caixa;
       // getBBox exige o elemento renderizado; num SVG ainda sem layout ele
       // lanca, e ai a caixa fica como o netlistsvg a deixou.
-      try { caixa = label.getBBox(); } catch (_) { return; }
+      try { caixa = (label as SVGGraphicsElement).getBBox(); } catch (_: any) { return; }
       if (!caixa || !caixa.width) return;
       const folga = 1;
       caixas.push({
@@ -537,10 +610,10 @@ class PRISMViewer {
    * outro tipo que cruze uma etiqueta fica como esta, que e raro e so
    * custa o numero por cima da linha.
    */
-  _cutWiresUnderLabels(svg, caixas) {
+  _cutWiresUnderLabels(svg: any, caixas: any) {
     if (!caixas.length) return;
     let grupo = 0;
-    const linhas = Array.from(svg.querySelectorAll('line')).filter((l) => !l.closest('g[data-cell-type]'));
+    const linhas: any[] = Array.from(svg.querySelectorAll('line')).filter((l: any) => !l.closest('g[data-cell-type]'));
     for (const caixa of caixas) {
       const x0 = caixa.x, x1 = caixa.x + caixa.width, y0 = caixa.y, y1 = caixa.y + caixa.height;
       for (const linha of linhas) {
@@ -594,8 +667,8 @@ class PRISMViewer {
     // Clone so the namespace tweaks below never touch the live, interactive
     // SVG (highlights, listeners) the user is still viewing.
     const clone = /** @type {SVGElement} */ (svg.cloneNode(true));
-    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    if (!clone.getAttribute('xmlns:xlink')) clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    if (!(clone as Element).getAttribute('xmlns')) (clone as Element).setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    if (!(clone as Element).getAttribute('xmlns:xlink')) (clone as Element).setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
 
     const serialized = new XMLSerializer().serializeToString(clone);
     const source = '<?xml version="1.0" encoding="UTF-8"?>\n' + serialized;
@@ -612,14 +685,14 @@ class PRISMViewer {
   }
 
   /** Strip characters that can't live in a filename, keeping the module name readable. */
-  _safeFileName(name) {
+  _safeFileName(name: any) {
     return String(name).replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'diagram';
   }
 
   // -------------------------------------------------------------------------
   //  Navigation
   // -------------------------------------------------------------------------
-  async navigateToModule(moduleName) {
+  async navigateToModule(moduleName: any) {
     if (moduleName === this.currentModule || !this.tempDir) return;
     this._showStatus(`Generating diagram for: ${moduleName}…`, false);
     try {
@@ -628,12 +701,12 @@ class PRISMViewer {
         this.navigationHistory.push({ module: moduleName, svgPath: result.svgPath });
         this.forwardHistory = []; // a new drill-in invalidates the forward stack
         await this._loadSVG(result.svgPath, moduleName);
-        this.backBtn.disabled = false;
+        (this.backBtn as HTMLButtonElement).disabled = false;
       } else {
         this._showStatus(result.message || `Module not found: ${moduleName}`, true);
         setTimeout(() => this._hideStatus(), 3000);
       }
-    } catch (err) {
+    } catch (err: any) {
       this._showStatus(`Error loading module: ${err.message}`, true);
       setTimeout(() => this._hideStatus(), 3000);
     }
@@ -650,7 +723,7 @@ class PRISMViewer {
     this.forwardHistory.push(this.navigationHistory.pop());
     const prev = this.navigationHistory[this.navigationHistory.length - 1];
     this._loadSVG(prev.svgPath, prev.module);
-    this.backBtn.disabled = this.navigationHistory.length <= 1;
+    (this.backBtn as HTMLButtonElement).disabled = this.navigationHistory.length <= 1;
   }
 
   // Re-enter a module the user backed out of (mouse forward / X2 button).
@@ -659,13 +732,13 @@ class PRISMViewer {
     const next = this.forwardHistory.pop();
     this.navigationHistory.push(next);
     this._loadSVG(next.svgPath, next.module);
-    this.backBtn.disabled = this.navigationHistory.length <= 1;
+    (this.backBtn as HTMLButtonElement).disabled = this.navigationHistory.length <= 1;
   }
 
   async recompile() {
     this.navigationHistory = [];
     this.forwardHistory = [];
-    this.backBtn.disabled = true;
+    (this.backBtn as HTMLButtonElement).disabled = true;
     this._showStatus('Recompiling RTL design…', false);
     try {
       const paths = await window.electronAPI.getPrismCompilationPaths();
@@ -676,7 +749,7 @@ class PRISMViewer {
       const result = await window.electronAPI.prismRecompile(paths);
       if (!result.success) this._showStatus(`Compilation Error: ${result.message}`, true);
       else if (this.embedded) this._onCompilationComplete(result);
-    } catch (err) {
+    } catch (err: any) {
       this._showStatus(`Compilation Failed: ${err.message}`, true);
     }
   }
@@ -684,7 +757,7 @@ class PRISMViewer {
   // -------------------------------------------------------------------------
   //  SVG interactions
   // -------------------------------------------------------------------------
-  _isClickableModuleType(type) {
+  _isClickableModuleType(type: any) {
     if (!type) return false;
     const skip = [
       /^\$_/, /^\$dff/, /^\$mux/, /^\$add/, /^\$sub/, /^\$mul/,
@@ -704,18 +777,18 @@ class PRISMViewer {
 
     // Module cells — left-click to navigate
     svg.querySelectorAll('g[data-cell-type]').forEach((group) => {
-      const type = group.dataset.cellType;
+      const type = (group as HTMLElement).dataset.cellType;
       if (!type || !this._isClickableModuleType(type)) return;
 
-      group.style.cursor = 'pointer';
+      (group as HTMLElement).style.cursor = 'pointer';
       group.classList.add('module-clickable');
 
       group.addEventListener('mouseenter', (e) => {
-        group.style.opacity = '0.75';
+        (group as HTMLElement).style.opacity = '0.75';
         this._showTooltip(e, T.clickModule + type);
       });
       group.addEventListener('mouseleave', () => {
-        group.style.opacity = '1';
+        (group as HTMLElement).style.opacity = '1';
         this._hideTooltip();
       });
       group.addEventListener('click', (e) => {
@@ -727,7 +800,7 @@ class PRISMViewer {
         // reached this group, so the name opened the module and the rectangle
         // highlighted. Now the whole cell opens, and the highlight has a
         // gesture of its own (also in the context menu).
-        if (e.shiftKey) { clearTimeout(this._navTimer); this._highlightCellConnections(group); return; }
+        if ((e as MouseEvent).shiftKey) { clearTimeout(this._navTimer); this._highlightCellConnections(group); return; }
         // Single click navigates, but a double click on the SAME cell opens
         // its source. Defer navigation by one dblclick window so the dblclick
         // handler below can cancel it, otherwise the first click of a
@@ -742,12 +815,12 @@ class PRISMViewer {
       const m = (group.getAttribute('onclick') || '').match(/gotosrc\(\s*['"]([^'"]+)['"]\s*\)/);
       if (!m) return;
       group.removeAttribute('onclick');
-      group.dataset.src = m[1];
+      (group as HTMLElement).dataset.src = m[1];
       group.addEventListener('dblclick', (e) => {
         e.preventDefault();
         e.stopPropagation();
         clearTimeout(this._navTimer);  // cancel the pending single-click navigation
-        this._openSourceFromLocator(group.dataset.src);
+        this._openSourceFromLocator((group as HTMLElement).dataset.src);
       });
     });
 
@@ -756,14 +829,14 @@ class PRISMViewer {
     // the click bubble up to the group above, so it gets no listener here.
     svg.querySelectorAll('path, line, polyline').forEach((wire) => {
       if (wire.closest('g.module-clickable')) return;
-      wire.style.cursor = 'pointer';
+      (wire as HTMLElement).style.cursor = 'pointer';
       wire.addEventListener('click', (e) => { e.stopPropagation(); this._highlightWireConnection(wire); });
       wire.addEventListener('mouseenter', (e) => { this._showTooltip(e, T.clickWire); });
       wire.addEventListener('mouseleave', () => this._hideTooltip());
     });
   }
 
-  async _openSourceFromLocator(locator) {
+  async _openSourceFromLocator(locator: any) {
     if (!locator) return;
     const m = locator.match(/^(.+?):(\d+)(?:\.(\d+))?/);
     if (!m) return;
@@ -774,13 +847,13 @@ class PRISMViewer {
         line: parseInt(lineStr, 10),
         column: colStr ? parseInt(colStr, 10) : 1,
       });
-    } catch (e) { console.error('[PRISM] openSource failed:', e); }
+    } catch (e: any) { console.error('[PRISM] openSource failed:', e); }
   }
 
   // -------------------------------------------------------------------------
   //  Wire highlighting
   // -------------------------------------------------------------------------
-  _highlightWireConnection(clicked) {
+  _highlightWireConnection(clicked: any) {
     const svg = this.svgContent.querySelector('svg');
     if (!svg) return;
     this._clearWireHighlights();
@@ -796,7 +869,7 @@ class PRISMViewer {
    * The cell's strokes are not themselves highlighted: the glow belongs to
    * the connections, the cell already has its hover affordance.
    */
-  _highlightCellConnections(group) {
+  _highlightCellConnections(group: any) {
     const svg = this.svgContent.querySelector('svg');
     if (!svg) return;
     this._clearWireHighlights();
@@ -809,7 +882,7 @@ class PRISMViewer {
     const box = this._rootBBox(group, svg);
     if (!box) return;
     const TOL = 5;
-    const touchesBox = (w) => {
+    const touchesBox = (w: any) => {
       const m = this._toRoot(w, svg);
       return this._wireEndpoints(w).some((p) => {
         const q = m ? new DOMPoint(p.x, p.y).matrixTransform(m) : p;
@@ -829,19 +902,19 @@ class PRISMViewer {
   }
 
   /** Matrix taking `el`'s local coordinates to the SVG root's, or null. */
-  _toRoot(el, svg) {
+  _toRoot(el: any, svg: any) {
     try {
       const root = svg.getScreenCTM();
       const own = el.getScreenCTM();
       if (!root || !own) return null;
       return root.inverse().multiply(own);
-    } catch (_) { return null; }
+    } catch (_: any) { return null; }
   }
 
   /** `group`'s bounding box in the SVG root's coordinates, or null. */
-  _rootBBox(group, svg) {
+  _rootBBox(group: any, svg: any) {
     let local;
-    try { local = group.getBBox(); } catch (_) { return null; }
+    try { local = group.getBBox(); } catch (_: any) { return null; }
     const m = this._toRoot(group, svg);
     if (!m) return local;
     const corners = [
@@ -855,12 +928,12 @@ class PRISMViewer {
     return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
   }
 
-  _wireEndpoints(wire) {
+  _wireEndpoints(wire: any) {
     const pts = [];
     if (wire.tagName === 'path') {
       const d = wire.getAttribute('d') || '';
       const cmds = d.match(/[MLHVCSQTAZ][^MLHVCSQTAZ]*/gi) || [];
-      cmds.forEach((cmd) => {
+      cmds.forEach((cmd: any) => {
         const coords = cmd.slice(1).trim().split(/[\s,]+/).map(Number);
         if (coords.length >= 2) pts.push({ x: coords[coords.length - 2], y: coords[coords.length - 1] });
       });
@@ -874,7 +947,7 @@ class PRISMViewer {
     return pts;
   }
 
-  _findConnectedWires(startPts, svg) {
+  _findConnectedWires(startPts: any, svg: any) {
     const TOL = 5;
     const connected = new Set();
     const checked = new Set();
@@ -883,14 +956,14 @@ class PRISMViewer {
 
     while (toCheck.length > 0) {
       const pt = toCheck.pop();
-      allWires.forEach((w) => {
+      allWires.forEach((w: any) => {
         if (checked.has(w)) return;
         const wPts = this._wireEndpoints(w);
         const hits = wPts.some((wp) => Math.abs(wp.x - pt.x) <= TOL && Math.abs(wp.y - pt.y) <= TOL);
         if (hits) {
           connected.add(w);
           checked.add(w);
-          const pushPts = (pts) => pts.forEach((p) => {
+          const pushPts = (pts: any) => pts.forEach((p: any) => {
             if (!toCheck.some((q) => Math.abs(q.x - p.x) <= TOL && Math.abs(q.y - p.y) <= TOL)) toCheck.push(p);
           });
           pushPts(wPts);
@@ -899,7 +972,7 @@ class PRISMViewer {
           // across the gap, so the highlight does not stop at the label.
           const grupo = w.dataset && w.dataset.cutGroup;
           if (grupo) {
-            svg.querySelectorAll(`[data-cut-group="${grupo}"]`).forEach((irmao) => {
+            svg.querySelectorAll(`[data-cut-group="${grupo}"]`).forEach((irmao: any) => {
               if (checked.has(irmao)) return;
               connected.add(irmao);
               checked.add(irmao);
@@ -912,7 +985,7 @@ class PRISMViewer {
     return Array.from(connected);
   }
 
-  _applyHighlight(wire) {
+  _applyHighlight(wire: any) {
     wire.classList.add('highlighted');
     wire.dataset.origStroke = wire.getAttribute('stroke') || '';
     wire.dataset.origWidth  = wire.getAttribute('stroke-width') || '';
@@ -924,18 +997,18 @@ class PRISMViewer {
   _clearWireHighlights() {
     const svg = this.svgContent.querySelector('svg');
     if (!svg) return;
-    svg.querySelectorAll('.highlighted').forEach((w) => {
+    svg.querySelectorAll('.highlighted').forEach((w: any) => {
       w.classList.remove('highlighted');
-      if (w.dataset.origStroke !== undefined) { w.style.stroke = w.dataset.origStroke; delete w.dataset.origStroke; }
-      if (w.dataset.origWidth  !== undefined) { w.style.strokeWidth = w.dataset.origWidth; delete w.dataset.origWidth; }
-      w.style.filter = '';
+      if ((w as HTMLElement).dataset.origStroke !== undefined) { (w as HTMLElement).style.stroke = (w as HTMLElement).dataset.origStroke!; delete (w as HTMLElement).dataset.origStroke; }
+      if ((w as HTMLElement).dataset.origWidth  !== undefined) { (w as HTMLElement).style.strokeWidth = (w as HTMLElement).dataset.origWidth!; delete (w as HTMLElement).dataset.origWidth; }
+      (w as HTMLElement).style.filter = '';
     });
   }
 
   // -------------------------------------------------------------------------
   //  Pan / zoom
   // -------------------------------------------------------------------------
-  _onMouseDown(e) {
+  _onMouseDown(e: any) {
     if (e.button !== 0) return;
     const svg = this.svgContent.querySelector('svg');
     this.draggingStartedInside = !!(svg && svg.contains(e.target));
@@ -946,7 +1019,7 @@ class PRISMViewer {
     this.svgContainer.classList.add('dragging');
   }
 
-  _onMouseMove(e) {
+  _onMouseMove(e: any) {
     if (!this.isDragging) return;
     this.currentX += e.clientX - this.lastMouseX;
     this.currentY += e.clientY - this.lastMouseY;
@@ -955,7 +1028,7 @@ class PRISMViewer {
     this._applyTransform();
   }
 
-  _onMouseUp(e) {
+  _onMouseUp(e: any) {
     if (e.button !== 0) return;
     if (this.isDragging) {
       const svg = this.svgContent.querySelector('svg');
@@ -965,12 +1038,12 @@ class PRISMViewer {
     this.svgContainer.classList.remove('dragging');
   }
 
-  _onDocumentClick(e) {
+  _onDocumentClick(e: any) {
     const svg = this.svgContent.querySelector('svg');
     if (svg && !svg.contains(e.target)) this._clearWireHighlights();
   }
 
-  _onWheel(e) {
+  _onWheel(e: any) {
     e.preventDefault();
     // Plain mouse wheel = zoom (no Ctrl needed), anchored under the cursor.
     // Shift+wheel still pans horizontally for trackpad-less users.
@@ -988,7 +1061,7 @@ class PRISMViewer {
    * toward it each frame. Scrolling fast pushes the target ahead (accelerates);
    * the ease catches up and settles (decelerates) — a gentle, "levelled" feel.
    */
-  _zoomTo(target, cx, cy) {
+  _zoomTo(target: any, cx: any, cy: any) {
     this.targetScale = Math.max(0.1, Math.min(5, target));
     this._zoomAnchor = { x: cx, y: cy };
     if (!this._zoomRAF) this._zoomRAF = requestAnimationFrame(() => this._zoomStep());
@@ -1005,7 +1078,7 @@ class PRISMViewer {
     this._zoomRAF = requestAnimationFrame(() => this._zoomStep());
   }
 
-  _applyScaleAnchored(newScale) {
+  _applyScaleAnchored(newScale: any) {
     const a = this._zoomAnchor;
     if (a) {
       const rect = this.svgContainer.getBoundingClientRect();
@@ -1024,21 +1097,21 @@ class PRISMViewer {
   }
 
   /** Smooth zoom from the +/- buttons, anchored on the canvas centre. */
-  _zoomButton(factor) {
+  _zoomButton(factor: any) {
     const r = this.svgContainer.getBoundingClientRect();
     this._zoomTo((this.targetScale || this.currentScale) * factor, r.left + r.width / 2, r.top + r.height / 2);
   }
 
   // Touch
-  _touchDist(t) { return Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY); }
-  _touchCenter(t) { return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 }; }
+  _touchDist(t: any) { return Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY); }
+  _touchCenter(t: any) { return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 }; }
 
-  _onTouchStart(e) {
+  _onTouchStart(e: any) {
     if (e.touches.length === 1) { this._lastTouchPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY }; this._lastTouchDist = null; }
     else if (e.touches.length === 2) { this._lastTouchDist = this._touchDist(e.touches); this._lastTouchPoint = this._touchCenter(e.touches); }
   }
 
-  _onTouchMove(e) {
+  _onTouchMove(e: any) {
     if (e.touches.length === 1 && this._lastTouchPoint) {
       e.preventDefault();
       this.currentX += e.touches[0].clientX - this._lastTouchPoint.x;
@@ -1061,7 +1134,7 @@ class PRISMViewer {
 
   _onTouchEnd() { this._lastTouchPoint = null; this._lastTouchDist = null; }
 
-  zoom(factor, cx = null, cy = null) {
+  zoom(factor: any, cx: number | null = null, cy: number | null = null) {
     const newScale = Math.max(0.1, Math.min(5, this.currentScale * factor));
     if (cx !== null && cy !== null) {
       const rect = this.svgContainer.getBoundingClientRect();
@@ -1104,18 +1177,18 @@ class PRISMViewer {
   // -------------------------------------------------------------------------
   //  UI helpers
   // -------------------------------------------------------------------------
-  _showStatus(msg, isError = false) {
-    const txt = this.statusOverlay.querySelector('.status-text');
+  _showStatus(msg: any, isError = false) {
+    const txt = this.statusOverlay.querySelector('.status-text') as HTMLElement;
     const spin = this.statusOverlay.querySelector('.loading-spinner');
     txt.textContent = msg;
-    if (isError) { txt.classList.add('error-text'); spin.style.display = 'none'; }
-    else         { txt.classList.remove('error-text'); spin.style.display = 'block'; }
+    if (isError) { txt.classList.add('error-text'); (spin as HTMLElement).style.display = 'none'; }
+    else         { txt.classList.remove('error-text'); (spin as HTMLElement).style.display = 'block'; }
     this.statusOverlay.style.display = 'block';
   }
 
   _hideStatus() { this.statusOverlay.style.display = 'none'; }
 
-  _updateModuleInfo(name, path) {
+  _updateModuleInfo(name: any, path: any) {
     this.currentModuleEl.textContent = name;
     this.currentPathEl.textContent   = path;
   }
@@ -1138,14 +1211,14 @@ class PRISMViewer {
           this.navigationHistory = this.navigationHistory.slice(0, i + 1);
           this.forwardHistory = []; // a breadcrumb jump redefines the path
           this._loadSVG(item.svgPath, item.module);
-          this.backBtn.disabled = this.navigationHistory.length <= 1;
+          (this.backBtn as HTMLButtonElement).disabled = this.navigationHistory.length <= 1;
         });
       }
       this.breadcrumbsEl.appendChild(bc);
     });
   }
 
-  _showTooltip(e, text) {
+  _showTooltip(e: any, text: any) {
     this.tooltip.textContent = text;
     this.tooltip.style.left = (e.pageX + 12) + 'px';
     this.tooltip.style.top  = (e.pageY - 32) + 'px';
@@ -1157,7 +1230,7 @@ class PRISMViewer {
   // -------------------------------------------------------------------------
   //  Keyboard shortcuts
   // -------------------------------------------------------------------------
-  _onKeyDown(e) {
+  _onKeyDown(e: any) {
     if (e.ctrlKey || e.metaKey) {
       // Recompile works in either mode; the pan/zoom keys act on the schematic,
       // so skip them while the DigitalJS canvas is showing.
@@ -1171,7 +1244,7 @@ class PRISMViewer {
         }
       }
     }
-    if (!this.simMode && e.key === 'Escape' && !this.backBtn.disabled) this.navigateBack();
+    if (!this.simMode && e.key === 'Escape' && !(this.backBtn as HTMLButtonElement).disabled) this.navigateBack();
     if (this.simMode && !e.ctrlKey && !e.metaKey && !e.altKey && this._atalhoDaSimulacao(e)) return;
     if (e.key === 'F11') {
       e.preventDefault();
@@ -1182,7 +1255,7 @@ class PRISMViewer {
   // -------------------------------------------------------------------------
   //  Context menu
   // -------------------------------------------------------------------------
-  _onContextMenu(e) {
+  _onContextMenu(e: any) {
     // Sim mode: let DigitalJS/JointJS handle right-click on the live circuit.
     if (this.simMode) return;
     // Source cells no longer claim right-click (it opens via double-click now),
@@ -1193,7 +1266,7 @@ class PRISMViewer {
     // same thing Shift+click does; elsewhere that entry stays hidden.
     this._ctxCell = e.target.closest?.('g.module-clickable') || null;
 
-    let menu = document.getElementById('contextMenu');
+    let menu = document.getElementById('contextMenu') as HTMLElement;
     if (!menu) {
       menu = document.createElement('div');
       menu.id = 'contextMenu';
@@ -1215,7 +1288,7 @@ class PRISMViewer {
         </div>
       `;
       menu.addEventListener('click', (ev) => {
-        const action = ev.target.closest('.context-item')?.dataset.action;
+        const action = ((ev.target as HTMLElement).closest('.context-item') as HTMLElement | null)?.dataset.action;
         if (action === 'fit')       this.fitToScreen();
         if (action === 'reset')     this.resetView();
         if (action === 'recompile') this.recompile();
@@ -1225,14 +1298,14 @@ class PRISMViewer {
       document.body.appendChild(menu);
     }
     const onCell = !!this._ctxCell;
-    menu.querySelector('[data-action="highlight-cell"]').hidden = !onCell;
-    menu.querySelector('[data-for="highlight-cell"]').hidden = !onCell;
+    (menu.querySelector('[data-action="highlight-cell"]') as HTMLElement).hidden = !onCell;
+    (menu.querySelector('[data-for="highlight-cell"]') as HTMLElement).hidden = !onCell;
 
     menu.style.left = e.pageX + 'px';
     menu.style.top  = e.pageY + 'px';
     menu.classList.add('show');
 
-    const hide = (ev) => {
+    const hide = (ev: any) => {
       if (!menu.contains(ev.target)) { menu.classList.remove('show'); document.removeEventListener('click', hide); }
     };
     setTimeout(() => document.addEventListener('click', hide), 10);
@@ -1254,16 +1327,16 @@ class PRISMViewer {
    */
   async _loadDigitalJS() {
     if (!this._Circuit) {
-      const jQuery = (await import('jquery')).default;
+      const jQuery = (await import('jquery' as any)).default;
       window.jQuery = jQuery;
-      window.$ = jQuery;
+      (window as any).$ = jQuery;
       // digitaljs pulls in jquery-ui widgets (dialog) that call $.widget AT LOAD
       // time. Load the COMPLETE jquery-ui onto the global jQuery FIRST (in its
       // own correct internal order: version → widget factory → widgets) so
       // $.widget / $.fn.dialog exist before digitaljs's bundled dialog.js runs —
       // otherwise it throws "e.widget is not a function".
-      await import('jquery-ui/dist/jquery-ui.js');
-      const djs = await import('digitaljs');
+      await import('jquery-ui/dist/jquery-ui.js' as any);
+      const djs = await import('digitaljs' as any);
       this._Circuit = djs.Circuit;
       // O resto do que o DigitalJS oferece e que o Simular passa a usar: o
       // painel de entradas e saidas e o monitor de formas de onda.
@@ -1284,7 +1357,7 @@ class PRISMViewer {
     // visible — a second click must NOT start a second concurrent build.
     if (this._simBusy || this.simMode || !window.electronAPI?.buildDigitalJS) return;
     this._simBusy = true;
-    if (this.simToggle) this.simToggle.disabled = true;
+    if (this.simToggle) (this.simToggle as HTMLButtonElement).disabled = true;
     // Veu de pagina inteira enquanto monta: o esquematico continuava clicavel
     // por baixo do aviso, e um clique num modulo trocava o desenho no meio da
     // montagem, deixando a simulacao de um modulo sobre o esquematico de outro.
@@ -1299,7 +1372,7 @@ class PRISMViewer {
         // O modulo que esta na tela, e nao o topo do projeto: a simulacao
         // responde a mesma pergunta que o esquematico, "este modulo aqui".
         res = await window.electronAPI.buildDigitalJS(paths, this.currentModule);
-      } catch (err) {
+      } catch (err: any) {
         this._showSimError(`${T.simError}: ${err?.message || err}`);
         return;
       }
@@ -1317,7 +1390,7 @@ class PRISMViewer {
         if (chave !== this._simChave) { this._simChave = chave; this._escolhas = null; }
         this._simNome = this.currentModule || res.topLevelModule || 'top';
         this._montarSimulacao(res.circuit);
-      } catch (err) {
+      } catch (err: any) {
         console.error('[PRISM] DigitalJS render failed:', err);
         this._destroyCircuit();
         this._showSimError(`${T.simError}: ${err?.message || err}`);
@@ -1334,11 +1407,11 @@ class PRISMViewer {
       this._hideStatus();
       this._restaurarEscolhas();
       this._updateBreadcrumbs();
-      this.backBtn.disabled = true;
+      (this.backBtn as HTMLButtonElement).disabled = true;
     } finally {
       this._simBusy = false;
       document.body.classList.remove('sim-montando');
-      if (this.simToggle) this.simToggle.disabled = false;
+      if (this.simToggle) (this.simToggle as HTMLButtonElement).disabled = false;
     }
   }
 
@@ -1352,7 +1425,7 @@ class PRISMViewer {
     this.simToggle?.classList.remove('active');
     this._setSimToggleLabel(T.simulate);
     this._updateBreadcrumbs();
-    this.backBtn.disabled = this.navigationHistory.length <= 1;
+    (this.backBtn as HTMLButtonElement).disabled = this.navigationHistory.length <= 1;
   }
 
   // -------------------------------------------------------------------------
@@ -1364,7 +1437,7 @@ class PRISMViewer {
    * barra e os ganchos. E o miolo do Simular e tambem o do Reiniciar, que
    * passa por aqui de novo com o mesmo desenho.
    */
-  _montarSimulacao(data) {
+  _montarSimulacao(data: any) {
     this._destroyCircuit();
     // Fresh wrapper: the pan/zoom layer every level's paper lives in.
     const wrapper = document.createElement('div');
@@ -1394,7 +1467,7 @@ class PRISMViewer {
    * Aqui ele abre NO LUGAR, com migalhas, como no esquematico: o ouvinte da
    * biblioteca sai e o nosso entra no mesmo evento, o da lupa da caixa.
    */
-  _abrirNivel(graph, nome, modelo = null) {
+  _abrirNivel(graph: any, nome: any, modelo = null) {
     const el = document.createElement('div');
     el.className = 'djs-nivel';
     const host = document.createElement('div');
@@ -1409,9 +1482,9 @@ class PRISMViewer {
     // O mesmo que displayOn faz para o topo, so que para qualquer grafo.
     const paper = this.circuit._makePaper(host, graph);
     this.circuit.stopListening(paper, 'open:subcircuit');
-    paper.on('open:subcircuit', (m) => this._entrarNoSubcircuito(m));
+    paper.on('open:subcircuit', (m: any) => this._entrarNoSubcircuito(m));
     // Pan by dragging blank space (gates stay draggable via JointJS).
-    paper.on('blank:pointerdown', (/** @type {any} */ evt) => {
+    paper.on('blank:pointerdown', (/** @type {any} */ evt: any) => {
       const oe = (evt && evt.originalEvent) || evt || {};
       this._paperPan = { x: oe.clientX, y: oe.clientY, tx: this._paperTx, ty: this._paperTy };
       this.djsContainer.classList.add('panning');
@@ -1436,7 +1509,7 @@ class PRISMViewer {
     return nivel;
   }
 
-  _entrarNoSubcircuito(modelo) {
+  _entrarNoSubcircuito(modelo: any) {
     const graph = modelo && modelo.get('graph');
     if (!graph || !this.circuit) return;
     const rotulo = modelo.get('label');
@@ -1445,15 +1518,15 @@ class PRISMViewer {
     this._porCursor(null);
     this._abrirNivel(graph, nome, modelo);
     this._updateBreadcrumbs();
-    this.backBtn.disabled = false;
+    (this.backBtn as HTMLButtonElement).disabled = false;
   }
 
   /** Volta ao nivel de indice `ate`, fechando os que estao acima dele. */
-  _voltarNivel(ate) {
+  _voltarNivel(ate: any) {
     this._hideTooltip();
     while (this._simPilha.length - 1 > Math.max(0, ate)) {
       const n = this._simPilha.pop();
-      try { n.paper.remove?.(); } catch (_) { /* best-effort */ }
+      try { n.paper.remove?.(); } catch (_: any) { /* best-effort */ }
       n.el.remove();
     }
     const topo = this._simPilha[this._simPilha.length - 1];
@@ -1463,7 +1536,7 @@ class PRISMViewer {
     this.paperHost = topo.host;
     this._fitPaper();
     this._updateBreadcrumbs();
-    this.backBtn.disabled = this._simPilha.length <= 1;
+    (this.backBtn as HTMLButtonElement).disabled = this._simPilha.length <= 1;
   }
 
   /** As migalhas da simulacao: o topo e os submodulos abertos por dentro. */
@@ -1503,7 +1576,7 @@ class PRISMViewer {
     let dados = null;
     try {
       dados = c.toJSON(true);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('[PRISM] toJSON failed, restarting from the original circuit:', err);
       dados = this._simDados;
     }
@@ -1520,11 +1593,11 @@ class PRISMViewer {
     for (const [id, sig] of entradas) {
       const cell = g.getCell(id);
       if (!cell || !sig || typeof cell.setInput !== 'function') continue;
-      try { cell.setInput(sig); } catch (_) { /* largura diferente: fica o padrao */ }
+      try { cell.setInput(sig); } catch (_: any) { /* largura diferente: fica o padrao */ }
     }
     this._restaurarEscolhas();
     this._updateBreadcrumbs();
-    this.backBtn.disabled = true;
+    (this.backBtn as HTMLButtonElement).disabled = true;
     this._log(T.simRestarted, 'tips');
   }
 
@@ -1542,9 +1615,9 @@ class PRISMViewer {
     const c = this.circuit;
     if (!c || c._prismGatilhos) return;
     const original = c.monitorWire.bind(c);
-    c.monitorWire = (wire, callback, options = {}) => {
-      if (!options || !options.stopOnTrigger) return original(wire, callback, options);
-      return original(wire, (tick, sig) => {
+    c.monitorWire = (wire: any, callback: any, options = {}) => {
+      if (!options || !(options as any).stopOnTrigger) return original(wire, callback, options);
+      return original(wire, (tick: any, sig: any) => {
         const r = callback(tick, sig);
         if (r) this._avisarParada(wire, tick, sig);
         return r;
@@ -1553,7 +1626,7 @@ class PRISMViewer {
     c._prismGatilhos = true;
   }
 
-  _avisarParada(wire, tick, sig) {
+  _avisarParada(wire: any, tick: any, sig: any) {
     const d = this.circuit && this.circuit._display3vl;
     if (!d) return;
     const nome = wire.get('netname') || T.simSignal;
@@ -1562,7 +1635,7 @@ class PRISMViewer {
   }
 
   /** Um aviso curto debaixo da barra, que some sozinho; vai ao terminal tambem. */
-  _avisar(texto, erro = false) {
+  _avisar(texto: any, erro = false) {
     this._log(texto, erro ? 'error' : 'tips');
     const el = this._simAviso;
     if (!el) return;
@@ -1579,10 +1652,10 @@ class PRISMViewer {
    * monitor ou sobe um nivel. Nada disto vale enquanto se digita num campo,
    * e um botao com foco fica com o seu proprio espaco.
    */
-  _atalhoDaSimulacao(e) {
+  _atalhoDaSimulacao(e: any) {
     const alvo = e.target instanceof Element ? e.target : null;
     if (alvo && alvo.closest('input, select, textarea, [contenteditable="true"], button')) return false;
-    const clicar = (id) => { const b = this._simBar && this._simBar.querySelector(id); if (b) b.click(); };
+    const clicar = (id: any) => { const b = this._simBar && this._simBar.querySelector(id); if (b) b.click(); };
     if (e.key === ' ') { e.preventDefault(); clicar('#simRun'); return true; }
     if (e.key === 'ArrowRight') { e.preventDefault(); clicar(e.shiftKey ? '#simNext' : '#simStep'); return true; }
     if (e.key === 'Escape') {
@@ -1620,7 +1693,7 @@ class PRISMViewer {
     const c = this.circuit;
     const barra = document.createElement('div');
     barra.className = 'sim-bar';
-    const btn = (id, icone, rotulo, titulo) => `<button class="sim-btn" id="${id}" title="${titulo || rotulo}"><i class="ph ${icone}" aria-hidden="true"></i><span>${rotulo}</span></button>`;
+    const btn = (id: any, icone: any, rotulo: any, titulo: any) => `<button class="sim-btn" id="${id}" title="${titulo || rotulo}"><i class="ph ${icone}" aria-hidden="true"></i><span>${rotulo}</span></button>`;
     // Ticks por segundo; o motor conta em milissegundos por tick, entao o valor
     // da opcao ja vai no que ele espera.
     const velocidades = [1, 2, 5, 10, 20, 50, 100]
@@ -1650,13 +1723,13 @@ class PRISMViewer {
     this.djsContainer.appendChild(aviso);
     this._simAviso = aviso;
 
-    const relogios = () => c._graph.getElements().filter((el) => el.get('type') === 'Clock');
-    const periodo = barra.querySelector('#simPeriod');
+    const relogios = () => c._graph.getElements().filter((el: any) => el.get('type') === 'Clock');
+    const periodo = barra.querySelector('#simPeriod') as HTMLElement;
     const rel = relogios();
-    if (rel.length) periodo.value = rel[0].get('propagation') || 50;
-    else { periodo.parentElement.hidden = true; this._log(T.simNoClock, 'tips'); }
+    if (rel.length) (periodo as HTMLInputElement).value = rel[0].get('propagation') || 50;
+    else { periodo.parentElement!.hidden = true; this._log(T.simNoClock, 'tips'); }
     periodo.addEventListener('change', () => {
-      const n = Math.max(1, Math.floor(Number(periodo.value) || 1));
+      const n = Math.max(1, Math.floor(Number((periodo as HTMLInputElement).value) || 1));
       for (const r of relogios()) r.set('propagation', n);
       this._escolha('period', n);
     });
@@ -1665,41 +1738,41 @@ class PRISMViewer {
     // intervalo em ms por tick. O valor que ele ja tem raramente cai numa das
     // opcoes, entao a lista comeca na mais proxima e o motor passa a valer
     // aquela, para o que esta escrito ser o que acontece.
-    const vel = barra.querySelector('#simSpeed');
-    const opcoes = [...vel.options].map((o) => Number(o.value));
+    const vel = barra.querySelector('#simSpeed') as HTMLElement;
+    const opcoes = [...(vel as HTMLSelectElement).options].map((o) => Number(o.value));
     const perto = opcoes.reduce((a, b) => (Math.abs(b - c.interval) < Math.abs(a - c.interval) ? b : a));
-    vel.value = String(perto);
+    (vel as HTMLInputElement).value = String(perto);
     c.interval = perto;
     vel.addEventListener('change', () => {
-      c.interval = Math.max(1, Number(vel.value) || 10);
+      c.interval = Math.max(1, Number((vel as HTMLInputElement).value) || 10);
       // O motor so le o intervalo ao (re)ligar o timer.
       if (c.running) { c.stop(); c.start(); }
       this._escolha('speed', c.interval);
     });
 
-    const run = barra.querySelector('#simRun');
+    const run = barra.querySelector('#simRun') as HTMLElement;
     const pintarRun = () => {
       const rodando = !!c.running;
       run.innerHTML = `<i class="ph ${rodando ? 'ph-pause' : 'ph-play'}" aria-hidden="true"></i><span>${rodando ? T.simPause : T.simRun}</span>`;
-      run.title = rodando ? T.simPauseTip : T.simRunTip;
+      (run as HTMLElement).title = rodando ? T.simPauseTip : T.simRunTip;
       run.classList.toggle('active', rodando);
     };
     run.addEventListener('click', () => { if (c.running) c.stop(); else c.start(); pintarRun(); });
-    barra.querySelector('#simStep').addEventListener('click', () => { if (c.running) c.stop(); c.updateGates(); pintarRun(); });
-    barra.querySelector('#simNext').addEventListener('click', () => { if (c.running) c.stop(); c.updateGatesNext(); pintarRun(); });
-    barra.querySelector('#simFast').addEventListener('click', () => { if (c.running) c.stop(); else c.startFast(); pintarRun(); });
-    const tick = barra.querySelector('#simTick');
-    const tickUnidade = barra.querySelector('#simTickUnit');
-    c.on('postUpdateGates', (t) => {
+    (barra.querySelector('#simStep') as HTMLElement).addEventListener('click', () => { if (c.running) c.stop(); c.updateGates(); pintarRun(); });
+    (barra.querySelector('#simNext') as HTMLElement).addEventListener('click', () => { if (c.running) c.stop(); c.updateGatesNext(); pintarRun(); });
+    (barra.querySelector('#simFast') as HTMLElement).addEventListener('click', () => { if (c.running) c.stop(); else c.startFast(); pintarRun(); });
+    const tick = barra.querySelector('#simTick') as HTMLElement;
+    const tickUnidade = barra.querySelector('#simTickUnit') as HTMLElement;
+    c.on('postUpdateGates', (t: any) => {
       tick.textContent = String(t);
       tickUnidade.textContent = t === 1 ? T.simTick : T.simTicks;
     });
     c.on('changeRunning', pintarRun);
     pintarRun();
 
-    barra.querySelector('#simReset').addEventListener('click', () => this._reiniciarSimulacao());
-    barra.querySelector('#simIo').addEventListener('click', () => this._alternarPainelIo());
-    barra.querySelector('#simMonitor').addEventListener('click', () => this._alternarMonitor());
+    (barra.querySelector('#simReset') as HTMLElement).addEventListener('click', () => this._reiniciarSimulacao());
+    (barra.querySelector('#simIo') as HTMLElement).addEventListener('click', () => this._alternarPainelIo());
+    (barra.querySelector('#simMonitor') as HTMLElement).addEventListener('click', () => this._alternarMonitor());
   }
 
   _alternarPainelIo() {
@@ -1733,7 +1806,7 @@ class PRISMViewer {
       // e o mesmo que aparece sobre a porta no desenho.
       lampMarkup: '<span class="sim-led"><input type="checkbox"><span class="sim-led-on" aria-hidden="true">1</span><span class="sim-led-off" aria-hidden="true">0</span><span class="sim-led-x" aria-hidden="true">x</span></span>',
       inputMarkup: '<input type="text" class="sim-num" spellcheck="false">',
-      baseSelectorMarkup: (d, bits, base) => this._marcacaoDeBase(d, bits, base),
+      baseSelectorMarkup: (d: any, bits: any, base: any) => this._marcacaoDeBase(d, bits, base),
     });
     this._organizarPainelIo(painel);
     this._simBar?.querySelector('#simIo')?.classList.add('active');
@@ -1748,10 +1821,10 @@ class PRISMViewer {
    * quantos digitos cabem no campo. As linhas saem na ordem em que o painel
    * as monta, entradas e depois saidas, que e a ordem das celulas.
    */
-  _organizarPainelIo(painel) {
+  _organizarPainelIo(painel: any) {
     const linhas = [...painel.querySelectorAll('.sim-io-row')];
     const celulas = [...this.circuit.getInputCells(), ...this.circuit.getOutputCells()];
-    let grupo = null;
+    let grupo: string | null = null;
     linhas.forEach((linha, i) => {
       const celula = celulas[i];
       const saida = celula ? !!celula.isOutput : !!linha.querySelector('.sim-led, input:disabled');
@@ -1778,9 +1851,9 @@ class PRISMViewer {
    * sem nome e sem dica, e um "hex" solto ao lado do valor nao diz que ali se
    * escolhe COMO ler o numero, e nao o que ele vale.
    */
-  _marcacaoDeBase(display3vl, bits, base) {
+  _marcacaoDeBase(display3vl: any, bits: any, base: any) {
     const opcoes = display3vl.usableDisplays('read', bits)
-      .map((n) => `<option value="${n}"${n === base ? ' selected' : ''}>${n}</option>`).join('');
+      .map((n: any) => `<option value="${n}"${n === base ? ' selected' : ''}>${n}</option>`).join('');
     return `<select name="base" class="sim-sel" title="${T.simBaseTip}">${opcoes}</select>`;
   }
 
@@ -1812,7 +1885,7 @@ class PRISMViewer {
     }
     const painel = document.createElement('div');
     painel.className = 'sim-panel sim-monitor';
-    const mini = (id, icone, titulo, rotulo) => `<button type="button" class="sim-mini" id="${id}" title="${titulo}" aria-label="${titulo}"><i class="ph ${icone}" aria-hidden="true"></i>${rotulo ? `<span>${rotulo}</span>` : ''}</button>`;
+    const mini = (id: any, icone: any, titulo: any, rotulo?: any) => `<button type="button" class="sim-mini" id="${id}" title="${titulo}" aria-label="${titulo}"><i class="ph ${icone}" aria-hidden="true"></i>${rotulo ? `<span>${rotulo}</span>` : ''}</button>`;
     // O cabecalho da lista mora DENTRO do corpo que rola, e nao acima dele: e a
     // unica forma de continuar alinhado com as colunas quando aparece a barra
     // de rolagem. O MonitorView so limpa a lista, entao o cabecalho sobrevive.
@@ -1842,7 +1915,7 @@ class PRISMViewer {
     this._monitorView = new this._djs.MonitorView({
       model: this._monitor,
       el: painel.querySelector('.sim-monitor-lista'),
-      baseSelectorMarkup: (d, bits, base) => this._marcacaoDeBase(d, bits, base),
+      baseSelectorMarkup: (d: any, bits: any, base: any) => this._marcacaoDeBase(d, bits, base),
       removeButtonMarkup: `<button type="button" name="remove" class="sim-x" title="${T.simRemove}" aria-label="${T.simRemove}"><i class="ph ph-x" aria-hidden="true"></i></button>`,
       bitTriggerMarkup: `<select name="trigger" class="sim-sel" title="${T.simStopAtTip}"><option value="none">&#8212;</option><option value="rising">&#8593;</option><option value="falling">&#8595;</option><option value="risefall">&#8597;</option><option value="undef">x</option></select>`,
       busTriggerMarkup: `<input type="text" name="trigger" class="sim-num sim-trig" title="${T.simStopAtTip}" placeholder="${T.simValue}" pattern="[0-9a-fx]*" spellcheck="false">`,
@@ -1857,12 +1930,12 @@ class PRISMViewer {
     const dica = document.createElement('p');
     dica.className = 'sim-monitor-dica';
     dica.textContent = T.simMonitorHint;
-    painel.querySelector('.sim-monitor-corpo').after(dica);
+    (painel.querySelector('.sim-monitor-corpo') as HTMLElement).after(dica);
     // O canvas nao le CSS: as cores do wavecanvas (salmao, cinza, verde, azul
     // e texto preto) entram como valores, lidos dos tokens da casa. As linhas
     // por fio herdam destas por prototipo, entao basta trocar aqui, antes das
     // primeiras linhas.
-    const cor = (v, alt) => (getComputedStyle(document.documentElement).getPropertyValue(v).trim() || alt);
+    const cor = (v: any, alt: any) => (getComputedStyle(document.documentElement).getPropertyValue(v).trim() || alt);
     // Os padroes do wavecanvas sao congelados, entao nao se atribui em cima:
     // deriva-se um objeto novo, e as linhas por fio derivam deste.
     const props = {
@@ -1875,14 +1948,14 @@ class PRISMViewer {
       // cada 40 px e referencia; menos que isso e textura.
       gridMinDist: 40,
     };
-    const desc = {};
+    const desc: Record<string, any> = {};
     for (const [k, v] of Object.entries(props)) desc[k] = { value: v, writable: true, enumerable: true, configurable: true };
     this._monitorView._settings = Object.create(this._monitorView._settings, desc);
     // O que a pessoa tinha no monitor da ultima vez, com base e gatilho; na
     // primeira vez, o que se quer ver sem pedir: o relogio e as saidas.
     const salvos = this._escolhas && Array.isArray(this._escolhas.wires) ? this._escolhas.wires : null;
     if (salvos) {
-      this._monitor.loadWiresDesc(salvos.map((w) => ({ name: w.name, path: w.path, bits: w.bits })));
+      this._monitor.loadWiresDesc(salvos.map((w: any) => ({ name: w.name, path: w.path, bits: w.bits })));
       this._aplicarBasesEGatilhos(salvos);
     } else {
       // Um mesmo net que se divide em dois destinos sao dois links, e o
@@ -1913,7 +1986,7 @@ class PRISMViewer {
    * pixelsPerTick), que ate aqui so respondia ao arrastar e a roda do mouse,
    * dois gestos que ninguem descobre sozinho.
    */
-  _ligarControlesDoMonitor(painel) {
+  _ligarControlesDoMonitor(painel: any) {
     const v = this._monitorView;
     if (!v) return;
     const aoVivo = painel.querySelector('#simMonLive');
@@ -1929,7 +2002,7 @@ class PRISMViewer {
     pintarAoVivo();
     // O presente fica preso na direita: aproximar a partir do meio faria a
     // onda escorregar para fora da janela.
-    const distancia = (f) => {
+    const distancia = (f: any) => {
       const alvo = Math.min(40, Math.max(0.25, v.pixelsPerTick * f));
       const fim = v.live ? (this.circuit?.tick || 0) : v.start + v.width / v.pixelsPerTick;
       v.pixelsPerTick = alvo;
@@ -1940,7 +2013,7 @@ class PRISMViewer {
     painel.querySelector('#simMonExport').addEventListener('click', () => this._exportarOnda());
     // Como na barra: o botao clicado nao fica com o foco, e o espaco continua
     // sendo o atalho de rodar e pausar.
-    painel.addEventListener('mousedown', (e) => { if (e.target instanceof Element && e.target.closest('.sim-panel-acoes button')) e.preventDefault(); });
+    painel.addEventListener('mousedown', (e: any) => { if (e.target instanceof Element && e.target.closest('.sim-panel-acoes button')) e.preventDefault(); });
   }
 
   /**
@@ -1949,7 +2022,7 @@ class PRISMViewer {
    * desenho sozinho nao da: o valor de um barramento so aparece quando o
    * trecho e largo o bastante para o texto caber.
    */
-  _ligarCursorDoMonitor(painel) {
+  _ligarCursorDoMonitor(painel: any) {
     const lista = painel.querySelector('.sim-monitor-lista');
     if (!lista) return;
     const linha = document.createElement('div');
@@ -1957,7 +2030,7 @@ class PRISMViewer {
     linha.hidden = true;
     lista.appendChild(linha);
     this._cursorLinha = linha;
-    lista.addEventListener('click', (e) => {
+    lista.addEventListener('click', (e: any) => {
       const canvas = e.target instanceof Element ? e.target.closest('canvas.wavecanvas') : null;
       const v = this._monitorView;
       if (!canvas || !v) return;
@@ -1970,7 +2043,7 @@ class PRISMViewer {
     this._monitor.on('add remove', () => setTimeout(() => this._pintarCursor(), 0));
   }
 
-  _porCursor(tick) {
+  _porCursor(tick: any) {
     this._cursorTick = tick == null ? null : tick;
     this._pintarCursor();
   }
@@ -1986,7 +2059,7 @@ class PRISMViewer {
     if (t == null) {
       linha.hidden = true;
       if (chip) chip.hidden = true;
-      linhas.forEach((tr) => { const s = tr.querySelector('.sim-mon-valor'); if (s) s.textContent = ''; });
+      linhas.forEach((tr: any) => { const s = tr.querySelector('.sim-mon-valor'); if (s) s.textContent = ''; });
       return;
     }
     if (chip) {
@@ -2010,7 +2083,7 @@ class PRISMViewer {
       linha.hidden = true;
     }
     const d = this.circuit && this.circuit._display3vl;
-    linhas.forEach((tr) => {
+    linhas.forEach((tr: any) => {
       let s = tr.querySelector('.sim-mon-valor');
       if (!s) {
         s = document.createElement('span');
@@ -2027,7 +2100,7 @@ class PRISMViewer {
   }
 
   /** O valor que a onda tinha no tick: a ultima mudanca ate ali, ou null antes da primeira. */
-  _valorNoTick(waveform, tick) {
+  _valorNoTick(waveform: any, tick: any) {
     const dados = waveform && waveform._data;
     if (!dados || !dados.length || tick < dados[0][0]) return null;
     let lo = 0;
@@ -2046,7 +2119,7 @@ class PRISMViewer {
    * pela qual as escolhas guardadas se reencontram com ela.
    */
   _decorarLinhasDoMonitor() {
-    this._monitor.on('add', (wire) => {
+    this._monitor.on('add', (wire: any) => {
       const tr = this._monitorPanel && this._monitorPanel.querySelector('table.monitor tr:last-child');
       const td = tr && tr.querySelector('td.name');
       if (!td || td.dataset.pronto) return;
@@ -2105,14 +2178,14 @@ class PRISMViewer {
         bits,
         base,
         papel,
-        mudancas: (waveform && waveform._data ? waveform._data : []).map(([t, v]) => [t, v.toBin()]),
+        mudancas: (waveform && waveform._data ? waveform._data : []).map(([t, v]: [any, any]) => [t, v.toBin()]),
       });
     }
     if (!sinais.length) { this._avisar(T.simExportEmpty, true); return { ok: false, error: T.simExportEmpty }; }
     let r;
     try {
       r = await window.electronAPI.exportWave({ modulo: this.currentModule || 'simulacao', presente: this.circuit.tick, sinais });
-    } catch (err) {
+    } catch (err: any) {
       r = { ok: false, error: err && err.message ? err.message : String(err) };
     }
     if (!r || !r.ok) {
@@ -2142,13 +2215,13 @@ class PRISMViewer {
     if (this._monitor && this._monitorPanel) this._escolhas.wires = this._sinaisDoMonitor();
     clearTimeout(this._escolhasTimer);
     const gravar = () => {
-      try { localStorage.setItem(this._simChave, JSON.stringify(this._escolhas)); } catch (_) { /* sem espaco, ou modo privado */ }
+      try { localStorage.setItem(this._simChave, JSON.stringify(this._escolhas)); } catch (_: any) { /* sem espaco, ou modo privado */ }
     };
     if (agora) gravar(); else this._escolhasTimer = setTimeout(gravar, 250);
   }
 
   /** Muda uma escolha e guarda. */
-  _escolha(chave, valor) {
+  _escolha(chave: any, valor: any) {
     if (!this._escolhas) this._escolhas = this._lerEscolhas();
     this._escolhas[chave] = valor;
     this._guardarEscolhas();
@@ -2163,7 +2236,7 @@ class PRISMViewer {
       const cru = this._simChave && localStorage.getItem(this._simChave);
       const lido = cru ? JSON.parse(cru) : null;
       return lido && typeof lido === 'object' ? { ...this._escolhasPadrao(), ...lido } : this._escolhasPadrao();
-    } catch (_) {
+    } catch (_: any) {
       return this._escolhasPadrao();
     }
   }
@@ -2193,19 +2266,19 @@ class PRISMViewer {
   }
 
   /** Devolve a cada linha do monitor a base e o gatilho que ela tinha. */
-  _aplicarBasesEGatilhos(salvos) {
-    const porNome = new Map(salvos.map((w) => [[...(w.path || []), w.name].join('.'), w]));
+  _aplicarBasesEGatilhos(salvos: any) {
+    const porNome = new Map(salvos.map((w: any) => [[...(w.path || []), w.name].join('.'), w]));
     for (const tr of this._monitorPanel.querySelectorAll('table.monitor tr')) {
       const w = porNome.get(tr.dataset.nome || '');
       if (!w) continue;
       const base = tr.querySelector('select[name=base]');
-      if (base && w.base && [...base.options].some((o) => o.value === w.base)) {
-        base.value = w.base;
+      if (base && (w as any).base && [...(base as HTMLSelectElement).options].some((o) => o.value === (w as any).base)) {
+        (base as HTMLSelectElement).value = (w as any).base;
         base.dispatchEvent(new Event('input', { bubbles: true }));
       }
       const g = tr.querySelector('[name=trigger]');
-      if (g && w.trigger && w.trigger !== 'none') {
-        g.value = w.trigger;
+      if (g && (w as any).trigger && (w as any).trigger !== 'none') {
+        (g as HTMLSelectElement).value = (w as any).trigger;
         g.dispatchEvent(new Event(g.tagName === 'SELECT' ? 'input' : 'change', { bubbles: true }));
       }
     }
@@ -2219,10 +2292,10 @@ class PRISMViewer {
     const e = this._escolhas;
     const barra = this._simBar;
     if (e.speed && barra) {
-      const vel = barra.querySelector('#simSpeed');
+      const vel = barra.querySelector('#simSpeed') as HTMLElement;
       const n = Number(e.speed);
-      if (vel && [...vel.options].some((o) => Number(o.value) === n)) {
-        vel.value = String(n);
+      if (vel && [...(vel as HTMLSelectElement).options].some((o) => Number(o.value) === n)) {
+        (vel as HTMLSelectElement).value = String(n);
         c.interval = n;
         if (c.running) { c.stop(); c.start(); }
       }
@@ -2261,13 +2334,13 @@ class PRISMViewer {
     // its DOM + Backbone listeners so repeated enter/exit cycles don't leak.
     while (this._simPilha.length) {
       const n = this._simPilha.pop();
-      try { n.paper.remove?.(); } catch (_) { /* best-effort */ }
+      try { n.paper.remove?.(); } catch (_: any) { /* best-effort */ }
       n.el.remove();
     }
     this._paper = null;
     if (this.circuit) {
-      try { this.circuit.stop?.(); } catch (_) { /* best-effort */ }
-      try { this.circuit.shutdown?.(); } catch (_) { /* best-effort */ }
+      try { this.circuit.stop?.(); } catch (_: any) { /* best-effort */ }
+      try { this.circuit.shutdown?.(); } catch (_: any) { /* best-effort */ }
       this.circuit = null;
     }
     this.djsWrapper = null;
@@ -2276,7 +2349,7 @@ class PRISMViewer {
     if (this.djsContainer) { this.djsContainer.innerHTML = ''; this.djsContainer.classList.remove('panning'); }
   }
 
-  _setSimToggleLabel(text) {
+  _setSimToggleLabel(text: any) {
     const label = document.getElementById('t-simulate');
     if (label) label.textContent = text;
     // O "?" acompanha o modo: a tela mudou, o capitulo tambem.
@@ -2299,9 +2372,9 @@ class PRISMViewer {
    * a mesma, abrir um submodulo menor e simular aquele, e por isso a dica vai
    * junto: um aviso que so diz "grande demais" deixa a pessoa parada.
    */
-  _simFailureText(res) {
+  _simFailureText(res: any) {
     const r = res || {};
-    const enche = (tpl) => String(tpl)
+    const enche = (tpl: any) => String(tpl)
       .replace('{m}', r.module || this.currentModule || '?')
       .replace('{n}', String(r.cells ?? '?'))
       .replace('{l}', String(r.limit ?? '?'))
@@ -2312,7 +2385,7 @@ class PRISMViewer {
   }
 
   /** Show a sim-mode error and auto-clear it so the schematic stays usable. */
-  _showSimError(msg) {
+  _showSimError(msg: any) {
     this._log(msg, 'error');
     this._showStatus(msg, true);
     clearTimeout(this._simErrTimer);
@@ -2336,11 +2409,11 @@ class PRISMViewer {
   //  da AuroraAPI, para atravessar o IPC sem traducao.
   // -------------------------------------------------------------------------
 
-  async _comandoDaApi(cmd) {
+  async _comandoDaApi(cmd: any) {
     const c = cmd && typeof cmd === 'object' ? cmd : {};
     const op = String(c.op || '');
-    const bom = (data) => ({ ok: true, data });
-    const ruim = (error) => ({ ok: false, error });
+    const bom = (data: any) => ({ ok: true, data });
+    const ruim = (error: any) => ({ ok: false, error });
     // O estado e o unico comando que responde com a simulacao fechada: e por
     // ele que quem chama descobre que precisa abrir.
     if (op === 'status') return bom(this._estadoDaSimulacao());
@@ -2362,7 +2435,7 @@ class PRISMViewer {
     switch (op) {
       case 'control': {
         const acao = String(c.acao || '');
-        const acoes = {
+        const acoes: Record<string, any> = {
           run:   () => { if (!circuito.running) circuito.start(); },
           pause: () => { if (circuito.running) circuito.stop(); },
           tick:  () => { if (circuito.running) circuito.stop(); circuito.updateGates(); },
@@ -2392,7 +2465,7 @@ class PRISMViewer {
       case 'period': {
         const n = Math.floor(Number(c.ticks));
         if (!Number.isFinite(n) || n < 1) return ruim('ticks must be an integer of 1 or more');
-        const relogios = circuito._graph.getElements().filter((el) => el.get('type') === 'Clock');
+        const relogios = circuito._graph.getElements().filter((el: any) => el.get('type') === 'Clock');
         if (!relogios.length) return ruim('this module has no clock: advance it with control tick');
         for (const r of relogios) r.set('propagation', n);
         const p = this._simBar?.querySelector('#simPeriod');
@@ -2421,11 +2494,11 @@ class PRISMViewer {
         else if (acao === 'back') this._voltarNivel(this._simPilha.length - 2);
         else if (acao === 'enter') {
           const alvo = String(c.nome || '');
-          const cel = this._paper.model.getElements().find((el) => el.get('type') === 'Subcircuit'
+          const cel = this._paper.model.getElements().find((el: any) => el.get('type') === 'Subcircuit'
             && (el.get('label') === alvo || el.get('celltype') === alvo));
           if (!cel) {
-            const nomes = this._paper.model.getElements().filter((el) => el.get('type') === 'Subcircuit')
-              .map((el) => el.get('label') || el.get('celltype'));
+            const nomes = this._paper.model.getElements().filter((el: any) => el.get('type') === 'Subcircuit')
+              .map((el: any) => el.get('label') || el.get('celltype'));
             return ruim(`no submodule "${alvo}" at this level${nomes.length ? `; there is ${nomes.join(', ')}` : ' (this level has none)'}`);
           }
           this._entrarNoSubcircuito(cel);
@@ -2447,13 +2520,13 @@ class PRISMViewer {
     };
     if (!this.simMode || !c) return base;
     const d = c._display3vl;
-    const mostrar = (sig, bits) => (sig ? d.show(bits > 1 ? 'hex' : 'bin', sig) : 'x');
-    const porta = (cel, entrada) => ({
+    const mostrar = (sig: any, bits: any) => (sig ? d.show(bits > 1 ? 'hex' : 'bin', sig) : 'x');
+    const porta = (cel: any, entrada: any) => ({
       nome: cel.get('net') || cel.get('label'),
       bits: cel.get('bits') || 1,
       valor: mostrar(entrada ? (cel.get('outputSignals') || {}).out : cel.getOutput(), cel.get('bits') || 1),
     });
-    const relogio = c._graph.getElements().find((el) => el.get('type') === 'Clock');
+    const relogio = c._graph.getElements().find((el: any) => el.get('type') === 'Clock');
     return {
       ...base,
       tick: c.tick,
@@ -2461,8 +2534,8 @@ class PRISMViewer {
       ticksPorSegundo: Math.round(1000 / (c.interval || 10)),
       meioPeriodo: relogio ? relogio.get('propagation') : null,
       niveis: this._simPilha.map((n) => n.nome),
-      entradas: c.getInputCells().map((cel) => porta(cel, true)),
-      saidas: c.getOutputCells().map((cel) => porta(cel, false)),
+      entradas: c.getInputCells().map((cel: any) => porta(cel, true)),
+      saidas: c.getOutputCells().map((cel: any) => porta(cel, false)),
       monitor: this._sinaisMonitorados(),
       paineis: { entradasSaidas: !!this._ioPanel, formasDeOnda: !!this._monitorPanel },
     };
@@ -2472,7 +2545,7 @@ class PRISMViewer {
   _fiosVisiveis() {
     if (!this._paper) return [];
     const d = this.circuit._display3vl;
-    const monitorados = new Set(this._monitor ? this._monitor.getWires().map((w) => w.get('netname')) : []);
+    const monitorados = new Set(this._monitor ? this._monitor.getWires().map((w: any) => w.get('netname')) : []);
     const vistos = new Set();
     const fios = [];
     for (const link of this._paper.model.getLinks()) {
@@ -2497,7 +2570,7 @@ class PRISMViewer {
     const linhas = this._monitorPanel
       ? [...this._monitorPanel.querySelectorAll('table.monitor tr')]
       : [];
-    return this._monitor.getWires().map((wire) => {
+    return this._monitor.getWires().map((wire: any) => {
       const nome = wire.get('netname') || '';
       const tr = linhas.find((l) => l.dataset.nome === nome);
       const bits = wire.get('bits') || 1;
@@ -2515,8 +2588,8 @@ class PRISMViewer {
   }
 
   /** A celula de entrada com este nome, no nivel do topo. */
-  _acharEntrada(nome) {
-    return this.circuit.getInputCells().find((cel) => (cel.get('net') || cel.get('label')) === nome) || null;
+  _acharEntrada(nome: any) {
+    return this.circuit.getInputCells().find((cel: any) => (cel.get('net') || cel.get('label')) === nome) || null;
   }
 
   /**
@@ -2524,15 +2597,15 @@ class PRISMViewer {
    * base pedida (hex de fabrica, como o painel). O relogio nao se escreve: ele
    * bate sozinho, e mexer nele a mao so confundiria a onda.
    */
-  _escreverEntrada(nome, valor, base) {
+  _escreverEntrada(nome: any, valor: any, base: any) {
     const cel = this._acharEntrada(nome);
     if (!cel) {
       // O relogio nao esta entre as entradas: ele nao e um botao, e um
       // oscilador. Dizer isso vale mais do que "nao existe".
       const ehRelogio = this.circuit._graph.getElements()
-        .some((el) => el.get('type') === 'Clock' && (el.get('net') || el.get('label')) === nome);
+        .some((el: any) => el.get('type') === 'Clock' && (el.get('net') || el.get('label')) === nome);
       if (ehRelogio) return { ok: false, error: `"${nome}" is the clock: it toggles on its own, set its half period with op "period"` };
-      const nomes = this.circuit.getInputCells().map((e) => e.get('net') || e.get('label'));
+      const nomes = this.circuit.getInputCells().map((e: any) => e.get('net') || e.get('label'));
       return { ok: false, error: `no input named "${nome}"; this module has ${nomes.join(', ') || 'none'}` };
     }
     const bits = cel.get('bits') || 1;
@@ -2545,12 +2618,12 @@ class PRISMViewer {
   }
 
   /** Um fio pelo nome, entre os do nivel visivel. */
-  _acharFio(nome) {
+  _acharFio(nome: any) {
     if (!this._paper) return null;
-    return this._paper.model.getLinks().find((l) => l.get('netname') === nome) || null;
+    return this._paper.model.getLinks().find((l: any) => l.get('netname') === nome) || null;
   }
 
-  _comandoDoMonitor(c) {
+  _comandoDoMonitor(c: any) {
     const acao = String(c.acao || '');
     if (acao === 'clear') {
       if (this._monitor) for (const w of this._monitor.getWires()) this._monitor.removeWire(w);
@@ -2566,7 +2639,7 @@ class PRISMViewer {
       this._guardarEscolhas();
       return { ok: true, data: { monitor: this._sinaisMonitorados() } };
     }
-    const wire = this._monitor.getWires().find((w) => w.get('netname') === nome);
+    const wire = this._monitor.getWires().find((w: any) => w.get('netname') === nome);
     if (!wire) return { ok: false, error: `"${nome}" is not in the monitor` };
     if (acao === 'remove') {
       this._monitor.removeWire(wire);
@@ -2615,7 +2688,7 @@ class PRISMViewer {
    * a conta termina. Em blocos, cedendo o fio entre eles, para a janela nao
    * congelar num laco de cem mil ticks.
    */
-  async _correrAte(c) {
+  async _correrAte(c: any) {
     const circuito = this.circuit;
     const ticks = c.ticks == null ? null : Math.floor(Number(c.ticks));
     const nome = c.sinal == null ? '' : String(c.sinal);
@@ -2628,7 +2701,7 @@ class PRISMViewer {
     if (nome) {
       const d = circuito._display3vl;
       const fio = this._acharFio(nome);
-      const saida = fio ? null : circuito.getOutputCells().find((cel) => (cel.get('net') || cel.get('label')) === nome);
+      const saida = fio ? null : circuito.getOutputCells().find((cel: any) => (cel.get('net') || cel.get('label')) === nome);
       if (!fio && !saida) return { ok: false, error: `no wire or output named "${nome}"; call op "wires" for the list` };
       const bits = (fio ? fio.get('bits') : saida.get('bits')) || 1;
       const ler = () => (fio ? fio.get('signal') : saida.getOutput());
@@ -2697,7 +2770,7 @@ class PRISMViewer {
    * numero que nao era dele. Foi assim que um aluno viu "um x e um zero" no
    * mesmo bloco.
    */
-  _expandirLayout(nivel, fx, fy) {
+  _expandirLayout(nivel: any, fx: any, fy: any) {
     const graph = nivel && nivel.graph;
     if (!graph || graph.get('prismExpandido')) return;
     graph.set('prismExpandido', true);
@@ -2707,11 +2780,11 @@ class PRISMViewer {
     }
     for (const l of graph.getLinks()) {
       const vs = l.vertices ? l.vertices() : [];
-      if (vs && vs.length) l.vertices(vs.map((v) => ({ x: v.x * fx, y: v.y * fy })));
+      if (vs && vs.length) l.vertices(vs.map((v: any) => ({ x: v.x * fx, y: v.y * fy })));
     }
     // Antes do fitToContent, que mede o que estiver desenhado.
-    try { nivel.paper.updateViews(); } catch (_) { /* versao sem updateViews */ }
-    try { nivel.paper.fitToContent({ padding: 40, allowNewOrigin: 'any' }); } catch (_) { /* versao sem fitToContent */ }
+    try { nivel.paper.updateViews(); } catch (_: any) { /* versao sem updateViews */ }
+    try { nivel.paper.fitToContent({ padding: 40, allowNewOrigin: 'any' }); } catch (_: any) { /* versao sem fitToContent */ }
   }
 
   /** Center + fit the circuit in the viewport. */
@@ -2729,7 +2802,7 @@ class PRISMViewer {
   }
 
   /** Zoom the paper, anchored at (clientX,clientY) when given, else the centre. */
-  _paperZoom(factor, clientX = null, clientY = null) {
+  _paperZoom(factor: any, clientX: number | null = null, clientY: number | null = null) {
     if (!this.djsWrapper) return;
     const cur = this._paperScale;
     const next = Math.max(0.1, Math.min(5, cur * factor));
@@ -2758,12 +2831,12 @@ class PRISMViewer {
    * entrada esta valendo e que roda a cada mudanca de sinal. Um no injetado no
    * DOM depois do desenho sumiria no proximo redesenho de portas.
    */
-  _pintarMuxes(cells) {
+  _pintarMuxes(cells: any) {
     const Vista = cells && cells.GenMuxView;
     if (!Vista || Vista.prototype._prismDecor) return;
     const CHECK = 'M0.5 0.5 L4 4.5 L10 -5';
     const XIS = 'M1.5 -4 L8.5 3 M8.5 -4 L1.5 3';
-    Vista.prototype._updateMux = function (data) {
+    Vista.prototype._updateMux = function (data: any) {
       const escolhida = this.model.muxInput(data.sel);
       for (const num of this.ins.keys()) {
         const marca = this.$(`[port=in${num}] path.decor`);
@@ -2783,7 +2856,7 @@ class PRISMViewer {
    * overlays live inside .djs-wrapper, so they pan/zoom with the circuit, and
    * update on every signal change (e.g. when the user clicks an input).
    */
-  _buildValueOverlays(nivel) {
+  _buildValueOverlays(nivel: any) {
     if (!nivel || !nivel.paper || !nivel.el.isConnected) return;
     // Montar de novo tira os ouvintes da vez anterior: sem isto cada montagem
     // (o render:done e a folga de 150 ms) deixava um par a mais por celula.
@@ -2792,9 +2865,9 @@ class PRISMViewer {
       s.cell.off('change:position change:size', s.place);
     }
     nivel.sobreposicoes = [];
-    nivel.el.querySelectorAll('.djs-valnum').forEach((e) => e.remove());
+    nivel.el.querySelectorAll('.djs-valnum').forEach((e: any) => e.remove());
     const graph = nivel.paper.model;
-    const digit = (/** @type {any} */ sig) => (!sig ? 'x' : sig.isHigh ? '1' : sig.isLow ? '0' : 'x');
+    const digit = (/** @type {any} */ sig: any) => (!sig ? 'x' : sig.isHigh ? '1' : sig.isLow ? '0' : 'x');
     for (const cell of graph.getElements()) {
       const type = cell.get('type');
       if ((type !== 'Input' && type !== 'Output' && type !== 'Clock') || (type !== 'Clock' && cell.get('bits') !== 1)) continue;
@@ -2835,12 +2908,12 @@ class PRISMViewer {
    * fabrica tambem nao dizia: num emaranhado de dez fios, o valor sem o nome
    * e meio caminho.
    */
-  _pintarBaloesDeFio(cells) {
+  _pintarBaloesDeFio(cells: any) {
     const Vista = cells && cells.WireView;
-    const $ = window.jQuery;
+    const $ = (window as any).jQuery;
     if (!Vista || !$ || Vista.prototype._prismBalao) return;
-    const escapar = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    Vista.prototype._addTooltip = function (pos) {
+    const escapar = (s: any) => String(s).replace(/[&<>"']/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c]);
+    Vista.prototype._addTooltip = function (pos: any) {
       if (this.wire_hover) return;
       this.wire_hover = $('<div class="wire_hover">').css('left', pos.x).css('top', pos.y).appendTo($(document.body));
       this._generateTextForTooltip();
@@ -2871,8 +2944,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Global error boundary
 window.addEventListener('error', (e) => {
-  window.prismViewer?._showStatus(`Error: ${e.error?.message || e.message}`, true);
+  (window.prismViewer as any)?._showStatus(`Error: ${e.error?.message || e.message}`, true);
 });
 window.addEventListener('unhandledrejection', (e) => {
-  window.prismViewer?._showStatus(`Error: ${e.reason?.message || e.reason}`, true);
+  (window.prismViewer as any)?._showStatus(`Error: ${e.reason?.message || e.reason}`, true);
 });

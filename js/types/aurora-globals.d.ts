@@ -44,6 +44,24 @@ interface AuroraElectronAPI {
    */
   prismCommand(cmd: Record<string, unknown>):
     Promise<{ ok: boolean, data?: unknown, error?: string } | null | undefined>;
+  /**
+   * O resto do que a pagina do PRISM usa do bridge (preload_prism.js). Varios
+   * devolvem estrutura do digitaljs ou do Yosys, que nao tem tipo publicado,
+   * e por isso sao `unknown`: quem consome ja trata como dado externo.
+   */
+  getPrismCompilationPaths(): Promise<any>;
+  generateSVGFromModule(...args: any[]): Promise<any>;
+  buildDigitalJS(...args: any[]): Promise<any>;
+  prismRecompile(...args: any[]): Promise<any>;
+  exportWave(...args: any[]): Promise<any>;
+  openSourceFile(...args: any[]): Promise<any>;
+  logToTerminal(...args: unknown[]): void;
+  onCompilationComplete(cb: (...args: unknown[]) => void): void;
+  /** Controles da janela propria do PRISM. */
+  onWindowState(cb: (estado: unknown) => void): void;
+  windowMinimize(): void;
+  windowMaximizeToggle(): void;
+  windowClose(): void;
   /** A pagina do PRISM recebe o comando que o main entregou. */
   onPrismCommand?(callback: (id: string, cmd: Record<string, unknown>) => void): void;
   /** ...e responde por aqui, com o mesmo id. */
@@ -105,6 +123,14 @@ declare global {
     t?: (chave: string, params?: Record<string, unknown>) => string;
     /** Ligada pelo compilation_flow ao Cancelar: o .exe morto reporta a morte como falha propria. */
     isCompilationCanceled?: () => boolean;
+    /** A pagina do PRISM se publica para o preload e para os testes. */
+    prismViewer?: unknown;
+    /** A tabela de traducao que a pagina do PRISM carrega antes do script. */
+    __prismI18n?: Record<string, unknown>;
+    /** Abre o fonte no editor principal; a pagina do PRISM chama ao clicar num sinal. */
+    gotosrc?: (...args: unknown[]) => void;
+    /** O digitaljs traz o jQuery junto, e a pagina do PRISM o usa por ele. */
+    jQuery?: unknown;
     /** Owned by processor_list.ts. */
     availableProcessors?: string[];
     /** Set by command_overrides.ts for non-module callers. */

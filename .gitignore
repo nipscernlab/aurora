@@ -125,6 +125,9 @@ js/wave/surfer_layout_writer.js
 js/wave/testbench_instrumenter.js
 js/wave/vcd_parser.js
 js/wave/wave_state_store.js
+# html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
+html/prism/prism.js
+
 # main/ (CommonJS, emitido por tsconfig.main.json via scripts/build-ts.js)
 main/ai/cli_manifest.js
 main/compile/binary_allowlist.js

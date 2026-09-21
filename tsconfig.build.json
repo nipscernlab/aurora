@@ -12,5 +12,9 @@
     "rootDir": ".",
     "outDir": "."
   },
-  "include": ["js/**/*.ts"]
+  // html/ entra junto porque as paginas secundarias (PRISM) tambem tem codigo
+  // proprio, e ele emite o .js ao lado pelo mesmo caminho: o <script src> da
+  // pagina continua apontando para o .js, que o Vite empacota e o Electron
+  // carrega.
+  "include": ["js/**/*.ts", "html/**/*.ts"]
 }

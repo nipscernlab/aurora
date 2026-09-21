@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * project_paths.js: leitura tolerante do `.spf` e reescrita de caminhos
+ * project_paths.ts: leitura tolerante do `.spf` e reescrita de caminhos
  * absolutos quando um projeto ou um processador e renomeado.
  *
  * Extraido de main/ipc/project.js em 08/08/2026, sem mudanca de comportamento.
@@ -14,7 +13,7 @@
  * Quem usa: main/ipc/project.js (rename de projeto e de processador).
  */
 
-const path = require('path');
+import path from 'node:path';
 
 /**
  * Le o conteudo de um `.spf` tolerando sujeira.
@@ -28,7 +27,7 @@ const path = require('path');
  * @param {string} content
  * @returns {any}
  */
-function parseSpfTolerant(content) {
+export function parseSpfTolerant(content: string): any {
   try {
     return JSON.parse(content);
   } catch (_strictErr) {
@@ -64,9 +63,11 @@ function parseSpfTolerant(content) {
  * @param {any} oldName
  * @param {any} newName
  */
-function remapProcessorPath(p, projectDir, oldName, newName) {
+export function remapProcessorPath(
+  p: string, projectDir: string, oldName: string, newName: string,
+): string {
   if (!p || typeof p !== 'string') return p;
-  const toNative = (/** @type {any} */ s) => s.replace(/\//g, path.sep);
+  const toNative = (s: string) => s.replace(/\//g, path.sep);
   const native = toNative(p);
   const oldDir = toNative(path.join(projectDir, oldName));
   const lower = native.toLowerCase();
@@ -98,7 +99,7 @@ function remapProcessorPath(p, projectDir, oldName, newName) {
  * @param {any} oldRoot
  * @param {any} newRoot
  */
-function remapRootPath(p, oldRoot, newRoot) {
+export function remapRootPath(p: string, oldRoot: string, newRoot: string): string {
   if (!p || typeof p !== 'string') return p;
   const native = p.replace(/\//g, path.sep);
   const oldN = oldRoot.replace(/\//g, path.sep);
@@ -121,7 +122,7 @@ function remapRootPath(p, oldRoot, newRoot) {
  * @param {any} oldRoot
  * @param {any} newRoot
  */
-function deepRemapPaths(obj, oldRoot, newRoot) {
+export function deepRemapPaths(obj: any, oldRoot: string, newRoot: string): any {
   if (Array.isArray(obj)) {
     for (let i = 0; i < obj.length; i++) {
       if (typeof obj[i] === 'string') obj[i] = remapRootPath(obj[i], oldRoot, newRoot);
@@ -143,7 +144,7 @@ function deepRemapPaths(obj, oldRoot, newRoot) {
 // abaixo indexam pelo id do webContents; o global continua atualizado como "o
 // mais recente" para quem nao tem janela no contexto (LSP, IA, PRISM).
 
-const state = require('../state');
+import state from '../state.js';
 
 /**
  * O `.spf` aberto NA JANELA que fez o pedido.
@@ -162,7 +163,7 @@ const state = require('../state');
  * @param {{ sender?: { id?: number } } | null} [event]
  * @returns {string | null}
  */
-function spfDaJanela(event) {
+export function spfDaJanela(event: any): string | null {
   const id = event?.sender?.id;
   if (id == null) return state.currentOpenProjectPath;
   if (state.projectPathsBySender.has(id)) {
@@ -181,7 +182,7 @@ function spfDaJanela(event) {
  * @param {{ id?: number } | null | undefined} sender
  * @returns {string | null}
  */
-function spfDoSender(sender) {
+export function spfDoSender(sender: any): string | null {
   return spfDaJanela(sender ? { sender } : null);
 }
 
@@ -191,7 +192,7 @@ function spfDoSender(sender) {
  * @param {{ sender?: any } | null} event
  * @param {string | null} spfPath
  */
-function registrarSpfDaJanela(event, spfPath) {
+export function registrarSpfDaJanela(event: any, spfPath: string | null): void {
   state.currentOpenProjectPath = spfPath;
   const sender = event?.sender;
   const id = sender?.id;
@@ -205,8 +206,3 @@ function registrarSpfDaJanela(event, spfPath) {
   }
   state.projectPathsBySender.set(id, spfPath);
 }
-
-module.exports = {
-  parseSpfTolerant, remapProcessorPath, remapRootPath, deepRemapPaths,
-  spfDaJanela, spfDoSender, registrarSpfDaJanela,
-};

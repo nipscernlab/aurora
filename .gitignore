@@ -131,6 +131,7 @@ html/prism/prism.js
 # main/ (CommonJS, emitido por tsconfig.main.json via scripts/build-ts.js)
 main/ai/cli_manifest.js
 main/compile/binary_allowlist.js
+main/ipc/project_paths.js
 main/ipc/processor_template.js
 main/compile/protected_flags.js
 

@@ -18,6 +18,7 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { execucoesAbertas } from './compilation_flow.js';
+import { nomeDoPasso as nomeDoPassoPuro } from './run_history_labels.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 const $ = (id) => document.getElementById(id);
@@ -27,32 +28,11 @@ let carregando = false;
 let redesenhar = false;
 
 /**
- * Nome legivel de uma ferramenta pelo `step` que o builder deu a ela. Os que
- * nao estao aqui saem como vieram, que e melhor do que esconder uma ferramenta
- * nova atras de um rotulo generico.
+ * A tabela mora em js/compilation/run_history_labels.ts, que e dado puro e
+ * por isso tem teste; aqui so se amarra a traducao desta tela.
  */
-const PASSOS = Object.freeze({
-  'cmm': 'runHistory.step.cmm',
-  'asm-pre': 'runHistory.step.asmPre',
-  'asm': 'runHistory.step.asm',
-  'iverilog-check': 'runHistory.step.iverilogCheck',
-  'iverilog-build': 'runHistory.step.iverilogBuild',
-  'vvp-run': 'runHistory.step.vvpRun',
-  'verilator-build': 'runHistory.step.verilatorBuild',
-  'verilator-run': 'runHistory.step.verilatorRun',
-  'verilator-json': 'runHistory.step.verilatorJson',
-  'verilator-tb-build': 'runHistory.step.verilatorTbBuild',
-  'verilator-tb-run': 'runHistory.step.verilatorTbRun',
-  'cocotb-run': 'runHistory.step.cocotbRun',
-  'fst2vcd': 'runHistory.step.fst2vcd',
-  'yosys-hierarchy': 'runHistory.step.yosysHierarchy',
-  'prism-yosys': 'runHistory.step.prismYosys',
-  'gtkwave': 'runHistory.step.gtkwave',
-});
-
 function nomeDoPasso(step) {
-  const chave = PASSOS[step];
-  return chave ? tr(chave) : String(step || '?');
+  return nomeDoPassoPuro(step, tr);
 }
 
 /** O que o usuario clicou, com o nome que a barra de status ja usa. */

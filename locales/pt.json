@@ -1238,6 +1238,8 @@
     "concurrentHint": "Duas compilações rodavam ao mesmo tempo; este passo pode ser de qualquer uma.",
     "step": {
       "cmm": "Compilador C±",
+      "cppPp": "Pre-processador C++",
+      "cpp": "Compilador C++",
       "asmPre": "Expansão de macros",
       "asm": "Montador",
       "iverilogCheck": "Checagem do Verilog (Icarus)",

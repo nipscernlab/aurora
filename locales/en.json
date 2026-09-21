@@ -1238,6 +1238,8 @@
     "concurrentHint": "Two compilations were running at once; this step could belong to either.",
     "step": {
       "cmm": "C-plus-minus compiler",
+      "cppPp": "C++ preprocessor",
+      "cpp": "C++ compiler",
       "asmPre": "Macro expansion",
       "asm": "Assembler",
       "iverilogCheck": "Verilog check (Icarus)",

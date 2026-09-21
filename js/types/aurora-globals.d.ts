@@ -83,6 +83,11 @@ interface AuroraElectronAPI {
     Promise<{ ok: boolean, erro?: string, error?: string, pagina?: string, titulo?: string, trecho?: string, versao?: string } | undefined>;
   /** O manual esta instalado nesta maquina, e em que versao. */
   docsStatus?(): Promise<unknown>;
+  /** Abre um capitulo do manual na janela propria da documentacao. */
+  docsOpenHelp?(pagina: string, opcoes?: Record<string, unknown>):
+    Promise<{ ok: boolean } | undefined>;
+  /** Abre uma URL no navegador do sistema. Recusa `file://` de proposito. */
+  openExternal?(url: string): Promise<unknown>;
   /** Cria a pasta do processador, o fonte e a entrada no .spf. */
   createProcessorProject(formData: Record<string, unknown>):
     Promise<{ success: boolean, path?: string, message?: string }>;
@@ -141,6 +146,8 @@ declare global {
     SpfStore?: unknown;
     /** Set by command_spec.ts for non-module callers. */
     CommandSpec?: unknown;
+    /** A ponte dos dialogos para quem nao e modulo. Escrita por dialog_manager.ts. */
+    AuroraUI?: Record<string, unknown>;
   }
 }
 

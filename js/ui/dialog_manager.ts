@@ -24,7 +24,30 @@
 
 import { abrirAjudaDe } from './help_link.js';
 
-const VARIANT_ICONS = {
+/** Um botao do dialogo. `action` e o que a promessa resolve ao ser apertado. */
+export interface BotaoDeDialogo {
+  label: string;
+  action: string;
+  /** Muda a cara do botao: 'primary' e o principal, 'cancel' o discreto. */
+  type?: string;
+  /** HTML de um icone a esquerda do rotulo (o relatorio de problema o usa). */
+  iconHtml?: string;
+  /** Segundos de espera: o botao nasce travado e conta ate liberar. */
+  countdown?: number;
+}
+
+/** O que `showDialog` aceita. So `title`, `message` e `buttons` sao exigidos. */
+export interface OpcoesDeDialogo {
+  title: string;
+  message: string;
+  buttons: BotaoDeDialogo[];
+  variant?: string;
+  /** Chave da tabela de ajuda (js/ui/help_link.ts). */
+  ajuda?: string;
+  lista?: string[];
+}
+
+const VARIANT_ICONS: Record<string, string> = {
     info:    'ph ph-info',
     warning: 'ph ph-warning',
     error:   'ph ph-x-circle',
@@ -37,11 +60,11 @@ const VARIANT_ICONS = {
  * @param {string} label
  * @param {number} restante
  */
-export function rotuloComContador(label, restante) {
+export function rotuloComContador(label: string, restante: number): string {
     return restante > 0 ? `${label} (${restante})` : label;
 }
 
-function inferVariant(buttons) {
+function inferVariant(buttons: any[]): string {
     if (buttons?.some(b => b.type === 'danger')) return 'warning';
     return 'info';
 }
@@ -54,7 +77,7 @@ function inferVariant(buttons) {
  *   quebrava em duas colunas espremidas e cortava o texto de cada um no meio,
  *   que foi o que apareceu no seletor de ponto de restauracao.
  */
-export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
+export function showDialog({ title, message, buttons, variant, ajuda, lista }: OpcoesDeDialogo): Promise<string> {
     return new Promise((resolve) => {
         // Replace any existing dialog
         document.querySelectorAll('.confirm-modal').forEach(el => el.remove());
@@ -69,7 +92,7 @@ export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
             // deve ignorar. Pior, o Enter procura `.save`/`.danger` e nao
             // achava nada. Aqui os dois nomes valem a mesma coisa.
             const pedido = btn.type === 'primary' ? 'save' : btn.type;
-            const safeType = ['cancel', 'save', 'dont-save', 'danger'].includes(pedido)
+            const safeType = ['cancel', 'save', 'dont-save', 'danger'].includes(pedido as string)
                 ? pedido : 'cancel';
             // `iconHtml` e opcional e vem de quem chama (hoje so o relatorio de
             // problema, que mostra a marca de cada provedor de e-mail).
@@ -77,7 +100,7 @@ export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
             // `countdown` (segundos): o botao nasce travado e conta 5, 4, 3, 2, 1
             // antes de liberar. Para acoes sem volta facil, como mandar a
             // pasta do projeto para a Lixeira: e o tempo de ler e desistir.
-            const seg = Number.isInteger(btn.countdown) && btn.countdown > 0 ? btn.countdown : 0;
+            const seg = Number.isInteger(btn.countdown) && btn.countdown! > 0 ? btn.countdown! : 0;
             const travado = seg > 0 ? ` data-countdown="${seg}" disabled` : '';
             // Botao sem `label` ja chegou a tela como a palavra "undefined",
             // duas vezes, num dialogo escrito com `text`/`value` por engano.
@@ -86,7 +109,7 @@ export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
             if (btn.label == null) {
                 console.error('[dialog] botao sem `label` (o contrato e { label, action, type }):', btn);
             }
-            const rotulo = btn.label != null ? btn.label : (btn.text != null ? btn.text : String(btn.action ?? ''));
+            const rotulo = btn.label != null ? btn.label : ((btn as any).text != null ? (btn as any).text : String(btn.action ?? ''));
             return `<button class="confirm-btn ${safeType}" data-action="${btn.action}"${travado}>${icone}<span class="confirm-btn-label">${rotuloComContador(rotulo, seg)}</span></button>`;
         }).join('');
 
@@ -96,7 +119,7 @@ export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
         modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-modal', 'true');
         modal.dataset.variant = v;
-        const tr = (k) => (window.t ? window.t(k) : k);
+        const tr = (k: string) => (window.t ? window.t(k) : k);
         const ajudaHTML = ajuda
             ? `<button type="button" class="confirm-modal-help" data-ajuda="${ajuda}" aria-label="${tr('modal.help')}" title="${tr('modal.help')}"><i class="ph ph-question" aria-hidden="true"></i></button>`
             : '';
@@ -116,8 +139,8 @@ export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
 
         // Os relogios dos botoes com contagem. Um por botao; todos morrem no
         // cleanup, para um cancelar no meio nao deixar intervalo contando.
-        const relogios = [];
-        for (const b of modal.querySelectorAll('button[data-countdown]')) {
+        const relogios: ReturnType<typeof setInterval>[] = [];
+        for (const b of modal.querySelectorAll<HTMLButtonElement>('button[data-countdown]')) {
             const rotulo = (buttons || []).find((x) => x.action === b.getAttribute('data-action'))?.label || '';
             let restante = Number(b.getAttribute('data-countdown')) || 0;
             const span = b.querySelector('.confirm-btn-label');
@@ -133,7 +156,7 @@ export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
             relogios.push(id);
         }
 
-        const cleanup = (action) => {
+        const cleanup = (action: string) => {
             for (const id of relogios) clearInterval(id);
             document.removeEventListener('keydown', onKey);
             modal.classList.remove('show');
@@ -143,28 +166,28 @@ export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
             }, 220);
         };
 
-        const onKey = (e) => {
+        const onKey = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 cleanup('cancel');
             } else if (e.key === 'Enter') {
-                const primary = modal.querySelector('.confirm-btn.save, .confirm-btn.danger');
+                const primary = modal.querySelector<HTMLButtonElement>('.confirm-btn.save, .confirm-btn.danger');
                 // Travado pela contagem, o Enter nao atravessa.
                 if (primary && !primary.disabled) {
-                    cleanup(primary.getAttribute('data-action'));
+                    cleanup(primary.getAttribute('data-action')!);
                 }
             }
         };
 
         modal.addEventListener('click', (e) => {
-            const ajudaBtn = e.target.closest('button[data-ajuda]');
+            const ajudaBtn = (e.target as HTMLElement).closest('button[data-ajuda]');
             if (ajudaBtn) {
-                abrirAjudaDe(ajudaBtn.getAttribute('data-ajuda'));
+                abrirAjudaDe(ajudaBtn.getAttribute('data-ajuda')!);
                 return;
             }
-            const btn = e.target.closest('button[data-action]');
+            const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]');
             if (btn) {
                 if (btn.disabled) return;   // ainda contando
-                cleanup(btn.getAttribute('data-action'));
+                cleanup(btn.getAttribute('data-action')!);
                 return;
             }
             // Click on backdrop
@@ -177,8 +200,8 @@ export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
         // Trigger transition
         requestAnimationFrame(() => {
             modal.classList.add('show');
-            const primary = modal.querySelector('.confirm-btn.save, .confirm-btn.danger') ||
-                            modal.querySelector('.confirm-btn');
+            const primary = modal.querySelector<HTMLElement>('.confirm-btn.save, .confirm-btn.danger') ||
+                            modal.querySelector<HTMLElement>('.confirm-btn');
             primary?.focus();
         });
     });
@@ -188,8 +211,8 @@ export function showDialog({ title, message, buttons, variant, ajuda, lista }) {
  * Convenience: simple OK alert dialog.
  *   await showAlert('Build complete', 'success');
  */
-export function showAlert(message, variant = 'info', title) {
-    const titleMap = {
+export function showAlert(message: string, variant = 'info', title?: string): Promise<string> {
+    const titleMap: Record<string, string> = {
         info: 'Notice',
         warning: 'Warning',
         error: 'Error',
@@ -203,11 +226,20 @@ export function showAlert(message, variant = 'info', title) {
     });
 }
 
+/** Os ajustes opcionais de `showConfirm`. */
+export interface OpcoesDeConfirmacao {
+  variant?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  /** Pinta o botao de confirmar como acao sem volta. */
+  danger?: boolean;
+}
+
 /**
  * Convenience: yes/no confirm dialog.
  *   const yes = await showConfirm('Delete?', 'This cannot be undone.', { variant: 'warning' });
  */
-export function showConfirm(title, message, { variant = 'info', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
+export function showConfirm(title: string, message: string, { variant = 'info', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false }: OpcoesDeConfirmacao = {}): Promise<boolean> {
     return showDialog({
         title,
         message,

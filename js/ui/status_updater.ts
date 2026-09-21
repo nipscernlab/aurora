@@ -2,18 +2,29 @@
 
 // `tr` is a thin i18n shim; `window.t` is read lazily so a render before
 // i18n boots falls back to the raw key instead of throwing.
-function tr(key, params) { return window.t ? window.t(key, params) : key; }
+function tr(key: string, params?: Record<string, unknown>): string {
+  return window.t ? window.t(key, params) : key;
+}
 
 // Resolve a compilation type to its display name via i18n. Unknown
 // types fall back to the raw `type` string so we keep the previous
 // "show what came in" default behaviour.
-function compName(type) {
+function compName(type: string): string {
     const key = `compilation.type.${type}`;
     const v = tr(key);
     return v === key ? type : v;
 }
 
 class StatusUpdater {
+  // Os campos da classe, declarados porque o TypeScript exige. `declare`
+  // para o compilador nao emitir nada: com target ES2022, campo declarado
+  // sem `declare` vira definicao no topo do construtor e muda o runtime.
+  declare statusItem: any;
+  declare isCompiling: any;
+  declare runActive: any;
+  declare resetTimer: any;
+  declare _pulsing: any;
+
     constructor() {
       // Antes: .status-item:nth-child(3), seletor obsoleto, foi quebrado
       // quando os status-items foram divididos em .status-zone-left /
@@ -58,7 +69,7 @@ class StatusUpdater {
       }
     }
 
-    _scheduleReset(ms) {
+    _scheduleReset(ms: number) {
       this._clearReset();
       this.resetTimer = setTimeout(() => this.setDefaultStatus(), ms);
     }
@@ -77,7 +88,7 @@ class StatusUpdater {
     // Mark the start of a pipeline run. Keeps the bar in a "running"
     // state until endRun/cancelRun, so per-step successes can't bounce
     // it back to the default label while later steps are still working.
-    beginRun(type) {
+    beginRun(type: string) {
       if (!this.statusItem) return;
       this.runActive = true;
       this._clearReset();
@@ -91,7 +102,7 @@ class StatusUpdater {
     // Mark the end of a pipeline run. If a step already surfaced an error
     // (which clears runActive and shows its own message), leave it alone;
     // otherwise show the overall success and schedule the reset.
-    endRun(type) {
+    endRun(type: string) {
       if (!this.runActive) return; // an error already terminated the run
       this.runActive = false;
       if (!this.statusItem) return;
@@ -113,7 +124,7 @@ class StatusUpdater {
     }
 
     // Show that compilation has started
-    startCompilation(type) {
+    startCompilation(type: string) {
       if (!this.statusItem) return;
       const name = compName(type);
       this._clearReset();
@@ -126,7 +137,7 @@ class StatusUpdater {
     }
 
     // Show successful compilation
-    compilationSuccess(type) {
+    compilationSuccess(type: string) {
       if (!this.statusItem || !this.isCompiling) return;
       // Inside a multi-step run, a step finishing is not the end, keep the
       // running state and let endRun decide. Only standalone steps reset.
@@ -140,7 +151,7 @@ class StatusUpdater {
     }
 
     // Show failed compilation
-    compilationError(type, errorMsg = '') {
+    compilationError(type: string, errorMsg = '') {
       if (!this.statusItem || !this.isCompiling) return;
       // A failed step ends the whole run.
       this.runActive = false;

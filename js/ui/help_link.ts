@@ -35,7 +35,7 @@ const BASE_ONLINE = 'https://www.nipscern.com/library/sapho/';
  * @param {string} pagina caminho relativo dentro do manual, com .html e, se for
  *   o caso, `#ancora` (o processo principal separa os dois em main/ipc/docs.js)
  */
-export async function abrirAjuda(pagina) {
+export async function abrirAjuda(pagina: string): Promise<void> {
   const r = await window.electronAPI?.docsOpenHelp?.(pagina);
   if (!r?.ok) window.electronAPI?.openExternal?.(BASE_ONLINE + pagina);
 }
@@ -46,7 +46,7 @@ export async function abrirAjuda(pagina) {
  * que o destino continue vindo daqui e nao de uma segunda copia.
  * @param {string} chave chave em AJUDAS
  */
-export function abrirAjudaDe(chave) {
+export function abrirAjudaDe(chave: string): Promise<void> {
   const pagina = AJUDAS[chave];
   if (pagina) return abrirAjuda(pagina);
   return Promise.resolve();
@@ -64,7 +64,7 @@ export function abrirAjudaDe(chave) {
  * @param {Error} erro o erro, devolvido para dar `throw comAjuda(...)`
  * @param {string} chave chave em AJUDAS
  */
-export function comAjuda(erro, chave) {
+export function comAjuda(erro: any, chave: string): any {
   if (erro && AJUDAS[chave]) erro.ajuda = chave;
   return erro;
 }
@@ -74,7 +74,7 @@ export function comAjuda(erro, chave) {
  * @param {string} id id do botao
  * @param {string} pagina caminho da pagina no manual
  */
-export function ligarAjuda(id, pagina) {
+export function ligarAjuda(id: string, pagina: string): void {
   document.getElementById(id)?.addEventListener('click', () => abrirAjuda(pagina));
 }
 
@@ -95,7 +95,7 @@ export function ligarAjuda(id, pagina) {
  * dialogo, uma linha de erro no terminal). Elas ficam aqui pelo mesmo motivo
  * que as outras: a lista de destinos e uma so.
  */
-const AJUDAS = Object.freeze({
+const AJUDAS: Record<string, string> = Object.freeze({
   /* --- botoes estaticos da janela principal (a chave e o id no index.html) --- */
   waveConfigHelp:         'verilog/ondas.html#escolher-o-que-gravar',
   processorHubHelp:       'sapho/tutorial-filtro.html#passo-2-criar-o-processador',
@@ -145,7 +145,7 @@ const ESTATICOS = Object.freeze([
 ]);
 
 /** Liga todos os botoes de ajuda estaticos da janela principal. */
-export function ligarAjudasDaJanela() {
+export function ligarAjudasDaJanela(): void {
   for (const id of ESTATICOS) ligarAjuda(id, AJUDAS[id]);
 }
 

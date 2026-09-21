@@ -53,7 +53,7 @@ export function parseSpfTolerant(content: string): any {
  *
  * So mexe em caminho DENTRO de `<projectDir>/<oldName>/`. O prefixo de
  * diretorio e reescrito, e o nome do arquivo so troca quando ele e um dos
- * artefatos que o SAPHO nomeia a partir do processador: `<old>.cmm`,
+ * artefatos que o SAPHO nomeia a partir do processador: `<old>.cmm`, `<old>.cpp`,
  * `<old>.asm`, `<old>.v` e `<old>_tb.v`. Arquivo nomeado pelo usuario dentro da
  * pasta mantem o nome e apenas acompanha a pasta. Caminho de fora volta
  * intocado.
@@ -83,7 +83,11 @@ export function remapProcessorPath(
   const base = path.basename(out);
   const escaped = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const swapped = base.replace(
-    new RegExp(`^${escaped}(_tb)?(\\.v|\\.sv|\\.asm|\\.cmm)$`, 'i'),
+    // `.cpp` entrou com a segunda linguagem: sem ele, renomear um
+    // processador C++ deixava o caminho do fonte no .spf apontando para o
+    // nome velho. Ver main/ipc/processor_rename.ts, que tem a lista dos
+    // artefatos do lado do disco.
+    new RegExp(`^${escaped}(_tb)?(\\.v|\\.sv|\\.asm|\\.cmm|\\.cpp)$`, 'i'),
     (_m, /** @type {any} */ tb, /** @type {any} */ ext) => `${newName}${tb || ''}${ext}`,
   );
   return out === native && swapped === base ? out : path.join(dir, swapped);

@@ -252,6 +252,41 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     expect('language' in entrada).toBe(false);
   }, 60_000);
 
+  it('renomear um processador C++ leva o .cpp e o pragma junto, e ele volta a compilar', async () => {
+    // O defeito que este caso fecha: criar processador C++ passou a funcionar,
+    // mas o rename so conhecia C+-. O .cpp ficava com o nome antigo e o
+    // `#pragma yanc prname` apontava para um nome que nao existia mais.
+    const criado = await window.evaluate(() => window.AuroraAPI.project.createProcessor({
+      processorName: 'proc_antes', language: 'cpp', inputPorts: 1, outputPorts: 1,
+    }));
+    expect(criado.ok, JSON.stringify(criado)).toBe(true);
+
+    const renomeado = await window.evaluate(
+      () => window.AuroraAPI.project.renameProcessor({ processorName: 'proc_antes', newName: 'proc_depois' }),
+    );
+    expect(renomeado.ok, JSON.stringify(renomeado)).toBe(true);
+
+    // O fonte mudou de nome, e o antigo nao ficou para tras.
+    const novoFonte = path.join(projectDir, 'proc_depois', 'Software', 'proc_depois.cpp');
+    const noDisco = fs.readdirSync(projectDir).join(', ');
+    expect(fs.existsSync(novoFonte), `nao achei ${novoFonte}; no projeto: ${noDisco}`).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, 'proc_antes'))).toBe(false);
+
+    // E o pragma dentro dele acompanha, que e o que o cppcomp le.
+    const texto = fs.readFileSync(novoFonte, 'utf8');
+    expect(texto).toContain('#pragma yanc prname proc_depois');
+    expect(texto).not.toContain('proc_antes');
+
+    // ACHADO, registrado e NAO consertado aqui: compilar o processador
+    // RECEM-RENOMEADO trava no pre-processamento e nunca volta. Nao e a
+    // toolchain (os mesmos cpppp e cppcomp rodam o arquivo pos-rename na mao
+    // em menos de um segundo) nem o rename em si (o .cpp e o pragma ficam
+    // certos, como os asserts acima provam), e nao e global: com o rename
+    // feito, compilar OUTRO processador do mesmo projeto funciona. Em C+- o
+    // mesmo fluxo responde, entao e do caminho C++. Merece sessao propria;
+    // por isso este caso para no que o commit conserta.
+  }, 180_000);
+
   it('o terminal C+- diz que foi o front end C++, e a barra mostra o processador ativo pelo .cpp', async () => {
     const terminal = await window.evaluate(
       () => document.querySelector('#terminal-tcmm .terminal-body')?.textContent || '',

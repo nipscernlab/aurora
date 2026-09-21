@@ -63,7 +63,10 @@ describe('remapProcessorPath', () => {
   const dir = j('C:', 'proj');
 
   it('reescreve a pasta e troca o nome dos artefatos do SAPHO', () => {
-    for (const ext of ['.cmm', '.asm', '.v', '.sv']) {
+    // `.cpp` entrou com a segunda linguagem de processador: sem ele, o
+    // caminho do fonte de um processador C++ ficava no nome antigo depois
+    // do rename, e o .spf apontava para um arquivo que nao existia mais.
+    for (const ext of ['.cmm', '.cpp', '.asm', '.v', '.sv']) {
       expect(remapProcessorPath(j(dir, 'velho', `velho${ext}`), dir, 'velho', 'novo'))
         .toBe(j(dir, 'novo', `novo${ext}`));
     }

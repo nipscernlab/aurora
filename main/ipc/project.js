@@ -30,6 +30,9 @@ const { prepararTempDoProjeto } = require('../project_temp');
 const janelas = require('../main_windows');
 const { autorizarExclusao, criarLixeiraDeProjeto, dentroDe } = require('./project_trash');
 const { processorSourceFile } = require('./processor_template');
+const {
+  artefatosDoProcessador, fontesPossiveis, reescreverNomeNoFonte,
+} = require('./processor_rename');
 
 // ---- ProjectFile schema ----
 
@@ -881,27 +884,29 @@ function register() {
       }
 
       // 2. Rename the SAPHO-managed files that carry the processor name.
-      const artifactRenames = [
-        ['Software',   `${currentName}.cmm`,   `${newNm}.cmm`],
-        ['Software',   `${currentName}.asm`,   `${newNm}.asm`],
-        ['Hardware',   `${currentName}.v`,     `${newNm}.v`],
-        ['Simulation', `${currentName}_tb.v`,  `${newNm}_tb.v`],
-      ];
-      for (const [sub, fromF, toF] of artifactRenames) {
-        if (fromF === toF) continue;
-        const fromP = path.join(newDir, sub, fromF);
-        const toP = path.join(newDir, sub, toF);
+      // A lista vem do processor_rename.ts, que conhece as duas linguagens:
+      // os fontes das duas entram, e o que nao existir no disco e pulado logo
+      // abaixo. Ver o comentario de la sobre por que nao se filtra por
+      // linguagem declarada.
+      for (const { sub, de, para } of artefatosDoProcessador(currentName, newNm)) {
+        if (de === para) continue;
+        const fromP = path.join(newDir, sub, de);
+        const toP = path.join(newDir, sub, para);
         if (await fse.pathExists(fromP)) {
           await fse.move(fromP, toP, { overwrite: true });
         }
       }
 
-      // 3. Patch the #PRNAME directive in the .cmm, directive line ONLY.
-      const cmmPath = path.join(newDir, 'Software', `${newNm}.cmm`);
-      if (await fse.pathExists(cmmPath)) {
-        const raw = await fse.readFile(cmmPath, 'utf8');
-        const patched = raw.replace(/^([ \t]*#PRNAME[ \t]+)\S+/m, `$1${newNm}`);
-        if (patched !== raw) await fse.writeFile(cmmPath, patched, 'utf8');
+      // 3. Reescreve o nome DENTRO do fonte, e so a linha da diretiva:
+      // `#PRNAME` no C+-, `#pragma yanc prname` no C++. Procura os dois
+      // arquivos porque o rename nao pergunta a linguagem a ninguem; o que
+      // existir e o que vale.
+      for (const { language, arquivo } of fontesPossiveis(newNm)) {
+        const fontePath = path.join(newDir, 'Software', arquivo);
+        if (!await fse.pathExists(fontePath)) continue;
+        const raw = await fse.readFile(fontePath, 'utf8');
+        const patched = reescreverNomeNoFonte(raw, newNm, language);
+        if (patched !== raw) await fse.writeFile(fontePath, patched, 'utf8');
       }
 
       // 4. Update the processors[] entry, preserving per-processor config.

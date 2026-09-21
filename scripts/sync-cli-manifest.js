@@ -4,7 +4,7 @@
  * drifts off the declared dependency versions.
  *
  * Background: the Claude Code / Codex native binaries are fetched at runtime
- * from main/ai/cli_manifest.js, which pins version + tarball URL + integrity
+ * from main/ai/cli_manifest.json, which pins version + tarball URL + integrity
  * hash per platform. Those values are baked in as literals because the manifest
  * runs inside the shipped app, where package-lock.json does not exist, so they
  * cannot be read at runtime and MUST be code-generated at build time.
@@ -36,7 +36,7 @@ const path = require('path');
 const REPO_ROOT = path.join(__dirname, '..');
 const PKG_PATH = path.join(REPO_ROOT, 'package.json');
 const LOCK_PATH = path.join(REPO_ROOT, 'package-lock.json');
-const MANIFEST_PATH = path.join(REPO_ROOT, 'main', 'ai', 'cli_manifest.js');
+const MANIFEST_PATH = path.join(REPO_ROOT, 'main', 'ai', 'cli_manifest.json');
 
 /** The first plain semver in a spec, strips a leading range operator (^, ~, >=, …). */
 function baseVersion(spec) {
@@ -52,7 +52,7 @@ function warnSkip(reason) {
   process.exit(0);
 }
 
-let pkg, lock, manifest;
+let pkg, lock;
 try {
   pkg = JSON.parse(fs.readFileSync(PKG_PATH, 'utf8'));
 } catch (e) {
@@ -63,11 +63,6 @@ try {
 } catch (_e) {
   warnSkip('no package-lock.json (partial checkout) — cannot resolve integrity offline');
 }
-try {
-  manifest = require('../main/ai/cli_manifest');
-} catch (e) {
-  warnSkip(`cannot load main/ai/cli_manifest.js (${e instanceof Error ? e.message : e})`);
-}
 
 if (!lock.packages) warnSkip('package-lock.json has no "packages" map (lockfile v1?)');
 
@@ -76,46 +71,50 @@ const declared = {
   ...(pkg.devDependencies || {}),
 };
 
-let src = fs.readFileSync(MANIFEST_PATH, 'utf8');
+const dados = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
 const changes = [];
 
-// --- 1. Version constants -----------------------------------------------------
-// Match every `const XXX_VERSION = '<ver>'; // <base-package>` declaration and
-// re-pin it to the version package.json declares for that base package. The
-// trailing comment tells us which dependency the constant tracks, so we never
-// hardcode the constant names here.
-src = src.replace(
-  /(const \w+_VERSION = ')([^']+)(';\s*\/\/\s*)(\S+)/g,
-  (full, prefix, oldVer, mid, basePkg) => {
-    const want = baseVersion(declared[basePkg]);
-    if (!want) {
-      console.log(`  · ${basePkg}: not in package.json dependencies — leaving version as-is`);
-      return full;
-    }
-    if (want !== oldVer) changes.push(`${basePkg}: version ${oldVer} → ${want}`);
-    return prefix + want + mid + basePkg;
+// --- 1. Versoes ---------------------------------------------------------------
+// Cada CLI do manifesto declara o pacote base que ele acompanha (`base`), e a
+// versao dele vem do que o package.json declara para esse pacote. O nome do
+// pacote esta no dado, entao nada e cravado aqui.
+for (const cli of Object.values(dados)) {
+  if (!cli || typeof cli !== 'object' || !cli.base) continue;   // ignora o _leia
+  const want = baseVersion(declared[cli.base]);
+  if (!want) {
+    console.log(`  \u00b7 ${cli.base}: not in package.json dependencies \u2014 leaving version as-is`);
+    continue;
   }
-);
+  if (want !== cli.version) {
+    changes.push(`${cli.base}: version ${cli.version} \u2192 ${want}`);
+    cli.version = want;
+  }
+}
 
-// --- 2. Per-platform integrity hashes -----------------------------------------
-// For every platform entry in the manifest, copy the resolved integrity from
-// package-lock.json (keyed by the entry's npm package name). Integrity strings
-// are unique sha512 values, so replacing the exact old string anywhere in the
-// source is unambiguous.
-for (const [kind, cli] of Object.entries(manifest.MANIFEST || {})) {
-  for (const [platKey, entry] of Object.entries(cli.platforms || {})) {
+// --- 2. Integridade por plataforma --------------------------------------------
+// Para cada entrada de plataforma, copia a integridade resolvida no
+// package-lock.json, achada pelo nome do pacote da propria entrada.
+for (const [kind, cli] of Object.entries(dados)) {
+  if (!cli || typeof cli !== 'object' || !cli.platforms) continue;
+  for (const [platKey, entry] of Object.entries(cli.platforms)) {
     const lockEntry = lock.packages[`node_modules/${entry.pkg}`];
     if (!lockEntry || !lockEntry.integrity) {
-      console.log(`  · ${kind} ${platKey} (${entry.pkg}): not in lockfile — cannot sync integrity`);
+      console.log(`  \u00b7 ${kind} ${platKey} (${entry.pkg}): not in lockfile \u2014 cannot sync integrity`);
       continue;
     }
     if (lockEntry.integrity !== entry.integrity) {
-      if (!src.includes(entry.integrity)) {
-        console.log(`  · ${kind} ${platKey}: current integrity not found verbatim in source — skipping`);
-        continue;
-      }
-      src = src.split(entry.integrity).join(lockEntry.integrity);
+      entry.integrity = lockEntry.integrity;
       changes.push(`${entry.pkg} (${platKey}): integrity refreshed`);
+    }
+    // A URL e a versao da plataforma vem do lockfile pelo mesmo caminho: sao o
+    // que o npm realmente resolveu, e e contra isso que o verificador compara.
+    if (lockEntry.resolved && lockEntry.resolved !== entry.tarball) {
+      changes.push(`${entry.pkg} (${platKey}): tarball ${entry.tarball} → ${lockEntry.resolved}`);
+      entry.tarball = lockEntry.resolved;
+    }
+    if (lockEntry.version && lockEntry.version !== entry.version) {
+      changes.push(`${entry.pkg} (${platKey}): version ${entry.version} → ${lockEntry.version}`);
+      entry.version = lockEntry.version;
     }
   }
 }
@@ -126,6 +125,6 @@ if (changes.length === 0) {
   process.exit(0);
 }
 
-fs.writeFileSync(MANIFEST_PATH, src);
+fs.writeFileSync(MANIFEST_PATH, `${JSON.stringify(dados, null, 2)}\n`);
 console.log('  OK  cli manifest synced from package.json + package-lock.json:');
 for (const c of changes) console.log(`      - ${c}`);

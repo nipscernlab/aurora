@@ -18,6 +18,10 @@
     "removeComments": false,
     "noEmit": true,
     "allowJs": true,
+    // O manifesto dos CLIs de IA e dado, nao codigo: main/ai/cli_manifest.ts
+    // importa o .json ao lado para que os scripts pre-build possam ler os
+    // mesmos dados sem depender do .js emitido.
+    "resolveJsonModule": true,
     "checkJs": false
   },
   "include": [

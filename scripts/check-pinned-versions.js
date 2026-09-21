@@ -105,7 +105,7 @@ for (const { name, version } of passed) {
 
 // --- B12: on-demand AI CLI manifest must track the declared base versions ----
 // The Claude Code / Codex native binaries are no longer bundled, they're
-// fetched at runtime from a pinned manifest (main/ai/cli_manifest.js). Its
+// fetched at runtime from a pinned manifest (main/ai/cli_manifest.json). Its
 // versions MUST match the package.json dependency versions, or the app would
 // declare one version and download another (with a stale integrity hash).
 function baseVersion(spec) {
@@ -115,17 +115,19 @@ function baseVersion(spec) {
   return m ? m[0] : null;
 }
 
+// Le o JSON, e nao o modulo: este verificador roda logo depois do `npm ci`,
+// antes de existir qualquer .js emitido do cli_manifest.ts.
 let manifest;
 try {
-  manifest = require('../main/ai/cli_manifest');
+  manifest = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'main', 'ai', 'cli_manifest.json'), 'utf8'));
 } catch (e) {
-  fail([`could not load main/ai/cli_manifest.js: ${e instanceof Error ? e.message : e}`]);
+  fail([`could not load main/ai/cli_manifest.json: ${e instanceof Error ? e.message : e}`]);
 }
 
-const cliChecks = [
-  { label: '@anthropic-ai/claude-code', manifestVer: manifest.CLAUDE_VERSION, declared: allDeclared['@anthropic-ai/claude-code'] },
-  { label: '@openai/codex', manifestVer: manifest.CODEX_VERSION, declared: allDeclared['@openai/codex'] },
-];
+// Cada CLI diz qual pacote base acompanha, entao a lista sai do proprio dado.
+const cliChecks = Object.values(manifest)
+  .filter((cli) => cli && typeof cli === 'object' && cli.base)
+  .map((cli) => ({ label: cli.base, manifestVer: cli.version, declared: allDeclared[cli.base] }));
 
 const manifestFailures = [];
 for (const { label, manifestVer, declared } of cliChecks) {
@@ -143,9 +145,8 @@ if (manifestFailures.length > 0) {
   fail([
     ...manifestFailures,
     '',
-    'Fix: bump the version in main/ai/cli_manifest.js to match package.json,',
-    'then refresh the tarball URL + integrity from the npm registry:',
-    '  npm view <platform-pkg>@<ver> dist.integrity dist.tarball',
+    'Fix: run `node scripts/sync-cli-manifest.js`, which rewrites',
+    'main/ai/cli_manifest.json from package.json + package-lock.json.',
   ]);
 }
 
@@ -166,7 +167,7 @@ if (lock && lock.packages) {
   const integrityFailures = [];
   let checked = 0;
   for (const kind of ['claude', 'codex']) {
-    const cli = manifest.MANIFEST[kind];
+    const cli = manifest[kind];
     if (!cli) continue;
     for (const [pkey, entry] of Object.entries(cli.platforms)) {
       const lockEntry = lock.packages[`node_modules/${entry.pkg}`];
@@ -186,7 +187,7 @@ if (lock && lock.packages) {
       '',
       'The on-demand CLI manifest drifted from package-lock.json. After bumping a',
       'CLI dep, copy its integrity + resolved URL from package-lock.json into',
-      'main/ai/cli_manifest.js.',
+      'main/ai/cli_manifest.json.',
     ]);
   }
   if (checked > 0) console.log(`  OK  cli manifest integrity matches package-lock.json (${checked} pkg)`);
@@ -206,7 +207,7 @@ if (lock && lock.packages) {
   const layoutFailures = [];
   let checked = 0;
   for (const kind of ['claude', 'codex']) {
-    const cli = manifest.MANIFEST[kind];
+    const cli = manifest[kind];
     if (!cli) continue;
     for (const [pkey, entry] of Object.entries(cli.platforms)) {
       const pkgDir = path.join(REPO_ROOT, 'node_modules', entry.pkg);

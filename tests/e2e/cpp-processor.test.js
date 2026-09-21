@@ -227,9 +227,26 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     expect(entrada).toBeDefined();
     expect(entrada.language).toBe('cpp');
 
-    // E o processador recem-criado compila, sem nada em foco no editor.
+    // O processador recem-criado NAO compila ate o fim, e esta e a regra:
+    // o template e um esqueleto de main vazio, e o appcomp recusa com "esse
+    // processador nao serve pra nada". O que se afirma aqui e que o passo
+    // ACEITA o processador novo e vai ate o cppcomp, que e o front end da
+    // linguagem; o Verilog depende de a pessoa escrever o programa, e o caso
+    // do rename, mais abaixo, cobre o caminho completo.
+    // Com o .cpp em foco o alvo e este: o projeto ja tem dois processadores, e
+    // sem foco o fluxo cai no fallback, que so decide quando ha um so.
+    await window.evaluate(async (f) => {
+      const texto = await window.electronAPI.readFile(f, { encoding: 'utf8' });
+      await window.TabManager.addTab(f, texto);
+    }, fonte);
     const compilado = await window.evaluate(() => window.AuroraAPI.compile.compileStep('cpp'));
     expect(compilado.ok, JSON.stringify(compilado)).toBe(true);
+    const asmNovo = path.join(projectDir, 'proc_novo', 'Software', 'proc_novo.asm');
+    const ate = Date.now() + 60_000;
+    while (!fs.existsSync(asmNovo) && Date.now() < ate) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    expect(fs.existsSync(asmNovo), 'o cppcomp devia ter produzido o .asm').toBe(true);
   }, 180_000);
 
   it('criar em C+- continua escrevendo o .cmm e NAO grava linguagem no .spf', async () => {
@@ -277,14 +294,59 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     expect(texto).toContain('#pragma yanc prname proc_depois');
     expect(texto).not.toContain('proc_antes');
 
-    // ACHADO, registrado e NAO consertado aqui: compilar o processador
-    // RECEM-RENOMEADO trava no pre-processamento e nunca volta. Nao e a
-    // toolchain (os mesmos cpppp e cppcomp rodam o arquivo pos-rename na mao
-    // em menos de um segundo) nem o rename em si (o .cpp e o pragma ficam
-    // certos, como os asserts acima provam), e nao e global: com o rename
-    // feito, compilar OUTRO processador do mesmo projeto funciona. Em C+- o
-    // mesmo fluxo responde, entao e do caminho C++. Merece sessao propria;
-    // por isso este caso para no que o commit conserta.
+    // Um processador recem-criado NAO compila ate o Verilog, e isso e o
+    // certo: o template e um esqueleto com main vazio, e o appcomp recusa com
+    // "esse processador nao serve pra nada". O C+- recusa o mesmo esqueleto,
+    // so que reportando erro de sintaxe. Entao o teste escreve um programa de
+    // verdade antes de pedir a compilacao; do contrario estaria esperando um
+    // .v que nunca viria, e foi exatamente esse engano que fez o passo
+    // parecer travado numa versao anterior deste arquivo.
+    fs.writeFileSync(novoFonte, [
+      '#pragma yanc prname proc_depois',
+      '#pragma yanc nuioin 1',
+      '#pragma yanc nuioou 1',
+      '',
+      'void main(void)',
+      '{',
+      '    int a = 3;',
+      '    out(0, a + 1);',
+      '}',
+      '',
+    ].join('\n'));
+
+    // O renderer so compila um processador que ele conhece, e a lista dele vem
+    // do main pelo IPC `project:processors`, que o rename dispara. Esperar
+    // aqui nao e cerimonia: e o mesmo intervalo que a interface leva para se
+    // atualizar depois de um rename.
+    await window.waitForFunction(
+      () => (window.availableProcessors || [])
+        .map((p) => (typeof p === 'string' ? p : p && p.name))
+        .includes('proc_depois'),
+      null, { timeout: 15_000 },
+    );
+
+    // Com o .cpp em foco o alvo e este, e nao o que o fallback escolheria: a
+    // esta altura o projeto ja tem varios processadores.
+    await window.evaluate(async (fonte) => {
+      const texto = await window.electronAPI.readFile(fonte, { encoding: 'utf8' });
+      await window.TabManager.addTab(fonte, texto);
+    }, novoFonte);
+
+    const compilado = await window.evaluate(() => window.AuroraAPI.compile.compileStep('cpp'));
+    expect(compilado.ok, JSON.stringify(compilado)).toBe(true);
+
+    // O compileStep devolve quando o passo e DISPARADO, nao quando termina: os
+    // erros vao para o terminal. Quem espera de verdade e o disco.
+    const gerado = path.join(projectDir, 'proc_depois', 'Hardware', 'proc_depois.v');
+    const limite = Date.now() + 90_000;
+    while (!fs.existsSync(gerado) && Date.now() < limite) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    const terminalAsm = await window.evaluate(
+      () => document.querySelector('#terminal-tasm .terminal-body')?.textContent?.slice(-500) || '',
+    );
+    expect(fs.existsSync(gerado), `terminal ASM: ${terminalAsm}`).toBe(true);
+    expect(fs.readFileSync(gerado, 'utf8')).toMatch(/module\s+proc_depois\b/);
   }, 180_000);
 
   it('o terminal C+- diz que foi o front end C++, e a barra mostra o processador ativo pelo .cpp', async () => {

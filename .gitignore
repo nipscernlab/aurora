@@ -112,6 +112,8 @@ js/compilation/builders/vvp.js
 js/compilation/builders/wave_tools.js
 js/compilation/builders/yosys.js
 js/editor/document_type_detector.js
+js/editor/editor_language.js
+js/editor/empty_placeholder.js
 js/processors/processor_hub.js
 js/ui/dialog_manager.js
 js/ui/help_link.js

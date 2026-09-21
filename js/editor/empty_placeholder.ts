@@ -1,5 +1,5 @@
 /**
- * empty_placeholder.js: a dica "// New Verilog file" num arquivo vazio.
+ * empty_placeholder.ts: a dica "// New Verilog file" num arquivo vazio.
  *
  * Vale para QUALQUER arquivo, nao so os de Verilog: a regra e "arquivo vazio
  * mostra a dica", sem lista de convidados. O que muda por linguagem e a forma,
@@ -24,6 +24,8 @@
  * escreveu, e so isso.
  */
 
+import { languageFromPath } from './editor_language.js';
+
 /**
  * A dica de cada linguagem: como se abre um comentario nela, como se fecha (se
  * precisar) e o nome que aparece no meio.
@@ -34,7 +36,7 @@
  * o de bloco; onde nao ha comentario nenhum (JSON), a dica vai sem marcador,
  * porque um JSON com `//` nao e um JSON valido nem de mentira.
  */
-const POR_LINGUAGEM = new Map([
+const POR_LINGUAGEM = new Map<string, [string, string, string]>([
   ['verilog', ['//', '', 'Verilog']],
   ['systemverilog', ['//', '', 'SystemVerilog']],
   ['cmm', ['//', '', 'C\u00b1']],
@@ -52,19 +54,7 @@ const POR_LINGUAGEM = new Map([
   ['plaintext', ['', '', '']],
 ]);
 
-/** A extensao vira linguagem do mesmo jeito que em EditorManager.getLanguageFromPath. */
-const POR_EXTENSAO = new Map([
-  ['v', 'verilog'], ['vh', 'verilog'],
-  ['sv', 'systemverilog'], ['svh', 'systemverilog'],
-  ['cmm', 'cmm'], ['asm', 'asm'],
-  ['c', 'c'], ['h', 'c'],
-  ['cpp', 'cpp'], ['cc', 'cpp'], ['cxx', 'cpp'], ['hpp', 'cpp'], ['hh', 'cpp'], ['hxx', 'cpp'],
-  ['js', 'javascript'], ['jsx', 'javascript'],
-  ['ts', 'typescript'], ['tsx', 'typescript'],
-  ['py', 'python'], ['m', 'matlab'],
-  ['css', 'css'], ['html', 'html'], ['md', 'markdown'],
-  ['json', 'json'], ['spf', 'json'],
-]);
+
 
 /**
  * O texto da dica para um caminho.
@@ -81,10 +71,9 @@ const POR_EXTENSAO = new Map([
  * @param {string} [languageId]
  * @returns {string}
  */
-export function placeholderTextFor(filePath, languageId) {
-  const ext = String(filePath || '').split('.').pop().toLowerCase();
-  const lang = languageId || POR_EXTENSAO.get(ext) || 'plaintext';
-  const [abre, fecha, nome] = POR_LINGUAGEM.get(lang) || POR_LINGUAGEM.get('plaintext');
+export function placeholderTextFor(filePath: unknown, languageId?: string | null): string {
+  const lang = languageId || languageFromPath(filePath);
+  const [abre, fecha, nome] = POR_LINGUAGEM.get(lang) || POR_LINGUAGEM.get('plaintext')!;
   const miolo = nome ? `New ${nome} file` : 'Empty file';
   return abre ? `${abre} ${miolo}${fecha}` : miolo;
 }
@@ -100,7 +89,7 @@ export function placeholderTextFor(filePath, languageId) {
  * @param {import('monaco-editor').editor.IStandaloneCodeEditor} editor
  * @param {string} filePath
  */
-export function installEmptyPlaceholder(editor, filePath) {
+export function installEmptyPlaceholder(editor: any, filePath: string): void {
   if (!editor || typeof editor.addContentWidget !== 'function') return;
 
   const node = document.createElement('div');

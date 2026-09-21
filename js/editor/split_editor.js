@@ -13,6 +13,7 @@ import { SharedModelRegistry } from './shared_models.js';
 import { attachAiSelectionWidget } from './ai_selection_widget.js';
 import { installEmptyPlaceholder } from './empty_placeholder.js';
 import { renderMarkdown, highlightCodeBlocks, linkifyFileRefs } from '../ai/chat_render.js';
+import { languageFromPath } from './editor_language.js';
 
 const MIN_PANE_WIDTH = 120;
 
@@ -626,16 +627,16 @@ class SplitPane {
         this._activateFile(lastPath);
     }
 
+    /**
+     * A mesma tabela do editor principal (js/editor/editor_language.ts).
+     *
+     * Aqui a copia propria custava caro: o Monaco grava a linguagem NO MODELO
+     * quando ele nasce, e o modelo e compartilhado entre os paineis, entao
+     * abrir um .hpp por um painel dividido o deixava em texto puro tambem no
+     * editor principal, ate o modelo morrer.
+     */
     _langFromPath(filePath) {
-        const ext = filePath.split('.').pop().toLowerCase();
-        const map = {
-            v: 'verilog', sv: 'systemverilog', vh: 'verilog',
-            js: 'javascript', ts: 'typescript', py: 'python',
-            c: 'c', cpp: 'cpp', h: 'c', json: 'json',
-            md: 'markdown', txt: 'plaintext', asm: 'asm', cmm: 'cmm', spf: 'json',
-            css: 'css', html: 'html', xml: 'xml', yaml: 'yaml', yml: 'yaml',
-        };
-        return map[ext] || 'plaintext';
+        return languageFromPath(filePath);
     }
 
     setDimmed(dimmed) {

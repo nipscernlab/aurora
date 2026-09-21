@@ -136,6 +136,8 @@ declare global {
     gotosrc?: (...args: unknown[]) => void;
     /** O digitaljs traz o jQuery junto, e a pagina do PRISM o usa por ele. */
     jQuery?: unknown;
+    /** O Monaco, carregado pelo loader da AMD antes dos modulos do editor. */
+    monaco?: any;
     /** Owned by processor_list.ts. */
     availableProcessors?: string[];
     /** Set by command_overrides.ts for non-module callers. */

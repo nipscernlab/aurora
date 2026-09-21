@@ -13,6 +13,7 @@ import { initSlang } from './slang_integration.js';
 import { initTreeSitter } from './treesitter_highlight.js';
 import { registrarSnippetsDirac } from './dirac_snippets.js';
 import { installEmptyPlaceholder } from './empty_placeholder.js';
+import { languageFromPath } from './editor_language.js';
 
 class EditorManager {
     static editors = new Map();
@@ -750,36 +751,14 @@ class EditorManager {
         });
     }
 
+    /**
+     * A tabela mora em js/editor/editor_language.ts, junto com a do painel
+     * dividido e a da dica de arquivo vazio, que eram tres copias a mao.
+     * Este metodo continua existindo porque e a superficie publica: o
+     * file_history chama `window.EditorManager.getLanguageFromPath`.
+     */
     static getLanguageFromPath(filePath) {
-        const extension = filePath.split('.').pop().toLowerCase();
-        const languageMap = {
-            'js': 'javascript',
-            'jsx': 'javascript',
-            'ts': 'typescript',
-            'tsx': 'typescript',
-            'html': 'html',
-            'css': 'css',
-            'json': 'json',
-            'md': 'markdown',
-            'py': 'python',
-            'c': 'c',
-            'cpp': 'cpp',
-            'cc': 'cpp',
-            'cxx': 'cpp',
-            'h': 'c',
-            'hpp': 'cpp',
-            'hh': 'cpp',
-            'hxx': 'cpp',
-            'cmm': 'cmm',
-            'asm': 'asm',
-            'm': 'matlab',
-            'v': 'verilog',
-            'vh': 'verilog',
-            'sv': 'systemverilog',
-            'svh': 'systemverilog',
-            'spf': 'json'   // project file is JSON — gets keys/strings/numbers + folding for free
-        };
-        return languageMap[extension] || 'plaintext';
+        return languageFromPath(filePath);
     }
 
     static setActiveEditor(filePath) {

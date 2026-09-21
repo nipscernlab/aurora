@@ -118,7 +118,7 @@ export default defineConfig([
     // a few `window.*` references inside page.evaluate() callbacks where
     // the body actually runs in the renderer. Mark `window` readonly so
     // those callbacks lint clean without weakening renderer rules.
-    files: ["tests/e2e/**/*.{js,mjs}"],
+    files: ["tests/e2e/**/*.{js,mjs,cjs}"],
     languageOptions: {
       sourceType: "module",
       globals: { ...globals.node, window: "readonly", document: "readonly" },

@@ -3344,6 +3344,26 @@ const NAMESPACES = Object.freeze({
     askAboutSelection: 'Open the chat seeded with a selected code snippet (Explain/Fix/Improve/Comment)',
     runInBackground:   'Run a compile task in the background; the assistant auto-reports when it finishes',
   },
+  // O `git` mora em ./git_ns.js, mas descrever-se e obrigacao de quem entra na
+  // superficie: o commit que criou o namespace (e5c9a244) o expos como `git:` e
+  // esqueceu esta entrada, entao a schema(), que se anuncia como a superficie
+  // INTEIRA, omitia quatorze metodos. Quem achou foi o api-surface.test.js.
+  git: {
+    status:       'Working tree status: branch, ahead/behind, staged and unstaged files',
+    log:          'Recent commits, newest first: hash, subject, author and date',
+    branches:     'Local and remote branches, and which one is checked out',
+    diff:         'Diff of one file or of the whole tree, staged or unstaged',
+    stage:        'Stage files (add to the index)',
+    unstage:      'Unstage files, keeping the changes',
+    discard:      'Throw away the uncommitted changes of files',
+    commit:       'Commit what is staged, optionally amending the last one',
+    createBranch: 'Create a branch from HEAD and switch to it',
+    switchBranch: 'Check out an existing branch',
+    fetch:        'Fetch from the remote, without touching the working tree',
+    pull:         'Pull from the remote (fetch + merge, with autostash)',
+    push:         'Push the current branch to the remote',
+    stash:        'Stash the uncommitted changes, including untracked files',
+  },
   events: {
     on:   'Subscribe to a bus event; returns an unsubscribe fn',
     off:  'Unsubscribe a handler',

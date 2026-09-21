@@ -23,6 +23,14 @@
 'use strict';
 
 const promptCache = require('./prompt_cache');
+// As duas listas moram em js/compilation/api_steps.ts, que e de onde o
+// compileStep da API e o bloco de regras da IA tambem as leem.
+const { IDS_DE_TERMINAL, PASSOS_DA_API, TERMINAIS } = require('../../js/compilation/api_steps.js');
+
+/** `tcmm — front end da linguagem; tasm — montador; ...` */
+function descricaoDosTerminais() {
+  return 'One of: ' + Object.entries(TERMINAIS).map(([id, oQue]) => `${id} (${oQue})`).join(', ');
+}
 
 // `ai` is loaded defensively so a broken install does not crash the main
 // process at module load. buildTools (which is the only function that
@@ -82,7 +90,7 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        terminalId: { type: 'string', description: 'One of: tcmm, tasm, tveri, twave, tprism' },
+        terminalId: { type: 'string', enum: [...IDS_DE_TERMINAL], description: descricaoDosTerminais() },
       },
     },
   },
@@ -413,7 +421,7 @@ const TOOL_MANIFEST = [
       type: 'object',
       properties: {
         task: { type: 'string', enum: ['compile_all', 'compile_step'], description: 'Short description of what is running, shown to the user in the status bar.' },
-        step: { type: 'string', enum: ['cmm', 'cpp', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'], description: 'Required when task is compile_step' },
+        step: { type: 'string', enum: [...PASSOS_DA_API], description: 'Required when task is compile_step' },
         note: { type: 'string', description: 'Short description of the goal, echoed back to you on completion' },
       },
       required: ['task'],
@@ -439,7 +447,7 @@ const TOOL_MANIFEST = [
     argNames: ['step'],
     inputSchema: {
       type: 'object',
-      properties: { step: { type: 'string', enum: ['cmm', 'cpp', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'], description: 'Which pipeline step to run. Call list_compile_steps for the valid ids.' } },
+      properties: { step: { type: 'string', enum: [...PASSOS_DA_API], description: 'Which pipeline step to run. Call list_compile_steps for the valid ids.' } },
       required: ['step'],
     },
   },

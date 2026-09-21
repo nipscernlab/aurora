@@ -46,6 +46,7 @@ const auroraMcp = require('./aurora_mcp_server');
 const attachments = require('./attachments');
 const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } = require('./timeouts');
 const { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } = require('./retry');
+const { REGRAS_CODEX } = require('./mcp_tool_rules');
 
 // ---------------------------------------------------------------------------
 //  SDK loading (ESM-only package, dynamic import from CJS, memoized)
@@ -67,45 +68,7 @@ function loadSdk() {
 //  Constants (kept in sync with codex_cli.js, see module header)
 // ---------------------------------------------------------------------------
 
-const MCP_TOOL_RULES = [
-  'You are running inside the Aurora IDE. Aurora exposes its own IDE and',
-  'compiler tools through an MCP server registered as "aurora"; they appear',
-  'to you as `mcp__aurora__<name>`. For every Aurora-specific action you',
-  'MUST use these tools — do NOT run shell commands for them.',
-  '',
-  'Compilation & simulation — NEVER invoke any YANC binary (cmmcomp, cppcomp,',
-  'cpppp, appcomp, asmcomp), nor yanc, iverilog, vvp, verilator or gtkwave',
-  'from a shell command. Use:',
-  '  - mcp__aurora__compile_all — full pipeline (CMM, ASM, Verilog, wave, PRISM)',
-  '  - mcp__aurora__compile_step({step:"cmm"|"cpp"|"verilog"|"wave"|"prism"}) — one',
-  '    step; "wave" opens GTKWave, "prism" opens the PRISM RTL viewer',
-  '  - mcp__aurora__cancel_compilation',
-  '',
-  'Reading compiler results — Aurora streams every compiler into its own',
-  'terminal panels; read those instead of capturing shell output:',
-  '  - mcp__aurora__get_terminal_output({terminalId:"tcmm"|"tasm"|"tveri"|"twave"|"tprism"})',
-  '  - mcp__aurora__read_all_terminals',
-  '',
-  'Project, files & processors:',
-  '  - mcp__aurora__get_project_tree, read_file, create_file, refresh_file_tree',
-  '  - mcp__aurora__set_top_level, set_testbench_top',
-  '  - mcp__aurora__list_processors, get_processor_config, set_processor_config',
-  '',
-  'Waveforms:',
-  '  - mcp__aurora__list_wave_signals, select_wave_signals, open_wave_config',
-  '  - mcp__aurora__list_gtkw_files, add_gtkw_file, set_active_gtkw_file',
-  '',
-  'Asking the user — you have NO way to prompt a human directly in this',
-  'non-interactive mode. Whenever you need a decision, clarification or a',
-  'choice between options, call mcp__aurora__ask_user_question — it renders',
-  'an interactive card in the IDE and returns the selected answer. Never',
-  'guess when you could ask.',
-  '',
-  'The shell tool exists only for incidental, read-only inspection. Any time',
-  'a task touches SAPHO compilation, the project tree, processors or',
-  'waveforms, the matching mcp__aurora__* tool is mandatory — never the',
-  'shell, never raw filesystem writes.',
-].join('\n');
+const MCP_TOOL_RULES = REGRAS_CODEX;
 
 const INACTIVITY_MS = CLI_INACTIVITY_MS; // shared table — see timeouts.js
 const VALID_EFFORT = new Set(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']);

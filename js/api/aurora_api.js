@@ -72,6 +72,7 @@ import { memorySlug } from '../ai/memory.js';
 // O cabecalho de hardware que o fonte declara, nas duas linguagens. Era um
 // laco solto aqui dentro, gemeo de outro no main/ipc/project.js, e nenhum dos
 // dois entendia C++. Ver js/compilation/processor_header.ts.
+import { ehPassoDaApi } from '../compilation/api_steps.js';
 import { parseProcessorHeader } from '../compilation/processor_header.js';
 import { resolveProcessorSource } from '../compilation/processor_source.js';
 
@@ -1962,7 +1963,7 @@ const compileNs = {
     if (!cf) return err('compilation flow not initialised');
     // 'cpp' e o mesmo passo de fonte que 'cmm'; o despacho por linguagem
     // (processor_dispatch.ts) escolhe o front end pelo fonte em foco.
-    if (!['cmm', 'cpp', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'].includes(step)) {
+    if (!ehPassoDaApi(step)) {
       return err(`unknown compile step: ${step}`);
     }
     emit('compile:started', { scope: step });

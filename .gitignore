@@ -91,6 +91,7 @@ js/compilation/compilation_helpers.js
 js/compilation/command_spec.js
 js/compilation/command_overrides.js
 js/compilation/processor_compiler.js
+js/compilation/api_steps.js
 js/compilation/processor_header.js
 js/compilation/run_history_labels.js
 js/compilation/processor_dispatch.js
@@ -140,6 +141,7 @@ html/prism/prism.js
 
 # main/ (CommonJS, emitido por tsconfig.main.json via scripts/build-ts.js)
 main/ai/cli_manifest.js
+main/ai/mcp_tool_rules.js
 main/compile/binary_allowlist.js
 main/ipc/processor_rename.js
 main/ipc/project_paths.js

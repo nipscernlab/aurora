@@ -2,13 +2,13 @@
   "_leia": "Dados do manifesto dos CLIs de IA baixados sob demanda. Reescrito por scripts/sync-cli-manifest.js a partir de package.json e package-lock.json, e conferido por scripts/check-pinned-versions.js. A logica que consome isto, e o que cada campo significa, esta em main/ai/cli_manifest.ts. Nao edite a mao: rode npm i <pacote>@<versao> e depois node scripts/sync-cli-manifest.js.",
   "claude": {
     "base": "@anthropic-ai/claude-code",
-    "version": "2.1.273",
+    "version": "2.1.274",
     "platforms": {
       "win32:x64": {
         "pkg": "@anthropic-ai/claude-code-win32-x64",
-        "version": "2.1.273",
-        "tarball": "https://registry.npmjs.org/@anthropic-ai/claude-code-win32-x64/-/claude-code-win32-x64-2.1.273.tgz",
-        "integrity": "sha512-1NmQNk18bb58Ud6Z0ob5KxJRixDBzUifry3KXpHnKFxG0Df5h9ko6MlvRNuL+6ROmmgycLhYRl5jBZqwc0USQw==",
+        "version": "2.1.274",
+        "tarball": "https://registry.npmjs.org/@anthropic-ai/claude-code-win32-x64/-/claude-code-win32-x64-2.1.274.tgz",
+        "integrity": "sha512-D/OLuM2LsRnjTNwFP1LMYqdCa/q6RI1dzaKXCU57NXFOrldkWN9mTdpYxOyo9bl/sR3rHeJ1+ETWQX5DeQlcig==",
         "exe": "claude.exe",
         "rg": null
       }

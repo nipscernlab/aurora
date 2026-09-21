@@ -37,6 +37,34 @@ interface AuroraElectronAPI {
   copyAnyPath(src: string, dest: string, opts?: { overwrite?: boolean }):
     Promise<{ success: boolean; code?: string; error?: string; path?: string }>;
   getComponentsPath(): Promise<string>;
+  /**
+   * Manda um comando para a pagina do PRISM (a simulacao logica interativa).
+   * Este e o lado de QUEM PEDE, o renderer principal; os dois abaixo sao o
+   * lado de quem executa, a propria pagina do PRISM (preload_prism.js).
+   */
+  prismCommand(cmd: Record<string, unknown>):
+    Promise<{ ok: boolean, data?: unknown, error?: string } | null | undefined>;
+  /** A pagina do PRISM recebe o comando que o main entregou. */
+  onPrismCommand?(callback: (id: string, cmd: Record<string, unknown>) => void): void;
+  /** ...e responde por aqui, com o mesmo id. */
+  replyPrismCommand?(id: string, result: unknown): void;
+  /** O catalogo dos projetos de exemplo. */
+  exemplosListar?(): Promise<{ ok: boolean, exemplos?: unknown[] } | undefined>;
+  /** Cria os projetos de exemplo numa pasta que o usuario escolhe. */
+  exemplosInstalar?(): Promise<{
+    ok: boolean, cancelado?: boolean, pasta?: string, criados?: unknown[], pulados?: unknown[],
+  } | undefined>;
+  /** Procura no manual do SAPHO e devolve as paginas mais proximas. */
+  docsBuscar?(query: string, options?: Record<string, unknown>):
+    Promise<{ ok: boolean, resultados?: unknown[], total?: number, online?: boolean } | undefined>;
+  /** Le uma pagina do manual. */
+  docsLer?(pagePath: string, options?: Record<string, unknown>):
+    Promise<{ ok: boolean, caminho?: string, titulo?: string, texto?: string, truncado?: boolean } | undefined>;
+  /** Confere uma citacao do manual contra o arquivo em disco. */
+  docsCitar?(pagePath: string, locator: string):
+    Promise<{ ok: boolean, erro?: string, error?: string, pagina?: string, titulo?: string, trecho?: string, versao?: string } | undefined>;
+  /** O manual esta instalado nesta maquina, e em que versao. */
+  docsStatus?(): Promise<unknown>;
   /** Cria a pasta do processador, o fonte e a entrada no .spf. */
   createProcessorProject(formData: Record<string, unknown>):
     Promise<{ success: boolean, path?: string, message?: string }>;

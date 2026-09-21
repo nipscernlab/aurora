@@ -1,5 +1,5 @@
 /**
- * api_core.js: o envelope de resposta e o barramento de eventos da AuroraAPI.
+ * api_core.ts: o envelope de resposta e o barramento de eventos da AuroraAPI.
  *
  * Extraido de js/api/aurora_api.js em 08/08/2026, sem mudanca de comportamento.
  *
@@ -12,7 +12,15 @@
  * Este modulo nao importa nada. E isso que o torna testavel e que faz dele o
  * lugar certo para o nucleo: toda resposta das ferramentas chamaveis pela IA
  * sai por `ok` ou `err`, e o modelo decide o proximo passo lendo esse formato.
+ *
+ * Compilado por `tsc` (npm run build:ts) num api_core.js ao lado, e esse .js
+ * que o runtime carrega; os imports usam a extensao `.js`.
  */
+
+/** O envelope de toda resposta da AuroraAPI. */
+export type RespostaOk<T = unknown> = { ok: true, data: T };
+export type RespostaErro = { ok: false, error: { message: string, code: string | null } };
+export type Resposta<T = unknown> = RespostaOk<T> | RespostaErro;
 
 /**
  * Resposta de sucesso.
@@ -22,7 +30,7 @@
  * modelo. Valor falso que NAO e undefined e preservado, porque `false`, `0` e
  * `''` sao respostas legitimas de ferramenta.
  */
-export function ok(data) {
+export function ok<T = unknown>(data?: T): RespostaOk<T | null> {
   return { ok: true, data: data === undefined ? null : data };
 }
 
@@ -31,28 +39,29 @@ export function ok(data) {
  * ao JSON do IPC, e o codigo ausente vira null em vez de undefined pelo mesmo
  * motivo do `ok`.
  */
-export function err(message, code) {
+export function err(message?: unknown, code?: string | null): RespostaErro {
   return {
     ok: false,
     error: { message: String(message || 'Unknown error'), code: code || null },
   };
 }
 
-/** @type {Map<string, Set<Function>>} */
-const listeners = new Map();
+type Ouvinte = (payload?: unknown) => void;
+
+const listeners = new Map<string, Set<Ouvinte>>();
 
 /**
  * Assina um evento. Devolve a funcao que cancela a assinatura, de modo que quem
  * assina nao precise guardar a referencia para desassinar depois.
  */
-export function on(event, fn) {
+export function on(event: string, fn: Ouvinte): () => void {
   if (typeof fn !== 'function') return () => {};
   if (!listeners.has(event)) listeners.set(event, new Set());
-  listeners.get(event).add(fn);
+  listeners.get(event)?.add(fn);
   return () => off(event, fn);
 }
 
-export function off(event, fn) {
+export function off(event: string, fn: Ouvinte): void {
   listeners.get(event)?.delete(fn);
 }
 
@@ -60,7 +69,7 @@ export function off(event, fn) {
  * Publica um evento. Ouvinte que lanca e registrado e ignorado: um painel com
  * defeito nao pode calar os eventos do resto da IDE.
  */
-export function emit(event, payload) {
+export function emit(event: string, payload?: unknown): void {
   const subs = listeners.get(event);
   if (!subs) return;
   for (const fn of subs) {

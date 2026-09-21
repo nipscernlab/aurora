@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 import { describe, it, expect } from 'vitest';
 
@@ -135,8 +135,26 @@ describe('TOOL_MANIFEST', () => {
         // Lemos como texto de propósito: aurora_api.js importa o Monaco e não
         // carrega no Node. Os objetos são `const <ns>Ns = { ... }` e é contra
         // eles que o runtime despacha.
-        const fontes = ['../../js/api/aurora_api.js', '../../js/api/git_ns.js']
-            .map((p) => readFileSync(new URL(p, import.meta.url), 'utf8'))
+        // Varre a pasta inteira, e nao uma lista de arquivos: o aurora_api.js
+        // esta sendo dividido em um modulo por namespace (item 4 do roadmap),
+        // e uma lista fixa obrigaria a editar este teste a cada extracao, que
+        // e justamente quando ele precisa continuar valendo sozinho.
+        // Varre a pasta inteira, e nao uma lista de arquivos: o aurora_api.js
+        // esta sendo dividido em um modulo por namespace (item 4 do roadmap),
+        // e uma lista fixa obrigaria a editar este teste a cada extracao, que
+        // e justamente quando ele precisa continuar valendo sozinho.
+        //
+        // So os FONTES: um .js com .ts irmao e artefato do build (a mesma
+        // regra do scripts/check-no-generated-js.js). Isso nao e detalhe, e a
+        // armadilha que este teste caiu: o tsc reindenta de dois para quatro
+        // espacos, e a busca por metodo abaixo casa `  nome(` com exatamente
+        // dois. Lendo o artefato, o namespace aparecia vazio.
+        const dirApi = new URL('../../js/api/', import.meta.url);
+        const naPasta = readdirSync(dirApi);
+        const fontes = naPasta
+            .filter((f) => f.endsWith('.ts')
+                || (f.endsWith('.js') && !naPasta.includes(`${f.slice(0, -3)}.ts`)))
+            .map((f) => readFileSync(new URL(f, dirApi), 'utf8'))
             .join('\n');
 
         /** Métodos declarados no literal `const <ns>Ns = {` . */

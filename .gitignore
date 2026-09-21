@@ -89,6 +89,10 @@ js/compilation/command_spec.js
 js/compilation/command_overrides.js
 js/compilation/processor_compiler.js
 js/compilation/processor_dispatch.js
+js/api/api_core.js
+js/api/prism_ns.js
+js/api/examples_ns.js
+js/api/manual_ns.js
 js/compilation/processor_source.js
 js/compilation/spec_factory.js
 js/compilation/spec_runner.js

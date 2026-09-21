@@ -24,13 +24,13 @@ import { describe, expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 const { TOOL_MANIFEST } = require('../../main/ai/tools.js');
 
+// O registro do namespace continua no aurora_api.js; o CORPO dele mudou de
+// arquivo (item 4 do roadmap), e la o arquivo inteiro e o bloco.
 const FONTE = readFileSync(new URL('../../js/api/aurora_api.js', import.meta.url), 'utf8');
 
-/** O corpo do namespace, entre a declaração dele e a do seguinte. */
-const BLOCO = FONTE.slice(
-  FONTE.indexOf('const examplesNs = {'),
-  FONTE.indexOf('const settingsNs = {'),
-);
+// O namespace saiu do aurora_api.js para um modulo proprio (item 4 do
+// roadmap), e agora o arquivo inteiro e o bloco: nao ha o que fatiar.
+const BLOCO = readFileSync(new URL('../../js/api/examples_ns.ts', import.meta.url), 'utf8');
 
 const FERRAMENTAS = ['list_example_projects', 'install_example_projects'];
 const buscar = (nome) => TOOL_MANIFEST.find((t) => t.name === nome);

@@ -303,8 +303,13 @@ class PRISMViewer {
     window.electronAPI?.onPrismCommand?.((id, cmd) => {
       Promise.resolve()
         .then(() => this._comandoDaApi(cmd))
-        .then((r) => window.electronAPI.replyPrismCommand(id, r))
-        .catch((e) => window.electronAPI.replyPrismCommand(id, { ok: false, error: e?.message || String(e) }));
+        // `?.` nas duas, como no onPrismCommand acima: os tres vem do mesmo
+        // preload_prism.js, entao ou existem juntos ou nao existem, mas a
+        // chamada de dentro do .catch nao pode ser a que lanca. Sem isso, uma
+        // pagina do PRISM aberta sem o preload trocaria o erro de verdade por
+        // uma rejeicao nao tratada.
+        .then((r) => window.electronAPI.replyPrismCommand?.(id, r))
+        .catch((e) => window.electronAPI.replyPrismCommand?.(id, { ok: false, error: e?.message || String(e) }));
     });
 
     // Window controls

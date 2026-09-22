@@ -1,6 +1,6 @@
 /**
  * O fonte que nasce quando alguem cria um processador
- * (main/ipc/processor_template.ts).
+ * (js/project/processor_defaults.ts).
  *
  * O que estes casos travam: o cabecalho C+- continua byte a byte o que o
  * handler escrevia antes da extracao, e o C++ diz a mesma coisa pela forma
@@ -15,7 +15,7 @@ import {
     cmmTemplate,
     cppTemplate,
     processorSourceFile,
-} from '../../main/ipc/processor_template.ts';
+} from '../../js/project/processor_defaults.ts';
 
 const P = {
     processorName: 'procTest_00',

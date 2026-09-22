@@ -1,5 +1,6 @@
 import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
+import { PADROES_DO_CPPCOMP as PADROES } from '../project/processor_defaults.js';
 
 /*
  * Compilado por `tsc` (npm run build:ts) num processor_hub.js ao lado, e esse
@@ -50,13 +51,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const CAMPOS_SO_DO_CMM = ['nBits', 'gain', 'mantissa', 'exponent', 'iStack', 'dStack'] as const;
 
     /**
-     * O que o cppcomp assume quando o fonte nao traz o pragma. Espelha o
-     * PADROES_DO_CPPCOMP de main/ipc/processor_template.ts; os dois lados nao
-     * compartilham modulo porque um roda no main e o outro no renderer.
+     * O que o cppcomp assume quando o fonte nao traz o pragma, ja no
+     * vocabulario curto que o `inputs` acima usa.
+     *
+     * Os NUMEROS vem de js/project/processor_defaults.ts, que e quem escreve o
+     * fonte; aqui so se traduz o nome do campo. Antes eram os mesmos seis
+     * numeros digitados de novo, com um comentario dizendo que nao dava para
+     * compartilhar modulo entre o main e o renderer, o que deixou de ser
+     * verdade quando o processo principal passou a carregar modulo daqui.
      */
     const PADROES_DO_CPPCOMP: Record<string, string> = {
-        nBits: '32', mantissa: '23', exponent: '8',
-        gain: '128', dStack: '128', iStack: '128',
+        nBits: String(PADROES.nBits),
+        mantissa: String(PADROES.nbMantissa),
+        exponent: String(PADROES.nbExponent),
+        gain: String(PADROES.gain),
+        dStack: String(PADROES.dataStackSize),
+        iStack: String(PADROES.instructionStackSize),
     };
 
     /** O que a pessoa digitou em C+-, para voltar quando ela desmarcar C++. */

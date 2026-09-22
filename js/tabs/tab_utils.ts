@@ -9,17 +9,9 @@
 
 import { getExtensionForDocumentType, type DocumentType } from '../editor/document_type_detector.js';
 import { glyphClassForFile } from '../ui/language_glyph.js';
+import { cmmTemplatePadrao } from '../project/processor_defaults.js';
 
-const CMM_DEFAULTS = Object.freeze({
-    nBits: 23,
-    dataStackSize: 5,
-    instructionStackSize: 5,
-    inputPorts: 1,
-    outputPorts: 1,
-    nbMantissa: 16,
-    nbExponent: 6,
-    gain: 128,
-});
+
 
 export function basenameOf(filePath: unknown): string {
     return String(filePath || '').split(/[\\/]/).pop() as string;
@@ -67,22 +59,17 @@ export function sanitizeProcessorName(baseName: unknown): string {
     return cleaned || 'processor';
 }
 
+/**
+ * O cabecalho e o main vazio de uma aba `.cmm` nova.
+ *
+ * O texto e os numeros moram em js/project/processor_defaults.ts, que e o
+ * mesmo modulo que escreve o fonte no disco quando alguem cria um processador
+ * pelo Processor Hub. Eram duas copias do mesmo cabecalho, com as nove
+ * diretivas na mesma ordem e ate o mesmo comentario, e nada ligava uma a
+ * outra.
+ */
 export function createCmmTemplate(processorName = 'processor'): string {
-    return `#PRNAME ${processorName}
-#NUBITS ${CMM_DEFAULTS.nBits}
-#NDSTAC ${CMM_DEFAULTS.dataStackSize}
-#SDEPTH ${CMM_DEFAULTS.instructionStackSize}
-#NUIOIN ${CMM_DEFAULTS.inputPorts}
-#NUIOOU ${CMM_DEFAULTS.outputPorts}
-#NBMANT ${CMM_DEFAULTS.nbMantissa}
-#NBEXPO ${CMM_DEFAULTS.nbExponent}
-#NUGAIN ${CMM_DEFAULTS.gain}
-
-void main()
-{
-    // Øk. Você criou um processador em C±, mas e agora?
-}
-`;
+    return cmmTemplatePadrao(processorName);
 }
 
 export function ensureCmmPrname(content: unknown, processorName: string): string {

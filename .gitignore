@@ -123,6 +123,7 @@ js/ui/language_glyph.js
 js/ui/status_updater.js
 js/project/active_processor.js
 js/project/processor_list.js
+js/project/processor_defaults.js
 js/project/processor_sim_config.js
 js/project/spf_store.js
 js/project/verilog_classifier.js
@@ -146,7 +147,6 @@ main/ai/mcp_tool_rules.js
 main/compile/binary_allowlist.js
 main/ipc/processor_rename.js
 main/ipc/project_paths.js
-main/ipc/processor_template.js
 main/compile/protected_flags.js
 
 # --- LaTeX build artefacts (docs/) ---

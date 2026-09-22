@@ -29,7 +29,7 @@ const { entradaOcultaNaArvore } = require('./files_ops');
 const { prepararTempDoProjeto } = require('../project_temp');
 const janelas = require('../main_windows');
 const { autorizarExclusao, criarLixeiraDeProjeto, dentroDe } = require('./project_trash');
-const { processorSourceFile } = require('./processor_template');
+const { processorSourceFile } = require('../../js/project/processor_defaults.js');
 const { parseProcessorHeader } = require('../../js/compilation/processor_header.js');
 const { resolveProcessorSource } = require('../../js/compilation/processor_source.js');
 const { configComTempo } = require('../../js/project/processor_sim_config.js');
@@ -599,7 +599,7 @@ function register() {
 
         // A linguagem decide o nome e o conteudo do fonte: as diretivas
         // `#NUBITS` do C+- ou os `#pragma yanc` do C++. Ver
-        // main/ipc/processor_template.ts. Sem `language`, C+-, como sempre.
+        // js/project/processor_defaults.ts. Sem `language`, C+-, como sempre.
         const { fileName, content } = processorSourceFile(formData, formData.language);
         const sourceFilePath = path.join(softwarePath, fileName);
         await fse.writeFile(sourceFilePath, content, 'utf8');

@@ -73,6 +73,7 @@ import { memorySlug } from '../ai/memory.js';
 // laco solto aqui dentro, gemeo de outro no main/ipc/project.js, e nenhum dos
 // dois entendia C++. Ver js/compilation/processor_header.ts.
 import { ehPassoDaApi } from '../compilation/api_steps.js';
+import { configComTempo } from '../project/processor_sim_config.js';
 import { parseProcessorHeader } from '../compilation/processor_header.js';
 import { resolveProcessorSource } from '../compilation/processor_source.js';
 
@@ -1784,15 +1785,7 @@ const projectNs = {
       const all = await Promise.all(procs.map(async (p) => {
         const name = typeof p === 'string' ? p : p?.name;
         const raw  = (typeof p === 'object' && p) ? p : {};
-        const clk       = Number.isFinite(raw.clk)       ? raw.clk       : 100;
-        const numClocks = Number.isFinite(raw.numClocks) ? raw.numClocks : 2000;
-        const cfg = {
-          name,
-          clk,
-          numClocks,
-          showArrays: !!raw.showArrays,
-          simTime_us: numClocks > 0 && clk > 0 ? numClocks / clk : null,
-        };
+        const cfg = { name, ...configComTempo(p) };
         // Also surface the header directives (NUBITS / NBMANT / NBEXPO …) for
         // the named processor, same enrichment the Verilog flow uses. Le as
         // duas linguagens: `#NUBITS 32` no C+- e `#pragma yanc nubits 32` no
@@ -1852,13 +1845,7 @@ const projectNs = {
           foundProc = true;
           const prev = typeof p === 'object' && p ? p : { name };
           const next = { ...prev, name, ...patch };
-          finalCfg = {
-            name,
-            clk: Number.isFinite(next.clk) ? next.clk : 100,
-            numClocks: Number.isFinite(next.numClocks) ? next.numClocks : 2000,
-            showArrays: !!next.showArrays,
-          };
-          finalCfg.simTime_us = finalCfg.numClocks / finalCfg.clk;
+          finalCfg = { name, ...configComTempo(next) };
           return next;
         });
       });

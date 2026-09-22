@@ -39,6 +39,7 @@ import { abrirExecucao, anotarPasso, fecharExecucao, resumo, desfechoDaExecucao,
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { isProcessorSourcePath, resolveProcessorLanguage } from './processor_source.js';
+import { lerConfigDeSimulacao } from '../project/processor_sim_config.js';
 import { languageLabel, setDrawnGlyphLanguage } from '../ui/language_glyph.js';
 import { compileProcessorSource, locateProcessorSource } from './processor_dispatch.js';
 import { statusUpdater } from '../ui/status_updater.js';
@@ -554,25 +555,13 @@ function collectProcessors() {
 // de config sair). O painel grava no .spf, leitura aqui defaultar
 // pros mesmos valores que o painel mostra como placeholder garante
 // que rodar sem abrir o painel comporta-se como antes.
-const PROC_DEFAULTS = Object.freeze({
-    clk: 100,
-    numClocks: 2000,
-    showArrays: false,
-});
-
 /**
  * Extrai a config per-processador armazenada na entry de
- * `structure.processors[i]`. Entries string-only (.spf antigo) e
- * entries sem campos retornam os defaults. clk/numClocks viram numero,
- * showArrays vira boolean.
+ * `structure.processors[i]`. Quem sabe ler e os padroes moram em
+ * js/project/processor_sim_config.ts, junto com o painel e a API.
  */
 function readProcessorConfig(procEntry) {
-    if (!procEntry || typeof procEntry === 'string') return { ...PROC_DEFAULTS };
-    return {
-        clk: Number.isFinite(procEntry.clk) ? procEntry.clk : PROC_DEFAULTS.clk,
-        numClocks: Number.isFinite(procEntry.numClocks) ? procEntry.numClocks : PROC_DEFAULTS.numClocks,
-        showArrays: !!procEntry.showArrays,
-    };
+    return lerConfigDeSimulacao(procEntry);
 }
 
 /**

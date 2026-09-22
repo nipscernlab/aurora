@@ -123,6 +123,7 @@ js/ui/language_glyph.js
 js/ui/status_updater.js
 js/project/active_processor.js
 js/project/processor_list.js
+js/project/processor_sim_config.js
 js/project/spf_store.js
 js/project/verilog_classifier.js
 js/tabs/tab_utils.js

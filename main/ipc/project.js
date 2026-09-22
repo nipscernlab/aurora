@@ -32,6 +32,7 @@ const { autorizarExclusao, criarLixeiraDeProjeto, dentroDe } = require('./projec
 const { processorSourceFile } = require('./processor_template');
 const { parseProcessorHeader } = require('../../js/compilation/processor_header.js');
 const { resolveProcessorSource } = require('../../js/compilation/processor_source.js');
+const { configComTempo } = require('../../js/project/processor_sim_config.js');
 const {
   artefatosDoProcessador, fontesPossiveis, reescreverNomeNoFonte,
 } = require('./processor_rename');
@@ -679,18 +680,10 @@ function register() {
     // header directives (C+- or C++).
     async function enrichProcessors(/** @type {any} */ procs, /** @type {any} */ projectDir) {
       return Promise.all(procs.map(async (/** @type {any} */ p) => {
-        const name = typeof p === 'string' ? p : p.name;
-        const cfg  = typeof p === 'object' && p !== null ? p : {};
-        const clk       = Number.isFinite(cfg.clk)       ? cfg.clk       : 100;
-        const numClocks = Number.isFinite(cfg.numClocks)  ? cfg.numClocks : 2000;
-        const header = await lerCabecalho(projectDir, p);
         return {
-          name,
-          clk,
-          numClocks,
-          showArrays: !!cfg.showArrays,
-          simTime_us: numClocks / clk,
-          header,
+          name: typeof p === 'string' ? p : p.name,
+          ...configComTempo(p),
+          header: await lerCabecalho(projectDir, p),
         };
       }));
     }

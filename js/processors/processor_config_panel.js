@@ -22,12 +22,13 @@ import { electronAPI } from '../app/electron_api.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
+import {
+    PADROES_DE_SIMULACAO,
+    lerConfigDeSimulacao,
+    tempoDeSimulacaoUs,
+} from '../project/processor_sim_config.js';
 
-const DEFAULT_CONFIG = Object.freeze({
-    clk: 100,
-    numClocks: 2000,
-    showArrays: false,
-});
+
 
 class ProcessorConfigPanel {
     constructor() {
@@ -178,14 +179,11 @@ class ProcessorConfigPanel {
         const disabled = !this.activeProc;
         if (this.simTimeRow) this.simTimeRow.classList.toggle('disabled', disabled);
 
-        const clk = Number(this.clkInput?.value);
-        const numClocks = Number(this.numClocksInput?.value);
-        if (!Number.isFinite(clk) || clk <= 0 ||
-            !Number.isFinite(numClocks) || numClocks <= 0) {
+        const us = tempoDeSimulacaoUs(this.numClocksInput?.value, this.clkInput?.value);
+        if (us === null) {
             this.simTimeEl.textContent = '—';
             return;
         }
-        const us = numClocks / clk;
         // Once the duration crosses 2 000 000 µs (= 2 s of simulated
         // time) decimal notation loses readability fast, by 1e7 it's a
         // wall of zeros. Switch to scientific notation from there on and
@@ -207,16 +205,10 @@ class ProcessorConfigPanel {
     }
 
     _readConfig(procName) {
-        const entry = this.processors.find((p) => {
+        return lerConfigDeSimulacao(this.processors.find((p) => {
             const n = typeof p === 'string' ? p : p?.name;
             return n === procName;
-        });
-        const raw = entry && typeof entry === 'object' ? entry : {};
-        return {
-            clk: Number.isFinite(raw.clk) ? raw.clk : DEFAULT_CONFIG.clk,
-            numClocks: Number.isFinite(raw.numClocks) ? raw.numClocks : DEFAULT_CONFIG.numClocks,
-            showArrays: !!raw.showArrays,
-        };
+        }));
     }
 
     async _save(patch) {
@@ -301,9 +293,9 @@ class ProcessorConfigPanel {
     }
 
     _numericValue(input) {
-        if (!input) return DEFAULT_CONFIG.clk;
+        if (!input) return PADROES_DE_SIMULACAO.clk;
         const v = Number(input.value);
-        return Number.isFinite(v) && v > 0 ? v : DEFAULT_CONFIG.clk;
+        return Number.isFinite(v) && v > 0 ? v : PADROES_DE_SIMULACAO.clk;
     }
 
     _setInput(input, value, disabled) {

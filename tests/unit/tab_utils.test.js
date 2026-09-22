@@ -3,6 +3,7 @@ import {
     basenameOf, withoutExtension, extensionOf, normalizeKey,
     sanitizeVerilogFileName, sanitizePythonModuleName, sanitizeProcessorName,
     createCmmTemplate, ensureCmmPrname, typeFromExtension,
+    isValidPythonModuleName, isValidVerilogFileName,
     isImageFile, isPdfFile, isBinaryFile, getFileIcon,
     appendDefaultExtension, validateSaveName,
 } from '../../js/tabs/tab_utils.ts';
@@ -161,5 +162,37 @@ describe('validateSaveName', () => {
     it('passes through extensions it does not police', () => {
         expect(validateSaveName('readme.txt')).toEqual({ ok: true });
         expect(validateSaveName('data.json')).toEqual({ ok: true });
+    });
+});
+
+describe('isValidVerilogFileName / isValidPythonModuleName', () => {
+    // Exportados quando a arvore do projeto parou de manter a copia dela.
+    // Os quatro sanitizadores e validadores eram byte a byte iguais nos dois
+    // arquivos, e duas copias de uma regra de nome sao duas chances de o
+    // Save-As aceitar o que a arvore recusa.
+    it('Verilog: aceita letra, digito, _ e -, inclusive comecando com digito', () => {
+        for (const n of ['topo', 'top_1', 'a-b', '1tb', '_x']) {
+            expect(isValidVerilogFileName(n), n).toBe(true);
+        }
+    });
+
+    it('Verilog: recusa vazio, espaco, acento e simbolo do shell', () => {
+        for (const n of ['', 'meu topo', 'coração', 'a(b)', 'a&b', 'a.v']) {
+            expect(isValidVerilogFileName(n), n).toBe(false);
+        }
+    });
+
+    it('Python: exige comecar com letra ou _, e nao aceita o hifen', () => {
+        expect(isValidPythonModuleName('test_dut')).toBe(true);
+        expect(isValidPythonModuleName('_x1')).toBe(true);
+        expect(isValidPythonModuleName('1tb')).toBe(false);
+        expect(isValidPythonModuleName('a-b')).toBe(false);
+    });
+
+    it('o que o sanitizador devolve sempre passa no validador', () => {
+        for (const bruto of ['meu topo', 'coração(1)', '', '   ', '1tb', '---']) {
+            expect(isValidVerilogFileName(sanitizeVerilogFileName(bruto)), bruto).toBe(true);
+            expect(isValidPythonModuleName(sanitizePythonModuleName(bruto)), bruto).toBe(true);
+        }
     });
 });

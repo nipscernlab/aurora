@@ -257,9 +257,31 @@ export function getFileIcon(filename: string): string {
 // requested path to a default extension and validates the base name per
 // language (verilog/python/processor). No state, no DOM.
 
+// Letras ASCII, digitos, `_` e `-`, e nao vazio. E mais permissivo do que
+// o identificador Verilog estrito, que proibe digito inicial, mas evita os
+// problemas reais: espaco quebra a linha de comando do iverilog e do yanc,
+// acento quebra em algumas toolchains, e simbolo como `(` ou `&` precisaria
+// de escape no shell.
 const VALID_VERILOG_FILENAME_RE = /^[a-zA-Z0-9_-]+$/;
 const VALID_PYTHON_MODULE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const VALID_PROCESSOR_NAME_RE = /^[a-zA-Z0-9_-]+$/;
+
+/**
+ * O nome de base serve para um arquivo Verilog?
+ *
+ * Exportado porque a arvore do projeto faz a MESMA pergunta ao criar um
+ * arquivo, e tinha a propria copia destas duas regras e dos dois
+ * sanitizadores, byte a byte iguais aos daqui. Duas copias de uma regra de
+ * nome sao duas chances de o Save-As aceitar o que a arvore recusa.
+ */
+export function isValidVerilogFileName(baseName: unknown): boolean {
+  return VALID_VERILOG_FILENAME_RE.test(String(baseName));
+}
+
+/** O nome de base serve como modulo Python? Mesma razao da funcao acima. */
+export function isValidPythonModuleName(baseName: unknown): boolean {
+  return VALID_PYTHON_MODULE_RE.test(String(baseName));
+}
 
 export function appendDefaultExtension(filePath: string, documentType: string | null | undefined): string {
     if (/\.(?:py|v|cmm|cpp)$/i.test(filePath)) return filePath;

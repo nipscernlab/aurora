@@ -40,6 +40,12 @@ import { toNativeSeparators } from '../utils/path_utils.js';
 import { classifyVerilogContent } from './verilog_classifier.js';
 import { removerDoSpf, reporNoSpf } from './spf_paths.js';
 import { showCardNotification } from '../ui/notification.js';
+import {
+    isValidPythonModuleName,
+    isValidVerilogFileName,
+    sanitizePythonModuleName,
+    sanitizeVerilogFileName,
+} from '../tabs/tab_utils.js';
 
 // i18n shim, falls back to the key path if i18n didn't boot yet
 // (rare; renderer hits these only after DOMContentLoaded).
@@ -1136,46 +1142,10 @@ function basenameOf(filePath) {
     return filePath.split(/[\\/]/).pop();
 }
 
-// Regras de nome aceitas pra .v criado pela tree:
-//   - Caracteres: letras ASCII, digitos, '_', '-'
-//   - Nao vazio
-// Mais permissivo que identifier Verilog estrito (que proibe digito
-// inicial), mas evita 100% dos problemas reais, espacos quebram a CLI
-// do iverilog/yanc, acentos quebram em alguns toolchains, e simbolos
-// como `(` `)` `&` precisariam de escape no shell.
-const VALID_VERILOG_FILENAME_RE = /^[a-zA-Z0-9_-]+$/;
-const VALID_PYTHON_MODULE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
-function isValidVerilogFileName(baseName) {
-    return VALID_VERILOG_FILENAME_RE.test(baseName);
-}
-
-function sanitizeVerilogFileName(baseName) {
-    // U+0300..U+036F = Combining Diacritical Marks. NFD separa
-    // "ção" em "c" + "~" + "a" + "~" + "o"; removendo o range tira
-    // o acento mas mantem o caractere base.
-    const cleaned = String(baseName || '')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9_-]+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^[_-]+|[_-]+$/g, '');
-    return cleaned || 'untitled';
-}
-
-function isValidPythonModuleName(baseName) {
-    return VALID_PYTHON_MODULE_RE.test(baseName);
-}
-
-function sanitizePythonModuleName(baseName) {
-    let cleaned = String(baseName || 'test_dut')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9_]+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '');
-    if (!cleaned) cleaned = 'test_dut';
-    if (!/^[a-zA-Z_]/.test(cleaned)) cleaned = `test_${cleaned}`;
-    return cleaned;
-}
+// As quatro regras de nome de arquivo moram no js/tabs/tab_utils.ts, junto
+// com o porque de cada uma; e o mesmo modulo que o Save-As usa. Estavam
+// copiadas aqui byte a byte, e duas copias de uma regra de nome sao duas
+// chances de um lado aceitar o que o outro recusa.
 
 /**
  * Confirm dialog do delete. Routes via showDialog canonico

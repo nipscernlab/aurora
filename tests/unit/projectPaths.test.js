@@ -14,7 +14,6 @@ import { createRequire } from 'node:module';
 import { beforeEach, describe, it, expect } from 'vitest';
 
 import {
-  parseSpfTolerant,
   remapProcessorPath,
   remapRootPath,
   deepRemapPaths,
@@ -27,37 +26,6 @@ const state = createRequire(import.meta.url)('../../main/state.js');
 
 const S = path.sep;
 const j = (...p) => p.join(S);
-
-describe('parseSpfTolerant', () => {
-  it('le um .spf normal', () => {
-    expect(parseSpfTolerant('{"a":1}')).toEqual({ a: 1 });
-  });
-
-  it('sobrevive a virgula sobrando, que edicao a mao produz', () => {
-    expect(parseSpfTolerant('{"a":1,"b":[1,2,],}')).toEqual({ a: 1, b: [1, 2] });
-  });
-
-  it('sobrevive a comentario de linha e de bloco', () => {
-    expect(parseSpfTolerant('{\n// nota\n"a":1 /* outra */ }')).toEqual({ a: 1 });
-  });
-
-  it('NAO confunde // dentro de string com comentario', () => {
-    // O caso real: todo .spf guarda caminho, e caminho tem barra.
-    const spf = '{"basePath":"C://Users//x//proj", "url":"https://nipscern.com"}';
-    expect(parseSpfTolerant(spf)).toEqual({
-      basePath: 'C://Users//x//proj',
-      url: 'https://nipscern.com',
-    });
-  });
-
-  it('preserva aspas escapadas dentro de string', () => {
-    expect(parseSpfTolerant('{"n":"diz \\"oi\\""}')).toEqual({ n: 'diz "oi"' });
-  });
-
-  it('ainda lanca quando o arquivo esta de fato quebrado', () => {
-    expect(() => parseSpfTolerant('{isto nao e json')).toThrow();
-  });
-});
 
 describe('remapProcessorPath', () => {
   const dir = j('C:', 'proj');

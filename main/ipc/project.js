@@ -22,7 +22,7 @@ const state = require('../state');
 // Electron no topo e nenhum teste as alcancava. Ver main/ipc/project_paths.js.
 // remapRootPath nao entra aqui: quem o usa e o deepRemapPaths, que foi junto.
 const {
-  parseSpfTolerant, remapProcessorPath, deepRemapPaths,
+  remapProcessorPath, deepRemapPaths,
   spfDaJanela, registrarSpfDaJanela,
 } = require('./project_paths');
 const { entradaOcultaNaArvore } = require('./files_ops');
@@ -32,6 +32,7 @@ const { autorizarExclusao, criarLixeiraDeProjeto, dentroDe } = require('./projec
 const { processorSourceFile } = require('../../js/project/processor_defaults.js');
 const { parseProcessorHeader } = require('../../js/compilation/processor_header.js');
 const { resolveProcessorSource } = require('../../js/compilation/processor_source.js');
+const { parseSpfTolerant } = require('../../js/project/spf_parse.js');
 const { configComTempo } = require('../../js/project/processor_sim_config.js');
 const {
   artefatosDoProcessador, fontesPossiveis, reescreverNomeNoFonte,

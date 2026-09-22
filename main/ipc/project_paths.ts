@@ -16,38 +16,6 @@
 import path from 'node:path';
 
 /**
- * Le o conteudo de um `.spf` tolerando sujeira.
- *
- * Um `.spf` e JSON, mas arquivo real pega BOM, virgula sobrando ou comentario
- * solto, por edicao a mao, por outra ferramenta, por escrita parcial ou por ter
- * vindo clonado de outra maquina. Primeiro tenta estrito; falhando, faz uma
- * passada lenient para que um projeto recuperavel abra em vez de morrer.
- * Espelha o spf_store.ts do lado do renderer.
- *
- * @param {string} content
- * @returns {any}
- */
-export function parseSpfTolerant(content: string): any {
-  try {
-    return JSON.parse(content);
-  } catch (_strictErr) {
-    let inStr = false; let strCh = ''; let inLine = false; let inBlock = false; let out = '';
-    for (let i = 0; i < content.length; i++) {
-      const c = content[i]; const n = content[i + 1];
-      if (inLine) { if (c === '\n') { inLine = false; out += c; } continue; }
-      if (inBlock) { if (c === '*' && n === '/') { inBlock = false; i++; } continue; }
-      if (inStr) { out += c; if (c === '\\') { out += content[i + 1] || ''; i++; } else if (c === strCh) inStr = false; continue; }
-      if (c === '"') { inStr = true; strCh = c; out += c; continue; }
-      if (c === '/' && n === '/') { inLine = true; i++; continue; }
-      if (c === '/' && n === '*') { inBlock = true; i++; continue; }
-      out += c;
-    }
-    const cleaned = out.replace(/^\s+/, '').replace(/,\s*([}\]])/g, '$1');
-    return JSON.parse(cleaned);
-  }
-}
-
-/**
  * Reescreve um caminho absoluto que morava dentro da pasta de um processador
  * quando esse processador e renomeado de `oldName` para `newName`.
  *

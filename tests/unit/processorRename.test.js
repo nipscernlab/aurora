@@ -18,13 +18,15 @@ import {
 } from '../../main/ipc/processor_rename.ts';
 
 describe('artefatosDoProcessador', () => {
-    it('inclui os fontes das DUAS linguagens, mais o .asm, o .v e o testbench', () => {
+    it('inclui os fontes das DUAS linguagens, mais o .asm, o HDL e o testbench', () => {
         expect(artefatosDoProcessador('P', 'Q')).toEqual([
             { sub: 'Software', de: 'P.cmm', para: 'Q.cmm' },
             { sub: 'Software', de: 'P.cpp', para: 'Q.cpp' },
             { sub: 'Software', de: 'P.asm', para: 'Q.asm' },
             { sub: 'Hardware', de: 'P.v', para: 'Q.v' },
+            { sub: 'Hardware', de: 'P.sv', para: 'Q.sv' },
             { sub: 'Simulation', de: 'P_tb.v', para: 'Q_tb.v' },
+            { sub: 'Simulation', de: 'P_tb.sv', para: 'Q_tb.sv' },
         ]);
     });
 
@@ -34,6 +36,23 @@ describe('artefatosDoProcessador', () => {
         // chamador soubesse a linguagem, que e justamente o que falhava.
         const fontes = artefatosDoProcessador('P', 'Q').filter((a) => a.sub === 'Software' && !a.de.endsWith('.asm'));
         expect(fontes.map((f) => f.de)).toEqual(['P.cmm', 'P.cpp']);
+    });
+
+    it('o SystemVerilog acompanha, porque o caminho dele no .spf ja acompanhava', () => {
+        // O reescreverCaminhoDoProcessador (main/ipc/project_paths.ts) troca o
+        // nome em `<nome>(_tb)?(.v|.sv|.asm|.cmm|.cpp)`. Sem o par aqui, o .spf
+        // passava a apontar para um arquivo .sv que nao existe mais.
+        const sv = artefatosDoProcessador('P', 'Q').filter((a) => a.de.endsWith('.sv'));
+        expect(sv).toEqual([
+            { sub: 'Hardware', de: 'P.sv', para: 'Q.sv' },
+            { sub: 'Simulation', de: 'P_tb.sv', para: 'Q_tb.sv' },
+        ]);
+    });
+
+    it('as cinco extensoes que o .spf reescreve tem par na lista de disco', () => {
+        const naLista = new Set(artefatosDoProcessador('P', 'Q')
+            .map((a) => a.de.slice(a.de.lastIndexOf('.'))));
+        expect([...naLista].sort()).toEqual(['.asm', '.cmm', '.cpp', '.sv', '.v']);
     });
 
     it('so mexe em Software, Hardware e Simulation', () => {

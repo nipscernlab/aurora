@@ -34,23 +34,48 @@ export interface ArtefatoRenomeado {
 }
 
 /**
+ * As extensoes de hardware que seguem o nome do processador, na ordem em que
+ * a lista as monta.
+ *
+ * O `.sv` entrou porque ele JA seguia o processador do outro lado: o
+ * `reescreverCaminhoDoProcessador`, em main/ipc/project_paths.ts, troca o nome
+ * em `<nome>(_tb)?(.v|.sv|.asm|.cmm|.cpp)` guardado no `.spf`. Sem o par aqui,
+ * renomear um processador reescrevia o CAMINHO de um testbench SystemVerilog
+ * e deixava o ARQUIVO com o nome velho, ou seja, o `.spf` passava a apontar
+ * para um arquivo que nao existe. E cenario alcancavel: `.sv` esta na lista de
+ * extensoes que a arvore do projeto aceita (js/project/file_mode.js).
+ */
+const EXTENSAO_HDL = Object.freeze(['.v', '.sv']);
+
+/**
  * Tudo que o SAPHO nomeia a partir do processador.
  *
  * Os fontes das DUAS linguagens entram na lista, e nao so o da linguagem
  * declarada, de proposito: quem renomeia nao sabe (e nao deveria precisar
  * saber) o que existe no disco, e um processador que tenha os dois arquivos
  * por qualquer motivo nao pode sair do rename pela metade. Quem chama pula o
- * que nao existir.
+ * que nao existir. Vale o mesmo para o `.v` e o `.sv`.
+ *
+ * LIMITE CONHECIDO: so as tres subpastas canonicas. Um arquivo com o nome do
+ * processador em outro lugar do projeto continua sem ser renomeado, embora o
+ * caminho dele no `.spf` seja reescrito, porque a reescrita la casa so pelo
+ * nome do arquivo e nao sabe em que pasta ele esta.
  */
 export function artefatosDoProcessador(nomeVelho: string, nomeNovo: string): ArtefatoRenomeado[] {
   const fontes = Object.values(EXTENSAO_FONTE).map((ext) => ({
     sub: 'Software' as const, de: `${nomeVelho}${ext}`, para: `${nomeNovo}${ext}`,
   }));
+  const hardware = EXTENSAO_HDL.map((ext) => ({
+    sub: 'Hardware' as const, de: `${nomeVelho}${ext}`, para: `${nomeNovo}${ext}`,
+  }));
+  const simulacao = EXTENSAO_HDL.map((ext) => ({
+    sub: 'Simulation' as const, de: `${nomeVelho}_tb${ext}`, para: `${nomeNovo}_tb${ext}`,
+  }));
   return [
     ...fontes,
     { sub: 'Software', de: `${nomeVelho}.asm`, para: `${nomeNovo}.asm` },
-    { sub: 'Hardware', de: `${nomeVelho}.v`, para: `${nomeNovo}.v` },
-    { sub: 'Simulation', de: `${nomeVelho}_tb.v`, para: `${nomeNovo}_tb.v` },
+    ...hardware,
+    ...simulacao,
   ];
 }
 

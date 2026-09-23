@@ -3,17 +3,17 @@
 # Order matters: the last matching pattern wins.
 
 # Default owner for everything.
-*                       @ART3121
+*                       @ART3121 @lucianomaf
 
 # Aurora Intelligence / AI backend.
-/main/ai/               @ART3121
-/js/ui/ai_assistant_manager.js  @ART3121
+/main/ai/               @ART3121 @lucianomaf
+/js/ui/ai_assistant_manager.js  @ART3121 @lucianomaf
 
 # Simulation / waveform / cocotb flow.
-/js/wave/               @ART3121
-/js/compilation/        @ART3121
+/js/wave/               @ART3121 @lucianomaf
+/js/compilation/        @ART3121 @lucianomaf
 
 # Build, packaging and release plumbing.
-/.github/               @ART3121
-/scripts/               @ART3121
-/components/Scripts/    @ART3121
+/.github/               @ART3121 @lucianomaf
+/scripts/               @ART3121 @lucianomaf
+/components/Scripts/    @ART3121 @lucianomaf

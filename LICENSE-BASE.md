@@ -113,6 +113,7 @@ restabelecida a critério do Laboratório. As seções 5 a 7 sobrevivem ao térm
 Comunicações da seção 3, parcerias, autorizações e dúvidas:
 
 - **contact@nipscern.com**
+- **arthur.araujo@estudante.ufjf.br**
 - **chrysthofer.afonso@cern.ch**
 - **lucianomaf@cern.ch**
 
@@ -233,6 +234,7 @@ termination.
 Notices under section 3, partnerships, authorizations and questions:
 
 - **contact@nipscern.com**
+- **arthur.araujo@estudante.ufjf.br**
 - **chrysthofer.afonso@cern.ch**
 - **lucianomaf@cern.ch**
 

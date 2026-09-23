@@ -11,6 +11,10 @@ authors:
   - given-names: "Chrysthofer A. A."
     family-names: "Afonso"
     affiliation: "NIPS-CERN — Universidade Federal de Juiz de Fora"
+  # Arthur Araujo Martins, student (aluno), maintainer since 09/2026.
+  - given-names: "Arthur A."
+    family-names: "Martins"
+    affiliation: "NIPS-CERN — Universidade Federal de Juiz de Fora"
 repository-code: "https://github.com/nipscernlab/aurora"
 url: "https://www.nipscern.com"
 abstract: >-

@@ -58,7 +58,9 @@ const { GITLAB_API_MS, GITLAB_AVATAR_MS } = require('../net/timeouts');
  *
  * Registrado em 23/08/2026 pelo Chrysthofer, em gitlab.com, com
  * "Device authorization grant" marcado, "Confidential" desmarcado e o escopo
- * `api`. Vazio (o estado anterior) significa: sem botao de um clique, so o
+ * `api`. O dono e a conta do laboratorio no gitlab.com (usuario `nipscernlab`,
+ * nome NIPSCERN), nao uma conta pessoal: administra o app quem tem essa conta.
+ * Vazio (o estado anterior) significa: sem botao de um clique, so o
  * token, que e o que o github_auth.js faz quando o dele esta vazio. A variavel
  * de ambiente continua valendo para testar outro aplicativo sem mexer aqui.
  */

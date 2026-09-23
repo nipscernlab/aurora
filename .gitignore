@@ -124,6 +124,7 @@ js/ui/status_updater.js
 js/project/active_processor.js
 js/project/processor_list.js
 js/project/processor_defaults.js
+js/ai/tool_chip_text.js
 js/project/spf_parse.js
 js/project/processor_sim_config.js
 js/project/spf_store.js

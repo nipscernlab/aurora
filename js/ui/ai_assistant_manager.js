@@ -31,6 +31,12 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import { formatAttachmentSize, composerChipHtml, bubbleChipHtml } from '../ai/chat_attachments.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
+import {
+    formatArgsForTitle,
+    formatToolTooltip,
+    prettyToolName,
+    summariseResult,
+} from '../ai/tool_chip_text.js';
 import { decideToolPermission, previewArgs, splitArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
 import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
 import { chatListHtml, serializeMessagesForStorage } from '../ai/chat_history.js';
@@ -3077,9 +3083,8 @@ class AIAssistantManager {
 
   /** Human-friendly form of a tool name for the group header (chips keep the
    *  raw mono name). "get_terminal_output" → "get terminal output". */
-  _prettyToolName(name) {
-    return String(name || 'tool').replace(/_/g, ' ');
-  }
+  /** O texto do chip mora em js/ai/tool_chip_text.ts, que e puro e tem teste. */
+  _prettyToolName(name) { return prettyToolName(name); }
 
   /**
    * Live header. While a chip is spinning it names WHAT is running so the
@@ -3211,55 +3216,11 @@ class AIAssistantManager {
     this._refreshToolGroupSummary();
   }
 
-  /** Compact, hover-friendly representation of tool args. */
-  _formatArgsForTitle(args) {
-    try {
-      const s = JSON.stringify(args, null, 2);
-      return s.length > 800 ? `${s.slice(0, 800)}…` : s;
-    } catch (_) { return ''; }
-  }
+  _formatArgsForTitle(args) { return formatArgsForTitle(args); }
 
-  /** Hover tooltip showing args and a preview of the result. */
-  _formatToolTooltip(args, result) {
-    const lines = [];
-    if (args && Object.keys(args).length) {
-      const a = this._formatArgsForTitle(args);
-      if (a) lines.push(`args: ${a}`);
-    }
-    if (result) {
-      const r = this._summariseResult(result);
-      if (typeof r === 'string') {
-        lines.push(`result: ${r.length > 400 ? r.slice(0, 400) + '…' : r}`);
-      } else if (r != null) {
-        try {
-          const s = JSON.stringify(r);
-          lines.push(`result: ${s.length > 400 ? s.slice(0, 400) + '…' : s}`);
-        } catch (_) { /* ignore */ }
-      }
-    }
-    return lines.join('\n');
-  }
+  _formatToolTooltip(args, result) { return formatToolTooltip(args, result); }
 
-  /** Reduce a tool result to a small JSON-serialisable summary for persistence. */
-  _summariseResult(result) {
-    if (result == null) return null;
-    if (typeof result === 'string') return result.slice(0, 4000);
-    if (typeof result !== 'object') return result;
-    // Common shapes: { ok, data } from AuroraAPI, { ok, content } from Claude Code.
-    const out = {};
-    if ('ok' in result) out.ok = !!result.ok;
-    if ('error' in result && result.error) out.error = String(result.error).slice(0, 800);
-    if ('content' in result && typeof result.content === 'string') {
-      out.content = result.content.length > 4000 ? result.content.slice(0, 4000) + '…' : result.content;
-    }
-    if ('data' in result) {
-      try {
-        const s = JSON.stringify(result.data);
-        out.data = s.length > 4000 ? JSON.parse(s.slice(0, 4000)) : result.data;
-      } catch (_) { out.data = '[unserialisable]'; }
-    }
-    return out;
-  }
+  _summariseResult(result) { return summariseResult(result); }
 
   /**
    * Builds a completed tool chip with no animation, used when replaying

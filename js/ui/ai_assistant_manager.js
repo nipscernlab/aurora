@@ -37,6 +37,7 @@ import {
     prettyToolName,
     summariseResult,
 } from '../ai/tool_chip_text.js';
+import { fileRefCandidates, resolveTrackedFile } from '../ai/file_ref.js';
 import { decideToolPermission, previewArgs, splitArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
 import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
 import { chatListHtml, serializeMessagesForStorage } from '../ai/chat_history.js';
@@ -4002,43 +4003,19 @@ class AIAssistantManager {
   /* ---------------- clickable file references ---------------- */
 
   /**
-   * Resolve a referenced filename to an absolute path using the project's
-   * tracked files (the file tree's verilogFiles: Verilog + Python imports +
-   * each processor's .cmm). Matched by basename, case-insensitive. Returns
-   * null when the open project has no file by that name.
+   * A regra de para onde uma referencia aponta mora em js/ai/file_ref.ts,
+   * que e pura e tem teste; e regra de sandbox, entao precisa ter.
+   * Estes dois metodos sao so a leitura dos dois globais que ela pede.
    */
   _resolveTrackedFile(fileName) {
-    if (!fileName) return null;
-    const base = String(fileName).split(/[\\/]/).pop().toLowerCase();
-    const files = window.projectTreeManager?.verilogFiles;
-    if (!Array.isArray(files)) return null;
-    const hit = files.find((f) => (f.name || '').toLowerCase() === base);
-    return hit ? hit.path : null;
+    return resolveTrackedFile(fileName, window.projectTreeManager?.verilogFiles);
   }
 
-  /**
-   * Ordered list of candidate paths to try for a reference, kept inside the
-   * project sandbox: a tracked file matched by basename (handles any nesting,
-   * plus absolute refs that point back into the tree), then the ref resolved
-   * relative to the project root. Absolute paths and `..` segments that would
-   * climb out of the project are never resolved as such, existence is checked
-   * in openFileRef(), so only files that genuinely live under the project open.
-   */
   _fileRefCandidates(ref) {
-    const raw = String(ref || '').trim().replace(/^[("'<]+|[)"'>]+$/g, '');
-    if (!raw) return [];
-    const out = [];
-    const push = (p) => { if (p && !out.includes(p)) out.push(p); };
-
-    push(this._resolveTrackedFile(raw));
-
-    const root = window.currentProjectPath;
-    const isAbs = /^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith('\\\\') || raw.startsWith('/');
-    if (root && !isAbs) {
-      const rel = raw.replace(/\\/g, '/');
-      if (!rel.split('/').includes('..')) push(`${root}/${rel}`);
-    }
-    return out;
+    return fileRefCandidates(ref, {
+      trackedFiles: window.projectTreeManager?.verilogFiles,
+      projectRoot: window.currentProjectPath,
+    });
   }
 
   /** Open a referenced project file in the editor, jumping to `line` if given. */

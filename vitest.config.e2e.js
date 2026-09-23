@@ -15,6 +15,16 @@ export default defineConfig({
     // times out. (Broke the moment a 3rd e2e file was added.) Serialising
     // keeps one Electron alive at a time, matching how a user runs the app.
     fileParallelism: false,
+    // TODA corrida deixa o resultado em arquivo, alem do que sai na tela.
+    //
+    // Existe por um caso concreto: uma corrida desta suite acusou dois casos
+    // falhando, a saida foi lida por um `tail` que cortou o nome deles, e as
+    // cinco corridas seguintes passaram. Sem o nome nao da para dizer se foi a
+    // mudanca ou se foi instabilidade, e 'nao sei' nao e resposta aceitavel
+    // para um teste vermelho. Agora o nome fica gravado, e quem investigar
+    // uma corrida vermelha nao depende de ter capturado a tela na hora.
+    reporters: ['default', 'json'],
+    outputFile: { json: 'reports/e2e-last-run.json' },
     // Each test boots a renderer and asks Monaco's AMD loader to finish.
     // CI (windows-latest) is noticeably slower than a dev machine —
     // electron cold-start + .spf-load IPC chain takes ~10–15 s on the

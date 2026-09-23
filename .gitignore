@@ -193,3 +193,7 @@ build/license.txt
 aurora-msys-*.zip
 aurora-*-nipscern*.zip
 surfer-aurora*.zip
+
+# Relatorio das corridas de teste. E diagnostico local, nao fonte: o
+# arquivo existe para nenhuma falha se perder na rolagem do terminal.
+reports/

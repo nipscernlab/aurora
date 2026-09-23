@@ -84,7 +84,7 @@ jobs:
     # workflow. Uma release criada a mao por outra conta para aqui, antes de
     # gastar os ~20 min de build. O job `release` herda via needs: preflight
     # pulado pula os dependentes.
-    if: github.actor == 'Chrysthofer' || github.actor == 'github-actions[bot]'
+    if: github.actor == 'ART3121' || github.actor == 'github-actions[bot]'
     permissions: {}
 
     steps:

@@ -38,6 +38,11 @@ import {
     summariseResult,
 } from '../ai/tool_chip_text.js';
 import { fileRefCandidates, resolveTrackedFile } from '../ai/file_ref.js';
+import {
+    citacaoDeResultado,
+    citacaoJaEsta,
+    corpoDoResultado,
+} from '../ai/manual_citation.js';
 import { decideToolPermission, previewArgs, splitArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
 import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
 import { chatListHtml, serializeMessagesForStorage } from '../ai/chat_history.js';
@@ -2758,59 +2763,19 @@ class AIAssistantManager {
   /**
    * A citacao que veio da ferramenta `cite_manual`.
    *
-   * POR QUE ELA EXISTE, ao lado da citacao nativa. A nativa e melhor: automatica
-   * e sem custo de saida. So que ela exige montar o corpo do pedido, e no
-   * caminho de assinatura quem monta e a CLI do Claude Code. A ferramenta
-   * funciona nos tres caminhos, porque as CLIs recebem as nossas ferramentas
-   * pelo servidor MCP.
-   *
-   * O NOME CHEGA DE DOIS JEITOS. Pela API vem `cite_manual`; pela assinatura vem
-   * `mcp__aurora__cite_manual`, porque o servidor MCP prefixa tudo. Casar pelo
-   * fim do nome atende os dois sem uma tabela de traducao que ia divergir.
-   *
-   * E O RESULTADO TAMBEM CHEGA DE DOIS JEITOS, que e o que quebrou na primeira
-   * tentativa. Pela API o objeto vem inteiro em `result.data`. Pela assinatura ele
-   * passa pelo servidor MCP, que o serializa com `JSON.stringify`
-   * (main/ai/aurora_mcp_server.js), e a ponte entrega `{ ok, content: '<json>' }`
-   * (main/ai/claude_code.js). Ler so o primeiro formato fazia a ferramenta rodar,
-   * o chip dizer "done" e a citacao nao aparecer: tudo certo, e nada na tela.
+   * A regra, inclusive as duas formas em que o nome e o resultado chegam,
+   * mora em js/ai/manual_citation.ts, que e puro e tem teste. Aqui fica so
+   * a lista do turno, que e estado desta classe.
    */
   _colherCitacaoDeFerramenta(toolName, resultado) {
-    if (!String(toolName || '').endsWith('cite_manual')) return;
-    const d = this._corpoDoResultado(resultado);
-    if (!d || !d.quote || !d.path) return;     // recusada: o modelo e quem fica sabendo
+    const c = citacaoDeResultado(toolName, resultado, this._versaoDoManual);
+    if (!c) return;     // recusada: o modelo e quem fica sabendo
     if (!this._citacoesDoTurno) this._citacoesDoTurno = [];
-    const ja = this._citacoesDoTurno.some((c) => c.pagina === d.path && c.trecho === d.quote);
-    if (ja) return;
-    this._citacoesDoTurno.push({
-      pagina: d.path,
-      titulo: d.title || d.path,
-      trecho: d.quote,
-      versao: d.manualVersion || this._versaoDoManual || '',
-    });
+    if (citacaoJaEsta(this._citacoesDoTurno, c)) return;
+    this._citacoesDoTurno.push(c);
   }
 
-  /**
-   * O corpo de um resultado de ferramenta, venha ele por qual caminho vier.
-   *
-   * Pela API: { ok, data: {...} }.
-   * Pela assinatura: { ok, content: '<json>' }, porque o servidor MCP so sabe
-   * devolver texto, e o texto e o mesmo objeto serializado.
-   *
-   * Nunca lanca: um resultado que nao for JSON simplesmente nao vira citacao.
-   */
-  _corpoDoResultado(resultado) {
-    if (!resultado || resultado.ok === false) return null;
-    if (resultado.data) return resultado.data;
-    if (typeof resultado.content === 'string') {
-      try {
-        const j = JSON.parse(resultado.content);
-        if (j && j.ok === false) return null;
-        return (j && j.data) || j;
-      } catch (_) { return null; }
-    }
-    return resultado;
-  }
+  _corpoDoResultado(resultado) { return corpoDoResultado(resultado); }
 
   /**
    * Diz ao leitor por que o clique nao levou ao ponto, quando nao levou.

@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * grammars.js: serves tree-sitter WASM bytes to the renderer (O7).
+ * grammars.ts: serves tree-sitter WASM bytes to the renderer (O7).
  *
  * The renderer's web-tree-sitter highlighter (js/editor/treesitter_highlight.js)
  * can't reliably fetch .wasm by URL under the sandboxed file:// renderer, so
@@ -13,31 +12,29 @@
  * names maps to files here, the renderer can't ask for arbitrary paths.
  */
 
-'use strict';
+import path from 'node:path';
+import fs from 'node:fs';
+import { ipcMain } from 'electron';
+import log from 'electron-log';
 
-const path = require('path');
-const fs = require('fs');
-const { ipcMain } = require('electron');
-const log = require('electron-log');
-
-const { componentsPath } = require('../paths');
+import { componentsPath } from '../paths.js';
 
 const DIR = path.join(componentsPath, 'Packages', 'tree-sitter');
 
 /** Logical name → file. The renderer is limited to these (no arbitrary read). */
-const ARTIFACTS = {
+const ARTIFACTS: Readonly<Record<string, string>> = {
   runtime:       'web-tree-sitter.wasm',
   systemverilog: 'tree-sitter-systemverilog.wasm',
   c:             'tree-sitter-c.wasm',
   cpp:           'tree-sitter-cpp.wasm',
 };
 
-function fileFor(/** @type {string} */ name) {
+function fileFor(name: string): string | null {
   const f = ARTIFACTS[name];
   return f ? path.join(DIR, f) : null;
 }
 
-function exists(/** @type {string} */ name) {
+function exists(name: string): boolean {
   const f = fileFor(name);
   try { return !!f && fs.existsSync(f); } catch { return false; }
 }
@@ -56,7 +53,7 @@ function status() {
 }
 
 /** Raw bytes of an artifact, or null if unknown/missing. */
-async function wasm(/** @type {string} */ name) {
+async function wasm(name: string): Promise<Buffer | null> {
   const f = fileFor(name);
   if (!f) return null;
   try {
@@ -67,9 +64,7 @@ async function wasm(/** @type {string} */ name) {
   }
 }
 
-function register() {
+export function register(): void {
   ipcMain.handle('treesitter:status', () => status());
   ipcMain.handle('treesitter:wasm', (_e, name) => wasm(name));
 }
-
-module.exports = { register };

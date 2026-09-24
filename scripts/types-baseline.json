@@ -57,9 +57,6 @@
   "main/lsp/verible_lsp.js": {
     "TS2810": 1
   },
-  "main/treesitter/grammars.js": {
-    "TS7053": 1
-  },
   "main/windows.js": {
     "TS2339": 1,
     "TS2345": 1

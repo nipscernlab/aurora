@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * Onde o registro de execucoes mora no disco.
+ * run_log.ts: onde o registro de execucoes mora no disco.
  *
  * `<projeto>/.aurora/execucoes/<id>.json`, um arquivo por execucao. Dentro do
  * projeto, e nao no perfil do usuario, porque o registro so faz sentido ao lado
@@ -14,32 +13,41 @@
  * a pasta e derivada do caminho do projeto e nao recebida pronta.
  */
 
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { ipcMain } from 'electron';
+import log from 'electron-log';
 
-const fs = require('fs');
-const path = require('path');
-const { ipcMain } = require('electron');
-const log = require('electron-log');
+import { podar } from '../../js/compilation/run_log.js';
+import { ocultarPastaDeSistemaEm } from '../pastas_ocultas.js';
 
-const { podar } = require('../../js/compilation/run_log.js');
-const { ocultarPastaDeSistemaEm } = require('../pastas_ocultas');
+/** O resumo de uma execucao, como a lista mostra. */
+interface ResumoDaExecucao {
+  id: unknown;
+  pedido: unknown;
+  inicio: unknown;
+  ms: unknown;
+  ok: unknown;
+  cancelada: boolean;
+  passos: number;
+}
 
 const PASTA = path.join('.aurora', 'execucoes');
 /** O mesmo formato que `idDe` produz: data, hora e o pedido. */
-const ID_VALIDO = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}-[\w-]{1,32}$/;
+export const ID_VALIDO = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}-[\w-]{1,32}$/;
 
-/** @param {unknown} projeto */
-function pastaDe(projeto) {
+export function pastaDe(projeto: unknown): string | null {
   if (!projeto || typeof projeto !== 'string' || !path.isAbsolute(projeto)) return null;
   return path.join(projeto, PASTA);
 }
 
 /**
  * Grava uma execucao e poda as antigas.
- * @param {unknown} projeto
- * @param {({ id?: string } & Record<string, unknown>) | null | undefined} exec
  */
-async function gravar(projeto, exec) {
+export async function gravar(
+  projeto: unknown,
+  exec: ({ id?: string } & Record<string, unknown>) | null | undefined,
+): Promise<{ ok: true; id: string | undefined } | { ok: false; erro: string }> {
   const dir = pastaDe(projeto);
   if (!dir || !exec || !ID_VALIDO.test(String(exec.id || ''))) {
     return { ok: false, erro: 'projeto ou id invalido' };
@@ -69,19 +77,21 @@ async function gravar(projeto, exec) {
 
 /**
  * As execucoes gravadas, da mais recente para a mais antiga, so o resumo.
- * @param {unknown} projeto
  */
-async function listar(projeto) {
+export async function listar(
+  projeto: unknown,
+): Promise<{ ok: boolean; erro?: string; execucoes: ResumoDaExecucao[] }> {
   const dir = pastaDe(projeto);
   if (!dir) return { ok: false, execucoes: [] };
-  let nomes = [];
+  let nomes: string[] = [];
   try {
     nomes = (await fs.promises.readdir(dir)).filter((n) => n.endsWith('.json'));
   } catch (e) {
-    if (e && e.code === 'ENOENT') return { ok: true, execucoes: [] };
-    return { ok: false, erro: String(e && e.message), execucoes: [] };
+    const erro = e as NodeJS.ErrnoException | null;
+    if (erro && erro.code === 'ENOENT') return { ok: true, execucoes: [] };
+    return { ok: false, erro: String(erro && erro.message), execucoes: [] };
   }
-  const execucoes = [];
+  const execucoes: ResumoDaExecucao[] = [];
   for (const nome of nomes.sort().reverse()) {
     try {
       const bruto = JSON.parse(await fs.promises.readFile(path.join(dir, nome), 'utf8'));
@@ -101,23 +111,22 @@ async function listar(projeto) {
 
 /**
  * Uma execucao inteira, para a tela de detalhe.
- * @param {unknown} projeto
- * @param {unknown} id
  */
-async function ler(projeto, id) {
+export async function ler(
+  projeto: unknown,
+  id: unknown,
+): Promise<{ ok: true; execucao: unknown } | { ok: false; erro: string }> {
   const dir = pastaDe(projeto);
   if (!dir || !ID_VALIDO.test(String(id || ''))) return { ok: false, erro: 'id invalido' };
   try {
     return { ok: true, execucao: JSON.parse(await fs.promises.readFile(path.join(dir, `${id}.json`), 'utf8')) };
   } catch (e) {
-    return { ok: false, erro: String(e && e.message) };
+    return { ok: false, erro: String(e && (e as Error).message) };
   }
 }
 
-function register() {
+export function register(): void {
   ipcMain.handle('runlog:gravar', (_e, projeto, exec) => gravar(projeto, exec));
   ipcMain.handle('runlog:listar', (_e, projeto) => listar(projeto));
   ipcMain.handle('runlog:ler', (_e, projeto, id) => ler(projeto, id));
 }
-
-module.exports = { register, gravar, listar, ler, pastaDe, ID_VALIDO };

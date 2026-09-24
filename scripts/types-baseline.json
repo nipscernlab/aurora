@@ -41,9 +41,6 @@
   "main/ipc/project.js": {
     "TS2339": 2
   },
-  "main/ipc/run_log.js": {
-    "TS2339": 3
-  },
   "main/ipc/search_worker.js": {
     "TS18047": 2,
     "TS2304": 1

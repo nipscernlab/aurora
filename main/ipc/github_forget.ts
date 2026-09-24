@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * github_forget.js: apaga da máquina tudo que identifica a conta GitHub do
+ * github_forget.ts: apaga da máquina tudo que identifica a conta GitHub do
  * usuário.
  *
  * POR QUE EXISTE
@@ -49,25 +48,43 @@
  * relato de erro não vaze o que a limpeza existia para proteger.
  */
 
-'use strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+// O child_process inteiro, e o execFile chamado pelo objeto: e o que deixa o
+// teste trocar o execFile antes de qualquer credencial ser tocada. Importado
+// por nome, o valor ficaria preso ao original no carregamento pelo Vite.
+import cp, { type ChildProcess } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { app, ipcMain } from 'electron';
+import log from 'electron-log';
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFile } = require('child_process');
-const { app, ipcMain } = require('electron');
-const log = require('electron-log');
+import * as githubAuth from './github_auth.js';
 
-const githubAuth = require('./github_auth');
-/** @type {typeof import('./gitlab_auth') | null} */
-let gitlabAuth = null;
-try { gitlabAuth = require('./gitlab_auth'); } catch (_) { /* opcional */ }
+// O GitLab e opcional: se o modulo nao carregar, a limpeza segue so com o GitHub.
+const requireTarde = createRequire(__filename);
+let gitlabAuth: typeof import('./gitlab_auth.js') | null = null;
+try { gitlabAuth = requireTarde('./gitlab_auth'); } catch (_) { /* opcional */ }
+
+/** Um passo da limpeza, como o relatorio o mostra: o que saiu, nunca o que havia. */
+interface Passo {
+  passo: string;
+  ok: boolean;
+  detalhe: string;
+}
+
+interface ResultadoRodar {
+  ok: boolean;
+  stdout: string;
+  stderr: string;
+  erro: string | null;
+}
 
 /** Hosts tratados como "do GitHub". */
-const HOSTS = ['github.com', 'gist.github.com', 'ssh.github.com'];
+export const HOSTS = ['github.com', 'gist.github.com', 'ssh.github.com'];
 
 /** Hosts do GitLab publico. A instancia propria entra por `hostsDeForja`. */
-const HOSTS_GITLAB = ['gitlab.com'];
+export const HOSTS_GITLAB = ['gitlab.com'];
 
 /**
  * Todo host que a AURORA trata como forja, incluindo a instancia GitLab que o
@@ -78,7 +95,7 @@ const HOSTS_GITLAB = ['gitlab.com'];
  * dominio de terceiro, e apagar o que nao e nosso e o unico erro aqui que nao
  * da para desfazer.
  */
-function hostsDeForja() {
+function hostsDeForja(): string[] {
   const lista = [...HOSTS, ...HOSTS_GITLAB];
   try {
     const proprio = gitlabAuth && typeof gitlabAuth.getHost === 'function'
@@ -97,15 +114,12 @@ const TEMPO_LIMITE = 15000;
  * `shell: false` é deliberado: os argumentos aqui carregam nome de host e de
  * alvo, e passar isso por um shell abriria injeção por um caminho que não tem
  * motivo nenhum para existir.
- * @param {string} cmd
- * @param {string[]} args
- * @param {string} [entrada]
  */
-function rodar(cmd, args, entrada) {
+function rodar(cmd: string, args: string[], entrada?: string): Promise<ResultadoRodar> {
   return new Promise((resolve) => {
-    let filho;
+    let filho: ChildProcess;
     try {
-      filho = execFile(cmd, args, { timeout: TEMPO_LIMITE, windowsHide: true },
+      filho = cp.execFile(cmd, args, { timeout: TEMPO_LIMITE, windowsHide: true },
         (erro, stdout, stderr) => resolve({
           ok: !erro,
           stdout: String(stdout || ''),
@@ -124,7 +138,7 @@ function rodar(cmd, args, entrada) {
 }
 
 /** 1. O cofre da própria AURORA. */
-function apagarCofre() {
+function apagarCofre(): Passo {
   try {
     githubAuth.disconnect();
     // O cofre do GitLab sai junto: sao dois arquivos, mas uma promessa so.
@@ -144,8 +158,8 @@ function apagarCofre() {
  * helper configurado o git não faz nada e sai com zero, o que aqui é sucesso:
  * não havia o que apagar.
  */
-async function rejeitarNoGit() {
-  const feitos = [];
+async function rejeitarNoGit(): Promise<Passo> {
+  const feitos: Array<{ host: string; ok: boolean; erro: string | null }> = [];
   for (const host of hostsDeForja()) {
     const r = await rodar('git', ['credential', 'reject'], `protocol=https\nhost=${host}\n\n`);
     feitos.push({ host, ok: r.ok, erro: r.erro });
@@ -161,12 +175,12 @@ async function rejeitarNoGit() {
 }
 
 /** 3. O arquivo do helper `store`, que guarda em texto puro. */
-function apagarArquivoDeCredenciais() {
+function apagarArquivoDeCredenciais(): Passo {
   const alvos = [
     path.join(os.homedir(), '.git-credentials'),
     path.join(os.homedir(), '.config', 'git', 'credentials'),
   ];
-  const removidos = [];
+  const removidos: string[] = [];
   for (const p of alvos) {
     try {
       if (fs.existsSync(p)) { fs.rmSync(p, { force: true }); removidos.push(p); }
@@ -195,9 +209,8 @@ function apagarArquivoDeCredenciais() {
  * como `git:https://github.com.exemplo.net` contém `//github.com` e passava,
  * então a limpeza apagaria a credencial de um domínio de terceiro. Apagar o que
  * não é nosso é o único erro aqui que não dá para desfazer.
- * @param {unknown} alvo
  */
-function alvoEhDeForja(alvo) {
+export function alvoEhDeForja(alvo: unknown): boolean {
   const t = String(alvo == null ? '' : alvo).trim().toLowerCase();
   if (!t) return false;
 
@@ -209,7 +222,7 @@ function alvoEhDeForja(alvo) {
   else if (resto.includes('=')) resto = resto.slice(resto.lastIndexOf('=') + 1);
 
   // Corta porta, caminho e credencial embutida; sobra o host.
-  const host = resto.split('/')[0].split('?')[0].split('@').pop().split(':')[0];
+  const host = (resto.split('/')[0].split('?')[0].split('@').pop() ?? '').split(':')[0];
   return hostsDeForja().includes(host);
 }
 
@@ -220,7 +233,7 @@ function alvoEhDeForja(alvo) {
  * `cmdkey /list` imprime "Destino: xxx" ou "Target: xxx" conforme o idioma do
  * Windows, então a leitura aceita os dois.
  */
-async function limparGerenciadorDoWindows() {
+async function limparGerenciadorDoWindows(): Promise<Passo> {
   if (process.platform !== 'win32') {
     return { passo: 'gerenciador-windows', ok: true, detalhe: 'nao se aplica fora do Windows' };
   }
@@ -228,13 +241,13 @@ async function limparGerenciadorDoWindows() {
   if (!lista.ok) {
     return { passo: 'gerenciador-windows', ok: false, detalhe: 'nao consegui listar as credenciais' };
   }
-  const alvos = [];
+  const alvos: string[] = [];
   for (const linha of lista.stdout.split(/\r?\n/)) {
     const m = linha.match(/^\s*(?:Destino|Target|Alvo)\s*:\s*(.+?)\s*$/i);
     if (m && alvoEhDeForja(m[1])) alvos.push(m[1]);
   }
   let removidos = 0;
-  const falhas = [];
+  const falhas: string[] = [];
   for (const alvo of alvos) {
     const r = await rodar('cmdkey', [`/delete:${alvo}`]);
     if (r.ok) removidos += 1; else falhas.push(alvo);
@@ -255,8 +268,8 @@ async function limparGerenciadorDoWindows() {
  * texto puro porque o `cmdkey` não rodou seria o pior resultado possível. O
  * relatório volta com o que deu certo e o que não deu, para o usuário ver.
  */
-async function esquecerTudo() {
-  const passos = [];
+async function esquecerTudo(): Promise<{ ok: boolean; passos: Passo[] }> {
+  const passos: Passo[] = [];
   passos.push(apagarCofre());
   passos.push(await rejeitarNoGit());
   passos.push(apagarArquivoDeCredenciais());
@@ -289,7 +302,7 @@ function identidadeQueFica() {
  * significaria pedi-la a uma janela que talvez nao exista mais, no exato momento
  * em que ela precisa ser lida.
  */
-function caminhoPreferencia() {
+function caminhoPreferencia(): string {
   return path.join(app.getPath('userData'), 'aurora-github-exit.json');
 }
 
@@ -326,12 +339,12 @@ function caminhoPreferencia() {
  * E o pedaco que regride em silencio: trocar o `!== false` por `=== true` numa
  * limpeza de codigo devolveria o padrao antigo sem falhar nada.
  *
- * @param {string|null} raw conteudo do arquivo, ou null se nao ha arquivo
- * @param {boolean} [contaConectada] se o cofre da AURORA tem alguma conta de
- *   forja; e o que o PADRAO devolve. Quem pergunta pela preferencia em si (o
- *   interruptor das Configuracoes) nao passa nada e recebe o padrao ligado.
+ * `raw` e o conteudo do arquivo, ou null se nao ha arquivo. `contaConectada`
+ * diz se o cofre da AURORA tem alguma conta de forja; e o que o PADRAO devolve.
+ * Quem pergunta pela preferencia em si (o interruptor das Configuracoes) nao
+ * passa nada e recebe o padrao ligado.
  */
-function decidirLimparAoSair(raw, contaConectada = true) {
+export function decidirLimparAoSair(raw: string | null, contaConectada = true): boolean {
   if (raw == null) return contaConectada;
   try {
     const v = JSON.parse(raw)?.limparAoSair;
@@ -348,7 +361,7 @@ function decidirLimparAoSair(raw, contaConectada = true) {
  * nao pode travar numa leitura de cofre, e sem resposta a decisao segura e a
  * de nao apagar o que nao se sabe se e nosso.
  */
-function contaConectada() {
+function contaConectada(): boolean {
   try {
     if (githubAuth.getToken()) return true;
   } catch (_) { /* cofre ilegivel: trate como ausente */ }
@@ -359,13 +372,13 @@ function contaConectada() {
 }
 
 /** O conteudo bruto do arquivo da preferencia, ou null quando nao ha arquivo. */
-function lerPreferenciaBruta() {
+function lerPreferenciaBruta(): string | null {
   try {
     return fs.readFileSync(caminhoPreferencia(), 'utf8');
   } catch (e) {
     // ENOENT e o caso normal (instalacao nova, ninguem mexeu). Qualquer outro
     // erro e anomalia e merece registro, mas nao muda a decisao.
-    if (e && e.code !== 'ENOENT') {
+    if (e && (e as NodeJS.ErrnoException).code !== 'ENOENT') {
       log.warn('[github-forget] preferencia ilegivel, usando o padrao:', e);
     }
     return null;
@@ -373,12 +386,11 @@ function lerPreferenciaBruta() {
 }
 
 /** A preferencia como o interruptor das Configuracoes a mostra: padrao ligado. */
-function limparAoSair() {
+export function limparAoSair(): boolean {
   return decidirLimparAoSair(lerPreferenciaBruta());
 }
 
-/** @param {boolean} ligado */
-function definirLimparAoSair(ligado) {
+function definirLimparAoSair(ligado: unknown): boolean {
   try {
     fs.writeFileSync(caminhoPreferencia(), JSON.stringify({ limparAoSair: !!ligado }, null, 2));
     return true;
@@ -395,7 +407,7 @@ function definirLimparAoSair(ligado) {
  * A conta e conferida ANTES da limpeza, porque o primeiro passo dela e
  * justamente esvaziar o cofre.
  */
-async function aoEncerrar() {
+export async function aoEncerrar(): Promise<{ ok: boolean; pulado?: boolean; passos?: Passo[] }> {
   const conectada = contaConectada();
   if (!decidirLimparAoSair(lerPreferenciaBruta(), conectada)) {
     if (!conectada) log.info('[github-forget] nada a limpar ao sair: nenhuma conta de forja conectada nesta instalacao');
@@ -405,14 +417,9 @@ async function aoEncerrar() {
   return esquecerTudo();
 }
 
-function register() {
+export function register(): void {
   ipcMain.handle('github:forget-everything', () => esquecerTudo());
   ipcMain.handle('github:forget-scope', () => identidadeQueFica());
   ipcMain.handle('github:forget-on-exit-get', () => limparAoSair());
   ipcMain.handle('github:forget-on-exit-set', (_e, ligado) => definirLimparAoSair(ligado));
 }
-
-module.exports = {
-  register, alvoEhDeForja, HOSTS, HOSTS_GITLAB,
-  limparAoSair, decidirLimparAoSair, aoEncerrar,
-};

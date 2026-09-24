@@ -28,10 +28,6 @@
   "main/ipc/git.js": {
     "TS2349": 6
   },
-  "main/ipc/github_forget.js": {
-    "TS2339": 1,
-    "TS2532": 1
-  },
   "main/ipc/history.js": {
     "TS2345": 1
   },

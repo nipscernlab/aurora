@@ -156,6 +156,7 @@ main/python/pylib_manager.js
 main/process_registry.js
 main/ipc/prism_vcd.js
 main/ipc/bug_report.js
+main/ipc/github_forget.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

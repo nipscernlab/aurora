@@ -45,11 +45,13 @@ function comPrazo(req, ms, rotulo) {
 }
 
 // GitHub OAuth App (Device Flow). The Client ID is PUBLIC, it ships in the app
-// and the device flow needs NO client secret, so this is safe to commit. Fill it
-// in after registering the OAuth App at github.com/settings/developers with
-// "Enable Device Flow" ticked. Empty ⇒ the "Sign in with GitHub" button is
-// disabled and only the manual-token path is offered. Can also be supplied via
-// the AURORA_GITHUB_CLIENT_ID env var for local testing before it's hard-coded.
+// and the device flow needs NO client secret, so this is safe to commit. The app
+// is "sapho", owned by the nipscernlab organization since 23/09/2026 (registered
+// on Chrysthofer's account and transferred, Client ID unchanged); org owners
+// manage it under the org's Settings, Developer settings, OAuth Apps, where
+// "Enable Device Flow" must stay ticked. Empty ⇒ the "Sign in with GitHub"
+// button is disabled and only the manual-token path is offered. Can also be
+// supplied via the AURORA_GITHUB_CLIENT_ID env var for local testing.
 const OAUTH_CLIENT_ID = process.env.AURORA_GITHUB_CLIENT_ID || 'Ov23linD078LyGE5aDvg';
 // Scopes mirror what a classic PAT needs for AURORA: repo (clone/push/create) +
 // read:org (so organization repos show in the clone list).

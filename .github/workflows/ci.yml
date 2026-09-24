@@ -29,6 +29,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Compilar ANTES de qualquer conferencia, e nao dentro de uma delas.
+      #
+      # Os .ts do repositorio viram .js ao lado, e esses .js sao gerados e
+      # ficam fora do git. Uma copia limpa, que e o que o runner tem, nao os
+      # possui ate este passo rodar, entao toda conferencia que carregue um
+      # modulo depende dele.
+      #
+      # Ja custou caro duas vezes, e as duas apareceram juntas: o gerador da
+      # referencia das ferramentas morria no `require` de
+      # js/compilation/api_steps.js, e o knip acusava `digitaljs`, `jquery` e
+      # `jquery-ui` como dependencias sem uso, porque quem as importa e o
+      # html/prism/prism.js, que tambem so existe depois de compilar. Nenhuma
+      # das duas aparece na maquina de quem desenvolve, onde os .js gerados
+      # estao sempre la.
+      #
+      # Como passo proprio e no comeco, a ordem dos passos seguintes deixa de
+      # importar: nenhum deles pode rodar antes da compilacao.
+      - name: Build TypeScript (os .js gerados que o resto dos passos carrega)
+        run: npm run build:ts
+
       - name: Verify pinned dependency versions
         run: node scripts/check-pinned-versions.js
 
@@ -53,12 +73,8 @@ jobs:
       # mao, ela chegou a documentar 49 das 103, faltando funcionalidades
       # inteiras. Este check falha quando alguem acrescenta ou muda uma
       # ferramenta sem regerar.
-      # O main/ai/tools.js le as listas de js/compilation/api_steps.ts, que so
-      # vira .js no build:ts; sem compilar antes, o gerador morre no require.
       - name: AI tools reference is up to date
-        run: |
-          npm run build:ts
-          node scripts/gen-ai-tools-doc.js --check
+        run: node scripts/gen-ai-tools-doc.js --check
 
       - name: Dead code (unused files + dependencies)
         run: npm run deadcode

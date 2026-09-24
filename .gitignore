@@ -154,6 +154,7 @@ main/ipc/project_paths.js
 main/compile/protected_flags.js
 main/python/pylib_manager.js
 main/process_registry.js
+main/ipc/prism_vcd.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

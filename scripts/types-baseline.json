@@ -46,9 +46,6 @@
   "main/ipc/prism.js": {
     "TS2339": 1
   },
-  "main/ipc/prism_vcd.js": {
-    "TS2532": 2
-  },
   "main/ipc/project.js": {
     "TS2339": 2
   },

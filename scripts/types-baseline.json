@@ -25,10 +25,6 @@
   "main/ipc/history.js": {
     "TS2345": 1
   },
-  "main/ipc/preview.js": {
-    "TS2339": 1,
-    "TS7053": 1
-  },
   "main/ipc/prism.js": {
     "TS2339": 1
   },

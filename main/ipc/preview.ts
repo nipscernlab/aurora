@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * The `aurora-preview://` protocol, backs the editor's rendered-HTML preview
  * (the magnifier button on an .html tab).
@@ -42,23 +41,22 @@
  *     quando o arquivo morava em `C:\`.
  */
 
-const path = require('path');
-const os = require('os');
-const fs = require('fs').promises;
-const crypto = require('crypto');
-const { protocol, ipcMain } = require('electron');
-const log = require('electron-log');
+import path from 'node:path';
+import os from 'node:os';
+import { promises as fs } from 'node:fs';
+import crypto from 'node:crypto';
+import { protocol, ipcMain } from 'electron';
+import log from 'electron-log';
 
-const { safePath } = require('../utils');
-const { dentroDe } = require('./fs_guard');
+import { safePath } from '../utils.js';
+import { dentroDe } from './fs_guard.js';
 
-const SCHEME = 'aurora-preview';
+export const SCHEME = 'aurora-preview';
 
 /**
  * Live previews: URL host id → what it may serve.
- * @type {Map<string, { root: string, doc: string, override: string|null, docOnly: boolean }>}
  */
-const previews = new Map();
+const previews = new Map<string, { root: string; doc: string; override: string | null; docOnly: boolean }>();
 
 /**
  * Decide a raiz servida para um documento e se ela deve encolher para o
@@ -71,15 +69,17 @@ const previews = new Map();
  * Nesses dois casos o preview serve SO o proprio documento: a pagina renderiza,
  * CDN carrega, e um vizinho local responde 404, que e o custo certo.
  *
- * @param {string} doc caminho absoluto do arquivo visualizado.
- * @param {string} [home] os.homedir(), injetavel para teste.
- * @param {NodeJS.Platform} [plataforma]
- * @returns {{ root: string, docOnly: boolean }}
+ * `doc` e o caminho absoluto do arquivo visualizado; `home` e os.homedir(),
+ * injetavel para teste.
  */
-function regrasDePreview(doc, home = os.homedir(), plataforma = process.platform) {
+export function regrasDePreview(
+  doc: string,
+  home: string = os.homedir(),
+  plataforma: NodeJS.Platform = process.platform,
+): { root: string; docOnly: boolean } {
   const root = path.dirname(doc);
   const ehRaizDeUnidade = path.parse(root).root === root;
-  const norm = (/** @type {string} */ p) =>
+  const norm = (p: string) =>
     (plataforma === 'win32' ? path.resolve(p).toLowerCase() : path.resolve(p));
   const ehHome = norm(root) === norm(home);
   return { root, docOnly: ehRaizDeUnidade || ehHome };
@@ -90,9 +90,9 @@ function regrasDePreview(doc, home = os.homedir(), plataforma = process.platform
  * `.env` e afins nunca sao dependencia legitima de uma pagina visualizada, e
  * sao exatamente o que vale a pena exfiltrar. O proprio documento pode ser um
  * dotfile (a pessoa abriu, e escolha dela); os VIZINHOS ocultos nao.
- * @param {string} rel caminho relativo ja decodificado.
+ * `rel` e o caminho relativo ja decodificado.
  */
-function temSegmentoOculto(rel) {
+export function temSegmentoOculto(rel: string): boolean {
   return String(rel).split(/[\\/]+/).some((s) => s.length > 1 && s.startsWith('.') && s !== '.' && s !== '..');
 }
 
@@ -112,7 +112,7 @@ function temSegmentoOculto(rel) {
  * here means `aurora-preview://<id>`, which would reject the app frame that
  * embeds it and break the preview outright.
  */
-const PREVIEW_CSP = [
+export const PREVIEW_CSP = [
   "default-src 'self' https: data: blob:",
   "script-src 'self' https: 'unsafe-inline' 'unsafe-eval' blob: data:",
   "style-src 'self' https: 'unsafe-inline' data:",
@@ -128,7 +128,7 @@ const PREVIEW_CSP = [
 ].join('; ');
 
 /** Extensions a preview may legitimately pull in. */
-const MIME = {
+const MIME: Readonly<Record<string, string>> = {
   '.html': 'text/html; charset=utf-8',
   '.htm': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -164,14 +164,13 @@ const MIME = {
  * Tipo MIME pela extensao, com `application/octet-stream` como queda.
  * Exportado para teste: um MIME errado num esquema proprio muda como o
  * Chromium trata a resposta. Ver tests/unit/previewScheme.test.js.
- * @param {string} p @returns {string}
  */
-function mimeFor(p) {
+export function mimeFor(p: string): string {
   return MIME[path.extname(p).toLowerCase()] || 'application/octet-stream';
 }
 
-/** True for any URL served by this protocol. @param {string} url */
-function isPreviewUrl(url) {
+/** True for any URL served by this protocol. */
+export function isPreviewUrl(url: unknown): boolean {
   return typeof url === 'string' && url.startsWith(`${SCHEME}://`);
 }
 
@@ -193,14 +192,13 @@ const SCHEME_SPEC = {
  * Chromium le o registro de esquemas UMA vez, e a chamada seguinte SUBSTITUI a
  * lista em vez de somar. Todo esquema privilegiado do app entra portanto nesta
  * unica chamada: os specs dos demais modulos chegam por parametro.
- * @param {Electron.CustomScheme[]} [extraSpecs]
  */
-function registerScheme(extraSpecs = []) {
+export function registerScheme(extraSpecs: Electron.CustomScheme[] = []): void {
   protocol.registerSchemesAsPrivileged([SCHEME_SPEC, ...extraSpecs]);
 }
 
 /** Install the protocol handler. Must run after `app.whenReady`. */
-function installProtocol() {
+export function installProtocol(): void {
   protocol.handle(SCHEME, async (request) => {
     let entry;
     let target = '';
@@ -253,13 +251,13 @@ function installProtocol() {
       });
     } catch (e) {
       // A page asking for a file that isn't there is routine, not an app error.
-      log.warn('[preview] cannot serve', target || request.url, '-', e?.message || e);
+      log.warn('[preview] cannot serve', target || request.url, '-', (e as Error | null)?.message || e);
       return new Response('Not found', { status: 404 });
     }
   });
 }
 
-function register() {
+export function register(): void {
   /**
    * Open a preview slot for `sourcePath`. `content` is the renderer's current
    * (possibly unsaved) text for that file; pass null to serve it from disk.
@@ -282,9 +280,3 @@ function register() {
   ipcMain.handle('preview:unregister', (_e, id) => previews.delete(id));
 }
 
-module.exports = {
-  register, registerScheme, installProtocol, isPreviewUrl, mimeFor, SCHEME, PREVIEW_CSP,
-  // Exportadas para teste: sao a fronteira entre "a pagina ve os vizinhos" e
-  // "a pagina ve a home do usuario". Ver tests/unit/previewScheme.test.js.
-  regrasDePreview, temSegmentoOculto,
-};

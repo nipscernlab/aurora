@@ -1,13 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'node:module';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const require = createRequire(import.meta.url);
 // O modulo do main puxa `electron` so pelo `ipcMain` do register(); as funcoes
-// exercitadas aqui nao o tocam, e o vitest resolve o pacote sem subir Electron.
-const loja = require('../../main/ipc/run_log.js');
+// exercitadas aqui nao o tocam. O falso existe porque, fora do Electron, o
+// pacote `electron` exporta so uma string, e um `import { ipcMain }` nao acha o
+// nome. Pelo import, e nao por require nativo, o teste exercita o .ts do modulo.
+vi.mock('electron', () => ({ ipcMain: { handle() {} } }));
+const loja = await import('../../main/ipc/run_log.js');
 
 // O registro mora DENTRO do projeto, em .aurora/execucoes, e nao no perfil do
 // usuario: copiar o projeto leva o historico junto, apagar o projeto apaga o
@@ -89,5 +90,20 @@ describe('listar e ler', () => {
         expect(r.ok).toBe(true);
         expect(r.execucao.passos[0].ferramenta).toBe('iverilog.exe');
         expect((await loja.ler(projeto, '../fora')).ok).toBe(false);
+    });
+
+    it('ler uma execucao que nao existe devolve o erro, sem lancar', async () => {
+        const r = await loja.ler(projeto, '2026-08-29T10-00-00-cmm');
+        expect(r.ok).toBe(false);
+        expect(r.erro).toMatch(/ENOENT/);
+    });
+
+    it('pasta de execucoes ilegivel por outro motivo que nao existir: erro, com a mensagem', async () => {
+        fs.mkdirSync(path.join(projeto, '.aurora'), { recursive: true });
+        fs.writeFileSync(path.join(projeto, '.aurora', 'execucoes'), 'nao sou pasta');
+        const r = await loja.listar(projeto);
+        expect(r.ok).toBe(false);
+        expect(r.execucoes).toEqual([]);
+        expect(r.erro).toMatch(/ENOTDIR/);
     });
 });

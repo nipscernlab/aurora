@@ -19,10 +19,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRequire } from 'node:module';
 
-const require = createRequire(import.meta.url);
-const c = require('../../main/ai/citacoes.js');
+// Pelo import, e nao por require nativo: assim o teste exercita o fonte do
+// modulo, e a cobertura cai nele e nao no .js que o build gera ao lado.
+const c = await import('../../main/ai/citacoes.js');
 
 const PAGINA = { caminho: 'referencia/tipos.html', titulo: 'Tipos do C±', texto: 'O tipo complexo e nativo.' };
 const okRead = (d) => ({ ok: true, data: d });

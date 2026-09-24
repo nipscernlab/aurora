@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * registry.js: o catálogo de componentes e a resposta para "isto está aqui?".
+ * registry.ts: o catálogo de componentes e a resposta para "isto está aqui?".
  *
  * POR QUE EXISTE
  * --------------
@@ -57,10 +56,36 @@
  * no aurora-toolchain, que é fora deste repositório.
  */
 
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
 
-const fs = require('fs');
-const path = require('path');
+const requireTarde = createRequire(__filename);
+
+/** Um componente do catalogo. */
+export interface Componente {
+  chave: string;
+  nome: string;
+  resumo: string;
+  sentinela: string;
+  tamanhoMB: number;
+  downloadMB: number;
+  essencial: boolean;
+  requerParaCompilar?: boolean;
+  script: string | null;
+  arquivosChave: string[];
+  icone: string;
+  versao: string;
+  carimbo: string;
+}
+
+/** O diagnostico de um componente. */
+export interface Diagnostico {
+  chave: string;
+  estado: 'ok' | 'ausente' | 'incompleto' | 'desatualizado';
+  faltando: string[];
+  versaoInstalada: string | null;
+}
 
 /**
  * Resolvido na hora, e nao no import.
@@ -70,18 +95,16 @@ const path = require('path');
  * quebraria se algum dia ele fosse carregado antes do app estar pronto. O
  * caminho nao muda durante a execucao, entao a resolucao fica guardada.
  */
-/** @type {string|null} */
-let raizGuardada = null;
-function raiz() {
-  if (raizGuardada === null) raizGuardada = require('../paths').componentsPath;
+let raizGuardada: string | null = null;
+function raiz(): string {
+  if (raizGuardada === null) raizGuardada = requireTarde('../paths').componentsPath as string;
   return raizGuardada;
 }
 
 /**
- * Aponta o catalogo para outra pasta. So os testes chamam.
- * @param {string} pasta
+ * Aponta o catalogo para outra pasta. So os testes chamam; null volta ao padrao.
  */
-function definirRaizParaTestes(pasta) {
+export function definirRaizParaTestes(pasta: string | null): void {
   raizGuardada = pasta;
   memoria.clear();
 }
@@ -103,16 +126,8 @@ const VALIDADE_MS = 3000;
  * version_stamp.js). Os dois lados são amarrados por teste: a versão daqui
  * tem que ser a mesma que o download-*.js declara, senão o painel diria
  * "atualização disponível" para sempre, ou nunca.
- *
- * @type {Array<{
- *   chave: string, nome: string, resumo: string, sentinela: string,
- *   tamanhoMB: number, downloadMB: number, essencial: boolean,
- *   requerParaCompilar?: boolean, script: string|null, arquivosChave: string[],
- *   icone: string,
- *   versao: string, carimbo: string,
- * }>}
  */
-const COMPONENTES = [
+export const COMPONENTES: Componente[] = [
   {
     chave: 'msys',
     // A marca do proprio MSYS2, que e a distribuicao empacotada aqui dentro.
@@ -248,31 +263,27 @@ const COMPONENTES = [
 /** Índice por chave, montado uma vez. */
 const PORCHAVE = new Map(COMPONENTES.map((c) => [c.chave, c]));
 
-/** @type {Map<string, {quando: number, presente: boolean}>} */
-const memoria = new Map();
+const memoria = new Map<string, { quando: number; presente: boolean }>();
 
 /**
  * Descarta a memória. Chamado ao instalar ou remover um componente.
- * @param {string} [chave]
  */
-function invalidarCache(chave) {
+export function invalidarCache(chave?: string): void {
   if (chave) memoria.delete(chave);
   else memoria.clear();
 }
 
 /**
  * O componente, ou undefined.
- * @param {string} chave
  */
-function obter(chave) {
+export function obter(chave: string): Componente | undefined {
   return PORCHAVE.get(chave);
 }
 
 /**
  * O caminho absoluto da sentinela.
- * @param {string} chave
  */
-function caminhoDaSentinela(chave) {
+function caminhoDaSentinela(chave: string): string | null {
   const c = PORCHAVE.get(chave);
   if (!c) return null;
   return path.join(raiz(), ...c.sentinela.split('/'));
@@ -287,9 +298,8 @@ function caminhoDaSentinela(chave) {
  * catálogo, o certo é ele continuar funcionando e o teste de integridade
  * acusar a falta de dono, e não a ferramenta parar de funcionar em produção por
  * uma linha esquecida aqui.
- * @param {string} chave
  */
-function estaInstalado(chave) {
+export function estaInstalado(chave: string): boolean {
   if (!PORCHAVE.has(chave)) return true;
 
   const agora = Date.now();
@@ -297,7 +307,7 @@ function estaInstalado(chave) {
   if (lembrado && agora - lembrado.quando < VALIDADE_MS) return lembrado.presente;
 
   let presente = false;
-  try { presente = fs.existsSync(caminhoDaSentinela(chave)); }
+  try { presente = fs.existsSync(caminhoDaSentinela(chave) as string); }
   catch (_) { presente = false; }
 
   memoria.set(chave, { quando: agora, presente });
@@ -310,9 +320,8 @@ function estaInstalado(chave) {
  * Null é "não se sabe", e não "errada": toda instalação anterior ao carimbo
  * está assim, e tratá-la como desatualizada mandaria laboratórios inteiros
  * re-baixar 272 MB por nada.
- * @param {string} chave
  */
-function versaoInstalada(chave) {
+export function versaoInstalada(chave: string): string | null {
   const c = PORCHAVE.get(chave);
   if (!c || !c.carimbo) return null;
   try {
@@ -339,11 +348,8 @@ function versaoInstalada(chave) {
  * Não executa nada. Rodar cada binário para ver se responde custaria segundos
  * por componente e dispararia antivírus em máquina de laboratório; a presença
  * dos arquivos pega o defeito real sem esse preço.
- *
- * @param {string} chave
- * @returns {{chave: string, estado: 'ok'|'ausente'|'incompleto'|'desatualizado', faltando: string[], versaoInstalada: string|null}}
  */
-function diagnosticar(chave) {
+export function diagnosticar(chave: string): Diagnostico {
   const c = PORCHAVE.get(chave);
   if (!c) return { chave, estado: 'ausente', faltando: [], versaoInstalada: null };
 
@@ -364,7 +370,7 @@ function diagnosticar(chave) {
 }
 
 /** O diagnóstico de todos, na ordem do catálogo. */
-function diagnosticarTudo() {
+export function diagnosticarTudo() {
   return COMPONENTES.map((c) => ({ ...diagnosticar(c.chave), essencial: c.essencial, nome: c.nome }));
 }
 
@@ -374,7 +380,7 @@ function diagnosticarTudo() {
  * `instalado` continua sendo a sentinela, que é o que o portão consulta;
  * `estado` é o diagnóstico completo, que é o que decide qual botão aparece.
  */
-function listar() {
+export function listar() {
   return COMPONENTES.map((c) => {
     const d = diagnosticar(c.chave);
     return {
@@ -394,9 +400,8 @@ function listar() {
  * notificação, no retorno da API e no que a Aurora Intelligence recebe. Frases
  * diferentes para a mesma causa é o que faz um usuário achar que são problemas
  * diferentes.
- * @param {string} chave
  */
-function mensagemDeAusencia(chave) {
+export function mensagemDeAusencia(chave: string): string {
   const c = PORCHAVE.get(chave);
   const nome = c ? c.nome : chave;
   // O numero citado e o do download, nao o do disco: neste momento a pessoa
@@ -405,15 +410,3 @@ function mensagemDeAusencia(chave) {
     + `${c ? ` (${c.downloadMB} MB)` : ''} para usar este recurso.`;
 }
 
-module.exports = {
-  COMPONENTES,
-  listar,
-  obter,
-  estaInstalado,
-  diagnosticar,
-  diagnosticarTudo,
-  versaoInstalada,
-  invalidarCache,
-  definirRaizParaTestes,
-  mensagemDeAusencia,
-};

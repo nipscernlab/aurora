@@ -162,6 +162,7 @@ main/ipc/run_log.js
 main/ai/citacoes.js
 main/ai/provider.js
 main/ipc/preview.js
+main/components/registry.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

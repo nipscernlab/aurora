@@ -1963,12 +1963,11 @@ sai quando ela acabar.
       dois fatores, convidados na organização SAPHO [OSS] como administradores
       e aprovadores. O `SAPHO_RELEASE_TOKEN` trocado por um fine-grained token
       de um admin do `sapho`, porque só admin cria as tags `v*` lá, com o
-      `dry_run` do `release.yml` passando. O Arthur como dono da organização
-      `nipscernlab`. O OAuth App `sapho` do GitHub, o do login de um clique,
-      transferido da conta do Chrysthofer para a organização. Os dois no grupo
-      `nips-cern` do GitLab. A senha e o segundo fator de
-      nipscernlab@gmail.com, que é dona da Cloudflare do nipscern.com e do
-      usuário `nipscernlab` do GitLab, passados pessoalmente.
+      `dry_run` do `release.yml` passando. O OAuth App `sapho` do GitHub, o do
+      login de um clique, transferido da conta do Chrysthofer para a
+      organização. Os dois no grupo `nips-cern` do GitLab. A senha e o segundo
+      fator de nipscernlab@gmail.com, que é dona da Cloudflare do nipscern.com
+      e do usuário `nipscernlab` do GitLab, passados pessoalmente.
 
 - [ ] **11.2 Fim da transição.** Acaba quando o Arthur soltar uma release
       sozinho, do merge da PR do release-please ao instalador em

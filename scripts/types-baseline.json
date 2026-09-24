@@ -19,10 +19,6 @@
   "main/exemplos/instalar.js": {
     "TS2322": 2
   },
-  "main/ipc/bug_report.js": {
-    "TS18048": 2,
-    "TS2345": 1
-  },
   "main/ipc/components.js": {
     "TS2345": 1
   },

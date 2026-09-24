@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * bug_report.js: reúne o diagnóstico e envia o relato.
+ * bug_report.ts: reúne o diagnóstico e envia o relato.
  *
  * O QUE ESTE MÓDULO PODE LER
  * --------------------------
@@ -28,20 +27,28 @@
  * escreveu.
  */
 
-'use strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import https from 'node:https';
+import { createRequire } from 'node:module';
+import { app, ipcMain } from 'electron';
+import log from 'electron-log';
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const https = require('https');
-const { app, ipcMain } = require('electron');
-const log = require('electron-log');
+// paths e o registro de componentes sao lidos so na hora do diagnostico, e
+// dentro de try: se um deles falhar, o relato segue sem aquela linha.
+const requireTarde = createRequire(__filename);
+
+/** O que o envio devolve para a interface. */
+type RespostaEnvio =
+  | { ok: true; url: string | null }
+  | { ok: false; erro: string; esperar?: number; detalhe?: string };
 
 /** Quantas linhas do fim do log acompanham o relato. */
 const LINHAS_DE_LOG = 200;
 
 /** Teto do corpo enviado, para o Worker não receber um megabyte. */
-const LIMITE_BYTES = 60 * 1024;
+export const LIMITE_BYTES = 60 * 1024;
 
 /**
  * Endereço do Worker que abre a issue.
@@ -56,7 +63,7 @@ const LIMITE_BYTES = 60 * 1024;
 // redirects do postar(), mas o padrao vai direto ao destino.
 const ENDPOINT_PADRAO = 'https://www.nipscern.com/api/sapho/bugreport';
 
-function endpoint() {
+export function endpoint(): string {
   const v = process.env.AURORA_BUGREPORT_URL;
   // String vazia desliga o envio direto de proposito, e deixa so o e-mail.
   if (v !== undefined) return v;
@@ -75,11 +82,10 @@ function endpoint() {
  * Não é perfeito, e o consentimento diz isso: um caminho de projeto com nome
  * próprio ("C:\...\tcc-do-joao") ainda passa, porque não há como saber o que é
  * nome de gente no meio de nomes de pasta.
- * @param {unknown} texto
  */
-function anonimizar(texto) {
+export function anonimizar(texto: unknown): string {
   let saida = String(texto || '');
-  const candidatos = new Set();
+  const candidatos = new Set<string>();
   try { candidatos.add(path.basename(os.homedir())); } catch (_) { /* segue */ }
   try { candidatos.add(os.userInfo().username); } catch (_) { /* pode falhar em conta restrita */ }
   for (const nome of candidatos) {
@@ -95,7 +101,7 @@ function anonimizar(texto) {
 }
 
 /** As últimas linhas do log, ou uma explicação de por que não vieram. */
-function caudaDoLog() {
+function caudaDoLog(): string {
   try {
     const p = path.join(app.getPath('userData'), 'logs', 'main.log');
     if (!fs.existsSync(p)) return '(sem arquivo de log)';
@@ -114,9 +120,9 @@ function caudaDoLog() {
  * build que morre sem mensagem clara. Uma linha, e nada dela identifica quem
  * quer que seja.
  */
-function espacoLivreGB() {
+function espacoLivreGB(): number | null {
   try {
-    const { componentsPath } = require('../paths');
+    const { componentsPath } = requireTarde('../paths');
     // statfsSync existe no Node 18+; se faltar, o relato segue sem o numero.
     if (typeof fs.statfsSync !== 'function') return null;
     const s = fs.statfsSync(componentsPath);
@@ -131,11 +137,11 @@ function espacoLivreGB() {
  * baixada depois, e esta linha responde a pergunta antes de alguém precisar
  * perguntar.
  */
-function componentesInstalados() {
+function componentesInstalados(): string {
   try {
-    const registro = require('../components/registry');
+    const registro = requireTarde('../components/registry');
     return registro.listar()
-      .map((c) => `${c.chave}${c.instalado ? '' : ' (ausente)'}`)
+      .map((c: { chave: string; instalado: boolean }) => `${c.chave}${c.instalado ? '' : ' (ausente)'}`)
       .join(', ');
   } catch (_) { return ''; }
 }
@@ -169,12 +175,10 @@ function coletarDiagnostico() {
  * nenhum, e foi assim que o primeiro envio real morreu: o apex do site
  * responde 301 para www, o POST parava ali e o usuário via "HTTP 301" sem
  * ter feito nada de errado.
- * @param {string} url
- * @param {unknown} corpo
  */
-function postar(url, corpo, saltos = 0) {
+function postar(url: string, corpo: unknown, saltos = 0): Promise<RespostaEnvio> {
   return new Promise((resolve) => {
-    let alvo;
+    let alvo: URL;
     try { alvo = new URL(url); } catch (_) {
       resolve({ ok: false, erro: 'endereco invalido' }); return;
     }
@@ -187,7 +191,7 @@ function postar(url, corpo, saltos = 0) {
       timeout: 20000,
     }, (res) => {
       const { statusCode } = res;
-      if ([301, 302, 307, 308].includes(statusCode) && res.headers.location) {
+      if (statusCode !== undefined && [301, 302, 307, 308].includes(statusCode) && res.headers.location) {
         res.resume();
         if (saltos >= 3) { resolve({ ok: false, erro: 'redirects demais' }); return; }
         const destino = new URL(res.headers.location, alvo).toString();
@@ -197,9 +201,9 @@ function postar(url, corpo, saltos = 0) {
       let txt = '';
       res.on('data', (c) => { txt += c; });
       res.on('end', () => {
-        let json = null;
+        let json: { url?: string; esperar?: unknown } | null = null;
         try { json = JSON.parse(txt); } catch (_) { /* resposta sem corpo */ }
-        if (statusCode >= 200 && statusCode < 300) {
+        if (statusCode !== undefined && statusCode >= 200 && statusCode < 300) {
           resolve({ ok: true, url: json?.url || null });
           return;
         }
@@ -222,11 +226,8 @@ function postar(url, corpo, saltos = 0) {
   });
 }
 
-/**
- * O tamanho da carga, em bytes, como ela vai pela rede.
- * @param {unknown} carga
- */
-function tamanhoDa(carga) {
+/** O tamanho da carga, em bytes, como ela vai pela rede. */
+function tamanhoDa(carga: unknown): number {
   return Buffer.byteLength(JSON.stringify(carga), 'utf8');
 }
 
@@ -243,15 +244,14 @@ function tamanhoDa(carga) {
  * assunto do relato, e so cede depois. O que a pessoa escreveu nunca e
  * tocado: e a unica parte que ninguem consegue recuperar depois.
  *
- * O corte guarda o FIM de cada um, porque e onde a falha aparece.
- *
- * @param {{diagnostico: {log: string}, terminal?: string}} carga mutada no lugar.
+ * O corte guarda o FIM de cada um, porque e onde a falha aparece. A carga e
+ * mutada no lugar, e devolvida.
  */
-function encolherParaCaber(carga) {
+export function encolherParaCaber<T extends { diagnostico: { log: string }; terminal?: string }>(carga: T): T {
   // Do menos precioso para o mais precioso.
   const campos = [
-    { ler: () => carga.diagnostico.log, gravar: (/** @type {string} */ v) => { carga.diagnostico.log = v; }, piso: 500 },
-    { ler: () => carga.terminal || '', gravar: (/** @type {string} */ v) => { carga.terminal = v; }, piso: 1000 },
+    { ler: () => carga.diagnostico.log, gravar: (v: string) => { carga.diagnostico.log = v; }, piso: 500 },
+    { ler: () => carga.terminal || '', gravar: (v: string) => { carga.terminal = v; }, piso: 1000 },
   ];
 
   for (const campo of campos) {
@@ -273,19 +273,23 @@ function encolherParaCaber(carga) {
  * Validacao de forma, nao de existencia: o campo e opcional e um endereco
  * digitado errado so custa a resposta, nunca o relato. Um valor sem @ e
  * descartado em silencio pelo mesmo motivo.
- * @param {unknown} valor
  */
-function emailDeContato(valor) {
+export function emailDeContato(valor: unknown): string {
   const v = String(valor || '').trim().slice(0, 120);
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : '';
 }
 
-/**
- * Envia o relato.
- *
- * @param {{oQueAconteceu?: string, oQueEsperava?: string, comoReproduzir?: string, email?: string, terminal?: string}} [texto]
- */
-async function enviar(texto = {}) {
+/** O que a pessoa escreveu no formulario, mais o recorte do terminal. */
+interface TextoDoRelato {
+  oQueAconteceu?: string;
+  oQueEsperava?: string;
+  comoReproduzir?: string;
+  email?: string;
+  terminal?: string;
+}
+
+/** Envia o relato. */
+export async function enviar(texto: TextoDoRelato = {}): Promise<RespostaEnvio> {
   const oQue = String(texto.oQueAconteceu || '').trim();
   // Sem descricao nao ha relato. Barrar aqui, e nao so na interface, porque
   // este caminho tambem e alcancavel por IPC.
@@ -317,14 +321,9 @@ async function enviar(texto = {}) {
   return r;
 }
 
-function register() {
+export function register(): void {
   ipcMain.handle('bugreport:diagnostico', () => coletarDiagnostico());
-  ipcMain.handle('bugreport:enviar', (_e, texto) => enviar(texto));
+  ipcMain.handle('bugreport:enviar', (_e, texto: TextoDoRelato) => enviar(texto));
   ipcMain.handle('bugreport:disponivel', () => !!endpoint());
 }
 
-module.exports = {
-  register, enviar, encolherParaCaber, endpoint, anonimizar,
-  emailDeContato,
-  LIMITE_BYTES,
-};

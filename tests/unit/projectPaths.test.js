@@ -10,7 +10,6 @@
  */
 
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { beforeEach, describe, it, expect } from 'vitest';
 
 import {
@@ -19,10 +18,11 @@ import {
   deepRemapPaths,
 } from '../../main/ipc/project_paths.js';
 
-// O state pelo require nativo: e a instancia que project_paths.js usa por
-// dentro. O import ESM do vitest devolve outra copia do modulo, e limpar o
-// mapa dela nao limpa o mapa que as funcoes leem.
-const state = createRequire(import.meta.url)('../../main/state.js');
+// O state pelo import do vitest, o mesmo caminho por onde o project_paths.ts o
+// recebe: o vitest.config.mts manda o teste para o .ts, e o .ts importa o state
+// pelo Vite. Pelo require nativo viria outra copia do modulo, e limpar o mapa
+// dela nao limparia o mapa que as funcoes leem.
+import state from '../../main/state.js';
 
 const S = path.sep;
 const j = (...p) => p.join(S);

@@ -1,12 +1,37 @@
-// vitest.config.js
+// vitest.config.mts
 //
 // Default `npm test` runs unit tests only (tests/unit/**) — fast, no Electron.
 // E2E tests live under tests/e2e/ and launch a full Electron app via
 // Playwright; they take ~10s each so they're a separate command
 // (`npm run test:e2e`) and a separate CI step.
-import { defineConfig } from 'vitest/config';
+import fs from 'node:fs';
+import { defineConfig, type Plugin } from 'vitest/config';
+
+// Um teste que importa `../../js/x.js` recebia o .js que o `build:ts` gerou ao
+// lado do x.ts, e nao o .ts. O teste passava do mesmo jeito, mas a cobertura
+// caia no arquivo gerado, com numeracao de linha diferente da do fonte, e o
+// scripts/check-diff-coverage.mts nao conseguia dizer se a linha que alguem
+// mexeu no .ts estava coberta. Com este redirecionamento o teste exercita o
+// proprio .ts, que e tambem o que se quer testar. So vale para modulo que o
+// Vite carrega; quem chega por `createRequire` continua no .js gerado.
+function preferTsSource(): Plugin {
+  return {
+    name: 'prefer-ts-source',
+    enforce: 'pre',
+    async resolveId(source, importer, options) {
+      if (!source.endsWith('.js')) return null;
+      const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
+      if (!resolved || resolved.external) return null;
+      const id = resolved.id.split('?')[0];
+      if (id.includes('/node_modules/')) return null;
+      const ts = `${id.slice(0, -3)}.ts`;
+      return fs.existsSync(ts) ? ts : null;
+    },
+  };
+}
 
 export default defineConfig({
+  plugins: [preferTsSource()],
   test: {
     include: ['tests/unit/**/*.test.js'],
     exclude: ['**/node_modules/**'],

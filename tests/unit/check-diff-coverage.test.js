@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   avaliar,
@@ -160,42 +160,80 @@ describe('faixas e relatar', () => {
   });
 });
 
-// O caminho inteiro contra um repositorio git de verdade, numa pasta temporaria:
+// O caminho inteiro contra repositorios git de verdade, em pastas temporarias:
 // base, diff com renomeacao, arquivo novo fora do git e o lcov.
-describe('verificar', () => {
-  let dir;
-  const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
-  const escrever = (f, texto) => {
+//
+// Os repositorios sao montados uma vez, no beforeAll, e a identidade do autor
+// vai por variavel de ambiente e nao por `git config`. Cada processo git custa
+// caro no runner Windows: montando o repositorio dentro de cada teste eram uns
+// dez por teste, e num runner lento dois deles estouraram os 20 s na PR de
+// release 6.21.0 (passaram na tentativa seguinte, com 2,7 s para os 20). Aqui
+// cada teste so paga as chamadas que o proprio verificar faz.
+//
+// E o prazo do bloco sobe para 60 s. Os 20 s do vitest.config.mts servem para
+// codigo que roda em memoria; aqui cada chamada abre um processo, e naquele
+// runner lento cada uma custou uns 2 s, o que so o beforeAll ja somaria. Um git
+// travado de verdade ainda para em 60 s.
+const PRAZO_GIT = 60_000;
+
+describe('verificar', { timeout: PRAZO_GIT }, () => {
+  const ENV = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t',
+  };
+  const git = (dir, ...args) => execFileSync('git', ['-c', 'core.autocrlf=false', ...args], { cwd: dir, encoding: 'utf8', env: ENV });
+  const escrever = (dir, f, texto) => {
     fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true });
     fs.writeFileSync(path.join(dir, f), texto);
   };
+  const VELHO = 'export function f(a) {\n  return a + 1;\n}\n\nexport const g = 2;\n';
 
-  afterEach(() => {
-    if (dir) fs.rmSync(dir, { recursive: true, force: true });
-    dir = undefined;
+  // `comHistoria`: a base com o velho.js, depois o commit que o renomeia para
+  // .ts mexendo so na linha 1, e origin/main apontando para a base.
+  // `semRemoto`: um commit so, sem origin/main.
+  let raiz;
+  let comHistoria;
+  let semRemoto;
+  let base;
+
+  beforeAll(() => {
+    raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'diffcov-'));
+    comHistoria = path.join(raiz, 'historia');
+    semRemoto = path.join(raiz, 'sem-remoto');
+    for (const dir of [comHistoria, semRemoto]) {
+      fs.mkdirSync(dir);
+      git(dir, 'init', '-q');
+      escrever(dir, 'js/velho.js', VELHO);
+      git(dir, 'add', '.');
+      git(dir, 'commit', '-q', '-m', 'base');
+    }
+    base = git(comHistoria, 'rev-parse', 'HEAD').trim();
+    git(comHistoria, 'update-ref', 'refs/remotes/origin/main', base);
+    git(comHistoria, 'mv', 'js/velho.js', 'js/velho.ts');
+    escrever(comHistoria, 'js/velho.ts', VELHO.replace('f(a)', 'f(a: number)'));
+    git(comHistoria, 'commit', '-q', '-am', 'ts');
+  }, PRAZO_GIT);
+
+  afterAll(() => {
+    if (raiz) fs.rmSync(raiz, { recursive: true, force: true });
   });
 
-  function repo() {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'diffcov-'));
-    git('init', '-q');
-    git('config', 'user.email', 't@t');
-    git('config', 'user.name', 't');
-    git('config', 'core.autocrlf', 'false');
-    escrever('js/velho.js', 'export function f(a) {\n  return a + 1;\n}\n\nexport const g = 2;\n');
-    git('add', '.');
-    git('commit', '-q', '-m', 'base');
-    return git('rev-parse', 'HEAD').trim();
-  }
+  // O que cada teste escreve fora do git sai no fim, para o seguinte achar o
+  // repositorio como o beforeAll o deixou.
+  const soltos = [];
+  const escreverSolto = (dir, f, texto) => {
+    escrever(dir, f, texto);
+    soltos.push(path.join(dir, f));
+  };
+  afterEach(() => {
+    for (const f of soltos.splice(0)) fs.rmSync(f, { force: true });
+  });
 
   it('renomear para .ts conta so as linhas que mudaram, e arquivo novo entra inteiro', () => {
-    const base = repo();
-    git('mv', 'js/velho.js', 'js/velho.ts');
-    escrever('js/velho.ts', 'export function f(a: number) {\n  return a + 1;\n}\n\nexport const g = 2;\n');
-    git('commit', '-q', '-am', 'ts');
-    escrever('js/novo.ts', '// novo\nexport const h = 3;\n');
-    escrever('coverage/lcov.info', ['SF:js/velho.ts', 'DA:1,0', 'DA:2,0', 'DA:5,1', 'end_of_record'].join('\n'));
+    escreverSolto(comHistoria, 'js/novo.ts', '// novo\nexport const h = 3;\n');
+    escreverSolto(comHistoria, 'coverage/lcov.info', ['SF:js/velho.ts', 'DA:1,0', 'DA:2,0', 'DA:5,1', 'end_of_record'].join('\n'));
 
-    const r = verificar({ cwd: dir, base, lcov: path.join(dir, 'coverage', 'lcov.info') });
+    const r = verificar({ cwd: comHistoria, base, lcov: path.join(comHistoria, 'coverage', 'lcov.info') });
     expect(r.base).toBe(base);
     expect(r.descobertos).toEqual([
       { arquivo: 'js/novo.ts', carregado: false, linhas: [2] },
@@ -203,20 +241,15 @@ describe('verificar', () => {
     ]);
   });
 
-  it('sem base pedida e sem origin/main, compara com o HEAD: so o que nao foi comitado', () => {
-    repo();
-    expect(resolverBase(dir, undefined)).toBe('HEAD');
-    expect(resolverBase(dir, '0000000000000000000000000000000000000000')).toBe('HEAD');
-    expect(resolverBase(dir, 'naoexiste')).toBe('HEAD');
-    escrever('coverage/lcov.info', '');
-    expect(verificar({ cwd: dir, lcov: path.join(dir, 'coverage', 'lcov.info') }).descobertos).toEqual([]);
+  it('com origin/main, a base e o merge-base', () => {
+    expect(resolverBase(comHistoria, undefined)).toBe(base);
   });
 
-  it('com origin/main, a base e o merge-base', () => {
-    const base = repo();
-    git('update-ref', 'refs/remotes/origin/main', base);
-    escrever('js/velho.js', 'export function f(a) {\n  return a + 2;\n}\n\nexport const g = 2;\n');
-    git('commit', '-q', '-am', 'depois');
-    expect(resolverBase(dir, undefined)).toBe(base);
+  it('sem base pedida e sem origin/main, compara com o HEAD: so o que nao foi comitado', () => {
+    expect(resolverBase(semRemoto, undefined)).toBe('HEAD');
+    expect(resolverBase(semRemoto, '0000000000000000000000000000000000000000')).toBe('HEAD');
+    expect(resolverBase(semRemoto, 'naoexiste')).toBe('HEAD');
+    escreverSolto(semRemoto, 'coverage/lcov.info', '');
+    expect(verificar({ cwd: semRemoto, lcov: path.join(semRemoto, 'coverage', 'lcov.info') }).descobertos).toEqual([]);
   });
 });

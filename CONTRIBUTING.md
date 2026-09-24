@@ -101,12 +101,19 @@ green: a converted file is born with zero type errors.
 Every line the change touches is exercised by a test. That covers the
 conversion as much as the feature, because fixing a type error usually means
 adding a guard for `null` or `undefined`, and on a line no test runs that guard
-changes behaviour without anyone noticing. Run `npm run test:coverage` and check
-the changed lines in `coverage/lcov.info`. When they are not covered, write the
-test before the change, watch it pass on the old code, and keep it passing
-through the conversion and the edit. Code that a unit test cannot reach, such as
-window layout or the boot sequence, gets an end-to-end test under `tests/e2e/`,
-run with `npm run test:e2e`.
+changes behaviour without anyone noticing. When the lines are not covered, write
+the test before the change, watch it pass on the old code, and keep it passing
+through the conversion and the edit.
+
+CI enforces this. `npm run test:coverage && npm run coverage:diff` runs the same
+check locally: it takes every line added or changed since `origin/main`,
+uncommitted work and new files included, and lists the ones no unit test
+executes. A rename counts only the lines that actually changed, so converting a
+file does not demand coverage of the whole file at once. Code that a unit test
+genuinely cannot reach, such as window layout or the boot sequence, gets an
+end-to-end test under `tests/e2e/` and is fenced with v8's `ignore start` and
+`ignore stop` comments, with the reason next to them. That fence is the only
+way past the check, and it stays visible in review.
 
 ## For maintainers
 

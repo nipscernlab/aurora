@@ -27,6 +27,7 @@
     "test:watch": "vitest",
     "pretest:coverage": "npm run build:ts",
     "test:coverage": "vitest run --coverage",
+    "coverage:diff": "node scripts/check-diff-coverage.mts",
     "pretest:e2e": "npm run build:ts && npm run build:renderer",
     "test:e2e": "vitest run --config vitest.config.e2e.js",
     "test:e2e:repete": "npm run build:ts && npm run build:renderer && node scripts/e2e-repete.js",

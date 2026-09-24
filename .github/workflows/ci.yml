@@ -12,8 +12,13 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      # Historico inteiro, e nao so o ultimo commit: o passo de cobertura das
+      # linhas alteradas faz `git diff` contra o commit de antes do push, ou
+      # contra a base do pull request, e num clone raso esse commit nao existe.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       # Node 22, nao 20: o piso real do projeto e 22.22.1, imposto pelo
       # lint-staged 17. Antes disso o electron 43 pede 22.12, o commitlint 21
@@ -108,6 +113,16 @@ jobs:
 
       - name: Unit tests (with coverage)
         run: npm run test:coverage
+
+      # Toda linha de codigo que a mudanca toca tem de estar exercitada por um
+      # teste unitario (CONTRIBUTING.md, "Changing a file"). A cobertura geral
+      # continua informativa, no Codecov logo abaixo; o que trava e so a linha
+      # alterada sem teste. No push a base e o commit de antes dele, no pull
+      # request e a base do PR.
+      - name: Changed lines are covered by tests
+        env:
+          DIFF_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: npm run coverage:diff
 
       - name: Upload coverage to Codecov
         # Uses the repo's CODECOV_TOKEN secret (GitHub → Settings → Secrets and

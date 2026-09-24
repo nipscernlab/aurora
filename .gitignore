@@ -153,6 +153,7 @@ main/ipc/processor_rename.js
 main/ipc/project_paths.js
 main/compile/protected_flags.js
 main/python/pylib_manager.js
+main/process_registry.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

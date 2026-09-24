@@ -19,15 +19,11 @@
   "main/exemplos/instalar.js": {
     "TS2322": 2
   },
-  "main/format/clang_format.js": {
-    "TS18047": 5
-  },
   "main/ipc/bug_report.js": {
     "TS18048": 2,
     "TS2345": 1
   },
   "main/ipc/components.js": {
-    "TS18047": 2,
     "TS2345": 1
   },
   "main/ipc/files.js": {
@@ -48,7 +44,6 @@
     "TS7053": 1
   },
   "main/ipc/prism.js": {
-    "TS18047": 4,
     "TS2339": 1
   },
   "main/ipc/prism_vcd.js": {
@@ -68,11 +63,9 @@
     "TS2339": 1
   },
   "main/lsp/slang_lsp.js": {
-    "TS18047": 2,
     "TS2810": 1
   },
   "main/lsp/verible_lsp.js": {
-    "TS18047": 2,
     "TS2810": 1
   },
   "main/treesitter/grammars.js": {

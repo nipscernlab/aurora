@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * process_registry.js: central registry of every toolchain child process
+ * process_registry.ts: central registry of every toolchain child process
  * Aurora spawns (CMM/ASM compilers, iverilog, vvp, Verilator + g++/make/ccache,
  * yosys for PRISM, gtkwave, cocotb/python) plus the single routine that
  * force-stops all of them.
@@ -14,18 +13,29 @@
  * leaves a compile, simulation, GTKWave or PRISM synthesis running.
  */
 
-'use strict';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import {
+  spawn,
+  type ChildProcess,
+  type ChildProcessWithoutNullStreams,
+  type SpawnOptions,
+  type SpawnOptionsWithoutStdio,
+} from 'node:child_process';
 
-const path = require('path');
-const { spawn } = require('child_process');
-
-const state = require('./state');
-const { componentsPath } = require('./paths');
-const {
+import state from './state.js';
+import { componentsPath } from './paths.js';
+import {
   killProcessSilently,
   killProcessesByName,
   killProcessesByPathPrefix,
-} = require('./utils');
+} from './utils.js';
+
+// Os modulos que o fechamento avisa (CLIs de IA, chat, git, autenticacoes) sao
+// carregados so na hora, e dentro de try: eles puxam dependencia pesada e podem
+// nem ter sido usados na sessao. O createRequire mantem isso sincrono e
+// preguicoso como era com o require do CommonJS.
+const requireTarde = createRequire(__filename);
 
 // Did ANY toolchain child spawn this session? The name/path sweeps below are
 // backstops for grandchildren that outlived their parent's tree-kill, they can
@@ -48,8 +58,7 @@ let toolchainEverRan = false;
 // one) would hand its close the old, already-resolved promise and kill nothing,
 // leaving its compiles running headless. Same reasoning for a close that starts
 // the teardown and is then vetoed.
-/** @type {Promise<void>|null} */
-let stopPromise = null;
+let stopPromise: Promise<void> | null = null;
 
 /**
  * Process GROUPS, the cancellation hierarchy.
@@ -71,13 +80,16 @@ let stopPromise = null;
  *             by the run being cancelled belongs to that run.
  *   SERVICE, editor infrastructure with a lifetime independent of any build.
  *             Cancel NEVER touches these; only app teardown does.
- *
- * @typedef {'run'|'viewer'|'service'} ProcGroup
  */
-const GROUP = Object.freeze({ RUN: 'run', VIEWER: 'viewer', SERVICE: 'service' });
+export type ProcGroup = 'run' | 'viewer' | 'service';
+
+export const GROUP = Object.freeze({ RUN: 'run', VIEWER: 'viewer', SERVICE: 'service' } as const);
+
+/** O filho com o grupo que o trackChild anota nele. */
+type TrackedChild = ChildProcess & { __auroraGroup?: ProcGroup };
 
 // Groups a cancel is allowed to kill. SERVICE is deliberately absent.
-const CANCELLABLE = Object.freeze(new Set([GROUP.RUN, GROUP.VIEWER]));
+const CANCELLABLE: ReadonlySet<ProcGroup | undefined> = Object.freeze(new Set<ProcGroup | undefined>([GROUP.RUN, GROUP.VIEWER]));
 
 /**
  * Register a freshly-spawned toolchain child so stopAllToolchain() can
@@ -90,16 +102,11 @@ const CANCELLABLE = Object.freeze(new Set([GROUP.RUN, GROUP.VIEWER]));
  * clicks Cancel and one tool runs on), never one it kills by surprise (a bug:
  * the LSP dies and the editor quietly degrades). Every stage of the SAPHO flow
  * must pass GROUP.RUN explicitly.
- *
- * @template {import('child_process').ChildProcess} T
- * @param {T} child
- * @param {ProcGroup} [group]
- * @returns {T}
  */
-function trackChild(child, group = GROUP.SERVICE) {
+export function trackChild<T extends ChildProcess>(child: T, group: ProcGroup = GROUP.SERVICE): T {
   if (!child || typeof child.pid !== 'number') return child;
   toolchainEverRan = true; // a real toolchain child ran → arm the close-time sweeps
-  /** @type {any} */ (child).__auroraGroup = group;
+  (child as TrackedChild).__auroraGroup = group;
   state.childProcesses.add(child);
   const drop = () => state.childProcesses.delete(child);
   child.once('exit', drop);
@@ -121,17 +128,36 @@ function trackChild(child, group = GROUP.SERVICE) {
  * here, they own their own process trees and are torn down via their killAll()
  * in stopAllToolchain(); double-tracking them would fight that lifecycle.
  *
- * @param {string} command
- * @param {readonly string[]} [args]
- * @param {import('child_process').SpawnOptions} [options]
- * @param {ProcGroup} [group] - cancellation group; see GROUP. Anything that is
- *   a stage of the compile/simulate flow MUST pass GROUP.RUN, or the Cancel
- *   button will not be able to stop it.
- * @returns {import('child_process').ChildProcess}
+ * `group` is the cancellation group; see GROUP. Anything that is a stage of the
+ * compile/simulate flow MUST pass GROUP.RUN, or the Cancel button will not be
+ * able to stop it.
+ *
+ * As duas assinaturas sao as do proprio spawn do Node: sem `stdio`, ou com ele
+ * todo em pipe, stdout/stderr/stdin existem, e o tipo diz isso; com `ignore` ou
+ * `inherit` em algum deles, o pipe e null de verdade e o tipo continua dizendo
+ * que pode ser. Antes as duas saiam como ChildProcess, e quem nao passava stdio
+ * nenhum tinha de provar ao compilador que o pipe existia.
  */
-function spawnTracked(command, args, options, group) {
+export function spawnTracked(
+  command: string,
+  args?: readonly string[],
+  options?: SpawnOptionsWithoutStdio,
+  group?: ProcGroup,
+): ChildProcessWithoutNullStreams;
+export function spawnTracked(
+  command: string,
+  args: readonly string[] | undefined,
+  options: SpawnOptions,
+  group?: ProcGroup,
+): ChildProcess;
+export function spawnTracked(
+  command: string,
+  args?: readonly string[],
+  options?: SpawnOptions,
+  group?: ProcGroup,
+): ChildProcess {
   return trackChild(
-    spawn(command, /** @type {any} */ (args), /** @type {any} */ (options)),
+    spawn(command, args as string[], options as SpawnOptions),
     group,
   );
 }
@@ -150,10 +176,8 @@ function spawnTracked(command, args, options, group) {
  *   5. the AI agent CLIs (Claude Code / Codex) and their subprocess trees;
  *   6. in-flight AI chat generations (e.g. gemini), the HTTP streams are
  *      aborted so a long generation stops the instant the interface closes.
- *
- * @returns {Promise<void>}
  */
-function stopAllToolchain() {
+export function stopAllToolchain(): Promise<void> {
   if (!stopPromise) {
     // Release the coalescing slot once this run settles (either way) so a later
     // close/quit gets a real teardown rather than this run's stale result.
@@ -182,19 +206,18 @@ function stopAllToolchain() {
  * Not memoized either, stopAllToolchain runs once per app lifetime, but a
  * cancel can happen on every run.
  *
- * @returns {Promise<{hadActive: boolean, killed: number}>}
- *   `hadActive` false ⇒ the user clicked Cancel with nothing running, which the
- *   renderer surfaces as "nothing to cancel" instead of a false confirmation.
+ * `hadActive` false ⇒ the user clicked Cancel with nothing running, which the
+ * renderer surfaces as "nothing to cancel" instead of a false confirmation.
  */
-async function stopToolchainRun() {
-  const tasks = [];
-  const seen = new Set();   // PIDs already scheduled — the slot below usually
+export async function stopToolchainRun(): Promise<{ hadActive: boolean; killed: number }> {
+  const tasks: Promise<unknown>[] = [];
+  const seen = new Set<number>();   // PIDs already scheduled — the slot below usually
                             // points at a child we just killed via the registry
 
   // 1) The registry is the authority, every live RUN/VIEWER child, tree-killed
   //    by PID regardless of binary name, location, or how it was reached.
   for (const child of [...state.childProcesses]) {
-    const group = /** @type {any} */ (child).__auroraGroup;
+    const group = (child as TrackedChild).__auroraGroup;
     if (!CANCELLABLE.has(group)) continue;               // SERVICE: leave it be
     if (!child || typeof child.pid !== 'number' || child.killed) continue;
     seen.add(child.pid);
@@ -234,8 +257,8 @@ async function stopToolchainRun() {
   return { hadActive: killed > 0, killed };
 }
 
-async function runStopAllToolchain() {
-  const tasks = [];
+async function runStopAllToolchain(): Promise<void> {
+  const tasks: Promise<unknown>[] = [];
 
   // 1) Tracked children, precise tree-kill by PID.
   for (const child of state.childProcesses) {
@@ -267,19 +290,19 @@ async function runStopAllToolchain() {
 
   // 5) AI agent CLIs (Claude Code / Codex) own their own subprocess trees.
   //    Cheap, these kill only their OWN tracked PIDs (no global scan).
-  try { require('./ai/claude_code').killAll(); } catch (_) { /* not loaded */ }
-  try { require('./ai/codex_cli').killAll(); } catch (_) { /* not loaded */ }
+  try { requireTarde('./ai/claude_code').killAll(); } catch (_) { /* not loaded */ }
+  try { requireTarde('./ai/codex_cli').killAll(); } catch (_) { /* not loaded */ }
 
   // 6) In-flight AI chat generations (gemini, etc.), abort the HTTP streams.
-  try { require('./ai/chat').abortAll(); } catch (_) { /* not loaded */ }
+  try { requireTarde('./ai/chat').abortAll(); } catch (_) { /* not loaded */ }
 
   // 7) Every live git (clone, push, fetch). simple-git spawns its own children
   //    outside this registry, so they are stopped through its abort plugin;
   //    without this a clone outlived the window that started it. Same for the
   //    GitHub device-flow poll, which has no process but keeps hitting the API.
-  try { require('./ipc/git').abortAll(); } catch (_) { /* not loaded */ }
-  try { require('./ipc/github_auth').cancelarFluxo(); } catch (_) { /* not loaded */ }
-  try { require('./ipc/gitlab_auth').cancelarFluxo(); } catch (_) { /* not loaded */ }
+  try { requireTarde('./ipc/git').abortAll(); } catch (_) { /* not loaded */ }
+  try { requireTarde('./ipc/github_auth').cancelarFluxo(); } catch (_) { /* not loaded */ }
+  try { requireTarde('./ipc/gitlab_auth').cancelarFluxo(); } catch (_) { /* not loaded */ }
 
   await Promise.all(tasks);
 
@@ -302,7 +325,7 @@ async function runStopAllToolchain() {
  * aqui e a rede para quando a saida nao foi limpa, que e justamente o caso em
  * que ninguem estava olhando.
  */
-async function reapOrphans() {
+export async function reapOrphans(): Promise<void> {
   if (process.platform !== 'win32') return;
   try {
     const prefix = componentsPath;
@@ -312,5 +335,3 @@ async function reapOrphans() {
     // Faxina nunca impede o arranque.
   }
 }
-
-module.exports = { GROUP, trackChild, spawnTracked, stopAllToolchain, stopToolchainRun, reapOrphans };

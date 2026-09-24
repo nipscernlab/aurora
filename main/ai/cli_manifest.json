@@ -16,13 +16,13 @@
   },
   "codex": {
     "base": "@openai/codex",
-    "version": "0.154.0",
+    "version": "0.155.1",
     "platforms": {
       "win32:x64": {
         "pkg": "@openai/codex-win32-x64",
-        "version": "0.154.0-win32-x64",
-        "tarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.154.0-win32-x64.tgz",
-        "integrity": "sha512-Stg2KEJPIKVqPPR1wCverGOR4ey3RR3cvakR07w7FNKQUMzmHaOZomRsP2bR1qOT/67yHsks9rB+MCMfIWXcRA==",
+        "version": "0.155.1-win32-x64",
+        "tarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.155.1-win32-x64.tgz",
+        "integrity": "sha512-MO+cCZrgU0Ec7lJP/5NsTe5obJ9/qtRMkQUK0jYWTY1omxLA3lp5IOD2IAmsejlEJB931XRo51LZ7hl178CDjA==",
         "exe": "vendor/x86_64-pc-windows-msvc/bin/codex.exe",
         "rg": "vendor/x86_64-pc-windows-msvc/codex-path",
         "exeLegado": [

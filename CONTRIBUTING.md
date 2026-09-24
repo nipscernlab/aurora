@@ -91,12 +91,12 @@ Two rules apply to every change, however small.
 
 A file you edit leaves the change in TypeScript. If it is still `.js`, convert
 it first, in strict mode, in a commit of its own, and make the actual change in
-a second commit. Files under about 500 lines are renamed whole. For a larger
-file with state or DOM code, extract the part you are about to touch into a new
-`.ts` module and import it back, rather than converting thousands of lines for
-a small edit. `npm run build:ts` emits the `.js` next to each `.ts`, the
-generated file goes in `.gitignore`, and `node scripts/check-types.js` must stay
-green: a converted file is born with zero type errors.
+a second commit. The goal is to have no hand-written JavaScript left, so a file
+is converted whole whatever its size; extracting a piece just to avoid
+converting the rest only postpones the same work. `npm run build:ts` emits the
+`.js` next to each `.ts`, the generated file goes in `.gitignore`, and
+`node scripts/check-types.js` must stay green: a converted file is born with
+zero type errors.
 
 Every line the change touches is exercised by a test. That covers the
 conversion as much as the feature, because fixing a type error usually means

@@ -81,6 +81,10 @@ if (process.argv.includes('--force')) fs.writeFileSync(path.join(raiz, 'forcado.
 
 let comp;
 let registro;
+/** As duas copias do registro, a nativa e a do Vite: cada uma tem o proprio
+ *  cache de tres segundos, e o teste nao sabe qual o modulo usa. */
+let registros;
+const invalidar = () => { for (const r of registros) r.invalidarCache(); };
 let versaoVerible;
 
 beforeAll(async () => {
@@ -92,6 +96,8 @@ beforeAll(async () => {
     throw new Error('o cercado nao montou: o modulo ve a components de verdade; parar antes de apagar qualquer coisa');
   }
   registro = req('../../main/components/registry.js');
+  const viaVite = await import('../../main/components/registry.js');
+  registros = [...new Set([registro, viaVite.default ?? viaVite])];
   versaoVerible = lista.componentes.find((c) => c.chave === 'verible').versao;
   process.env.COMP_TESTE_VERSAO = versaoVerible;
   fs.writeFileSync(path.join(scripts, 'download-verible.js'), INSTALADOR);
@@ -105,7 +111,7 @@ beforeEach(() => {
   fs.rmSync(path.join(components, 'Packages'), { recursive: true, force: true });
   fs.rmSync(path.join(components, 'forcado.txt'), { force: true });
   process.env.COMP_TESTE_MODO = 'ok';
-  registro.invalidarCache();
+  invalidar();
 });
 
 describe('componentes:instalar', () => {
@@ -195,7 +201,7 @@ describe('componentes:doctor', () => {
     process.env.COMP_TESTE_MODO = 'velho';
     await handlers.get('componentes:instalar')(evento(null), 'verible');
     process.env.COMP_TESTE_MODO = 'ok';
-    registro.invalidarCache();
+    invalidar();
 
     const r = await handlers.get('componentes:doctor')(evento(janela()));
 

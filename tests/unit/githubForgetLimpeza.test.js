@@ -81,6 +81,14 @@ beforeAll(async () => {
   if (os.homedir() !== casa || process.env.PATH !== semNada || !handlers.has('github:forget-everything')) {
     throw new Error('o cercado do teste nao montou: parar antes de apagar credencial de verdade');
   }
+  // E o execFile falso pega mesmo o que o modulo dispara? Uma limpeza dentro do
+  // cercado: com o PATH vazio, mesmo sem a troca nada real rodaria, e aqui se
+  // confere que os pedidos cairam no falso.
+  fs.writeFileSync(preferencia, JSON.stringify({ limparAoSair: true }));
+  await forget.aoEncerrar();
+  if (!execs.some((e) => e.cmd === 'git')) {
+    throw new Error('o execFile falso nao intercepta o github_forget: parar');
+  }
 });
 
 afterAll(() => {

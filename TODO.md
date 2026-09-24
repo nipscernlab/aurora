@@ -329,6 +329,14 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       orientação, sem pedir desfecho. As duas coisas correm em paralelo, e
       misturá-las só atrasa a que já está pronta.
 
+      Estado do painel em 23/09/2026: o `Release certificate 2026`, com sujeito
+      SignPath Foundation, está em CSR PENDING, ou seja, a chave e o pedido de
+      certificado existem, mas o certificado assinado pela autoridade
+      certificadora ainda não foi carregado, e sem ele não se assina nada. O de
+      teste segue VALID até 06/08/2029. Como o certificado sai em nome da
+      Foundation, a emissão e o upload devem ser do lado deles; isso é
+      dedução, e a pergunta ao Phillip é justamente em que pé está.
+
 - [ ] **3.2 Decidir as bases de licença** com o orientador e, pela Lei de
       Inovação, provavelmente com o NIT da UFJF. Desde 22/08/2026 isto NÃO
       trava mais a assinatura: a decisão é esperar a orientação da SignPath e

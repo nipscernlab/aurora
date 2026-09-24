@@ -1,19 +1,20 @@
 # Code owners — auto-requests review when matching files change.
 # (Enforcement requires branch protection; routing works regardless.)
 # Order matters: the last matching pattern wins.
+# @Chrysthofer stays only through the 09/2026 handover (TODO.md, section 11).
 
 # Default owner for everything.
-*                       @ART3121 @lucianomaf
+*                       @ART3121 @lucianomaf @Chrysthofer
 
 # Aurora Intelligence / AI backend.
-/main/ai/               @ART3121 @lucianomaf
-/js/ui/ai_assistant_manager.js  @ART3121 @lucianomaf
+/main/ai/               @ART3121 @lucianomaf @Chrysthofer
+/js/ui/ai_assistant_manager.js  @ART3121 @lucianomaf @Chrysthofer
 
 # Simulation / waveform / cocotb flow.
-/js/wave/               @ART3121 @lucianomaf
-/js/compilation/        @ART3121 @lucianomaf
+/js/wave/               @ART3121 @lucianomaf @Chrysthofer
+/js/compilation/        @ART3121 @lucianomaf @Chrysthofer
 
 # Build, packaging and release plumbing.
-/.github/               @ART3121 @lucianomaf
-/scripts/               @ART3121 @lucianomaf
-/components/Scripts/    @ART3121 @lucianomaf
+/.github/               @ART3121 @lucianomaf @Chrysthofer
+/scripts/               @ART3121 @lucianomaf @Chrysthofer
+/components/Scripts/    @ART3121 @lucianomaf @Chrysthofer

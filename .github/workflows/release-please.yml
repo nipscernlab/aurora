@@ -26,8 +26,10 @@ jobs:
     # mantenedor atualiza), e um merge da PR por outra conta nao vira release.
     # A trava de verdade fica nas configuracoes do GitHub (ruleset de tag, que
     # so libera admin); esta aqui e a do codigo. Mudou o mantenedor, muda aqui
-    # e no preflight do release.yml, os dois juntos.
-    if: github.actor == 'ART3121' || github.actor == 'lucianomaf'
+    # e no preflight do release.yml, os dois juntos. O Chrysthofer fica no gate
+    # so durante a transicao de 09/2026, para socorrer se algo quebrar, e sai
+    # quando ela acabar (TODO.md, secao 11).
+    if: github.actor == 'ART3121' || github.actor == 'lucianomaf' || github.actor == 'Chrysthofer'
     # Consumido pelo job `build` abaixo.
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}

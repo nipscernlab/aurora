@@ -85,6 +85,29 @@ teaching lab. It is not part of `npm test` because it needs the full `components
 tree, about a gigabyte, and it skips with a message naming the missing binaries
 when the toolchain is absent.
 
+## Changing a file
+
+Two rules apply to every change, however small.
+
+A file you edit leaves the change in TypeScript. If it is still `.js`, convert
+it first, in strict mode, in a commit of its own, and make the actual change in
+a second commit. Files under about 500 lines are renamed whole. For a larger
+file with state or DOM code, extract the part you are about to touch into a new
+`.ts` module and import it back, rather than converting thousands of lines for
+a small edit. `npm run build:ts` emits the `.js` next to each `.ts`, the
+generated file goes in `.gitignore`, and `node scripts/check-types.js` must stay
+green: a converted file is born with zero type errors.
+
+Every line the change touches is exercised by a test. That covers the
+conversion as much as the feature, because fixing a type error usually means
+adding a guard for `null` or `undefined`, and on a line no test runs that guard
+changes behaviour without anyone noticing. Run `npm run test:coverage` and check
+the changed lines in `coverage/lcov.info`. When they are not covered, write the
+test before the change, watch it pass on the old code, and keep it passing
+through the conversion and the edit. Code that a unit test cannot reach, such as
+window layout or the boot sequence, gets an end-to-end test under `tests/e2e/`,
+run with `npm run test:e2e`.
+
 ## For maintainers
 
 ### The toolchain is not in the source tree

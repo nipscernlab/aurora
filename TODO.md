@@ -1951,6 +1951,33 @@ preload expõe ipcRenderer cru; open-external só http, https e mailto.
 
 ---
 
+## 11. Passagem da manutenção (09/2026)
+
+Em 23/09/2026 a manutenção da AURORA, as releases, a assinatura e o manual
+passaram para o Arthur Araujo Martins (`ART3121`,
+arthur.araujo@estudante.ufjf.br) e o Prof. Luciano (`lucianomaf`). O
+Chrysthofer fica em tudo durante a transição, para socorrer se algo quebrar, e
+sai quando ela acabar.
+
+- [ ] **11.1 Fechar a passagem.** Os dois com conta própria na SignPath, com
+      dois fatores, convidados na organização SAPHO [OSS] como administradores
+      e aprovadores. O `SAPHO_RELEASE_TOKEN` trocado por um fine-grained token
+      de um admin do `sapho`, porque só admin cria as tags `v*` lá, com o
+      `dry_run` do `release.yml` passando. O Arthur como dono da organização
+      `nipscernlab`. O OAuth App `sapho` do GitHub, o do login de um clique,
+      transferido da conta do Chrysthofer para a organização. Os dois no grupo
+      `nips-cern` do GitLab. A senha e o segundo fator de
+      nipscernlab@gmail.com, que é dona da Cloudflare do nipscern.com e do
+      usuário `nipscernlab` do GitLab, passados pessoalmente.
+
+- [ ] **11.2 Fim da transição.** Acaba quando o Arthur soltar uma release
+      sozinho, do merge da PR do release-please ao instalador em
+      `nipscernlab/sapho`, e publicar o manual. Aí: `git revert 9170b6ac`,
+      que tira o Chrysthofer dos gates do `release-please.yml` e do
+      `release.yml` e do CODEOWNERS; tirá-lo também do CODEOWNERS do
+      `nipscernweb`, da tabela de aprovadores em nipscern.com/code-signing e
+      da SignPath; e tirar dele o papel de dono da organização `nipscernlab`.
+
 ## Princípios de desenho
 
 Nenhuma API responde de forma incompleta. Ou foi chamada errado, e diz onde;

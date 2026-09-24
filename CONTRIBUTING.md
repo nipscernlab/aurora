@@ -124,6 +124,71 @@ disagree.
 The toolchain bundle lives in its own pre-release rather than in the source tree,
 and only needs a new one when the bundled binaries actually change.
 
+Only the maintainers' accounts drive this. Both `release-please.yml` and the
+preflight job of `release.yml` check `github.actor` against the same short list,
+so a push by another contributor does not refresh the release pull request (the
+next maintainer push does), and a merge of it by another account does not become
+a release. The list lives in those two places and in `.github/CODEOWNERS`; when
+the maintainers change, change all three in one commit. The hard lock is on the
+GitHub side: a tag ruleset lets only admins create `v*` tags on
+`nipscernlab/sapho`.
+
+### When a publish fails
+
+The tag and the GitHub release can exist without an installer, when the build
+fails after release-please has done its part. Retry from Actions: run the
+Release workflow by hand, choosing the version tag under "Use workflow from",
+with both boxes unchecked. The `concurrency` group keeps two publishes from
+racing onto the distribution channel, so a retry while another run is still
+going waits instead of producing a half-uploaded release.
+
+### The publish token
+
+The default `GITHUB_TOKEN` is scoped to this repository and cannot write to
+`nipscernlab/sapho`, so the publish uses the `SAPHO_RELEASE_TOKEN` secret: a
+fine-grained personal access token with resource owner `nipscernlab`, access to
+the `sapho` repository only, and `Contents: Read and write`. It has to belong to
+an admin of `sapho`, because of the tag ruleset above.
+
+Being personal, the token goes with the person. Rotate it when a maintainer
+leaves and before it expires: create the new one, paste it into this
+repository's Settings, Secrets and variables, Actions, then run the Release
+workflow by hand with `dry_run` checked. That run only checks access and should
+end with "Publish access to nipscernlab/sapho confirmed". Revoke the old token
+after that, not before. An expired token fails the preflight in seconds, with a
+message that says so, rather than after the twenty-minute build.
+
+### Code signing
+
+The installer is signed through the SignPath Foundation, organisation SAPHO
+[OSS], project `aurora`. The workflow reads the `SIGNPATH_API_TOKEN` secret,
+which belongs to the organisation's CI user and not to any maintainer, and three
+variables: `SIGNPATH_ORG_ID`, `SIGNPATH_PROJECT_SLUG` and
+`SIGNPATH_POLICY_SLUG`.
+
+The policy variable decides what happens. On `test-signing` a real release is
+published unsigned, as every release so far has been, and the run says so in a
+warning. That is deliberate: the test certificate is self-signed, and an
+installer signed with it looks worse to Windows than an unsigned one. To
+rehearse signing, run the workflow by hand with `sign_only` checked; the signed
+installer stays in the run's artifacts and reaches nobody. Once SignPath issues
+the production certificate, switching the variable to `release-signing` is what
+turns signing on. [TODO.md](TODO.md), section 3, tracks what is still open.
+
+Each approver has an individual SignPath account with two-factor authentication,
+and the public policy at [nipscern.com/code-signing](https://www.nipscern.com/code-signing)
+names them. SignPath requires that page, so a change of approvers is also an
+edit to `code-signing.html` in `nipscernlab/nipscernweb`.
+
+### Around the application
+
+Two jobs sit outside this repository but belong to the same maintenance. The
+user manual is written in `nipscernlab/docs_aurora`, whose README covers
+building, publishing and the Windows-only requirements; installed copies fetch a
+new manual on their own. When YANC changes the C± or assembly surface,
+regenerate `resources/sapho_rules.json` as described in the README under
+[Keeping the language rules in sync](README.md#keeping-the-language-rules-in-sync).
+
 ### Differential updates, and three ways to break them
 
 The installer is around 140 MB, and it does not carry the toolchain. It was

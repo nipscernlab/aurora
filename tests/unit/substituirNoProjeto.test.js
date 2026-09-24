@@ -150,7 +150,12 @@ describe('substituir: respeita as alternancias da busca', () => {
 });
 
 describe('substituir: recusa em vez de deixar pela metade', () => {
-  it('recusa o pedido inteiro quando a varredura truncou', async () => {
+  // Prazo proprio: este teste escreve e varre 520 arquivos, porque so passando
+  // do teto de 500 do search_core ele prova a recusa. Leva cerca de 1 s, mas no
+  // runner Windows a escrita em massa numa pasta temporaria ja levou 45 e 51 s
+  // (CI da main e PR de release 6.21.0, 24/09/2026) e estourou os 20 s padrao
+  // duas vezes no mesmo dia. 120 s ainda pegam uma varredura travada de verdade.
+  it('recusa o pedido inteiro quando a varredura truncou', { timeout: 120_000 }, async () => {
     // O teto da varredura e 500 arquivos; 520 passam dele com folga.
     for (let i = 0; i < 520; i += 1) escrever(`m${i}.v`, 'wire alvo;\n');
 

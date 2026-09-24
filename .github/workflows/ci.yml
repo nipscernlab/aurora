@@ -53,8 +53,12 @@ jobs:
       # mao, ela chegou a documentar 49 das 103, faltando funcionalidades
       # inteiras. Este check falha quando alguem acrescenta ou muda uma
       # ferramenta sem regerar.
+      # O main/ai/tools.js le as listas de js/compilation/api_steps.ts, que so
+      # vira .js no build:ts; sem compilar antes, o gerador morre no require.
       - name: AI tools reference is up to date
-        run: node scripts/gen-ai-tools-doc.js --check
+        run: |
+          npm run build:ts
+          node scripts/gen-ai-tools-doc.js --check
 
       - name: Dead code (unused files + dependencies)
         run: npm run deadcode

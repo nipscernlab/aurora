@@ -1,7 +1,4 @@
 {
-  "main/ai/citacoes.js": {
-    "TS2353": 1
-  },
   "main/ai/claude_code.js": {
     "TS2339": 3,
     "TS2353": 1

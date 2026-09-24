@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * citacoes.js: a pagina do manual vira documento citavel, e a citacao que volta
+ * citacoes.ts: a pagina do manual vira documento citavel, e a citacao que volta
  * vira algo que a interface consegue mostrar.
  *
  * O QUE MUDA PARA QUEM USA. A Aurora Intelligence responde sobre o C+- e sobre
@@ -64,24 +63,29 @@
  * de valer.
  */
 
-'use strict';
-
 /** Quantas paginas do manual acompanham um turno, no maximo. */
-const MAX_PAGINAS = 4;
+/** Uma pagina do manual guardada para citacao. */
+export interface Pagina {
+  caminho: string;
+  titulo: string;
+  texto: string;
+}
+
+export const MAX_PAGINAS = 4;
 
 /**
  * Teto de caracteres somados. Quatro paginas medias dao uns 22 mil; o teto
  * existe para a pagina de 10.693 caracteres, a maior do manual, nao arrastar
  * tres irmas grandes junto.
  */
-const MAX_CHARS = 40000;
+export const MAX_CHARS = 40000;
 
 /**
  * As paginas de tabela, que NAO viram documento citavel.
  * O motivo esta no cabecalho: corte por frase em tabela da lixo, e estas
  * perguntas ja tem ferramenta estruturada que responde exato.
  */
-const PAGINAS_DE_TABELA = new Set([
+export const PAGINAS_DE_TABELA = new Set([
   'referencia/diretivas.html',
   'referencia/biblioteca.html',
 ]);
@@ -90,11 +94,9 @@ const PAGINAS_DE_TABELA = new Set([
  * Esta chamada de ferramenta trouxe uma pagina do manual que vale citar?
  * Devolve a pagina, ou null.
  *
- * @param {string} ferramenta
- * @param {any} resultado o que o tool_bridge devolveu
- * @returns {{caminho: string, titulo: string, texto: string} | null}
+ * `resultado` e o que o tool_bridge devolveu.
  */
-function paginaDoResultado(ferramenta, resultado) {
+export function paginaDoResultado(ferramenta: string, resultado: any): Pagina | null {
   if (ferramenta !== 'read_manual_page') return null;
   const d = resultado && resultado.ok !== false ? (resultado.data || resultado) : null;
   if (!d || typeof d.text !== 'string' || !d.text.trim()) return null;
@@ -107,10 +109,8 @@ function paginaDoResultado(ferramenta, resultado) {
  * Acrescenta a pagina a colecao do turno, sem repetir e sem estourar o teto.
  * Devolve true quando entrou.
  *
- * @param {Array<{caminho: string, titulo: string, texto: string}>} colecao
- * @param {{caminho: string, titulo: string, texto: string}} pagina
  */
-function guardar(colecao, pagina) {
+export function guardar(colecao: Pagina[], pagina: Pagina | null | undefined): boolean {
   if (!pagina) return false;
   if (colecao.length >= MAX_PAGINAS) return false;
   if (colecao.some((p) => p.caminho === pagina.caminho)) return false;
@@ -133,12 +133,10 @@ function guardar(colecao, pagina) {
  * pergunta nova da pessoa. Ela e curta de proposito: e token de entrada pago
  * em todo passo seguinte do turno.
  *
- * @param {Array<{caminho: string, titulo: string, texto: string}>} paginas
- * @returns {any|null}
  */
-function mensagemDeDocumentos(paginas) {
+export function mensagemDeDocumentos(paginas: Pagina[] | null | undefined): any | null {
   if (!paginas || !paginas.length) return null;
-  const content = paginas.map((p) => ({
+  const content: Array<Record<string, unknown>> = paginas.map((p) => ({
     type: 'file',
     mediaType: 'text/plain',
     filename: p.caminho,
@@ -170,9 +168,8 @@ function mensagemDeDocumentos(paginas) {
  * Reconhecida pela forma, sem campo extra: mensagem de usuario cujo primeiro
  * pedaco e um documento de texto com citacao ligada.
  *
- * @param {any} m
  */
-function ehMensagemDeDocumentos(m) {
+export function ehMensagemDeDocumentos(m: any): boolean {
   if (!m || m.role !== 'user' || !Array.isArray(m.content) || !m.content.length) return false;
   const p = m.content[0];
   return !!(p && p.type === 'file' && p.mediaType === 'text/plain'
@@ -186,10 +183,8 @@ function ehMensagemDeDocumentos(m) {
  * anterior. Devolve a MESMA lista quando nao ha nada a anexar, para quem chama
  * poder devolver `undefined` ao SDK e nao mexer no passo.
  *
- * @param {Array<any>} messages
- * @param {Array<{caminho: string, titulo: string, texto: string}>} paginas
  */
-function comDocumentos(messages, paginas) {
+export function comDocumentos(messages: any[], paginas: Pagina[] | null | undefined): any[] {
   const msgs = Array.isArray(messages) ? messages : [];
   const doc = mensagemDeDocumentos(paginas);
   if (!doc) return msgs;
@@ -204,9 +199,8 @@ function comDocumentos(messages, paginas) {
  * `providerMetadata.anthropic`, o titulo em `title` e o caminho da pagina em
  * `filename`, que e o que ele carregou do `filename` que mandamos.
  *
- * @param {any} part
  */
-function citacaoDaFonte(part) {
+export function citacaoDaFonte(part: any) {
   if (!part || part.sourceType !== 'document') return null;
   const meta = (part.providerMetadata && part.providerMetadata.anthropic) || {};
   const trecho = String(meta.citedText || '').trim();
@@ -221,14 +215,3 @@ function citacaoDaFonte(part) {
   };
 }
 
-module.exports = {
-  MAX_PAGINAS,
-  MAX_CHARS,
-  PAGINAS_DE_TABELA,
-  paginaDoResultado,
-  guardar,
-  mensagemDeDocumentos,
-  ehMensagemDeDocumentos,
-  comDocumentos,
-  citacaoDaFonte,
-};

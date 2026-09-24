@@ -159,6 +159,7 @@ main/ipc/bug_report.js
 main/ipc/github_forget.js
 main/treesitter/grammars.js
 main/ipc/run_log.js
+main/ai/citacoes.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

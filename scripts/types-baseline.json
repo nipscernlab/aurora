@@ -75,13 +75,6 @@
     "TS18047": 2,
     "TS2810": 1
   },
-  "main/python/pylib_manager.js": {
-    "TS18048": 16,
-    "TS2339": 1,
-    "TS7005": 4,
-    "TS7006": 15,
-    "TS7034": 1
-  },
   "main/treesitter/grammars.js": {
     "TS7053": 1
   },

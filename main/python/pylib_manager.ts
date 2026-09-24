@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * pylib_manager.js: instalar, desinstalar, reparar e listar as bibliotecas
+ * pylib_manager.ts: instalar, desinstalar, reparar e listar as bibliotecas
  * Python do painel da AURORA.
  *
  * COMO FUNCIONA
@@ -31,38 +30,164 @@
  * resposta explica o motivo em vez de deixar quebrar no import.
  */
 
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import log from 'electron-log';
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-
-const fetcher = require('../net/fetcher');
-const {
+import fetcher from '../net/fetcher.js';
+import {
   pylibRoot, pylibSite, manifestFile, stagingDir, ensureDirs, sitePthFile,
-} = require('./pylib_paths');
-const catalogSource = require('./pylib_catalog');
+} from './pylib_paths.js';
+import catalogSource from './pylib_catalog.js';
+import { getBundledPythonPath } from '../compile/python_locator.js';
 
-/**
- * Caminho do Python embarcado, resolvido tarde. O python_locator depende de
- * `main/paths.js`, que so existe dentro do Electron; carregar no topo quebraria
- * os testes e o gerador de catalogo, que rodam em node puro.
- */
-function bundledPython() {
-  try {
-    return require('../compile/python_locator').getBundledPythonPath();
-  } catch (_) {
-    return '';
-  }
+/* ── Tipos ────────────────────────────────────────────────────────────────── */
+
+/** Uma wheel do catalogo, com o sha256 que o gerador fixou. */
+interface CatalogWheel {
+  name: string;
+  version: string;
+  filename: string;
+  url: string;
+  sha256: string;
+  size?: number;
 }
 
-let log;
-try { log = require('electron-log'); } catch (_) { log = console; }
+/** Uma biblioteca do catalogo. As compiladas vem sem wheel, so informativas. */
+interface CatalogLibrary {
+  id: string;
+  name: string;
+  version: string;
+  kind: 'pure' | 'compiled';
+  wheels: CatalogWheel[];
+  [campo: string]: unknown;
+}
+
+interface Catalog {
+  schemaVersion: number;
+  source?: 'remote' | 'embedded';
+  fetchedAt?: string | null;
+  python: { abiTag?: string; [campo: string]: unknown };
+  categories: Record<string, unknown>;
+  libraries: CatalogLibrary[];
+}
+
+/** Inventario de um arquivo, tirado do RECORD da wheel. */
+interface FileHash {
+  sha256: string | null;
+  size: number | null;
+}
+
+/** O que o manifesto guarda de cada biblioteca instalada. */
+interface ManifestRecord {
+  external?: boolean;
+  name?: string;
+  version: string;
+  installedAt: string;
+  wheels: Array<{ name: string; version: string; sha256?: string }>;
+  files: string[];
+  hashes: Record<string, FileHash>;
+}
+
+interface Manifest {
+  schemaVersion: number;
+  abiTag: string | null;
+  installed: Record<string, ManifestRecord>;
+}
+
+interface Progress {
+  id: string;
+  phase: 'download' | 'verify' | 'extract' | 'done';
+  pct: number;
+  detail?: string;
+}
+
+type OnProgress = (p: Progress) => void;
+
+/** Um achado do doutor: a ABI que mudou, ou os arquivos de uma biblioteca. */
+type Issue =
+  | { kind: 'abi-drift'; message: string }
+  | {
+    kind: 'corrupt-files' | 'missing-files';
+    id: string;
+    counts: { missing: number; resized: number; corrupt: number };
+    sample: string[];
+    message: string;
+  };
+
+interface FileProblem {
+  file: string;
+  problem: 'missing' | 'size' | 'corrupt' | 'unreadable';
+}
+
+interface VerifyResult {
+  ok: boolean;
+  problems: FileProblem[];
+  missing: string[];
+}
+
+/** A resposta da PyPI, so os campos que se le. */
+interface PypiUrl {
+  packagetype?: string;
+  filename: string;
+  url: string;
+  size?: number;
+  digests?: { sha256?: string };
+}
+
+interface PypiMeta {
+  info?: {
+    name?: string;
+    version?: string;
+    summary?: string;
+    home_page?: string;
+    project_urls?: { Homepage?: string };
+    license_expression?: string;
+    license?: string;
+    requires_dist?: string[];
+  };
+  urls?: PypiUrl[];
+}
+
+type ResolveResult =
+  | { ok: false; reason: 'invalid-name' | 'not-found' | 'network'; message: string }
+  | {
+    ok: false;
+    reason: 'compiled';
+    name: string;
+    version: string;
+    summary: string;
+    homepage: string;
+    message: string;
+  }
+  | {
+    ok: true;
+    name: string;
+    version: string;
+    summary: string;
+    homepage: string;
+    license: string | null;
+    requiresDist: string[];
+    wheel: {
+      name: string;
+      version: string;
+      filename: string;
+      url: string;
+      sha256: string | undefined;
+      size: number | undefined;
+    };
+  };
+
+/** Caminho do Python embarcado. */
+function bundledPython(): string {
+  return getBundledPythonPath();
+}
 
 const MANIFEST_VERSION = 1;
 /** Sufixo que identifica uma wheel sem nada compilado dentro. */
-const PURE_SUFFIX = '-none-any.whl';
-const PYPI_JSON = (name) => `https://pypi.org/pypi/${encodeURIComponent(name)}/json`;
+export const PURE_SUFFIX = '-none-any.whl';
+const PYPI_JSON = (name: string) => `https://pypi.org/pypi/${encodeURIComponent(name)}/json`;
 
 /* ── Catalogo ─────────────────────────────────────────────────────────────── */
 
@@ -72,17 +197,17 @@ const PYPI_JSON = (name) => `https://pypi.org/pypi/${encodeURIComponent(name)}/j
  * consome o resultado, entao instalar, remover e verificar funcionam igual
  * independentemente de onde a lista veio.
  */
-function loadCatalog() {
-  return catalogSource.active();
+export function loadCatalog(): Catalog {
+  return catalogSource.active() as Catalog;
 }
 
-function catalogEntry(/** @type {string} */ id) {
+export function catalogEntry(id: string): CatalogLibrary | null {
   return loadCatalog().libraries.find((l) => l.id === id) || null;
 }
 
 /* ── Manifesto do que esta instalado ──────────────────────────────────────── */
 
-function readManifest() {
+export function readManifest(): Manifest {
   try {
     const m = JSON.parse(fs.readFileSync(manifestFile(), 'utf8'));
     if (m && typeof m === 'object' && m.installed) return m;
@@ -90,7 +215,7 @@ function readManifest() {
   return { schemaVersion: MANIFEST_VERSION, abiTag: null, installed: {} };
 }
 
-function writeManifest(/** @type {any} */ m) {
+function writeManifest(m: Manifest) {
   ensureDirs();
   fs.writeFileSync(manifestFile(), `${JSON.stringify(m, null, 2)}\n`);
 }
@@ -103,17 +228,17 @@ function writeManifest(/** @type {any} */ m) {
  * PyLibs/site. O libarchive ja resiste a isso, mas a checagem e barata e a
  * consequencia de errar e grave.
  */
-function isSafeEntry(/** @type {string} */ entry) {
+export function isSafeEntry(entry: string): boolean {
   const p = String(entry || '').replace(/\\/g, '/');
   if (!p || p.startsWith('/') || /^[a-zA-Z]:/.test(p)) return false;
   return !p.split('/').includes('..');
 }
 
 /** Remove diretorios que ficaram vazios depois de uma desinstalacao. */
-function pruneEmptyDirs(/** @type {string} */ root) {
-  /** @returns {boolean} true se `dir` ficou (ou ja estava) vazio e foi removido */
-  const walk = (dir) => {
-    let entries;
+function pruneEmptyDirs(root: string) {
+  /** true se `dir` ficou (ou ja estava) vazio e foi removido */
+  const walk = (dir: string): boolean => {
+    let entries: fs.Dirent[];
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
     catch (_) { return false; }
     for (const e of entries) {
@@ -131,18 +256,18 @@ function pruneEmptyDirs(/** @type {string} */ root) {
 }
 
 /** Arquivos reivindicados por qualquer biblioteca instalada que nao seja `exceptId`. */
-function filesOwnedByOthers(/** @type {any} */ manifest, /** @type {string} */ exceptId) {
-  const set = new Set();
+function filesOwnedByOthers(manifest: Manifest, exceptId: string): Set<string> {
+  const set = new Set<string>();
   for (const [id, rec] of Object.entries(manifest.installed || {})) {
     if (id === exceptId) continue;
-    for (const f of (/** @type {any} */ (rec).files || [])) set.add(f);
+    for (const f of (rec.files || [])) set.add(f);
   }
   return set;
 }
 
 /** O primeiro segmento de cada caminho, os diretorios de topo que a wheel criou. */
-function topLevelDirs(/** @type {string[]} */ files) {
-  const set = new Set();
+function topLevelDirs(files: string[]): Set<string> {
+  const set = new Set<string>();
   for (const f of files || []) {
     const head = String(f).split('/')[0];
     if (head && head !== f) set.add(head); // ignora arquivo solto na raiz
@@ -163,12 +288,10 @@ function topLevelDirs(/** @type {string[]} */ files) {
  * (A ultima linha do proprio RECORD vem sem hash e sem tamanho, porque ele nao
  * pode conter o hash de si mesmo. Essas linhas viram entradas sem verificacao.)
  *
- * @param {string} text conteudo do RECORD
- * @returns {Record<string, {sha256: string|null, size: number|null}>}
+ * @param text conteudo do RECORD
  */
-function parseRecord(text) {
-  /** @type {Record<string, {sha256: string|null, size: number|null}>} */
-  const out = {};
+export function parseRecord(text: string): Record<string, FileHash> {
+  const out: Record<string, FileHash> = {};
   for (const raw of String(text || '').split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) continue;
@@ -193,7 +316,7 @@ function parseRecord(text) {
 }
 
 /** Acha e le o RECORD de uma wheel ja extraida no site/. */
-function readRecordFor(/** @type {string[]} */ entries) {
+function readRecordFor(entries: string[]): Record<string, FileHash> {
   const rec = entries.find((e) => /(^|\/)[^/]+\.dist-info\/RECORD$/.test(e));
   if (!rec) return {};
   try {
@@ -204,14 +327,14 @@ function readRecordFor(/** @type {string[]} */ entries) {
 }
 
 /** sha256 de um buffer no formato base64url sem padding, como o RECORD usa. */
-function hashDeBuffer(/** @type {Buffer} */ buf) {
+function hashDeBuffer(buf: Buffer): string {
   const h = crypto.createHash('sha256');
   h.update(buf);
   return h.digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 /** sha256 de um arquivo no formato base64url sem padding, como o RECORD usa. */
-function fileHash(/** @type {string} */ abs) {
+function fileHash(abs: string): string {
   return hashDeBuffer(fs.readFileSync(abs));
 }
 
@@ -230,21 +353,19 @@ function fileHash(/** @type {string} */ abs) {
  *            conteudo mudou. Custa I/O de verdade, entao nao roda sozinho:
  *            e o botao "verificacao completa" do painel.
  *
- * @param {any} rec entrada do manifesto
- * @param {{deep?: boolean, maxReport?: number}} [opts]
+ * @param rec entrada do manifesto
  */
-function verifyFiles(rec, opts = {}) {
+export function verifyFiles(rec: ManifestRecord, opts: { deep?: boolean; maxReport?: number } = {}): VerifyResult {
   const site = pylibSite();
   const deep = !!opts.deep;
   const maxReport = opts.maxReport ?? 20;
   const hashes = rec.hashes || {};
-  /** @type {Array<{file:string, problem:string}>} */
-  const problems = [];
+  const problems: FileProblem[] = [];
 
   for (const rel of rec.files || []) {
     if (problems.length >= maxReport) break;
     const abs = path.join(site, rel);
-    let st;
+    let st: fs.Stats;
     try {
       st = fs.statSync(abs);
     } catch (_) {
@@ -285,17 +406,18 @@ function verifyFiles(rec, opts = {}) {
  * precisa responder. Aqui os stats saem em lotes com `fs.promises`, entao o
  * event loop respira entre um lote e outro. O resultado tem a mesma forma.
  *
- * @param {any} rec entrada do manifesto
- * @param {{deep?: boolean, maxReport?: number}} [opts]
+ * @param rec entrada do manifesto
  */
-async function verifyFilesAsync(rec, opts = {}) {
+async function verifyFilesAsync(
+  rec: ManifestRecord,
+  opts: { deep?: boolean; maxReport?: number } = {},
+): Promise<VerifyResult> {
   const site = pylibSite();
   const deep = !!opts.deep;
   const maxReport = opts.maxReport ?? 20;
   const hashes = rec.hashes || {};
   const files = rec.files || [];
-  /** @type {Array<{file:string, problem:string}>} */
-  const problems = [];
+  const problems: FileProblem[] = [];
   const LOTE = 64;
 
   for (let i = 0; i < files.length && problems.length < maxReport; i += LOTE) {
@@ -335,11 +457,11 @@ async function verifyFilesAsync(rec, opts = {}) {
  * Faltou alguma sentinela da biblioteca? Sao poucos `stat` (o RECORD e o
  * `__init__` do pacote de topo), por isso serve para o painel abrir e para o
  * instante antes de simular, onde a verificacao completa nao cabe.
- * @param {any} rec entrada do manifesto
- * @param {string} site pylibSite()
+ * @param rec entrada do manifesto
+ * @param site pylibSite()
  */
-function sentinelasFaltando(rec, site) {
-  const files = (/** @type {any} */ (rec)).files || [];
+function sentinelasFaltando(rec: ManifestRecord, site: string): boolean {
+  const files = rec.files || [];
   const sentinels = files.filter((f) => /\.dist-info\/RECORD$/.test(f) || /^[^/]+\/__init__\.py$/.test(f));
   for (const rel of sentinels.slice(0, 4)) {
     if (!fs.existsSync(path.join(site, rel))) return true;
@@ -357,9 +479,8 @@ function sentinelasFaltando(rec, site) {
  * faz as bibliotecas valerem para qualquer arquivo Python, e nao so para o
  * fluxo do cocotb, ver o comentario em pylib_paths.sitePthFile.
  *
- * @returns {{ok:boolean, path?:string, reason?:string}}
  */
-function ensureSitePth() {
+export function ensureSitePth(): { ok: boolean; path?: string; reason?: string } {
   const pth = sitePthFile();
   if (!pth) return { ok: false, reason: 'bundle do Python nao encontrado' };
 
@@ -381,7 +502,7 @@ function ensureSitePth() {
 }
 
 /** Desfaz a ligacao. Usado quando a ultima biblioteca e removida. */
-function removeSitePth() {
+export function removeSitePth(): void {
   const pth = sitePthFile();
   if (!pth) return;
   try { fs.rmSync(pth, { force: true }); } catch (_) { /* best-effort */ }
@@ -393,7 +514,7 @@ function removeSitePth() {
  * Tudo que o painel precisa numa chamada: o catalogo, o que esta instalado e a
  * saude do runtime.
  */
-function getState() {
+export function getState() {
   const catalog = loadCatalog();
   const manifest = readManifest();
   const pythonPath = bundledPython();
@@ -433,16 +554,15 @@ function getState() {
 
 /* ── Instalacao ───────────────────────────────────────────────────────────── */
 
-/** @type {Map<string, Promise<any>>} */
-const inFlight = new Map();
+interface InstallOpts {
+  onProgress?: OnProgress;
+  force?: boolean;
+}
 
-/**
- * Instala uma biblioteca do catalogo.
- *
- * @param {string} id
- * @param {{onProgress?: (p:any)=>void, force?: boolean}} [opts]
- */
-function install(id, opts = {}) {
+const inFlight = new Map<string, ReturnType<typeof _install>>();
+
+/** Instala uma biblioteca do catalogo. */
+export function install(id: string, opts: InstallOpts = {}) {
   const pending = inFlight.get(id);
   if (pending) return pending;
   const job = _install(id, opts).finally(() => inFlight.delete(id));
@@ -450,7 +570,7 @@ function install(id, opts = {}) {
   return job;
 }
 
-async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
+async function _install(id: string, opts: InstallOpts) {
   const entry = catalogEntry(id);
   if (!entry) throw new Error(`biblioteca desconhecida: ${id}`);
   if (entry.kind === 'compiled' || !entry.wheels?.length) {
@@ -460,7 +580,7 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
     );
   }
 
-  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : () => {};
+  const onProgress: OnProgress = typeof opts.onProgress === 'function' ? opts.onProgress : () => {};
   // Leitura de ENTRADA, so para o atalho "ja esta". O manifesto e relido no
   // commit, la embaixo: entre aqui e la ha downloads, e uma segunda
   // instalacao (ou uma desinstalacao) que terminasse no meio era sobrescrita
@@ -479,10 +599,8 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
   const wheels = entry.wheels;
   const totalBytes = wheels.reduce((n, w) => n + (w.size || 0), 0) || 1;
   let doneBytes = 0;
-  /** @type {string[]} */
-  const files = [];
-  /** @type {Record<string, {sha256:string|null, size:number|null}>} */
-  const hashes = {};
+  const files: string[] = [];
+  const hashes: Record<string, FileHash> = {};
 
   try {
     for (let i = 0; i < wheels.length; i++) {
@@ -511,8 +629,8 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
       }
 
       // 3. inspecionar antes de extrair; recusa caminho que escapa do destino.
-        onProgress({ id, phase: 'extract', pct: Math.round((doneBytes / totalBytes) * 100), detail: label });
-      const entries = await fetcher.listArchive(whl);
+      onProgress({ id, phase: 'extract', pct: Math.round((doneBytes / totalBytes) * 100), detail: label });
+      const entries: string[] = await fetcher.listArchive(whl);
       const unsafe = entries.filter((e) => !isSafeEntry(e));
       if (unsafe.length) {
         throw new Error(`${w.filename} contem caminho invalido (${unsafe[0]}) — instalacao abortada`);
@@ -561,9 +679,8 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
 /**
  * Remove uma biblioteca, preservando os arquivos que outra biblioteca instalada
  * tambem reivindica (dependencia compartilhada).
- * @param {string} id
  */
-function uninstall(id) {
+export function uninstall(id: string) {
   const manifest = readManifest();
   const rec = manifest.installed[id];
   if (!rec) return { id, removed: 0, kept: 0, notInstalled: true };
@@ -614,10 +731,8 @@ function uninstall(id) {
 /**
  * Reinstala por cima. Serve para o caso "o manifesto diz que esta instalado mas
  * os arquivos sumiram" e para forcar o re-download quando algo ficou estranho.
- * @param {string} id
- * @param {{onProgress?: (p:any)=>void}} [opts]
  */
-async function repair(id, opts = {}) {
+export async function repair(id: string, opts: { onProgress?: OnProgress } = {}) {
   const manifest = readManifest();
   if (manifest.installed[id]) uninstall(id);
   return install(id, { ...opts, force: true });
@@ -634,15 +749,14 @@ async function repair(id, opts = {}) {
  * nao um palpite, se a PyPI publica wheel `*-none-any.whl`, roda; se so publica
  * wheel compilada, nao roda de jeito nenhum e o caminho e o TCMD.
  *
- * @param {string} name
  */
-async function resolveExternal(name) {
+export async function resolveExternal(name: string): Promise<ResolveResult> {
   const clean = String(name || '').trim();
   if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/.test(clean)) {
     return { ok: false, reason: 'invalid-name', message: 'Nome de pacote invalido.' };
   }
 
-  let meta;
+  let meta: PypiMeta;
   try {
     meta = await fetcher.getJson(PYPI_JSON(clean));
   } catch (e) {
@@ -701,14 +815,12 @@ async function resolveExternal(name) {
  * manifesto com `external: true`, para o painel separar o que veio da lista
  * curada do que o usuario trouxe por conta propria.
  *
- * @param {string} name
- * @param {{onProgress?: (p:any)=>void}} [opts]
  */
-async function installExternal(name, opts = {}) {
+export async function installExternal(name: string, opts: { onProgress?: OnProgress } = {}) {
   const resolved = await resolveExternal(name);
   if (!resolved.ok) throw new Error(resolved.message);
 
-  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : () => {};
+  const onProgress: OnProgress = typeof opts.onProgress === 'function' ? opts.onProgress : () => {};
   const id = `pypi:${resolved.name.toLowerCase()}`;
   const w = resolved.wheel;
 
@@ -736,7 +848,7 @@ async function installExternal(name, opts = {}) {
     }
 
     onProgress({ id, phase: 'extract', pct: 100 });
-    const entries = await fetcher.listArchive(whl);
+    const entries: string[] = await fetcher.listArchive(whl);
     const unsafe = entries.filter((e) => !isSafeEntry(e));
     if (unsafe.length) throw new Error(`${w.filename} contem caminho invalido (${unsafe[0]})`);
     await fetcher.extractArchive(whl, site);
@@ -763,15 +875,15 @@ async function installExternal(name, opts = {}) {
 }
 
 /** As bibliotecas trazidas pelo usuario (fora da lista curada). */
-function listExternal() {
+export function listExternal() {
   const manifest = readManifest();
   return Object.entries(manifest.installed)
-    .filter(([, rec]) => (/** @type {any} */ (rec)).external)
+    .filter(([, rec]) => rec.external)
     .map(([id, rec]) => ({
       id,
-      name: (/** @type {any} */ (rec)).name,
-      version: (/** @type {any} */ (rec)).version,
-      installedAt: (/** @type {any} */ (rec)).installedAt,
+      name: rec.name,
+      version: rec.version,
+      installedAt: rec.installedAt,
       broken: sentinelasFaltando(rec, pylibSite()),
     }));
 }
@@ -783,11 +895,10 @@ function listExternal() {
  * derruba tudo em silencio: o bundle subir de versao do Python e as bibliotecas
  * instaladas ficarem para uma ABI que nao existe mais.
  */
-function doctor(opts = {}) {
+export function doctor(opts: { deep?: boolean } = {}) {
   const deep = !!opts.deep;
   const manifest = readManifest();
-  /** @type {Map<string, ReturnType<typeof verifyFiles>>} */
-  const checks = new Map();
+  const checks = new Map<string, VerifyResult>();
   for (const [id, rec] of Object.entries(manifest.installed)) checks.set(id, verifyFiles(rec, { deep }));
   return diagnosticoDe(manifest, checks, deep);
 }
@@ -795,13 +906,11 @@ function doctor(opts = {}) {
 /**
  * O mesmo diagnostico, com a verificacao assincrona: e o que o vigia usa, para
  * a ronda de milhares de stats nao segurar o thread principal.
- * @param {{deep?: boolean}} [opts]
  */
-async function doctorAsync(opts = {}) {
+export async function doctorAsync(opts: { deep?: boolean } = {}) {
   const deep = !!opts.deep;
   const manifest = readManifest();
-  /** @type {Map<string, Awaited<ReturnType<typeof verifyFilesAsync>>>} */
-  const checks = new Map();
+  const checks = new Map<string, VerifyResult>();
   for (const [id, rec] of Object.entries(manifest.installed)) {
     checks.set(id, await verifyFilesAsync(rec, { deep }));
   }
@@ -811,14 +920,11 @@ async function doctorAsync(opts = {}) {
 /**
  * Monta o veredito a partir das verificacoes por biblioteca. Comum ao doctor
  * sincrono e ao assincrono, para os dois dizerem exatamente a mesma coisa.
- * @param {any} manifest
- * @param {Map<string, {ok: boolean, problems: Array<{file: string, problem: string}>}>} checks
- * @param {boolean} deep
  */
-function diagnosticoDe(manifest, checks, deep) {
+function diagnosticoDe(manifest: Manifest, checks: Map<string, VerifyResult>, deep: boolean) {
   const catalog = loadCatalog();
   const expectedAbi = catalog.python?.abiTag || null;
-  const issues = [];
+  const issues: Issue[] = [];
 
   if (manifest.abiTag && expectedAbi && manifest.abiTag !== expectedAbi) {
     issues.push({
@@ -840,7 +946,7 @@ function diagnosticoDe(manifest, checks, deep) {
     const corrupt = check.problems.filter((p) => p.problem === 'corrupt' || p.problem === 'unreadable').length;
     const resized = check.problems.filter((p) => p.problem === 'size').length;
 
-    const parts = [];
+    const parts: string[] = [];
     if (missing) parts.push(`${missing}+ arquivo(s) faltando`);
     if (resized) parts.push(`${resized}+ com tamanho errado`);
     if (corrupt) parts.push(`${corrupt}+ corrompido(s)`);
@@ -874,10 +980,10 @@ function diagnosticoDe(manifest, checks, deep) {
  * em vez de milhares, entao nao adiciona latencia perceptivel a simulacao, e
  * pega o caso comum de o antivirus ter posto a pasta inteira em quarentena.
  */
-function sentinelCheck() {
+export function sentinelCheck() {
   const manifest = readManifest();
   const site = pylibSite();
-  const broken = [];
+  const broken: string[] = [];
 
   // O RECORD e o __init__ do pacote de topo: se um dos dois sumiu, a
   // biblioteca nao importa mais.
@@ -887,25 +993,3 @@ function sentinelCheck() {
 
   return { ok: broken.length === 0, broken };
 }
-
-module.exports = {
-  loadCatalog,
-  catalogEntry,
-  getState,
-  install,
-  uninstall,
-  repair,
-  resolveExternal,
-  installExternal,
-  listExternal,
-  doctor,
-  doctorAsync,
-  sentinelCheck,
-  ensureSitePth,
-  removeSitePth,
-  verifyFiles,
-  parseRecord,
-  readManifest,
-  isSafeEntry,
-  PURE_SUFFIX,
-};

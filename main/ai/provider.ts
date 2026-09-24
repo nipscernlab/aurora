@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * provider.js: Vercel AI SDK plumbing for Aurora Intelligence.
+ * provider.ts: Vercel AI SDK plumbing for Aurora Intelligence.
  *
  * Builds a Vercel AI SDK provider instance keyed on the user's stored
  * API key (via `keystore`), and exposes a thin `testConnection()`
@@ -25,21 +24,25 @@
  *   - deepseek   → deepseek-chat
  */
 
-'use strict';
+import { createRequire } from 'node:module';
+import log from 'electron-log';
 
-const log = require('electron-log');
+import * as keystore from './keystore.js';
+import * as prefs from './prefs.js';
+
+// Os pacotes do AI SDK sao carregados por nome, na hora, pelo tryRequire.
+const requireTarde = createRequire(__filename);
 
 // All AI SDK packages, including the base `ai` package, are loaded via
 // tryRequire so any module-level failure (missing package, mismatched
 // transitive dep like `zod/v4`, ESM/CJS interop bug) disables AI features
 // instead of crashing the main process during boot.
-/** @param {string} pkg @param {string} [exportName] */
-function tryRequire(pkg, exportName) {
+function tryRequire(pkg: string, exportName?: string): any {
   try {
-    const mod = require(pkg);
+    const mod = requireTarde(pkg);
     return exportName ? mod[exportName] : mod;
   } catch (err) {
-    const e = /** @type {NodeJS.ErrnoException} */ (err);
+    const e = err as NodeJS.ErrnoException;
     log.warn(`[ai.provider] Failed to load "${pkg}" (${e?.code || e?.message}). AI features depending on this package will be disabled.`);
     return null;
   }
@@ -54,10 +57,8 @@ const createGoogleGenerativeAI = tryRequire('@ai-sdk/google',    'createGoogleGe
 const createDeepSeek           = tryRequire('@ai-sdk/deepseek',  'createDeepSeek');
 const createGroq               = tryRequire('@ai-sdk/groq',      'createGroq');
 
-const keystore = require('./keystore');
-const prefs = require('./prefs');
 
-const DEFAULT_MODELS = Object.freeze({
+export const DEFAULT_MODELS = Object.freeze({
   openai:    'gpt-4o-mini',
   // Sonnet 5 em vez do Haiku 4.5 desde 29/08/2026, por decisao de quem paga:
   // 2/10 USD por MTok virou preco padrao, e com o cache de prompt armado
@@ -75,7 +76,7 @@ const DEFAULT_MODELS = Object.freeze({
 // keeps working instead of dead-ending at runtime. Seed as providers retire ids
 // (an empty map per provider is fine, `resolveModelId` still handles the
 // 'latest'/'default' aliases and the runtime fallback covers the rest).
-const MODEL_MIGRATIONS = Object.freeze({
+const MODEL_MIGRATIONS: Readonly<Record<string, Readonly<Record<string, string>>>> = Object.freeze({
   openai:    {},
   // Aposentados na API de primeira parte (tabela de precos de 29/08/2026):
   // Opus 4 e 4.1 (que custavam 15/75) vao para o Opus 5 (5/25), Sonnet 4 para
@@ -103,7 +104,7 @@ const MODEL_MIGRATIONS = Object.freeze({
  * podendo. Familia 5 da Anthropic conferida na tabela de precos de 29/08/2026;
  * Sonnet 5 a 2/10 por MTok virou preco padrao, e e o primeiro a testar.
  */
-const MODEL_PRESETS = Object.freeze({
+export const MODEL_PRESETS = Object.freeze({
   anthropic: [
     { id: 'claude-sonnet-5',           nota: 'recomendado: codigo, ferramentas, 1M de contexto, 2/10 USD por MTok' },
     { id: 'claude-opus-5',             nota: 'o mais forte para problemas dificeis, 5/25' },
@@ -122,10 +123,8 @@ const MODEL_PRESETS = Object.freeze({
  * Conferido na documentacao do provedor do AI SDK e na tabela de modelos de
  * 29/08/2026: familia 5 inteira e Opus 4.6 a 4.8 e Sonnet 4.6. Nas outras o
  * parametro e recusado com 400, entao fora da lista ele nem vai.
- * @param {string} provider
- * @param {string|null|undefined} modelId
  */
-function efeitoSuportado(provider, modelId) {
+export function efeitoSuportado(provider: string, modelId: string | null | undefined): boolean {
   if (provider !== 'anthropic' || !modelId) return false;
   return /^claude-(fable-5|opus-5|sonnet-5|opus-4-[678]|sonnet-4-6)(-|$)/.test(String(modelId));
 }
@@ -135,14 +134,12 @@ function efeitoSuportado(provider, modelId) {
  *   - empty / 'default' / 'latest' → the provider's current default
  *   - a known-retired id           → its migrated replacement
  *   - anything else                → unchanged
- * @param {string} provider
- * @param {string|null} [requested]
  */
-function resolveModelId(provider, requested) {
-  const def = DEFAULT_MODELS[/** @type {keyof typeof DEFAULT_MODELS} */ (provider)] || null;
+export function resolveModelId(provider: string, requested?: string | null): string | null {
+  const def = DEFAULT_MODELS[provider as keyof typeof DEFAULT_MODELS] || null;
   const id = (requested || '').trim();
   if (!id || id === 'default' || id === 'latest') return def;
-  const map = MODEL_MIGRATIONS[/** @type {keyof typeof MODEL_MIGRATIONS} */ (provider)];
+  const map = MODEL_MIGRATIONS[provider];
   return (map && map[id]) || id;
 }
 
@@ -150,9 +147,8 @@ function resolveModelId(provider, requested) {
  * Heuristic: does this AI-SDK error mean "the model id is bad" (retired,
  * renamed, typo'd, or not enabled for this key)? Drives the fallback to the
  * provider default instead of dead-ending the turn with a cryptic message.
- * @param {any} e
  */
-function isModelUnavailableError(e) {
+export function isModelUnavailableError(e: any): boolean {
   if (!e) return false;
   const status = e.statusCode ?? e.status ?? (e.data && e.data.statusCode);
   if (status === 404) return true;
@@ -168,7 +164,7 @@ function isModelUnavailableError(e) {
 }
 
 // Only include providers whose SDK package was successfully loaded.
-const PROVIDER_FACTORIES = Object.freeze(
+const PROVIDER_FACTORIES: Readonly<Record<string, (opcoes: { apiKey: string }) => (modelId: string) => unknown>> = Object.freeze(
   Object.fromEntries(
     [
       ['openai',    createOpenAI],
@@ -190,15 +186,14 @@ const OLLAMA_DEFAULT_BASE_URL = 'http://localhost:11434/v1';
  * For Ollama the stored "key" is the base URL; if not set the default
  * local URL is used so Ollama works without any configuration.
  *
- * @param {string} name
  */
-function getProvider(name) {
+export function getProvider(name: string): (modelId: string) => unknown {
   if (name === 'ollama') {
     const baseURL = keystore.getKey('ollama') || OLLAMA_DEFAULT_BASE_URL;
     const ollamaFactory = createOpenAI({ baseURL, apiKey: 'ollama', compatibility: 'compatible' });
     // @ai-sdk/openai v2+ defaults to /v1/responses; Ollama only has /v1/chat/completions.
     // Wrap the factory so every prov(modelId) call goes to the chat completions endpoint.
-    return (/** @type {string} */ modelId) => ollamaFactory.chat(modelId);
+    return (modelId: string) => ollamaFactory.chat(modelId);
   }
   const factory = PROVIDER_FACTORIES[name];
   if (!factory) throw new Error(`Unknown provider: ${name}`);
@@ -208,12 +203,12 @@ function getProvider(name) {
 }
 
 /** The hard-coded fallback model for `provider`, or `null` if unknown. */
-function getDefaultModel(/** @type {string} */ provider) {
-  return DEFAULT_MODELS[/** @type {keyof typeof DEFAULT_MODELS} */ (provider)] || null;
+export function getDefaultModel(provider: string): string | null {
+  return DEFAULT_MODELS[provider as keyof typeof DEFAULT_MODELS] || null;
 }
 
 /** The model to actually use: the user's override (alias/migration-resolved), else the default. */
-function getModelFor(/** @type {string} */ provider) {
+export function getModelFor(provider: string): string | null {
   return resolveModelId(provider, prefs.getModel(provider));
 }
 
@@ -225,10 +220,8 @@ function getModelFor(/** @type {string} */ provider) {
  * Returns a structured result instead of throwing so the IPC handler
  * can hand it back to the renderer as-is.
  *
- * @param {string} providerName
- * @param {string} [modelId]
  */
-async function testConnection(providerName, modelId) {
+export async function testConnection(providerName: string, modelId?: string) {
   if (!generateText) {
     return { ok: false, error: 'AI SDK ("ai" package) failed to load. Reinstall the app or run `npm install` if running from source.' };
   }
@@ -236,7 +229,7 @@ async function testConnection(providerName, modelId) {
   if (!model) {
     return { ok: false, error: `No model configured for "${providerName}"` };
   }
-  const probe = async (/** @type {string} */ m) => {
+  const probe = async (m: string) => {
     const provider = getProvider(providerName);
     const started = Date.now();
     const result = await generateText({
@@ -267,15 +260,3 @@ async function testConnection(providerName, modelId) {
     return { ok: false, provider: providerName, model, error: message };
   }
 }
-
-module.exports = {
-  MODEL_PRESETS,
-  efeitoSuportado,
-  DEFAULT_MODELS,
-  getProvider,
-  getDefaultModel,
-  getModelFor,
-  resolveModelId,
-  isModelUnavailableError,
-  testConnection,
-};

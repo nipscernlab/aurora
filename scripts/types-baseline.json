@@ -7,9 +7,6 @@
     "TS2339": 3,
     "TS2353": 1
   },
-  "main/ai/provider.js": {
-    "TS7053": 1
-  },
   "main/components/registry.js": {
     "TS2345": 1
   },

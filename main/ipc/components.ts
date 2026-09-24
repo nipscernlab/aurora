@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * components.js: instalar e remover componentes durante o uso da AURORA.
+ * components.ts: instalar e remover componentes durante o uso da AURORA.
  *
  * QUEM BAIXA É O MESMO SCRIPT DE SEMPRE
  * -------------------------------------
@@ -36,17 +35,17 @@
  * caminho recebido de fora custa mais caro.
  */
 
-'use strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { ipcMain, BrowserWindow, shell } from 'electron';
+import log from 'electron-log';
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { ipcMain, BrowserWindow, shell } = require('electron');
-const log = require('electron-log');
-
-const registro = require('../components/registry');
-const ia = require('../components/ia');
-const { componentsPath } = require('../paths');
+import * as registro from '../components/registry.js';
+import * as ia from '../components/ia.js';
+import { componentsPath } from '../paths.js';
+import state from '../state.js';
 // Pelo registro, e nao pelo spawn puro: o filho fica visivel ao encerramento.
 // Antes, fechar a AURORA no meio do download do MSYS deixava um Node baixando
 // e extraindo dentro de components/ sem janela nenhuma, que e justamente o
@@ -54,23 +53,28 @@ const { componentsPath } = require('../paths');
 // nao o alcancava, porque casa por prefixo de caminho e o executavel deste
 // filho e o da instalacao, nao o de components/. Grupo SERVICE: o Cancelar
 // da compilacao nao tem nada a ver com um download.
-const { spawnTracked, GROUP } = require('../process_registry');
+import { spawnTracked, GROUP } from '../process_registry.js';
+
+// A limpeza de Temp do doctor so e carregada quando o doctor roda.
+const requireTarde = createRequire(__filename);
+
+/** O que instalar e o doctor devolvem para a interface. */
+type Resultado =
+  | { ok: true; chave: string }
+  | { ok: false; erro: string; chave?: string; detalhe?: string };
 
 /** Um download por vez. Dois puxando ao mesmo tempo só disputam a mesma banda. */
-/** @type {string|null} */
-let emAndamento = null;
+let emAndamento: string | null = null;
 
 /** A pasta dos instaladores, ao lado dos componentes. */
-function pastaDosScripts() {
+function pastaDosScripts(): string {
   return path.join(componentsPath, 'Scripts');
 }
 
 /**
  * Manda uma linha de progresso para a janela que pediu.
- * @param {import('electron').BrowserWindow|null} janela
- * @param {unknown} carga
  */
-function avisar(janela, carga) {
+function avisar(janela: BrowserWindow | null, carga: unknown): void {
   try {
     if (janela && !janela.isDestroyed()) janela.webContents.send('componentes:progresso', carga);
   } catch (_) { /* a janela pode ter fechado no meio do download */ }
@@ -78,9 +82,8 @@ function avisar(janela, carga) {
 
 /**
  * "[surfer] 42% (18.1 / 43.0 MB)" -> 42
- * @param {string} linha
  */
-function lerPercentual(linha) {
+export function lerPercentual(linha: string): number | null {
   const m = /(\d{1,3})%/.exec(linha);
   if (!m) return null;
   const n = Number(m[1]);
@@ -89,19 +92,18 @@ function lerPercentual(linha) {
 
 /**
  * Executa o instalador de um componente.
- *
- * @param {string} chave
- * @param {import('electron').BrowserWindow|null} janela
  */
-function instalar(chave, janela, forcar = false) {
+export function instalar(chave: string, janela: BrowserWindow | null, forcar = false): Promise<Resultado> {
   if (emAndamento) return Promise.resolve({ ok: false, erro: 'ja-ha-download', chave: emAndamento });
   // Os agentes de IA nao passam por script: quem baixa e o cli_downloader, em
   // processo, e a versao nova substitui a antiga sozinha (forcar nao se aplica).
-  if (ia.conhece(chave)) return instalarIA(chave, janela);
+  if (ia.conhece(chave)) return instalarIA(chave as 'claude' | 'codex', janela);
   const comp = registro.obter(chave);
   if (!comp) return Promise.resolve({ ok: false, erro: 'componente desconhecido' });
 
-  const script = path.join(pastaDosScripts(), comp.script);
+  // Todo componente do catalogo tem instalador; o tipo admite null so porque
+  // o campo e declarado assim.
+  const script = path.join(pastaDosScripts(), comp.script as string);
   if (!fs.existsSync(script)) {
     return Promise.resolve({ ok: false, erro: `instalador ausente: ${comp.script}` });
   }
@@ -129,7 +131,7 @@ function instalar(chave, janela, forcar = false) {
     }, GROUP.SERVICE);
 
     let ultimaLinha = '';
-    const digerir = (/** @type {Buffer|string} */ buf) => {
+    const digerir = (buf: Buffer | string) => {
       // O progresso vem com \r, sem \n, para reescrever a mesma linha no
       // terminal. Separar pelos dois e o que faz cada atualizacao chegar.
       for (const parte of String(buf).split(/[\r\n]+/)) {
@@ -183,11 +185,8 @@ function instalar(chave, janela, forcar = false) {
 
 /**
  * Baixa um agente de IA pelo mesmo canal de progresso dos outros componentes.
- *
- * @param {'claude'|'codex'} chave
- * @param {import('electron').BrowserWindow|null} janela
  */
-async function instalarIA(chave, janela) {
+async function instalarIA(chave: 'claude' | 'codex', janela: BrowserWindow | null): Promise<Resultado> {
   const nome = ia.obter(chave)?.nome || chave;
   emAndamento = chave;
   avisar(janela, { chave, estado: 'iniciando', percentual: 0, linha: `Baixando ${nome}` });
@@ -217,9 +216,8 @@ async function instalarIA(chave, janela) {
  *
  * O caminho apagado é o diretório do componente, derivado da sentinela do
  * catálogo. Nada vem do renderer além da chave.
- * @param {string} chave
  */
-async function remover(chave) {
+export async function remover(chave: string) {
   if (ia.conhece(chave)) {
     if (emAndamento === chave) return { ok: false, erro: 'ja-ha-download', chave };
     const r = await ia.remover(chave);
@@ -267,11 +265,11 @@ async function remover(chave) {
  * baixado de novo (incompleto ou de outra versão). Numa instalação ausente ele
  * não teria efeito nenhum, e mandá-lo assim mesmo confundiria a leitura do log.
  *
- * @param {{estado: string}} diagnostico
- * @param {{essencial?: boolean, requerParaCompilar?: boolean}|undefined} comp
- * @returns {{conserta: boolean, forcar: boolean}}
  */
-function decidirConserto(diagnostico, comp) {
+export function decidirConserto(
+  diagnostico: { estado: string } | null | undefined,
+  comp: { essencial?: boolean; requerParaCompilar?: boolean } | undefined,
+): { conserta: boolean; forcar: boolean } {
   const estado = diagnostico?.estado;
   // Instalado e defeituoso, ou instalado e de outra versão: conserta sempre,
   // mesmo sendo opcional. Opcional que a pessoa baixou é opcional que ela usa,
@@ -310,10 +308,8 @@ function decidirConserto(diagnostico, comp) {
  * reinstalação total de um componente saudável tem o caminho: remover e
  * baixar de novo pelo painel. E não baixa componente opcional que o usuário
  * nunca instalou: ausência escolhida não é defeito.
- *
- * @param {import('electron').BrowserWindow|null} janela
  */
-async function doctor(janela) {
+export async function doctor(janela: BrowserWindow | null) {
   if (emAndamento) return { ok: false, erro: 'ja-ha-download', chave: emAndamento };
 
   // Sem os instaladores nao ha conserto possivel: eles SAO a ferramenta de
@@ -327,10 +323,10 @@ async function doctor(janela) {
   const resultado = {
     ok: true,
     cacheLimpo: false,
-    saudaveis: /** @type {string[]} */ ([]),
-    consertados: /** @type {string[]} */ ([]),
-    falharam: /** @type {string[]} */ ([]),
-    ausentesOpcionais: /** @type {string[]} */ ([]),
+    saudaveis: [] as string[],
+    consertados: [] as string[],
+    falharam: [] as string[],
+    ausentesOpcionais: [] as string[],
   };
 
   // 1. Caches. O components/Temp guarda artefatos de compilacao; zip parcial
@@ -339,11 +335,9 @@ async function doctor(janela) {
     // Com compilacao viva o Temp esta em uso (.vvp, obj_dir do Verilator,
     // PRISM): apagar agora derruba a etapa com erro de arquivo inexistente.
     // Os servicos (LSPs) nao contam, so o grupo RUN.
-    const { childProcesses } = require('../state');
-    const { GROUP } = require('../process_registry');
-    const compilando = [...childProcesses].some((c) => /** @type {any} */ (c).__auroraGroup === GROUP.RUN);
+    const compilando = [...state.childProcesses].some((c) => (c as { __auroraGroup?: string }).__auroraGroup === GROUP.RUN);
     if (compilando) throw new Error('compilacao em andamento; o cache de Temp fica para a proxima');
-    require('../temp_gc').clearTempFolderSync(componentsPath);
+    requireTarde('../temp_gc').clearTempFolderSync(componentsPath);
     for (const arquivo of fs.readdirSync(path.dirname(componentsPath))) {
       if (/^(aurora-|surfer-aurora).*\.zip$/i.test(arquivo)) {
         fs.rmSync(path.join(path.dirname(componentsPath), arquivo), { force: true });
@@ -396,12 +390,12 @@ async function doctor(janela) {
  * apareceria como falha intermitente e confusa. AURORA_SEM_AVISO_DE_BOOT fica
  * como desligamento explicito, para quem quiser o efeito sem mexer no lock.
  */
-function sobAutomacao() {
+function sobAutomacao(): boolean {
   return process.env.SAPHO_SKIP_SINGLE_INSTANCE === '1'
     || process.env.AURORA_SEM_AVISO_DE_BOOT === '1';
 }
 
-function register() {
+export function register(): void {
   ipcMain.handle('componentes:listar', () => ({
     componentes: [...registro.listar(), ...ia.listar()],
     baixando: emAndamento,
@@ -411,7 +405,7 @@ function register() {
 
   // `forcar` vem do botao Atualizar: o instalador ve a sentinela de uma
   // versao antiga e so re-baixa com --force.
-  ipcMain.handle('componentes:instalar', (evento, chave, opcoes) =>
+  ipcMain.handle('componentes:instalar', (evento, chave: string, opcoes?: { forcar?: boolean }) =>
     instalar(chave, BrowserWindow.fromWebContents(evento.sender), Boolean(opcoes && opcoes.forcar)));
 
   ipcMain.handle('componentes:remover', (_e, chave) => remover(chave));
@@ -429,7 +423,3 @@ function register() {
     catch (e) { return { ok: false, erro: e instanceof Error ? e.message : String(e) }; }
   });
 }
-
-module.exports = {
-  register, instalar, remover, doctor, decidirConserto, lerPercentual,
-};

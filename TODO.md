@@ -23,6 +23,20 @@ O plano de deploy, na ordem: instalar num PC do LABEL, gerar a release e
 testar, gerar uma segunda release e ver a atualização acontecer, e só então
 implantar na frota. As seções 1 a 4 são esse plano; as demais vêm depois.
 
+## Estado verificado em 24/09/2026
+
+`main` em `1c19931b`, CI verde, árvore limpa. São 2544 testes unitários, 50
+E2E e os de toolchain. A catraca de tipos está em 99 erros conhecidos, em 26
+arquivos.
+
+O CI ficou vermelho de 21 a 24/09, por duas causas somadas, as duas do mesmo
+feitio: um passo carregava um módulo cujo `.js` só existe depois do
+`build:ts`, e numa cópia limpa ele não existe. Consertado em `92872875` e
+`1c19931b`, com o build virando passo próprio logo depois do `npm ci`. Fica a
+lição, que vale para qualquer verificação nova: **na máquina de quem
+desenvolve os `.js` gerados estão sempre lá, então `npm run deadcode` e
+qualquer passo que carregue um módulo passam aqui e falham no runner.**
+
 ---
 
 ## 1. Release de teste e ensaio de atualização
@@ -1983,6 +1997,53 @@ sai quando ela acabar.
       `release.yml` e do CODEOWNERS; tirá-lo também do CODEOWNERS do
       `nipscernweb`, da tabela de aprovadores em nipscern.com/code-signing e
       da SignPath; e tirar dele o papel de dono da organização `nipscernlab`.
+
+## 12. Aberto em 24/09/2026
+
+- [ ] **Defeito no resumo de resultado de ferramenta da IA.** Em
+      `summariseResult` ([js/ai/tool_chip_text.ts](js/ai/tool_chip_text.ts)), o
+      `data` que passa de 4000 caracteres é cortado NO TEXTO do JSON e o pedaço
+      é reparseado, o que praticamente sempre falha, porque JSON cortado no
+      meio é JSON inválido. O resumo gravado vira `data: '[unserialisable]'` em
+      vez de um dado truncado, e isso vale para TODO resultado grande: reabrir
+      uma conversa salva perde a prévia do resultado. Há um caso em
+      `tests/unit/toolChipText.test.js` que trava o comportamento de hoje e
+      aponta para a nota no código. Consertar muda o que fica gravado nas
+      conversas, por isso ficou separado. Caminho provável: truncar a
+      ESTRUTURA (cortar arrays e strings de dentro do objeto) em vez do texto.
+- [ ] **Uma falha instável no E2E, ainda sem nome.** Uma corrida acusou dois
+      casos falhando e as doze seguintes, no mesmo código, passaram. A saída
+      foi lida por um `tail` que cortou o nome, e sem o nome não dá para
+      separar regressão de instabilidade. Desde `b028da30` toda corrida grava
+      `reports/e2e-last-run.json` com o nome de cada caso, e
+      `npm run test:e2e:repete [n]` roda N vezes e imprime quem falhou em
+      quantas. Falta capturá-la e decidir: falhou em todas, é o código; falhou
+      em algumas, é ambiente e o caso precisa ficar determinístico.
+- [ ] **Abrir o resto do painel de IA.**
+      [js/ui/ai_assistant_manager.js](js/ui/ai_assistant_manager.js) tem 4022
+      linhas numa classe só, com 128 métodos. Três grupos já saíram para
+      `js/ai/` com teste próprio (texto dos chips, referência a arquivo,
+      citação do manual). Os próximos, na mesma medida, são anexos, fila de
+      mensagens e provedor/modelo, cerca de 590 linhas juntas. A rede por fora
+      é `tests/unit/aiTurnFlow.test.js`.
+- [ ] **O último `.d.ts` escrito à mão.**
+      [js/tabs/tab_manager.d.ts](js/tabs/tab_manager.d.ts) repete à mão
+      assinaturas que o próprio arquivo já descreve, e as duas cópias podem
+      divergir sem nada acusar. O `tab_manager.js` tem 1986 linhas, então vale
+      a válvula da regra: extrair o núcleo para `.ts` novo, não renomear o
+      arquivo. (O `electron_api.d.ts` não entra nessa conta: ele não duplica
+      assinatura, só descreve o Proxy da ponte.)
+- [ ] **Limite conhecido do rename de processador.**
+      `artefatosDoProcessador` ([main/ipc/processor_rename.ts](main/ipc/processor_rename.ts))
+      cobre só `Software`, `Hardware` e `Simulation`. Um arquivo com o nome do
+      processador em outra pasta do projeto continua sem ser renomeado, embora
+      o caminho dele no `.spf` seja reescrito, porque a reescrita casa só pelo
+      nome do arquivo. Fechar exige a reescrita saber da pasta.
+- [ ] **Diferença deixada de propósito nos sanitizadores de nome.** O
+      `sanitizeProcessorName` só existe em
+      [js/tabs/tab_utils.ts](js/tabs/tab_utils.ts), então o Save-As valida nome
+      de processador e a árvore do projeto não. Igualar muda comportamento, e
+      por isso não foi feito junto da unificação dos outros quatro.
 
 ## Princípios de desenho
 

@@ -10,7 +10,12 @@
  * aqui sai sem a politica do app.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// O modulo importa protocol e ipcMain do electron; fora do Electron o pacote
+// exporta so uma string, e o import por nome nao acharia nada. As regras
+// testadas aqui nao os usam.
+vi.mock('electron', () => ({ protocol: {}, ipcMain: {} }));
 
 import { isPreviewUrl, mimeFor, SCHEME, PREVIEW_CSP, regrasDePreview, temSegmentoOculto } from '../../main/ipc/preview.js';
 import path from 'node:path';

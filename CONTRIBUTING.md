@@ -93,7 +93,11 @@ A file you edit leaves the change in TypeScript. If it is still `.js`, convert
 it first, in strict mode, in a commit of its own, and make the actual change in
 a second commit. The goal is to have no hand-written JavaScript left, so a file
 is converted whole whatever its size; extracting a piece just to avoid
-converting the rest only postpones the same work. `npm run build:ts` emits the
+converting the rest only postpones the same work. `npm run converter:ts --
+<file.js>` does the mechanical part: the `git mv`, `require` and
+`module.exports` turned into `import` and `export` without touching function
+bodies, JSDoc types moved into the signatures, and the generated `.js` added to
+`.gitignore`. What is left is the type errors and the tests. `npm run build:ts` emits the
 `.js` next to each `.ts`, the generated file goes in `.gitignore`, and
 `node scripts/check-types.js` must stay green: a converted file is born with
 zero type errors.

@@ -1,6 +1,6 @@
 import { electronAPI } from '../app/electron_api.js';
 /**
- * git_decorations.js: VSCode-style git status decorations on the file tree.
+ * git_decorations.ts: VSCode-style git status decorations on the file tree.
  *
  * Paints a small coloured LETTER badge on each changed file row (M = modified,
  * amber; A/? = added/untracked, green; D = deleted, red; R = renamed, blue;
@@ -24,10 +24,23 @@ import { electronAPI } from '../app/electron_api.js';
  *     the decorations after each re-render WITHOUT re-fetching git.
  */
 
-const norm = (p) => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+/** Um arquivo do `git status`, como o main/ipc/git o devolve. */
+interface GitStatusFile {
+  path?: string;
+  index?: string;
+  working?: string;
+}
+
+/** Caminhos ignorados e fora do git: arquivos exatos e prefixos de pasta. */
+interface IgnoredMatcher {
+  files: Set<string>;
+  dirs: string[];
+}
+
+const norm = (p: string | null | undefined): string => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
 
 // Status letter → CSS modifier + human label (PT, matching git_panel STATUS_LABEL).
-const STATUS = {
+const STATUS: Record<string, { cls: string; label: string }> = {
   M: { cls: 'modified',  label: 'modificado' },
   A: { cls: 'added',     label: 'adicionado' },
   '?': { cls: 'untracked', label: 'novo' },
@@ -40,7 +53,7 @@ const STATUS = {
 /** Effective single-letter flag for a status file, prefer the working-tree
  *  char, else the index char (untracked is '?'). Mirrors git_panel's fileFlag
  *  so the tree and the Source Control panel always agree. */
-function letterOf(f) {
+function letterOf(f: GitStatusFile): string {
   const w = (f.working || '').trim();
   const i = (f.index || '').trim();
   return w || (i === '?' ? '?' : i) || '?';
@@ -52,12 +65,11 @@ function letterOf(f) {
  * (== the open project root in our flow) and forward-slashed; we resolve each
  * to a normalised absolute path that matches the rows' data-path, and roll
  * every change up to its ancestor folders (the folder dot).
- * @returns {{fileStatus: Map<string,string>, changedDirs: Set<string>}}
  */
-function computeDecorations(files, rootPath) {
+function computeDecorations(files: GitStatusFile[] | null | undefined, rootPath: string | null | undefined): { fileStatus: Map<string, string>; changedDirs: Set<string> } {
   const rootN = norm(rootPath);
-  const fileStatus = new Map();
-  const changedDirs = new Set();
+  const fileStatus = new Map<string, string>();
+  const changedDirs = new Set<string>();
   if (!rootN) return { fileStatus, changedDirs };
   for (const f of (files || [])) {
     const rel = String(f.path || '').replace(/^\/+/, '').toLowerCase();
@@ -82,12 +94,11 @@ function computeDecorations(files, rootPath) {
  * directory arrives as "<dir>/" (trailing slash). We resolve each to a normalised
  * absolute path (matching the rows' data-path) and split into exact files and
  * directory prefixes.
- * @returns {{files: Set<string>, dirs: string[]}}
  */
-function computeIgnored(paths, rootPath) {
+function computeIgnored(paths: Array<string | null | undefined> | null | undefined, rootPath: string | null | undefined): IgnoredMatcher {
   const rootN = norm(rootPath);
-  const files = new Set();
-  const dirs = [];
+  const files = new Set<string>();
+  const dirs: string[] = [];
   if (!rootN) return { files, dirs };
   for (const p of (paths || [])) {
     let rel = String(p || '').replace(/\\/g, '/').replace(/^\/+/, '');
@@ -102,7 +113,7 @@ function computeIgnored(paths, rootPath) {
 }
 
 /** Is normalised absolute path `absN` ignored (exact file, or under an ignored dir)? */
-function isIgnoredPath(absN, ig) {
+function isIgnoredPath(absN: string, ig: IgnoredMatcher | null | undefined): boolean {
   if (!ig || !absN) return false;
   if (ig.files.has(absN)) return true;
   for (const d of ig.dirs) {
@@ -111,24 +122,22 @@ function isIgnoredPath(absN, ig) {
   return false;
 }
 
-function t(key, fallback) {
+function t(key: string, fallback: string): string {
   try { const v = window.t?.(key); if (v && v !== key) return v; } catch (_) { /* ignore */ }
   return fallback;
 }
 
 class GitDecorations {
-  constructor() {
-    this._fileStatus = new Map();   // normAbsPath → status letter
-    this._changedDirs = new Set();  // normAbsPath of dirs that contain a change
-    this._ignored = null;           // { files:Set, dirs:[] } of gitignored+untracked paths
-    this._applyTimer = null;
-    this._refreshTimer = null;
-    this._observer = null;
-    this._started = false;
-  }
+  _fileStatus = new Map<string, string>();   // normAbsPath → status letter
+  _changedDirs = new Set<string>();          // normAbsPath of dirs that contain a change
+  _ignored: IgnoredMatcher | null = null;    // gitignored+untracked paths
+  _applyTimer: ReturnType<typeof setTimeout> | undefined = undefined;
+  _refreshTimer: ReturnType<typeof setTimeout> | undefined = undefined;
+  _observer: MutationObserver | null = null;
+  _started = false;
 
   /** Wire observers + event subscriptions. Idempotent. */
-  start() {
+  start(): void {
     if (this._started) return;
     this._started = true;
 
@@ -152,11 +161,11 @@ class GitDecorations {
     this.refresh();
   }
 
-  _scheduleRefresh() { clearTimeout(this._refreshTimer); this._refreshTimer = setTimeout(() => this.refresh(), 350); }
-  _scheduleApply() { clearTimeout(this._applyTimer); this._applyTimer = setTimeout(() => this.apply(), 80); }
+  _scheduleRefresh(): void { clearTimeout(this._refreshTimer); this._refreshTimer = setTimeout(() => this.refresh(), 350); }
+  _scheduleApply(): void { clearTimeout(this._applyTimer); this._applyTimer = setTimeout(() => this.apply(), 80); }
 
   /** Re-fetch git status for the open project and rebuild the decoration maps. */
-  async refresh() {
+  async refresh(): Promise<void> {
     const root = window.currentProjectPath;
     if (!root || !window.gitAPI || typeof window.gitAPI.status !== 'function') { this._clear(); return; }
 
@@ -180,7 +189,7 @@ class GitDecorations {
     this.apply();
   }
 
-  _clear() {
+  _clear(): void {
     if (this._fileStatus.size === 0 && this._changedDirs.size === 0 && !this._ignored) { this.apply(); return; }
     this._fileStatus = new Map();
     this._changedDirs = new Set();
@@ -189,7 +198,7 @@ class GitDecorations {
   }
 
   /** Re-paint the current rows from the cached maps. */
-  apply() {
+  apply(): void {
     const treeRoot = document.getElementById('file-tree');
     if (!treeRoot) return;
     if (this._observer) this._observer.disconnect();          // ignore our own mutations
@@ -230,8 +239,8 @@ class GitDecorations {
    * `flag` is a status letter (M/A/?/D/R/C/U), 'dir' for a folder rollup dot,
    * or null to clear.
    */
-  _paint(host, nameEl, flag) {
-    let badge = host.querySelector(':scope > .git-deco');
+  _paint(host: Element, nameEl: Element | null, flag: string | null): void {
+    let badge = host.querySelector<HTMLElement>(':scope > .git-deco');
     if (nameEl) nameEl.className = nameEl.className.replace(/\s*git-st-\S+|\s*git-st-deleted/g, '');
 
     if (!flag) { if (badge) badge.remove(); return; }

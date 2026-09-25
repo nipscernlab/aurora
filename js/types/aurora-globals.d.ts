@@ -104,6 +104,14 @@ interface AuroraElectronAPI {
   getPythonStatus(): Promise<PythonStatus>;
   execSpec(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;
   execSpecStreamed(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;
+  onFileChanged?(cb: (filePath: string) => void): void;
+  onDirectoryChanged?(cb: (directoryPath: string, files: unknown) => void): void;
+}
+
+/** Subset do window.gitAPI do preload (main/ipc/git.ts) que os .ts ja usam. */
+interface AuroraGitAPI {
+  status(opts?: unknown): Promise<{ ok?: boolean; isRepo?: boolean; files?: Array<{ path?: string; index?: string; working?: string }> } | null>;
+  ignored?(opts?: unknown): Promise<{ ok?: boolean; isRepo?: boolean; paths?: string[] } | null>;
 }
 
 declare global {
@@ -124,6 +132,9 @@ declare global {
     currentOpenProjectPath?: string | null;
     /** Espelho do ProjectStore para quem ainda nao o importa (js/project/project_store.ts). */
     ProjectStore?: typeof import('../project/project_store.js').ProjectStore;
+    gitAPI?: AuroraGitAPI;
+    /** A instancia do js/tree/git_decorations.ts, para os testes e o console. */
+    gitDecorations?: unknown;
     /** Returns the active yanc message language ('pt' | 'en'). */
     getYancLang?: () => string;
     /** i18n do renderer; os modulos usam o shim `tr()`, que cai na chave se ela nao tiver subido. */

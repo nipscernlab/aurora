@@ -17,6 +17,7 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { ProjectStore } from '../project/project_store.js';
 import { execucoesAbertas } from './compilation_flow.js';
 import { nomeDoPasso as nomeDoPassoPuro } from './run_history_labels.js';
 
@@ -130,7 +131,7 @@ function desfecho(e: Pick<ResumoDeExecucao, 'andando' | 'cancelada' | 'ok'>): { 
 async function desenharLista(): Promise<void> {
   const lista = $('run-history-list');
   if (!lista) return;
-  const projeto = window.currentProjectPath;
+  const projeto = ProjectStore.getProjectPath();
   if (!projeto) {
     lista.innerHTML = `<p class="run-history-vazio">${escapar(tr('runHistory.noProject'))}</p>`;
     return;
@@ -218,7 +219,7 @@ async function mostrarDetalhe(id: string | null): Promise<void> {
   const painel = $('run-history-detail');
   const lista = $('run-history-list');
   if (!painel || !lista) return;
-  const r = await electronAPI.runLogLer?.(window.currentProjectPath, id);
+  const r = await electronAPI.runLogLer?.(ProjectStore.getProjectPath(), id);
   if (!r?.ok) return;
   const e = r.execucao;
   const d = desfecho(e);

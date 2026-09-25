@@ -46,13 +46,13 @@ import { setTooltipsEnabled } from '../ui/tooltip.js';
 import { gitNs } from './git_ns.js';
 import { prismNs } from './prism_ns.js';
 import { waveNs } from './wave_ns.js';
+import { memoriasDoProjeto } from './memorias_ns.js';
 import { listarArquivosDoProjeto } from './arvore_do_projeto.js';
 import { examplesNs } from './examples_ns.js';
 import { manualNs } from './manual_ns.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { processorConfigPanel } from '../processors/processor_config_panel.js';
 
-import { memorySlug } from '../ai/memory.js';
 
 // O cabecalho de hardware que o fonte declara, nas duas linguagens. Era um
 // laco solto aqui dentro, gemeo de outro no main/ipc/project.js, e nenhum dos
@@ -1154,72 +1154,9 @@ const projectNs = {
     }
   },
 
-  /**
-   * PROJECT MEMORY, `<root>/.aurora/memory/<name>.md`, one fact per file.
-   *
-   * Why a first-class Aurora tool and not the CLI's own file-based memory:
-   * `Write` is in DISALLOWED_TOOLS (main/ai/claude_agent.js) on purpose, every
-   * write goes through Aurora's MCP tools so it hits the permission card and the
-   * audit log, and the native tool would bypass both. Routing memory through the
-   * API keeps that gate AND makes it work on all three transports (Agent SDK,
-   * Claude Code CLI, Codex) instead of only the one that ships a memory feature.
-   *
-   * In-project (not userData) so memories survive moving the folder and the user
-   * can read, version, or gitignore them. Keying off an absolute path has
-   * already bitten this codebase, a stale testbench sidecar still points at a
-   * project that moved.
-   */
-  async listMemories() {
-    const root = window.currentProjectPath || null;
-    if (!root) return err('No project open');
-    try {
-      const dir = await electronAPI.joinPath(root, '.aurora', 'memory');
-      if (!(await electronAPI.fileExists(dir))) return ok({ count: 0, memories: [] });
-      const names = (await electronAPI.listFilesInDirectory(dir)) || [];
-      const memories = [];
-      for (const n of names) {
-        const base = typeof n === 'string' ? n : (n?.name || '');
-        if (!base.toLowerCase().endsWith('.md')) continue;
-        try {
-          const p = await electronAPI.joinPath(dir, base);
-          memories.push({ name: base.replace(/\.md$/i, ''), content: (await electronAPI.readFile(p)) || '' });
-        } catch (_) { /* a memory we can't read is not worth failing the turn over */ }
-      }
-      return ok({ count: memories.length, memories });
-    } catch (e) { return err(e?.message || 'listMemories failed'); }
-  },
-
-  /** Write (or overwrite) one memory. `name` is slugified into the filename. */
-  async remember(name, content) {
-    const root = window.currentProjectPath || null;
-    if (!root) return err('No project open');
-    const slug = memorySlug(name);
-    if (!slug) return err('name required');
-    if (typeof content !== 'string' || !content.trim()) return err('content required');
-    try {
-      const dir = await electronAPI.joinPath(root, '.aurora', 'memory');
-      await electronAPI.createDirectory(dir);
-      const p = await electronAPI.joinPath(dir, `${slug}.md`);
-      await electronAPI.writeFile(p, content.trim() + '\n');
-      emit('project:memory-written', { name: slug, path: p });
-      return ok({ name: slug, path: p });
-    } catch (e) { return err(e?.message || 'remember failed'); }
-  },
-
-  /** Drop one memory. Returns { removed:false } when it was not there. */
-  async forget(name) {
-    const root = window.currentProjectPath || null;
-    if (!root) return err('No project open');
-    const slug = memorySlug(name);
-    if (!slug) return err('name required');
-    try {
-      const p = await electronAPI.joinPath(root, '.aurora', 'memory', `${slug}.md`);
-      if (!(await electronAPI.fileExists(p))) return ok({ name: slug, removed: false });
-      await electronAPI.deleteFile(p);
-      emit('project:memory-forgotten', { name: slug });
-      return ok({ name: slug, removed: true });
-    } catch (e) { return err(e?.message || 'forget failed'); }
-  },
+  // As memorias do projeto (listMemories, remember, forget) moram em
+  // memorias_ns.ts.
+  ...memoriasDoProjeto,
 
   /**
    * Generate a processor in the open project.

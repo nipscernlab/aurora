@@ -99,6 +99,7 @@ js/api/api_core.js
 js/api/prism_ns.js
 js/api/wave_ns.js
 js/api/arvore_do_projeto.js
+js/api/memorias_ns.js
 js/api/examples_ns.js
 js/api/manual_ns.js
 js/compilation/processor_source.js

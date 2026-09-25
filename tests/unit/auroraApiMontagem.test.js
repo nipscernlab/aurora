@@ -51,6 +51,11 @@ describe('montagem da AuroraAPI', () => {
     expect(API.wave.listGtkwFiles).toBe(waveNs.listGtkwFiles);
   });
 
+  it('as memorias do project sao as do memorias_ns.ts', async () => {
+    const { memoriasDoProjeto } = await import('../../js/api/memorias_ns.js');
+    for (const nome of ['listMemories', 'remember', 'forget']) expect(API.project[nome]).toBe(memoriasDoProjeto[nome]);
+  });
+
   it('project.getTree lista o projeto aberto pela arvore_do_projeto, ou recusa sem projeto', async () => {
     ProjectStore.clearProject();
     expect((await API.project.getTree()).error.message).toBe('No project open');

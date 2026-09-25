@@ -177,6 +177,7 @@ js/project/project_manager.js
 js/tree/inv_filter.js
 js/tree/material_icons.js
 js/tree/tree_view.js
+js/tree/standard_tree_render.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

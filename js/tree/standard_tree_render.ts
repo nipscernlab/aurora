@@ -1,12 +1,12 @@
 /**
- * standard_tree_render.js: the 'standard' file-tree view: a plain
+ * standard_tree_render.ts: the 'standard' file-tree view: a plain
  * folder/file hierarchy rooted at the project (.spf) directory.
  *
  * This is the third view in the toggle cycle (verilog flat files →
  * toplevel module hierarchy → folder tree). Unlike the verilog view
  * (processor-grouped) and the hierarchy view (Yosys module instances),
- * this one mirrors the actual on-disk folder structure under
- * `window.currentProjectPath`, the way a generic file explorer would.
+ * this one mirrors the actual on-disk folder structure under the open
+ * project (ProjectStore), the way a generic file explorer would.
  *
  * Reads are LAZY: only the project root is listed up front; a folder's
  * children are fetched (electronAPI.getFolderFiles) the first time it's
@@ -27,6 +27,8 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { ensureManifest, iconUrlForFile, iconUrlForFolder } from './material_icons.js';
 import { parseInv, isInvHidden } from './inv_filter.js';
 import { applyGlyphToIcon } from '../ui/language_glyph.js';
+import { ProjectStore } from '../project/project_store.js';
+import type { RegraInv } from './inv_filter.js';
 // CRUD layer (context menu, inline create/rename, cut/copy/paste, delete).
 // Imported for its side effect: registers the singleton + window hook that
 // project_tree_actions routes right-clicks to when this view is active.
@@ -35,9 +37,16 @@ import './standard_tree_crud.js';
 // Files that never belong in the explorer: legacy config blobs, the
 // .spf project file itself, and dotfiles. Mirrors the old standard
 // tree's filter so behaviour is unchanged for existing projects.
+/** Uma entrada de pasta, como o getFolderFiles do main a devolve. */
+interface Entrada {
+    path: string;
+    name: string;
+    isDirectory?: boolean;
+}
+
 const IGNORED_FILES = ['projectOriented.json', 'processorConfig.json', 'fileOriented.json'];
 
-function isIgnored(entry) {
+function isIgnored(entry: Entrada): boolean {
     if (entry.isDirectory) return false;
     const name = entry.name || '';
     return name.startsWith('.')
@@ -51,8 +60,8 @@ function isIgnored(entry) {
 
 // Path of `p` relative to project root `root` (forward-slashed, root-relative,
 // no leading slash). '' when p IS the root; full path if p is outside root.
-function relTo(root, p) {
-    const norm = (x) => String(x || '').replace(/\\/g, '/').replace(/\/+$/, '');
+function relTo(root: string, p: string): string {
+    const norm = (x: string) => String(x || '').replace(/\\/g, '/').replace(/\/+$/, '');
     const r = norm(root);
     const f = norm(p);
     const rl = r.toLowerCase();
@@ -64,7 +73,7 @@ function relTo(root, p) {
 
 // Directories first, then alphabetical, case-insensitive, the way a
 // file explorer sorts.
-function sortEntries(entries) {
+function sortEntries(entries: Entrada[]): Entrada[] {
     return entries.slice().sort((a, b) => {
         if (a.isDirectory && !b.isDirectory) return -1;
         if (!a.isDirectory && b.isDirectory) return 1;
@@ -73,6 +82,12 @@ function sortEntries(entries) {
 }
 
 class StandardTreeRenderer {
+    _expanded: Set<string>;
+    _rendering: boolean;
+    _sujo: boolean;
+    _invRules: RegraInv[];
+    _renderPromise: Promise<void> | undefined;
+
     constructor() {
         // Paths the user has expanded, survives re-render so the tree
         // doesn't collapse on refresh / view switch.
@@ -94,47 +109,47 @@ class StandardTreeRenderer {
         // `.inv` lives outside the chokidar dir-watch (dotfiles are ignored),
         // so editing it in the editor wouldn't otherwise refresh the tree.
         // Re-render when an `.inv` is saved (dispatched on both window/document).
-        const onSaved = (e) => {
-            const p = e?.detail?.path || '';
+        const onSaved = (e: Event) => {
+            const p = (e as CustomEvent<{ path?: string } | null>)?.detail?.path || '';
             if (/\.inv$/i.test(p)) this.render();
         };
         window.addEventListener('aurora:file-saved', onSaved);
         document.addEventListener('aurora:file-saved', onSaved);
     }
 
-    isExpanded(path) { return this._expanded.has(path); }
+    isExpanded(path: string): boolean { return this._expanded.has(path); }
 
     /**
      * Mark the row of the file currently focused in Monaco with `.editor-focused`
      * so the folder tree shows which file is open (same affordance as the
      * verilog tree). Re-scans the rendered rows; cheap and idempotent.
      */
-    refreshFocusHighlight() {
+    refreshFocusHighlight(): void {
         const container = treeView.getContainer('standard');
         if (!container) return;
-        const norm = (p) => String(p || '').replace(/\\/g, '/').toLowerCase();
-        const target = norm(window.TabManager?.getEditingFilePath?.() || '');
+        const norm = (p: string | null) => String(p || '').replace(/\\/g, '/').toLowerCase();
+        const target = norm(TabManager.getEditingFilePath?.() || '');
         container.querySelectorAll('.file-tree-item[data-path]').forEach((w) => {
             const match = !!target && norm(w.getAttribute('data-path')) === target;
             const row = w.querySelector(':scope > .file-item');
             if (row) row.classList.toggle('editor-focused', match);
         });
     }
-    hasExpanded() { return this._expanded.size > 0; }
+    hasExpanded(): boolean { return this._expanded.size > 0; }
 
     /**
      * Collapse every folder. Clears the expanded set and flips the DOM
      * (chevrons, folder icons, child boxes) without re-reading the disk:
      * the already-rendered children stay in the DOM, just hidden.
      */
-    collapseAll() {
+    collapseAll(): void {
         this._expanded.clear();
         const container = treeView.getContainer('standard');
         if (!container) return;
         container.querySelectorAll('.folder-content').forEach((fc) => fc.classList.add('hidden'));
         container.querySelectorAll('.folder-toggle-icon').forEach((t) => t.classList.add('collapsed'));
-        container.querySelectorAll('.file-item-icon[data-folder]').forEach((i) => {
-            this._setFolderIcon(i, i.dataset.folder, false);
+        container.querySelectorAll<HTMLElement>('.file-item-icon[data-folder]').forEach((i) => {
+            this._setFolderIcon(i, i.dataset.folder || '', false);
         });
     }
 
@@ -143,14 +158,14 @@ class StandardTreeRenderer {
      * directory (lazy reads mean nested folders aren't in memory yet),
      * marks them all expanded, then re-renders fully open.
      */
-    async expandAll() {
-        const root = window.currentProjectPath;
+    async expandAll(): Promise<void> {
+        const root = ProjectStore.getProjectPath();
         if (!root) return;
         await this._collectAllFolders(root, this._expanded);
         await this.render();
     }
 
-    async _collectAllFolders(dirPath, acc) {
+    async _collectAllFolders(dirPath: string, acc: Set<string>): Promise<void> {
         const entries = await this._read(dirPath);
         for (const entry of entries) {
             if (entry.isDirectory) {
@@ -180,7 +195,7 @@ class StandardTreeRenderer {
      * terminar ela roda MAIS UMA vez, uma so, por mais pedidos que tenham
      * chegado. Nada se perde e nada se repete a toa.
      */
-    render() {
+    render(): Promise<void> | undefined {
         if (this._rendering) {
             this._sujo = true;
             return this._renderPromise;
@@ -194,19 +209,19 @@ class StandardTreeRenderer {
      * pelo `overflow-y` em vez de fixar a classe faz isto sobreviver a uma
      * mudança de CSS em vez de virar um no-op silencioso.
      */
-    _scroller(container) {
-        for (let el = container; el && el !== document.body; el = el.parentElement) {
+    _scroller(container: HTMLElement): HTMLElement | null {
+        for (let el: HTMLElement | null = container; el && el !== document.body; el = el.parentElement) {
             const y = getComputedStyle(el).overflowY;
             if (y === 'auto' || y === 'scroll') return el;
         }
         return null;
     }
 
-    async _doRender() {
+    async _doRender(): Promise<void> {
         const container = treeView.getContainer('standard');
         if (!container) return;
 
-        const root = window.currentProjectPath;
+        const root = ProjectStore.getProjectPath();
         if (!root) {
             container.innerHTML = '';
             return;
@@ -259,11 +274,11 @@ class StandardTreeRenderer {
      * getFolderFiles so the expanded keys match exactly what the renderer
      * compares against (same separators/casing). No-op outside the project.
      */
-    async revealFolder(folderPath) {
-        const root = window.currentProjectPath;
+    async revealFolder(folderPath: string | null | undefined): Promise<void> {
+        const root = ProjectStore.getProjectPath();
         if (!root || !folderPath) return;
 
-        const norm = (p) => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+        const norm = (p: string) => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
         const rootN = norm(root);
         const targetN = norm(folderPath);
         if (targetN !== rootN && !targetN.startsWith(rootN + '/')) return;
@@ -280,11 +295,11 @@ class StandardTreeRenderer {
             dir = next.path;
         }
 
-        window.fileTreeViewController?.showStandardMode?.();
+        (window as unknown as { fileTreeViewController?: { showStandardMode?(): unknown } }).fileTreeViewController?.showStandardMode?.();
         await this.render();
 
         const container = treeView.getContainer('standard');
-        const el = container?.querySelector(`.file-tree-item[data-path="${(window.CSS?.escape ? CSS.escape(folderPath) : folderPath)}"]`);
+        const el = container?.querySelector(`.file-tree-item[data-path="${(window.CSS?.escape ? window.CSS.escape(folderPath) : folderPath)}"]`);
         if (el) {
             el.scrollIntoView({ block: 'center' });
             el.classList.add('reveal-flash');
@@ -294,12 +309,12 @@ class StandardTreeRenderer {
 
     // ---------------- private ----------------
 
-    async _read(dirPath) {
+    async _read(dirPath: string): Promise<Entrada[]> {
         const list = await electronAPI?.getFolderFiles?.(dirPath);
         if (!Array.isArray(list)) return [];
-        const root = window.currentProjectPath;
+        const root = ProjectStore.getProjectPath();
         const rules = this._invRules;
-        const keep = (e) => {
+        const keep = (e: Entrada) => {
             if (isIgnored(e)) return false;
             if (rules && rules.length && root) {
                 const rel = relTo(root, e.path);
@@ -307,7 +322,7 @@ class StandardTreeRenderer {
             }
             return true;
         };
-        return sortEntries(list.filter(keep));
+        return sortEntries((list as Entrada[]).filter(keep));
     }
 
     /**
@@ -315,7 +330,7 @@ class StandardTreeRenderer {
      * unreadable `.inv` → empty rules (nothing hidden). The `.inv` file itself
      * is a dotfile, so it's already excluded by isIgnored.
      */
-    async _loadInvRules(root) {
+    async _loadInvRules(root: string): Promise<void> {
         this._invRules = [];
         if (!root) return;
         try {
@@ -333,8 +348,8 @@ class StandardTreeRenderer {
         }
     }
 
-    _pruneExpanded(root) {
-        const norm = (p) => String(p || '').replace(/\\/g, '/');
+    _pruneExpanded(root: string): void {
+        const norm = (p: string) => String(p || '').replace(/\\/g, '/');
         const r = norm(root);
         for (const p of Array.from(this._expanded)) {
             if (!norm(p).startsWith(r)) this._expanded.delete(p);
@@ -352,7 +367,7 @@ class StandardTreeRenderer {
      * tree (P9). `container` is the live container only at the top of the call
      * chain; nested levels append into still-detached child boxes.
      */
-    async _renderLevel(entries, container, level) {
+    async _renderLevel(entries: Entrada[], container: Node, level: number): Promise<void> {
         const frag = document.createDocumentFragment();
         for (const entry of entries) {
             const wrapper = this._buildRow(entry, level);
@@ -369,7 +384,7 @@ class StandardTreeRenderer {
         container.appendChild(frag);
     }
 
-    _buildRow(entry, level) {
+    _buildRow(entry: Entrada, level: number): HTMLElement {
         const wrapper = document.createElement('div');
         wrapper.className = 'file-tree-item';
         wrapper.setAttribute('data-path', entry.path);
@@ -461,11 +476,11 @@ class StandardTreeRenderer {
         return wrapper;
     }
 
-    async _toggleFolder(entry, wrapper, level) {
+    async _toggleFolder(entry: Entrada, wrapper: HTMLElement, level: number): Promise<void> {
         const willExpand = !this.isExpanded(entry.path);
         const childBox = wrapper.querySelector(':scope > .folder-content');
         const chevron = wrapper.querySelector(':scope > .file-item > .file-item-row > .folder-toggle-icon');
-        const icon = wrapper.querySelector(':scope > .file-item .file-item-icon');
+        const icon = wrapper.querySelector<HTMLElement>(':scope > .file-item .file-item-icon');
 
         if (willExpand) {
             this._expanded.add(entry.path);
@@ -488,17 +503,17 @@ class StandardTreeRenderer {
      * data-folder so collapseAll can recompute the closed icon without the
      * entry object.
      */
-    _setFolderIcon(iconEl, name, open) {
+    _setFolderIcon(iconEl: HTMLElement, name: string, open: boolean): void {
         iconEl.dataset.folder = name || '';
         iconEl.style.backgroundImage = `url("${iconUrlForFolder(name, { open })}")`;
     }
 
-    async _openFile(filePath, fileName, options) {
+    async _openFile(filePath: string, fileName: string, options: { preview?: boolean }): Promise<void> {
         try {
             const content = await electronAPI.readFile(filePath);
             const sem = window.SplitEditorManager;
-            if (sem && sem.focusedPane > 0) {
-                await sem.openInFocusedPane(filePath, content, options);
+            if (sem && (sem.focusedPane ?? 0) > 0) {
+                await sem.openInFocusedPane?.(filePath, content, options);
             } else {
                 TabManager.addTab(filePath, content, options);
             }
@@ -511,7 +526,7 @@ class StandardTreeRenderer {
 const standardTreeRenderer = new StandardTreeRenderer();
 
 if (typeof window !== 'undefined') {
-    window.standardTreeRenderer = standardTreeRenderer;
+    (window as unknown as { standardTreeRenderer?: StandardTreeRenderer }).standardTreeRenderer = standardTreeRenderer;
 }
 
 export { standardTreeRenderer };

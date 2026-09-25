@@ -175,7 +175,7 @@ declare global {
       focusedPane?: number;
       closePane?(paneIndex: number | undefined): unknown;
       refreshLayout?(): unknown;
-      openInFocusedPane?(filePath: string, content: string): Promise<unknown>;
+      openInFocusedPane?(filePath: string, content: string, opcoes?: { preview?: boolean }): Promise<unknown>;
     };
     /** A arvore de projeto (js/project/file_mode.js). */
     projectTreeManager?: {

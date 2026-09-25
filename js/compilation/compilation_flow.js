@@ -15,7 +15,7 @@
  *     PRISM   = Verilog                                   + yosys
  *     Wave    =        cmm + asm + iverilog(-o vvp, tb)   + vvp + gtkwave
  *
- *   Loops cmm+asm sao sobre window.availableProcessors (no-op natural
+ *   Loops cmm+asm sao sobre os processadores do projeto (no-op natural
  *   pra projetos verilog puro, array vazio = loop vazio). Nao ha
  *   branches `if (hasProcessor)` no pipeline.
  *
@@ -37,8 +37,12 @@ import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { isProcessorSourcePath } from './processor_source.js';
 import { lerConfigDeSimulacao } from '../project/processor_sim_config.js';
-import { compileProcessorSource, locateProcessorSource } from './processor_dispatch.js';
+import {
+    collectProcessors, findProcessorForPath, precompileAllProcessors, precompileAsmOnly, resolveFallbackCmmPath,
+} from './precompilacao.js';
+import { compileProcessorSource } from './processor_dispatch.js';
 import { statusUpdater } from '../ui/status_updater.js';
+import { ProjectStore } from '../project/project_store.js';
 import {
     checkCancellation, desfazerCancelamento, eCancelamento, foiCancelada,
     iniciarRodada, pedirCancelamento, primeiroCartao,
@@ -215,29 +219,6 @@ export async function exigirComponentesDeCompilacao(terminalId) {
 // aurora:editing-file-changed (toolbar setup) e consumido por handleCmmStep.
 let lastActiveProcessor = null;
 
-/**
- * Resolve o fonte canonico a compilar quando NENHUM fonte esta em foco
- * (caso tipico de um compile disparado pela Aurora Intelligence). Ordem:
- *   1. o ultimo processador que esteve em foco (sticky), se ainda existe;
- *   2. se o projeto tem exatamente um processador, esse.
- * Retorna o path `<proj>/<proc>/Software/<proc>.<cmm|cpp>` (o que existir,
- * por locateProcessorSource) ou null se nao da pra decidir com seguranca
- * (varios processadores e nenhum foi focado ainda, ou nenhum fonte no disco).
- */
-async function resolveFallbackCmmPath() {
-    if (!window.currentProjectPath) return null;
-    const procs = collectProcessors().map((p) => p.name).filter(Boolean);
-    if (procs.length === 0) return null;
-    let proc = (lastActiveProcessor && procs.includes(lastActiveProcessor))
-        ? lastActiveProcessor
-        : null;
-    if (!proc && procs.length === 1) proc = procs[0];
-    if (!proc) return null;
-    const entry = collectProcessors().find((p) => p.name === proc) || { name: proc };
-    const fonte = await locateProcessorSource(window.currentProjectPath, entry, electronAPI);
-    return fonte ? fonte.sourcePath : null;
-}
-
 // Step do run em andamento, usado por logFatalError pra reportar a
 // falha ao status bar com o tipo certo. Os passos cmm/asm/verilog/prism
 // ja chamam statusUpdater.compilationError por dentro; este fallback
@@ -300,135 +281,8 @@ function logFatalError(terminalId, error) {
 }
 
 // =====================================================================
-// Helpers de descoberta de processadores
+// Descoberta de processadores e pre-flight cmm + asm: precompilacao.ts
 // =====================================================================
-
-/**
- * Resolve a qual processador um arquivo pertence olhando seu path:
- *   <projectPath>/<procName>/{Hardware|Software|Simulation}/<arquivo>
- * Devolve o objeto do processador (preservando casing original) ou null.
- *
- * Mirrors ProjectTreeManager._getProcessorForFile (replicado aqui pra
- * evitar acoplamento entre o pipeline de compilacao e o file tree).
- */
-function findProcessorForPath(filePath, projectPath, processors) {
-    if (!filePath || !projectPath || !Array.isArray(processors)) return null;
-    const norm = (p) => p.replace(/\\/g, '/').toLowerCase();
-    const fp = norm(filePath);
-    const pp = norm(projectPath);
-    if (!fp.startsWith(pp)) return null;
-    const rel = fp.slice(pp.length).replace(/^\/+/, '');
-    const segs = rel.split('/');
-    if (segs.length < 3) return null;
-    const sub = segs[1];
-    if (sub !== 'hardware' && sub !== 'software' && sub !== 'simulation') return null;
-    const procNameLower = segs[0];
-    // Tolera entrada como string (window.availableProcessors) ou
-    // objeto com .name (.spf structure.processors).
-    const match = processors.find((p) => {
-        const n = typeof p === 'string' ? p : p?.name;
-        return n && n.toLowerCase() === procNameLower;
-    });
-    if (!match) return null;
-    return typeof match === 'string' ? { name: match } : match;
-}
-
-/**
- * Coleta a lista canonica de processadores conhecidos do projeto.
- * Le de window.availableProcessors (semeado pelo project_manager a
- * partir do .spf structure.processors). compiler.projectConfig.
- * processors aponta pra mesma fonte, usamos so essa via pra evitar
- * duplicacao.
- */
-function collectProcessors() {
-    const list = Array.isArray(window.availableProcessors)
-        ? window.availableProcessors
-        : [];
-    return list
-        .map((p) => (typeof p === 'string' ? { name: p } : p))
-        .filter((p) => p && p.name);
-}
-
-// =====================================================================
-// Pre-flight comum: roda cmm + asm pra cada processador
-// =====================================================================
-
-// Fallback per-processador quando o .spf nao tem config explicita
-// (entries antigas no schema string-only ou criadas antes do painel
-// de config sair). O painel grava no .spf, leitura aqui defaultar
-// pros mesmos valores que o painel mostra como placeholder garante
-// que rodar sem abrir o painel comporta-se como antes.
-/**
- * Extrai a config per-processador armazenada na entry de
- * `structure.processors[i]`. Quem sabe ler e os padroes moram em
- * js/project/processor_sim_config.ts, junto com o painel e a API.
- */
-function readProcessorConfig(procEntry) {
-    return lerConfigDeSimulacao(procEntry);
-}
-
-/**
- * Pre-flight comum aos botoes Verilog / Wave / PRISM: pra cada
- * processador conhecido, roda cmmCompilation + asmCompilation.
- * For-loop sobre array vazio (projeto sem processador) e no-op
- * natural, nao ha branch sobre "tem processador?".
- *
- * Pulamos processadores sem fonte em <proj>/<proc>/Software/ (nem .cmm nem
- * .cpp; o front end falharia). Quem acha o fonte e o processor_dispatch.
- *
- * @returns contagem de processadores efetivamente compilados.
- */
-async function precompileAllProcessors(compiler, terminalId) {
-    // Prioriza as entries completas do .spf (com clk/numClocks/showArrays
-    // setados pelo painel de config) sobre window.availableProcessors,
-    // que so guarda nomes. Cai pro collectProcessors() so se o
-    // projectConfig do compiler nao tem entries, algo upstream estaria
-    // errado, mas evita perder o pipeline.
-    const fromSpf = Array.isArray(compiler.projectConfig?.processors)
-        ? compiler.projectConfig.processors.filter((p) => p && (typeof p === 'string' ? p : p.name))
-        : null;
-    const procs = (fromSpf && fromSpf.length > 0 ? fromSpf : collectProcessors())
-        .map((p) => (typeof p === 'string' ? { name: p } : p));
-    if (procs.length === 0) return 0;
-
-    // componentsPath e populado pelo construtor sem await (background
-    // promise). Garante que resolveu antes do primeiro ensureDirectories
-    //, que le this.componentsPath direto.
-    await compiler.initializeComponentsPath();
-
-    const tm = getTM();
-    tm?.appendToTerminal?.(
-        terminalId,
-        `Info: pre-compiling ${procs.length} processor(s) (source + ASM).`,
-        'tips',
-    );
-
-    let compiled = 0;
-    for (const proc of procs) {
-        checkCancellation();
-        const fonte = await locateProcessorSource(window.currentProjectPath, proc, electronAPI);
-        if (!fonte || !(await electronAPI.fileExists(fonte.sourcePath))) {
-            tm?.appendToTerminal?.(
-                terminalId,
-                `Warning: no ${fonte ? fonte.sourceFile : `${proc.name}.cmm / ${proc.name}.cpp`} in ${proc.name}/Software — skipping ${proc.name}.`,
-                'warning',
-            );
-            continue;
-        }
-
-        const overrideProcessor = {
-            ...proc,
-            ...readProcessorConfig(proc),
-            sourceFile: fonte.sourceFile,
-        };
-
-        await compiler.ensureDirectories(proc.name);
-        await compileProcessorSource(compiler, overrideProcessor);
-        await compiler.asmCompilation(overrideProcessor);
-        compiled++;
-    }
-    return compiled;
-}
 
 // =====================================================================
 // Full Build pipeline (botao allcomp / command palette)
@@ -442,7 +296,7 @@ async function precompileAllProcessors(compiler, terminalId) {
 async function runProjectPipeline(compiler) {
     switchTerminal('terminal-tcmm');
     checkCancellation();
-    await precompileAllProcessors(compiler, 'tcmm');
+    await precompileAllProcessors(compiler, 'tcmm', getTM());
 
     switchTerminal('terminal-twave');
     checkCancellation();
@@ -472,13 +326,13 @@ async function handleCmmStep() {
     // com o chat focado), nao no-op: mira o processador em que o usuario
     // estava trabalhando (resolveFallbackCmmPath), igual ao botao manual.
     if (!isProcessorSourcePath(editingPath)) {
-        editingPath = await resolveFallbackCmmPath();
+        editingPath = await resolveFallbackCmmPath(lastActiveProcessor);
     }
     if (!isProcessorSourcePath(editingPath)) {
         switchTerminal('terminal-tcmm');
         getTM()?.appendToTerminal?.(
             'tcmm',
-            window.currentProjectPath
+            ProjectStore.hasProject()
                 ? 'Nenhum fonte (.cmm ou .cpp) em foco e nao consegui inferir o processador (o projeto tem varios). Abra o fonte do processador desejado e tente de novo.'
                 : 'No processor source (.cmm or .cpp) is open in the editor. Open one and try again.',
             'tips',
@@ -489,7 +343,7 @@ async function handleCmmStep() {
     startCompilation(STEP_TERMINALS.cmm);
     if (!await exigirComponentesDeCompilacao('tcmm')) { endCompilation(); return; }
     try {
-        const compiler = new CompilationModule(window.currentProjectPath);
+        const compiler = new CompilationModule(ProjectStore.getProjectPath());
         await compiler.loadConfig();
 
         // Prefere entries do .spf (clk/numClocks/showArrays setados pelo
@@ -500,7 +354,7 @@ async function handleCmmStep() {
             : null;
         const procFromPath = findProcessorForPath(
             editingPath,
-            window.currentProjectPath,
+            ProjectStore.getProjectPath(),
             (procsFromSpf && procsFromSpf.length > 0) ? procsFromSpf : collectProcessors(),
         );
         if (!procFromPath) {
@@ -511,12 +365,12 @@ async function handleCmmStep() {
         }
 
         const sourceFileName = editingPath.split(/[\\/]/).pop();
-        // clk/numClocks/showArrays vem do .spf via readProcessorConfig
+        // clk/numClocks/showArrays vem do .spf via lerConfigDeSimulacao
         // (defaults aplicados pra entries sem config). A linguagem vem da
         // extensao do fonte em foco (processor_source.ts).
         const overrideProcessor = {
             ...procFromPath,
-            ...readProcessorConfig(procFromPath),
+            ...lerConfigDeSimulacao(procFromPath),
             sourceFile: sourceFileName,
         };
 
@@ -539,53 +393,6 @@ async function handleCmmStep() {
 }
 
 /**
- * Variante de precompileAllProcessors que NAO chama cmmCompilation.
- * Usada pela Aurora Intelligence quando ela quer testar um .asm
- * otimizado a mao: o .cmm fica intacto e o .asm sandbox (apontado
- * via override de -i no step asm) e o input do asmcomp.
- *
- * Mantem o mesmo contrato de error/skip que precompileAllProcessors
- * pra que o resto do pipeline (iverilog/wave) funcione identico.
- */
-async function precompileAsmOnly(compiler, terminalId) {
-    const fromSpf = Array.isArray(compiler.projectConfig?.processors)
-        ? compiler.projectConfig.processors.filter((p) => p && (typeof p === 'string' ? p : p.name))
-        : null;
-    const procs = (fromSpf && fromSpf.length > 0 ? fromSpf : collectProcessors())
-        .map((p) => (typeof p === 'string' ? { name: p } : p));
-    if (procs.length === 0) return 0;
-
-    await compiler.initializeComponentsPath();
-
-    const tm = getTM();
-    tm?.appendToTerminal?.(
-        terminalId,
-        `Info: assembling ${procs.length} processor(s) without re-running cmmcomp.`,
-        'tips',
-    );
-
-    let compiled = 0;
-    for (const proc of procs) {
-        checkCancellation();
-        // O nome do .asm segue a base do fonte; sem fonte no disco, a
-        // convencao <nome>.cmm de sempre (o asmcomp e quem vai reclamar).
-        const fonte = await locateProcessorSource(window.currentProjectPath, proc, electronAPI);
-        const overrideProcessor = {
-            ...proc,
-            ...readProcessorConfig(proc),
-            sourceFile: fonte ? fonte.sourceFile : `${proc.name}.cmm`,
-        };
-        await compiler.ensureDirectories(proc.name);
-        // NOTE: cmmCompilation deliberately skipped, the .asm on disk
-        // (whether canonical or routed via an `asm.-i` override) is the
-        // input to asmcomp.
-        await compiler.asmCompilation(overrideProcessor);
-        compiled++;
-    }
-    return compiled;
-}
-
-/**
  * Botao ASM (Aurora Intelligence): asmcomp + iverilog -tnull.
  * NAO roda cmmcomp, assim um .asm otimizado a mao sobrevive.
  * Pareado com `compile_step('asm')` do AuroraAPI; nao tem botao na
@@ -596,10 +403,10 @@ async function handleAsmStep() {
     startCompilation(STEP_TERMINALS.asm);
     if (!await exigirComponentesDeCompilacao('tasm')) { endCompilation(); return; }
     try {
-        const compiler = new CompilationModule(window.currentProjectPath);
+        const compiler = new CompilationModule(ProjectStore.getProjectPath());
         await compiler.loadConfig();
         switchTerminal('terminal-tasm');
-        await precompileAsmOnly(compiler, 'tasm');
+        await precompileAsmOnly(compiler, 'tasm', getTM());
         switchTerminal('terminal-tveri');
         await compiler.verilogSyntaxCheck();
     } catch (error) {
@@ -619,9 +426,9 @@ async function handleVerilogStep() {
     startCompilation(STEP_TERMINALS.verilog);
     if (!await exigirComponentesDeCompilacao('tveri')) { endCompilation(); return; }
     try {
-        const compiler = new CompilationModule(window.currentProjectPath);
+        const compiler = new CompilationModule(ProjectStore.getProjectPath());
         await compiler.loadConfig();
-        await precompileAllProcessors(compiler, 'tveri');
+        await precompileAllProcessors(compiler, 'tveri', getTM());
         switchTerminal('terminal-tveri');
         await compiler.verilogSyntaxCheck();
     } catch (error) {
@@ -641,9 +448,9 @@ async function handleWaveStep() {
     startCompilation(STEP_TERMINALS.wave);
     if (!await exigirComponentesDeCompilacao('twave')) { endCompilation(); return; }
     try {
-        const compiler = new CompilationModule(window.currentProjectPath);
+        const compiler = new CompilationModule(ProjectStore.getProjectPath());
         await compiler.loadConfig();
-        await precompileAllProcessors(compiler, 'twave');
+        await precompileAllProcessors(compiler, 'twave', getTM());
         switchTerminal('terminal-twave');
         await compiler.runGtkWave();
     } catch (error) {
@@ -665,11 +472,11 @@ async function handleVerilatorProcStep() {
     startCompilation(STEP_TERMINALS['verilator-proc']);
     if (!await exigirComponentesDeCompilacao('tveri')) { endCompilation(); return; }
     try {
-        const compiler = new CompilationModule(window.currentProjectPath);
+        const compiler = new CompilationModule(ProjectStore.getProjectPath());
         await compiler.loadConfig();
         // O fim do programa e detectado pelo harness lendo o PC (ver
         // verilator_tb.ts): nada a instrumentar, o .cmm do usuario nao e' tocado.
-        await precompileAllProcessors(compiler, 'tcmm');
+        await precompileAllProcessors(compiler, 'tcmm', getTM());
         switchTerminal('terminal-thtest');
         // O precompile (cmm+asm) deixou a barra de status em "Assembly".
         // O build do Verilator (--json/--cc/--build/g++) e a execucao nao
@@ -695,9 +502,9 @@ async function handleFastSimStep() {
     startCompilation(STEP_TERMINALS['verilator-fast']);
     if (!await exigirComponentesDeCompilacao('twave')) { endCompilation(); return; }
     try {
-        const compiler = new CompilationModule(window.currentProjectPath);
+        const compiler = new CompilationModule(ProjectStore.getProjectPath());
         await compiler.loadConfig();
-        await precompileAllProcessors(compiler, 'twave');
+        await precompileAllProcessors(compiler, 'twave', getTM());
         switchTerminal('terminal-twave');
         await compiler.runFastSim();
     } catch (error) {
@@ -717,13 +524,12 @@ async function handlePrismStep() {
     startCompilation(STEP_TERMINALS.prism);
     if (!await exigirComponentesDeCompilacao('tveri')) { endCompilation(); return; }
     try {
-        const projectPath = window.currentProjectPath
-            || await electronAPI.dirname(window.currentOpenProjectPath);
+        const projectPath = ProjectStore.getProjectPath();
         if (!projectPath) throw new Error(tr('error.config.noProject'));
 
         const compiler = new CompilationModule(projectPath);
         await compiler.loadConfig();
-        await precompileAllProcessors(compiler, 'tveri');
+        await precompileAllProcessors(compiler, 'tveri', getTM());
         switchTerminal('terminal-tveri');
         await compiler.verilogSyntaxCheck();
 
@@ -763,7 +569,7 @@ async function buildPrismCompilationPaths(projectPath) {
         hdlPath:                   toForwardSlashes(await join(rawComponentsPath, 'HDL')),
         tempPath:                  toForwardSlashes(await join(rawComponentsPath, 'Temp', 'PRISM')),
         yosysPath:                 toForwardSlashes(await join(rawComponentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe')),
-        spfPath:                   toForwardSlashes(window.currentSpfPath || ''),
+        spfPath:                   toForwardSlashes(ProjectStore.getSpfPath() || ''),
         // Onde o PRISM abre, lido na hora do clique (ver prism_mode.js).
         prismMode:                 getPrismMode(),
         topLevelPath:              toForwardSlashes(await join(projectPath, 'TopLevel')),
@@ -820,7 +626,7 @@ class CompilationFlowManager {
         // testbench marcados, etc.), quando abre/fecha projeto, e quando
         // processadores sao criados/removidos.
         window.addEventListener('aurora:spf-changed', () => syncToolbarEnabledState());
-        window.ProjectStore?.subscribe?.(() => syncToolbarEnabledState());
+        ProjectStore.subscribe(() => syncToolbarEnabledState());
         electronAPI?.onProcessorCreated?.(() => syncToolbarEnabledState());
         electronAPI?.onProcessorsUpdated?.(() => syncToolbarEnabledState());
 
@@ -873,7 +679,7 @@ class CompilationFlowManager {
         statusUpdater.beginRun('all');
         try {
             await comRegistro('all', async () => {
-                const compiler = new CompilationModule(window.currentProjectPath);
+                const compiler = new CompilationModule(ProjectStore.getProjectPath());
                 await compiler.loadConfig();
                 await runProjectPipeline(compiler);
             });

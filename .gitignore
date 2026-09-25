@@ -102,6 +102,7 @@ js/api/arvore_do_projeto.js
 js/api/memorias_ns.js
 js/api/processadores_ns.js
 js/api/abas_e_arvore.js
+js/api/editor_ativo.js
 js/api/examples_ns.js
 js/api/manual_ns.js
 js/compilation/processor_source.js

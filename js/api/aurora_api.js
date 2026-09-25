@@ -49,6 +49,7 @@ import { waveNs } from './wave_ns.js';
 import { memoriasDoProjeto } from './memorias_ns.js';
 import { processadoresDoProjeto } from './processadores_ns.js';
 import { arquivosAbertos, atualizarArvore } from './abas_e_arvore.js';
+import { activeEditor, activeModel, flashLines, magicWandReveal } from './editor_ativo.js';
 // Apelido ate os metodos de arquivo do `project` sairem para o modulo deles;
 // o repintar mora em abas_e_arvore.ts.
 const refreshTree = atualizarArvore;
@@ -149,55 +150,7 @@ function bridgeWindowEvents() {
  *  editor, Monaco interactions
  * ========================================================== */
 
-function activeEditor() {
-  return EditorManager?.activeEditor || null;
-}
-function activeModel() {
-  return activeEditor()?.getModel() || null;
-}
-
-function flashLines(ed, startLine, endLine) {
-  if (!ed || !window.monaco) return;
-  const ids = ed.deltaDecorations([], [{
-    range: new window.monaco.Range(startLine, 1, endLine, Number.MAX_SAFE_INTEGER),
-    options: { isWholeLine: true, className: 'ai-edit-flash-line' },
-  }]);
-  setTimeout(() => ed.deltaDecorations(ids, []), 950);
-}
-
-/**
- * Magic-wand reveal for whole-file AI edits. Two layers, both soft purple:
- *   1. a shimmer band that sweeps up the editor (.ai-wand-overlay), and
- *   2. a fading purple tint over every freshly-written line
- *      (.aurora-edit-reveal) so the new text reads as being *revealed*
- *      over the old rather than abruptly swapped.
- * Purely cosmetic, guarded so it can never break the underlying write.
- */
-function magicWandReveal(ed) {
-  if (!ed) return;
-  try {
-    const editorDom = ed.getDomNode?.();
-    const container = editorDom?.closest(
-      '.split-pane-editor-area, .editor-container, #monaco-editor',
-    ) || editorDom?.parentElement;
-    if (container) {
-      const wand = document.createElement('div');
-      wand.className = 'ai-wand-overlay';
-      container.style.position = 'relative';
-      container.appendChild(wand);
-      wand.addEventListener('animationend', () => wand.remove(), { once: true });
-    }
-    const model = ed.getModel?.();
-    if (model && window.monaco) {
-      const lineCount = model.getLineCount();
-      const ids = ed.deltaDecorations([], [{
-        range: new window.monaco.Range(1, 1, lineCount, Number.MAX_SAFE_INTEGER),
-        options: { isWholeLine: true, className: 'aurora-edit-reveal' },
-      }]);
-      setTimeout(() => { try { ed.deltaDecorations(ids, []); } catch (_) { /* disposed */ } }, 950);
-    }
-  } catch (_) { /* cosmetic only */ }
-}
+// O editor em foco, o piscar das linhas e a varinha moram em editor_ativo.ts.
 
 const editorNs = {
   async getActiveFilePath() {

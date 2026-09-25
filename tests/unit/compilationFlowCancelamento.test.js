@@ -15,11 +15,12 @@ const electronAPI = {
 vi.mock('../../js/app/electron_api.js', () => ({ electronAPI }));
 
 // O passo Verilog segura ate o teste soltar, para dar tempo de cancelar no meio.
-const passo = { soltar: null, falhar: null };
+const passo = { soltar: null, falhar: null, configFalha: null };
 class CompilationModuleFalso {
   constructor(projeto) { this.projeto = projeto; this.projectConfig = { processors: [] }; }
-  async loadConfig() {}
+  async loadConfig() { if (passo.configFalha) throw passo.configFalha; }
   async initializeComponentsPath() {}
+  async runGtkWave() {}
   verilogSyntaxCheck() {
     return new Promise((resolve, reject) => { passo.soltar = resolve; passo.falhar = reject; });
   }
@@ -127,6 +128,15 @@ describe('cancelar', () => {
     expect(execucoesAbertas()).toEqual([]);
   });
 
+  it('falha ao pedir ao main que mate o processo so avisa no console', async () => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    electronAPI.cancelVvpProcess.mockRejectedValue(new Error('ipc caiu'));
+    fm.cancelAll();
+    await flush();
+    expect(aviso).toHaveBeenCalledWith('cancelVvpProcess failed:', 'ipc caiu');
+    aviso.mockRestore();
+  });
+
   it('a compilacao seguinte comeca sem a bandeira de cancelado', async () => {
     fm.cancelAll();
     const rodando = fm.runSingleStep('verilog');
@@ -178,6 +188,16 @@ describe('uma execucao por vez, com registro', () => {
     passo.soltar();
     await rodando;
     expect(electronAPI.runLogGravar).not.toHaveBeenCalled();
+  });
+
+  it('Full Build que falha fora de um passo cai no funil, no terminal visivel', async () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+    passo.configFalha = new Error('spf ilegivel');
+    expect(await fm.runAll()).toBe(true);
+    passo.configFalha = null;
+    expect(linhas.find((l) => l.texto === 'Erro Fatal: spf ilegivel').terminal).toBe('tveri');
+    expect(fm.isRunning()).toBe(false);
+    erro.mockRestore();
   });
 
   it('passo desconhecido e erro fatal no terminal do C±', async () => {

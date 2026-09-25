@@ -35,6 +35,14 @@ describe('globaisCruzadas', () => {
     expect(g).toEqual({ m: { definidaEm: ['js/a.js', 'js/z.js'], lidaEm: ['js/b.js', 'js/c.js'] } });
   });
 
+  it('o cast do TypeScript nao esconde a global', () => {
+    const g = globaisCruzadas([
+      { rel: 'js/a.ts', src: '(window as unknown as { k: number }).k = 1;' },
+      { rel: 'js/b.ts', src: 'use((window as any).k);' },
+    ]);
+    expect(g).toEqual({ k: { definidaEm: ['js/a.ts'], lidaEm: ['js/b.ts'] } });
+  });
+
   it('nome com $ e _ entra; window[\'x\'] nao e contado', () => {
     const g = globaisCruzadas([
       { rel: 'js/a.js', src: 'window._$y = 1; window["k"] = 2;' },

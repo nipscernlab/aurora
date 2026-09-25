@@ -14,7 +14,8 @@
  *
  * O que conta: um nome atribuido como `window.X = ...` num arquivo versionado
  * de js/ e lido como `window.X` em OUTRO arquivo. Usado so no arquivo que o
- * define nao e dependencia entre arquivos e fica de fora. `window['x']` e
+ * define nao e dependencia entre arquivos e fica de fora; `(window as T).X`
+ * conta como `window.X`. `window['x']` e
  * nome lido sem o `window.` na frente escapam da conta: e medida, nao prova.
  *
  * Uso:  node scripts/check-window-globals.mts
@@ -31,8 +32,10 @@ export interface Global {
   lidaEm: string[];
 }
 
-const ATRIBUICAO = /\bwindow\.([A-Za-z_$][\w$]*)\s*=(?!=)/g;
-const LEITURA = /\bwindow\.([A-Za-z_$][\w$]*)/g;
+// `(window as T).X` tambem conta: o cast e o jeito de um .ts por em window um
+// nome que o tipo de Window nao declara, e nao pode esconder a global.
+const ATRIBUICAO = /\bwindow(?:\s+as\s+[^)]*\))?\.([A-Za-z_$][\w$]*)\s*=(?!=)/g;
+const LEITURA = /\bwindow(?:\s+as\s+[^)]*\))?\.([A-Za-z_$][\w$]*)/g;
 
 function juntar(mapa: Map<string, Set<string>>, nome: string, rel: string): void {
   let s = mapa.get(nome);

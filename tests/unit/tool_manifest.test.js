@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
 import { describe, it, expect } from 'vitest';
 
@@ -123,69 +123,9 @@ describe('TOOL_MANIFEST', () => {
         ]);
     });
 
-    // O comentário no topo deste arquivo diz que o manifesto e a função da API
-    // são ligados por convenção, e não por tipos. Este é o teste dessa
-    // convenção: um `api: [ns, fn]` que não existe do outro lado vira uma
-    // ferramenta anunciada ao modelo que falha só quando o usuário a usa.
-    //
-    // O mapa NAMESPACES de js/api/aurora_api.js é a lista canônica do que a
-    // API expõe, então é contra ele que conferimos. Lemos como texto de
-    // propósito: aurora_api.js importa o Monaco e não carrega no Node.
-    it('every api pair exists in the AuroraAPI namespace it names', () => {
-        // Lemos como texto de propósito: aurora_api.js importa o Monaco e não
-        // carrega no Node. Os objetos são `const <ns>Ns = { ... }` e é contra
-        // eles que o runtime despacha.
-        // Varre a pasta inteira, e nao uma lista de arquivos: o aurora_api.js
-        // esta sendo dividido em um modulo por namespace (item 4 do roadmap),
-        // e uma lista fixa obrigaria a editar este teste a cada extracao, que
-        // e justamente quando ele precisa continuar valendo sozinho.
-        // Varre a pasta inteira, e nao uma lista de arquivos: o aurora_api.js
-        // esta sendo dividido em um modulo por namespace (item 4 do roadmap),
-        // e uma lista fixa obrigaria a editar este teste a cada extracao, que
-        // e justamente quando ele precisa continuar valendo sozinho.
-        //
-        // So os FONTES: um .js com .ts irmao e artefato do build (a mesma
-        // regra do scripts/check-no-generated-js.js). Isso nao e detalhe, e a
-        // armadilha que este teste caiu: o tsc reindenta de dois para quatro
-        // espacos, e a busca por metodo abaixo casa `  nome(` com exatamente
-        // dois. Lendo o artefato, o namespace aparecia vazio.
-        const dirApi = new URL('../../js/api/', import.meta.url);
-        const naPasta = readdirSync(dirApi);
-        const fontes = naPasta
-            .filter((f) => f.endsWith('.ts')
-                || (f.endsWith('.js') && !naPasta.includes(`${f.slice(0, -3)}.ts`)))
-            .map((f) => readFileSync(new URL(f, dirApi), 'utf8'))
-            .join('\n');
-
-        /** Métodos declarados no literal `const <ns>Ns = {` . */
-        const metodosDe = (ns) => {
-            const marca = `const ${ns}Ns = {`;
-            const i = fontes.indexOf(marca);
-            if (i < 0) return null;
-            const abre = i + marca.length - 1;
-            let nivel = 0, fim = -1;
-            for (let j = abre; j < fontes.length; j++) {
-                if (fontes[j] === '{') nivel++;
-                else if (fontes[j] === '}') { nivel--; if (nivel === 0) { fim = j; break; } }
-            }
-            if (fim < 0) return null;
-            // Só o primeiro nível: um método é `  nome(` ou `  async nome(`,
-            // com exatamente dois espaços de indentação.
-            return new Set([...fontes.slice(abre, fim)
-                .matchAll(/^ {2}(?:async\s+)?(\w+)\s*\(/gm)].map((m) => m[1]));
-        };
-
-        const cache = new Map();
-        const faltando = [];
-        for (const def of TOOL_MANIFEST) {
-            const [ns, fn] = def.api;
-            if (!cache.has(ns)) cache.set(ns, metodosDe(ns));
-            const metodos = cache.get(ns);
-            if (!metodos) { faltando.push(`${def.name} -> namespace ${ns} nao encontrado`); continue; }
-            if (!metodos.has(fn)) faltando.push(`${def.name} -> ${ns}.${fn}`);
-        }
-        expect(faltando).toEqual([]);
-    });
+    // A conferencia de que todo `api: [ns, fn]` existe na AuroraAPI mora em
+    // tests/unit/auroraApiMontagem.test.js, contra a API montada: lida como
+    // texto, ela nao enxergava um namespace composto de varios modulos.
 
     // O modelo NAO ve o codigo: ele ve estes textos e so eles. Um parametro sem
     // descricao vira valor chutado, e uma descricao de tres palavras vira

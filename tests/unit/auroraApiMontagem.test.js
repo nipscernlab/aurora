@@ -7,6 +7,10 @@
 
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 
+import pkg from '../../main/ai/tools.js';
+
+const { TOOL_MANIFEST } = pkg;
+
 vi.mock('../../js/editor/monaco_editor.js', () => ({ EditorManager: {} }));
 vi.mock('../../js/tabs/tab_manager.js', () => ({ TabManager: {} }));
 vi.mock('../../js/editor/shared_models.js', () => ({ SharedModelRegistry: {} }));
@@ -53,5 +57,20 @@ describe('montagem da AuroraAPI', () => {
     ProjectStore.setProject('C:\\p\\p.spf', 'C:\\p');
     expect((await API.project.getTree()).data).toEqual(['top.v', 'sim/tb.v']);
     expect((await API.project.getTree('C:\\p\\sim')).data).toEqual(['tb.v']);
+  });
+});
+
+// O manifesto das ferramentas da IA (main/ai/tools.js) e a API sao ligados por
+// convencao, e nao por tipo: um `api: [ns, fn]` sem par do outro lado vira uma
+// ferramenta anunciada ao modelo que so falha quando alguem a usa. A conferencia
+// lia os fontes como texto, porque a API nao carregava fora do aplicativo; com
+// ela montada aqui, e contra o objeto de verdade, e um namespace montado de
+// varias partes continua conferido.
+describe('o manifesto de ferramentas contra a AuroraAPI montada', () => {
+  it('toda ferramenta aponta para uma funcao que existe', () => {
+    const faltando = TOOL_MANIFEST
+      .filter((def) => typeof API[def.api[0]]?.[def.api[1]] !== 'function')
+      .map((def) => `${def.name} -> ${def.api.join('.')}`);
+    expect(faltando).toEqual([]);
   });
 });

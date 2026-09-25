@@ -55,11 +55,8 @@
   "currentProjectPath": [
     "js/project/project_store.ts"
   ],
-  "currentSpfPath": [
-    "js/project/project_store.ts"
-  ],
   "fileTreeViewController": [
-    "js/tree/file_tree_view_controller.js"
+    "js/tree/file_tree_view_controller.ts"
   ],
   "getLocale": [
     "js/i18n/i18n.js"
@@ -94,9 +91,6 @@
   "recentProjectsManager": [
     "js/app/renderer.js"
   ],
-  "renderTreeEmptyState": [
-    "js/tree/file_tree_manager.js"
-  ],
   "setLocale": [
     "js/i18n/i18n.js"
   ],
@@ -110,7 +104,7 @@
     "js/tree/standard_tree_crud.js"
   ],
   "standardTreeRenderer": [
-    "js/tree/standard_tree_render.js"
+    "js/tree/standard_tree_render.ts"
   ],
   "t": [
     "js/i18n/i18n.js"
@@ -119,7 +113,7 @@
     "js/utils/resize.js"
   ],
   "treeView": [
-    "js/tree/tree_view.js"
+    "js/tree/tree_view.ts"
   ],
   "waveConfigManager": [
     "js/wave/wave_config_manager.js"

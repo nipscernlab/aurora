@@ -228,7 +228,7 @@ class FileTreeManager {
 }
 
 const fileTreeManager = new FileTreeManager();
-export { fileTreeManager };
+export { fileTreeManager, renderTreeEmptyState };
 
 
 // --- Empty-state wiring ---------------------------------------------

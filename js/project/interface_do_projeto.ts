@@ -115,6 +115,37 @@ export function habilitarBotoesDoProjeto(): void {
 }
 
 /**
+ * O avesso do habilitarBotoesDoProjeto, ao fechar: o indicador da barra
+ * esmaece e, quando a transicao termina, volta ao icone desligado e ao rotulo
+ * traduzido de "sem projeto", em vermelho.
+ */
+export function mostrarSemProjeto(): void {
+  const statusElement = document.getElementById('ready');
+  if (!statusElement) return;
+
+  statusElement.classList.add('fading');
+  statusElement.style.cursor = 'pointer';
+
+  const aoTerminar = () => {
+    statusElement.removeEventListener('transitionend', aoTerminar);
+    const icon = statusElement.querySelector('i');
+    const statusText = document.getElementById('status-text');
+    if (icon) {
+      icon.classList.remove('ph-plugs-connected');
+      icon.classList.add('ph-plugs');
+    }
+    if (statusText) {
+      statusText.setAttribute('data-i18n', 'statusBar.notReady');
+      statusText.textContent = tr('statusBar.notReady', 'No project');
+    }
+    statusElement.removeAttribute('data-tooltip');
+    statusElement.classList.remove('is-ready');
+    statusElement.classList.remove('fading');
+  };
+  statusElement.addEventListener('transitionend', aoTerminar);
+}
+
+/**
  * Sem projeto, clicar no indicador da barra de status abre o seletor de
  * projeto, pelo mesmo botao da interface.
  */

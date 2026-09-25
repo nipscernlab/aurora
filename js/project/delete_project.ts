@@ -1,5 +1,5 @@
 /**
- * delete_project.js: excluir o projeto aberto, mandando a pasta para a Lixeira.
+ * delete_project.ts: excluir o projeto aberto, mandando a pasta para a Lixeira.
  *
  * O gesto mora no menu de reticencias do cabecalho da arvore, junto de
  * "fechar projeto", e exige um projeto aberto NESTA janela. A ordem e fixa:
@@ -22,13 +22,14 @@ import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { showCardNotification } from '../ui/notification.js';
 import { fecharProjetoAberto } from './close_project.js';
+import { ProjectStore } from './project_store.js';
 
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
 /** Segundos de contagem antes de o botao de confirmar liberar. */
 export const SEGUNDOS_DE_ESPERA = 5;
 
-export function ligarExcluirProjeto() {
+export function ligarExcluirProjeto(): void {
     const botao = document.getElementById('delete-project');
     if (!botao || botao.dataset.ligado === '1') return;
     botao.dataset.ligado = '1';
@@ -36,8 +37,8 @@ export function ligarExcluirProjeto() {
 }
 
 /** O fluxo inteiro. Devolve true se a pasta foi para a Lixeira. */
-export async function excluirProjetoAberto() {
-    const spf = window.currentSpfPath || window.ProjectStore?.getSpfPath?.() || '';
+export async function excluirProjetoAberto(): Promise<boolean> {
+    const spf = ProjectStore.getSpfPath() || '';
     if (!spf) {
         showCardNotification(tr('notification.project.noneToDelete'), 'info', 3000);
         return false;
@@ -75,8 +76,9 @@ export async function excluirProjetoAberto() {
     return true;
 }
 
-function escapar(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function escapar(s: string): string {
+    const trocas: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(s).replace(/[&<>"']/g, (c) => trocas[c]);
 }
 
 if (typeof document !== 'undefined') {

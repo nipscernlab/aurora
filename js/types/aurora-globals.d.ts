@@ -97,6 +97,7 @@ interface AuroraElectronAPI {
   /** Pede ao main que a arvore de arquivos se redesenhe. */
   triggerFileTreeRefresh(): Promise<void>;
   pathExists(path: string): Promise<boolean>;
+  closeProject(): Promise<{ success: boolean; error?: string }>;
   openProject(spfPath: string): Promise<{ success?: boolean; message?: string; projectData?: Record<string, unknown>; data?: Record<string, unknown> } | null>;
   getProjectInfo(projectPath: string): Promise<unknown>;
   /** O seletor nativo de .spf. */

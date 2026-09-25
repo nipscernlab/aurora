@@ -1,108 +1,40 @@
 /**
- * @file Manages the logic for closing a project.
- * @author Your Name
- * @date November 12, 2025
+ * close_project.ts: fechar o projeto aberto.
+ *
+ * O botao de fechar pergunta; o fluxo (fecharProjetoAberto) avisa o main,
+ * fecha as abas, limpa a interface, esquece o projeto e o "ultimo aberto", e
+ * reseta a arvore. O excluir projeto (delete_project.ts) usa o mesmo fluxo.
+ *
+ * Ate 25/09/2026 a limpeza tambem mexia em #processor-list, #editor,
+ * #project-title e .project-action-button, que nao existem em pagina nenhuma,
+ * e desligava uma lista de botoes que estava toda comentada. Sobrou o que
+ * existe: a arvore, o nome do projeto e o indicador da barra.
  */
 
 import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
+import { treeView } from '../tree/tree_view.js';
+import { renderTreeEmptyState } from '../tree/file_tree_manager.js';
+import { mostrarNomeDoProjeto, mostrarSemProjeto } from './interface_do_projeto.js';
 
 // i18n shim, fallback pra key path se i18n nao bootou ainda.
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
-function disableCompileButtons() {
-    const buttonIds = [
-        /*
-        'cmmcomp', 'vericomp', 'wavecomp', 'prismcomp', 'allcomp',
-        'cancel-everything', 'fractalcomp', 'backupFolderBtn',
-        'projectInfo' */
-    ];
-
-    buttonIds.forEach(id => {
-        const button = document.getElementById(id);
-        if (button) {
-            button.disabled = true;
-            button.style.cursor = 'not-allowed';
-        }
-    });
-
-    const statusElement = document.getElementById('ready');
-    if (!statusElement) return;
-
-    statusElement.classList.add('fading');
-    statusElement.style.cursor = 'pointer';
-    
-    const onFadeOutComplete = () => {
-        statusElement.removeEventListener('transitionend', onFadeOutComplete);
-
-        const icon = statusElement.querySelector('i');
-        const statusText = document.getElementById('status-text');
-
-        if (icon) {
-            icon.classList.remove('ph-plugs-connected');
-            icon.classList.add('ph-plugs');
-        }
-        if (statusText) {
-            statusText.setAttribute('data-i18n', 'statusBar.notReady');
-            statusText.textContent = window.t ? window.t('statusBar.notReady') : 'No project';
-        }
-        statusElement.removeAttribute('data-tooltip');
-        
-        statusElement.classList.remove('is-ready');
-        statusElement.classList.remove('fading');
-    };
-
-    statusElement.addEventListener('transitionend', onFadeOutComplete);
-}
-
-function clearProjectInterface() {
-    // Wipe every view subcontainer through the controller, keeps the
-    // separation invariant intact when the next project opens.
-    window.treeView?.clearAll?.();
-    window.treeView?.setActive?.('verilog');
-
-    // After clearing, drop the "click here to create a project"
-    // empty-state card into the (verilog) file view so the pane is
-    // never visually blank. file_tree_manager exposes the renderer on
-    // window for non-module callers like this one.
-    window.renderTreeEmptyState?.();
-
-    // Helper: re-instala o data-i18n pra que applyDOM em futuros
-    // locale changes re-traduza. updateProjectNameUI remove o atributo
-    // quando seta um nome de projeto real; aqui voltamos pra label
-    // generica e precisamos do binding de volta.
-    const resetNoProject = (el) => {
-        el.setAttribute('data-i18n', 'fileTree.noProject');
-        el.textContent = window.t ? window.t('fileTree.noProject') : 'No project open';
-    };
-
-    const selectors = {
-        '#processor-list': el => el.innerHTML = '',
-        '#editor': el => el.innerHTML = '',
-        '#project-title': resetNoProject,
-        '#current-spf-name': resetNoProject
-    };
-
-    for (const selector in selectors) {
-        const element = document.querySelector(selector);
-        if (element) {
-            selectors[selector](element);
-        }
-    }
-
-    disableCompileButtons();
-
-    const projectActionButtons = document.querySelectorAll('.project-action-button');
-    projectActionButtons.forEach(button => {
-        button.disabled = false;
-        button.style.cursor = 'pointer';
-    });
+/** A janela sem projeto: arvore vazia com o cartao de criar, nome e indicador. */
+function limparInterfaceDoProjeto(): void {
+    treeView.clearAll();
+    treeView.setActive('verilog');
+    // O cartao "clique para criar um projeto" na vista de arquivos, para o
+    // painel nunca ficar em branco.
+    renderTreeEmptyState();
+    mostrarNomeDoProjeto(null, null);
+    mostrarSemProjeto();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const closeButton = document.querySelector('#close-button');
+    const closeButton = document.querySelector<HTMLButtonElement>('#close-button');
 
     if (!closeButton) return;
 
@@ -143,9 +75,9 @@ document.addEventListener('DOMContentLoaded', () => {
  * fechar ANTES de mandar a pasta para a Lixeira, e fechar de outro jeito
  * deixaria descritor aberto e a pasta presa.
  *
- * @returns {Promise<boolean>} true se o projeto foi fechado
+ * @returns true se o projeto foi fechado
  */
-export async function fecharProjetoAberto() {
+export async function fecharProjetoAberto(): Promise<boolean> {
     let fechou = false;
     try {
         const result = await electronAPI.closeProject();
@@ -154,16 +86,14 @@ export async function fecharProjetoAberto() {
             fechou = true;
             // Close all open tabs properly using TabManager
             // This ensures watchers are stopped and UI state is cleared
-            const openFiles = Array.from(TabManager.tabs.keys());
+            const openFiles = Array.from(TabManager.tabs?.keys() ?? []);
             for (const file of openFiles) {
                 await TabManager.closeTab(file);
             }
 
-            clearProjectInterface();
+            limparInterfaceDoProjeto();
 
-            // Clear the canonical project state, the store mirrors to
-            // window.currentProjectPath / window.currentSpfPath for the
-            // legacy read sites.
+            // A fonte unica do projeto aberto.
             ProjectStore.clearProject();
 
             // Forget the last-opened project so the next Aurora launch
@@ -171,7 +101,7 @@ export async function fecharProjetoAberto() {
             // in localStorage (`aurora-last-project-path`); we route
             // through appInitializer instead of touching the key
             // directly so the storage shape stays owned by one module.
-            window.appInitializer?.clearLastProject?.();
+            (window.appInitializer as { clearLastProject?(): unknown } | undefined)?.clearLastProject?.();
 
             // Reset do verilog tree pra que reabrir dispare um
             // re-activate full (le o .spf fresco,

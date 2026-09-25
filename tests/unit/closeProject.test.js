@@ -24,10 +24,8 @@ function montar() {
   document.body.innerHTML = `
     <button id="close-button"></button>
     <div id="file-tree"></div>
-    <ul id="processor-list"><li>P</li></ul>
-    <span id="current-spf-name">p.spf</span><span id="project-title">p</span>
-    <div id="ready" class="is-ready" data-tooltip="C:\\p\\p.spf"><i class="ph ph-plugs-connected"></i><span id="status-text">p</span></div>
-    <button class="project-action-button" disabled></button>`;
+    <span id="current-spf-name">p.spf</span>
+    <div id="ready" class="is-ready" data-tooltip="C:\\p\\p.spf"><i class="ph ph-plugs-connected"></i><span id="status-text">p</span></div>`;
 }
 
 beforeAll(async () => {
@@ -60,10 +58,8 @@ describe('fecharProjetoAberto', () => {
     expect(window.projectTreeManager.reset).toHaveBeenCalled();
     expect(window.SplitEditorManager.refreshLayout).toHaveBeenCalled();
     expect(vazio).toHaveBeenCalled();
-    expect($('processor-list').innerHTML).toBe('');
     expect($('current-spf-name').getAttribute('data-i18n')).toBe('fileTree.noProject');
     expect($('current-spf-name').textContent).toBe('No project open');
-    expect(document.querySelector('.project-action-button').disabled).toBe(false);
   });
 
   it('o indicador da barra volta a "sem projeto" quando a transicao termina', async () => {

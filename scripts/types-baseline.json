@@ -13,9 +13,6 @@
   "main/ipc/files.js": {
     "TS2740": 1
   },
-  "main/ipc/git.js": {
-    "TS2349": 6
-  },
   "main/ipc/history.js": {
     "TS2345": 1
   },

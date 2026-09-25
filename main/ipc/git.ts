@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * git.js: source-control IPC, backed by simple-git (a thin wrapper over the
+ * git.ts: source-control IPC, backed by simple-git (a thin wrapper over the
  * native `git` binary). Operates on the directory of the project open IN THE
  * WINDOW THAT ASKED (spfDaJanela, em main/ipc/project_paths.js). Because it
  * drives real `git`, .gitignore, diffs, merges and credentials all behave
@@ -16,14 +15,14 @@
  * an `http.extraHeader` for the duration of a remote op when present.
  */
 
-const path = require('path');
-const fs = require('fs');
-const log = require('electron-log');
-const { ipcMain } = require('electron');
-const simpleGit = require('simple-git');
+import path from 'node:path';
+import fs from 'node:fs';
+import log from 'electron-log';
+import { ipcMain } from 'electron';
+import simpleGit from 'simple-git';
 
-const { spfDaJanela } = require('./project_paths');
-const {
+import { spfDaJanela } from './project_paths.js';
+import {
   limitarDiff,
   acumularNumstat,
   separarCaminhosNUL,
@@ -33,16 +32,18 @@ const {
   cabecalhoDeToken,
   forjaDoRemoto,
   normalizarArquivos,
-} = require('./git_parse');
+} from './git_parse.js';
+import { createRequire } from 'node:module';
 
-/** @type {typeof import('./github_auth') | null} */
-let githubAuth = null;
-try { githubAuth = require('./github_auth'); } catch (_) { /* optional */ }
-/** @type {typeof import('./gitlab_auth') | null} */
-let gitlabAuth = null;
-try { gitlabAuth = require('./gitlab_auth'); } catch (_) { /* optional */ }
+const requireTarde = createRequire(__filename);
 
-const { GIT_IDLE_MS } = require('../net/timeouts');
+
+let githubAuth: typeof import('./github_auth')|null = null;
+try { githubAuth = requireTarde('./github_auth'); } catch (_) { /* optional */ }
+let gitlabAuth: typeof import('./gitlab_auth')|null = null;
+try { gitlabAuth = requireTarde('./gitlab_auth'); } catch (_) { /* optional */ }
+
+import { GIT_IDLE_MS } from '../net/timeouts.js';
 
 /**
  * Um sinal de aborto para todo git vivo. O simple-git nao passa pelo registro
@@ -61,10 +62,8 @@ let abortos = new AbortController();
  * senha que ninguem vai digitar. Sem prazo nenhum, uma operacao pendurada
  * deixava o `busy` do painel ligado e o painel de Git inteiro morto ate
  * reiniciar.
- * @param {Partial<import('simple-git').SimpleGitOptions>} [extra]
- * @returns {Partial<import('simple-git').SimpleGitOptions>}
  */
-function opcoesGit(extra = {}) {
+function opcoesGit(extra: Partial<import('simple-git').SimpleGitOptions> = {}): Partial<import('simple-git').SimpleGitOptions> {
   return {
     trimmed: true,
     timeout: { block: GIT_IDLE_MS },
@@ -88,19 +87,17 @@ function abortAll() {
  * push, o descartar, o trocar de ramo. Nada avisava, porque do ponto de vista
  * do git estava tudo certo; so era o repositorio errado.
  *
- * @param {any} [ev] evento de IPC de quem pediu
+ * @param [ev] evento de IPC de quem pediu
  */
-function projectDir(ev) {
+function projectDir(ev?: any) {
   const spf = spfDaJanela(ev);
   return spf ? path.dirname(spf) : null;
 }
 
 /**
  * A simple-git instance bound to the project dir, or throw a clean error.
- * @param {any} [ev]
- * @returns {import('simple-git').SimpleGit}
  */
-function gitForProject(ev) {
+function gitForProject(ev?: any): import('simple-git').SimpleGit {
   const dir = projectDir(ev);
   if (!dir) throw new Error('No project is open.');
   if (!fs.existsSync(dir)) throw new Error(`Project directory not found: ${dir}`);
@@ -112,20 +109,15 @@ function gitForProject(ev) {
  * panel to browse a cloned repo that has no open .spf) when it exists, else the
  * open project's dir. Only read handlers honour this, mutations always act on
  * the open project.
- * @param {any} opts
- * @param {any} [ev]
  */
-function resolveDir(opts, ev) {
+function resolveDir(opts: any, ev?: any) {
   const d = opts && typeof opts === 'object' && typeof opts.dir === 'string' ? opts.dir : null;
   if (d && fs.existsSync(d)) return d;
   return projectDir(ev);
 }
 /**
- * @param {any} opts
- * @param {any} [ev]
- * @returns {import('simple-git').SimpleGit}
  */
-function gitFor(opts, ev) {
+function gitFor(opts: any, ev?: any): import('simple-git').SimpleGit {
   const dir = resolveDir(opts, ev);
   if (!dir) throw new Error('No project is open.');
   if (!fs.existsSync(dir)) throw new Error(`Directory not found: ${dir}`);
@@ -141,10 +133,9 @@ function gitFor(opts, ev) {
  * de git sabia de que janela vinha o pedido: todos caiam no ultimo projeto
  * aberto em qualquer janela. Passar por ultimo nao serviria, porque um
  * handler chamado sem argumentos receberia o evento no lugar de `opts`.
- * @param {(ev: Electron.IpcMainInvokeEvent, ...args: any[]) => any} fn
  */
-function safe(fn) {
-  return async (/** @type {any} */ ev, /** @type {any} */ ...args) => {
+function safe(fn: (ev: Electron.IpcMainInvokeEvent,...args: any[]) => any) {
+  return async (ev: any, ...args: any) => {
     try {
       return envelopeOk(await fn(ev, ...args));
     } catch (e) {
@@ -159,13 +150,11 @@ function safe(fn) {
  * pass a custom env, passing process.env (which usually has EDITOR set) trips
  * simple-git's editor-safety guard ("Use of EDITOR is not permitted"), which is
  * exactly what broke fetch/pull/push. git inherits the real env on its own.
- * @param {Electron.IpcMainInvokeEvent} ev
  */
-async function remoteGit(ev) {
+async function remoteGit(ev: Electron.IpcMainInvokeEvent) {
   const dir = projectDir(ev);
   if (!dir) throw new Error('No project is open.');
-  /** @type {string[]} */
-  let config = [];
+  let config: string[] = [];
   try {
     // Qual token, decidido pelo REMOTO e nao pelo que houver guardado: mandar
     // o cabecalho do GitHub para um remoto do GitLab e levar 401 num push que
@@ -183,9 +172,8 @@ async function remoteGit(ev) {
 
 /**
  * O endereco do `origin`, ou do primeiro remoto que houver. Vazio sem remoto.
- * @param {string} dir
  */
-async function urlDoRemoto(dir) {
+async function urlDoRemoto(dir: string) {
   try {
     const remotos = await simpleGit(opcoesGit({ baseDir: dir })).getRemotes(true);
     if (!Array.isArray(remotos) || !remotos.length) return '';
@@ -196,10 +184,9 @@ async function urlDoRemoto(dir) {
 
 // Per-file +/- for the WORKING tree (staged + unstaged combined), for the
 // Changes list. Two cheap numstat diffs, merged by path.
-/** @param {import('simple-git').SimpleGit} git */
-async function workNumstat(git) {
-  /** @type {Record<string, {additions: number, deletions: number, binary: boolean}>} */
-  const map = {};
+/** @param git */
+async function workNumstat(git: import('simple-git').SimpleGit) {
+  const map: Record<string,{ additions: number; deletions: number; binary: boolean; }> = {};
   acumularNumstat(map, await git.diff(['--numstat']));             // unstaged
   acumularNumstat(map, await git.diff(['--staged', '--numstat'])); // staged
   return map;
@@ -255,7 +242,7 @@ function register() {
   }));
 
   // Unified diff for one file (or the whole worktree when file omitted). Capped.
-  ipcMain.handle('git:diff', safe(async (ev, /** @type {{file?:string, staged?:boolean, dir?:string}} */ opts = {}) => {
+  ipcMain.handle('git:diff', safe(async (ev, opts: { file?: string; staged?: boolean; dir?: string; } = {}) => {
     const git = gitFor(opts, ev);
     const args = opts && opts.staged ? ['--staged'] : [];
     if (opts && opts.file) args.push('--', opts.file);
@@ -268,7 +255,7 @@ function register() {
   // GitHub-Desktop-style file list, then lazy-load each file's diff on demand,
   // instead of rendering one giant diff up front (which froze the UI).
   // numstat prints "<add>\t<del>\t<path>"; a binary file shows "-\t-\t<path>".
-  ipcMain.handle('git:commit-files', safe(async (ev, /** @type {{hash:string, dir?:string}} */ opts) => {
+  ipcMain.handle('git:commit-files', safe(async (ev, opts: { hash: string; dir?: string; }) => {
     if (!opts || !opts.hash) throw new Error('hash required');
     const raw = await gitFor(opts, ev).raw(
       ['show', '--numstat', '--no-renames', '--format=', '--no-color', String(opts.hash)],
@@ -293,7 +280,7 @@ function register() {
   // Diff of ONE file within a commit (lazy-loaded when the user expands it), or
   // the whole commit when `file` is omitted. `--format=` drops the commit header
   // (the renderer shows the message separately). Capped to avoid freezes.
-  ipcMain.handle('git:show', safe(async (ev, /** @type {{hash:string, file?:string, dir?:string}} */ opts) => {
+  ipcMain.handle('git:show', safe(async (ev, opts: { hash: string; file?: string; dir?: string; }) => {
     if (!opts || !opts.hash) throw new Error('hash required');
     const args = ['show', '--no-color', '--format=', String(opts.hash)];
     if (opts.file) args.push('--', String(opts.file));
@@ -301,7 +288,7 @@ function register() {
     return limitarDiff(raw);
   }));
 
-  ipcMain.handle('git:log', safe(async (ev, /** @type {{maxCount?:number, dir?:string}} */ opts = {}) => {
+  ipcMain.handle('git:log', safe(async (ev, opts: { maxCount?: number; dir?: string; } = {}) => {
     const git = gitFor(opts, ev);
     const logResult = await git.log({ maxCount: (opts && opts.maxCount) || 50 });
     return {
@@ -359,7 +346,7 @@ function register() {
     return { name, folder, originUrl, hasOrigin: !!originUrl };
   }));
 
-  ipcMain.handle('git:add-remote', safe(async (ev, /** @type {{name?:string, url:string}} */ opts) => {
+  ipcMain.handle('git:add-remote', safe(async (ev, opts: { name?: string; url: string; }) => {
     if (!opts || !opts.url) throw new Error('remote url required');
     await gitForProject(ev).addRemote(opts.name || 'origin', opts.url);
     return {};
@@ -372,7 +359,7 @@ function register() {
     return { initialized: true };
   }));
 
-  ipcMain.handle('git:stage', safe(async (ev, /** @type {string[]|string} */ files) => {
+  ipcMain.handle('git:stage', safe(async (ev, files: string[]|string) => {
     const git = gitForProject(ev);
     await git.add(normalizarArquivos(files));
     return {};
@@ -384,7 +371,7 @@ function register() {
     return {};
   }));
 
-  ipcMain.handle('git:unstage', safe(async (ev, /** @type {string[]|string} */ files) => {
+  ipcMain.handle('git:unstage', safe(async (ev, files: string[]|string) => {
     const git = gitForProject(ev);
     await git.reset(['HEAD', '--', ...normalizarArquivos(files)]);
     return {};
@@ -401,7 +388,7 @@ function register() {
   // chamada so; quando ela falha, refazemos arquivo a arquivo para que o que
   // da para descartar seja descartado e o resto volte NOMEADO para o painel,
   // que e quem sabe explicar a diferenca a quem clicou.
-  ipcMain.handle('git:discard', safe(async (ev, /** @type {string[]|string} */ files) => {
+  ipcMain.handle('git:discard', safe(async (ev, files: string[]|string) => {
     const git = gitForProject(ev);
     const alvos = normalizarArquivos(files);
     if (!alvos.length) return { descartados: [], ignorados: [] };
@@ -418,7 +405,7 @@ function register() {
     }
   }));
 
-  ipcMain.handle('git:commit', safe(async (ev, /** @type {{message:string, amend?:boolean}} */ opts) => {
+  ipcMain.handle('git:commit', safe(async (ev, opts: { message: string; amend?: boolean; }) => {
     const message = opts && opts.message;
     if (!message || !message.trim()) throw new Error('Commit message is empty.');
     const git = gitForProject(ev);
@@ -440,7 +427,7 @@ function register() {
   // stored token if present. The folder picking now happens renderer-side.
   // NOTE: this one isn't wrapped in safe() because it needs `event.sender` to
   // stream live progress (git --progress) back to the panel's progress bar.
-  ipcMain.handle('git:clone', async (event, /** @type {{url:string, dest:string}} */ opts) => {
+  ipcMain.handle('git:clone', async (event, opts: { url: string; dest: string; }) => {
     try {
       if (!opts || typeof opts.url !== 'string' || !opts.url.trim()) throw new Error('url required');
       if (typeof opts.dest !== 'string' || !opts.dest.trim()) throw new Error('dest required');
@@ -454,7 +441,7 @@ function register() {
       } catch (_) { /* fall back to credential helper */ }
       // simple-git's progress plugin parses git's stderr (counting/compressing/
       // receiving/resolving + percent). We forward each tick to the renderer.
-      const progress = (/** @type {{method:string, stage:string, progress:number}} */ p) => {
+      const progress = (p: { method: string; stage: string; progress: number; }) => {
         try { event.sender.send('git:clone-progress', { stage: p.stage, progress: p.progress }); } catch (_) { /* window gone */ }
       };
       await simpleGit(opcoesGit({ config, progress })).clone(opts.url, opts.dest, ['--progress']);
@@ -473,7 +460,7 @@ function register() {
     const root = opts && opts.dir;
     if (!root) throw new Error('dir required');
     const found = [];
-    const fs = require('fs');
+    const fs = requireTarde('fs');
     const SKIP = new Set(['.git', 'node_modules', 'dist', 'components']);
     (function walk(d, depth) {
       if (depth > 5) return;
@@ -481,7 +468,7 @@ function register() {
       try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch (_) { return; }
       for (const e of ents) {
         if (e.name.startsWith('.') && e.isDirectory()) continue;
-        const p = require('path').join(d, e.name);
+        const p = requireTarde('path').join(d, e.name);
         if (e.isDirectory()) { if (!SKIP.has(e.name)) walk(p, depth + 1); }
         else if (e.isFile() && e.name.toLowerCase().endsWith('.spf')) found.push(p);
       }
@@ -489,7 +476,7 @@ function register() {
     return { spfs: found };
   }));
 
-  ipcMain.handle('git:checkout', safe(async (ev, /** @type {{branch:string, create?:boolean, track?:boolean}} */ opts) => {
+  ipcMain.handle('git:checkout', safe(async (ev, opts: { branch: string; create?: boolean; track?: boolean; }) => {
     const git = gitForProject(ev);
     if (opts && opts.create) await git.checkoutLocalBranch(opts.branch);
     // Remote-only branch: create a local tracking branch explicitly. Relying on
@@ -503,7 +490,7 @@ function register() {
   // --- stash (so switching branches with a dirty tree just works) ---------
   // Push a stash including untracked files, so the working tree goes fully clean
   // (a checkout that would be "overwritten by checkout" then succeeds).
-  ipcMain.handle('git:stash', safe(async (ev, /** @type {{message?:string}} */ opts = {}) => {
+  ipcMain.handle('git:stash', safe(async (ev, opts: { message?: string; } = {}) => {
     const args = ['stash', 'push', '--include-untracked'];
     if (opts && opts.message) args.push('-m', String(opts.message));
     const out = await gitForProject(ev).raw(args);
@@ -524,7 +511,7 @@ function register() {
   }));
 
   // Merge another branch INTO the current one (--no-edit so no $EDITOR popup).
-  ipcMain.handle('git:merge', safe(async (ev, /** @type {{branch:string}} */ opts) => {
+  ipcMain.handle('git:merge', safe(async (ev, opts: { branch: string; }) => {
     if (!opts || !opts.branch) throw new Error('branch required');
     const out = await gitForProject(ev).raw(['merge', '--no-edit', opts.branch]);
     return { summary: typeof out === 'string' ? out.trim() : '' };
@@ -545,7 +532,7 @@ function register() {
     return { summary: typeof out === 'string' ? out.trim() : '' };
   }));
 
-  ipcMain.handle('git:push', safe(async (ev, /** @type {{setUpstream?:boolean}} */ opts = {}) => {
+  ipcMain.handle('git:push', safe(async (ev, opts: { setUpstream?: boolean; } = {}) => {
     const git = await remoteGit(ev);
     const status = await git.status();
     // Only set upstream when there isn't one yet (a fresh branch); otherwise a
@@ -561,4 +548,4 @@ function register() {
   log.info('[ipc.git] handlers registered');
 }
 
-module.exports = { register, projectDir, abortAll };
+export { register, projectDir, abortAll };

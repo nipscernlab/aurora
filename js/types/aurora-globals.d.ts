@@ -28,6 +28,8 @@ interface AuroraElectronAPI {
   /** mkdir -p: cria .aurora, Temp e a pasta do processador de uma vez. */
   createDirectory(path: string): Promise<void>;
   deleteFile(path: string): Promise<unknown>;
+  /** Apaga arquivo ou pasta (a pasta com tudo dentro). */
+  deleteFileOrDirectory(path: string): Promise<unknown>;
   copyFile(src: string, dest: string): Promise<void>;
   /** Entradas de uma pasta, com a marca de quem e diretorio. */
   getFolderFiles(path: string): Promise<Array<{ path: string, isDirectory?: boolean }>>;

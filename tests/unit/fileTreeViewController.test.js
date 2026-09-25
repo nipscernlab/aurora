@@ -34,7 +34,7 @@ function mountDom() {
  * BEFORE import, because the module self-initializes on import (happy-dom
  * reports readyState 'complete'), and initialize() reads them then.
  */
-async function load({ projectPath = null, projectStore = null } = {}) {
+async function load({ projectPath = null } = {}) {
     vi.resetModules();
     mountDom();
 
@@ -44,8 +44,11 @@ async function load({ projectPath = null, projectStore = null } = {}) {
     delete window.treeView;
     delete window.fileTreeViewController;
     delete window.t;
-    if (projectPath) window.currentProjectPath = projectPath;
-    if (projectStore) window.ProjectStore = projectStore;
+
+    // O projeto aberto vem do ProjectStore de verdade, carregado antes do
+    // controlador para os dois verem a mesma instancia.
+    const { ProjectStore } = await import('../../js/project/project_store.js');
+    if (projectPath) ProjectStore.setProject(`${projectPath}/p.spf`, projectPath);
 
     await import('../../js/tree/tree_view.js');
     const mod = await import('../../js/tree/file_tree_view_controller.js');
@@ -53,16 +56,11 @@ async function load({ projectPath = null, projectStore = null } = {}) {
     controller.initialize(); // idempotent; ensures init even if import timing changes
     return {
         controller,
+        ProjectStore,
         treeView: window.treeView,
         btn: document.getElementById('alternate-tree-toggle'),
         fileTree: document.getElementById('file-tree'),
     };
-}
-
-/** A ProjectStore test double that captures subscribers so we can emit. */
-function makeProjectStore() {
-    const subs = [];
-    return { subscribe: (cb) => subs.push(cb), emit: () => subs.forEach((cb) => cb()) };
 }
 
 afterEach(() => {
@@ -192,13 +190,11 @@ describe('FileTreeViewController — never stuck on an empty pane (§8)', () => 
     });
 
     it('leaves the standard view when the project closes', async () => {
-        const store = makeProjectStore();
-        const { controller } = await load({ projectPath: '/proj', projectStore: store });
+        const { controller, ProjectStore } = await load({ projectPath: '/proj' });
         controller.showStandardMode();
         expect(controller.isShowingStandard()).toBe(true);
 
-        delete window.currentProjectPath; // project closed
-        store.emit();
+        ProjectStore.clearProject(); // project closed
         expect(controller.isShowingFileMode()).toBe(true);
     });
 });

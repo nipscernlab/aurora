@@ -1,5 +1,5 @@
 /**
- * compilation_flow.js: handlers dos botoes Verilog / Wave / PRISM /
+ * compilation_flow.ts: handlers dos botoes Verilog / Wave / PRISM /
  * C± / ASM / Full Build.
  *
  * Filosofia (post-2026-05):
@@ -43,12 +43,40 @@ import {
 import { compileProcessorSource } from './processor_dispatch.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { ProjectStore } from '../project/project_store.js';
+import type { CompiladorDoProjeto } from './precompilacao.js';
+
+/** Um componente como o componentes:listar do main o descreve. */
+interface ComponenteListado {
+    nome: string;
+    instalado: boolean;
+    requerParaCompilar?: boolean;
+    downloadMB: number;
+}
+
+/** O erro que chega ao funil: um Error, talvez com as marcas dos passos. */
+type ErroDoPasso = Error & { jaNoTerminal?: boolean; ajuda?: string };
+
+/** O payload do prism-compile-with-paths. */
+interface CaminhosDoPrism {
+    projectPath: string;
+    componentsPath: string;
+    hdlPath: string;
+    tempPath: string;
+    yosysPath: string;
+    spfPath: string;
+    prismMode: string;
+    topLevelPath: string;
+    yosysOverride?: unknown;
+}
+
+/** Um passo que o fluxo sabe despachar, ou o Full Build. */
+type Pedido = string;
 import {
     checkCancellation, desfazerCancelamento, eCancelamento, foiCancelada,
     iniciarRodada, pedirCancelamento, primeiroCartao,
 } from './cancelamento.js';
 
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
 // =====================================================================
 // Cancellation: o estado mora em cancelamento.ts
@@ -113,15 +141,14 @@ const ERROR_TERMINAL = Object.freeze({
 // =====================================================================
 
 /**
- * @param {string[]} terminalsToClear
  *   IDs dos terminais a limpar antes da nova rodada. Use
  *   STEP_TERMINALS[step] pra botoes single-step, ALL_TERMINALS pra
  *   Full Build. Vazio = nao limpa nada (raro; sintoma de mapping
  *   faltando).
  */
-function startCompilation(terminalsToClear) {
+function startCompilation(terminalsToClear: readonly string[]): void {
     iniciarRodada();
-    const tm = window.initializeGlobalTerminalManager();
+    const tm = window.initializeGlobalTerminalManager?.();
     if (tm && Array.isArray(terminalsToClear)) {
         for (const id of terminalsToClear) tm.clearTerminalImmediate?.(id);
     }
@@ -136,7 +163,7 @@ function startCompilation(terminalsToClear) {
     marcarPonto({ motivo: 'compilar' });
 }
 
-function endCompilation() {
+function endCompilation(): void {
     /* Hook reservado pra futuras acoes pos-build (notificacao, badge,
        etc). Hoje no-op, toolbar buttons ficam sempre habilitados. */
 }
@@ -149,7 +176,7 @@ function endCompilation() {
  * disparados pela Aurora Intelligence) nunca apareciam. Resolve o singleton
  * real sob demanda. initializeGlobalTerminalManager() e idempotente.
  */
-function getTM() {
+function getTM(): AuroraTerminalManager | null {
     return (typeof window !== 'undefined')
         ? (window.globalTerminalManager
             || window.initializeGlobalTerminalManager?.()
@@ -183,17 +210,17 @@ function getTM() {
  * SEGUE. Este é um aviso melhor, não uma segunda tranca; a tranca de verdade
  * continua sendo o allowlist do processo principal, que ninguém contorna.
  *
- * @param {string} terminalId terminal do passo, para a mensagem aparecer onde a pessoa olha
- * @returns {Promise<boolean>} false quando falta componente e a compilação não deve começar
+ * @param terminalId terminal do passo, para a mensagem aparecer onde a pessoa olha
+ * @returns false quando falta componente e a compilação não deve começar
  */
-export async function exigirComponentesDeCompilacao(terminalId) {
+export async function exigirComponentesDeCompilacao(terminalId: string): Promise<boolean> {
     let dados;
     try {
         dados = await electronAPI.componentesListar?.();
     } catch (_) {
         return true;   // falha aberta: ver o cabeçalho
     }
-    const faltando = (dados?.componentes || []).filter((c) => c.requerParaCompilar && !c.instalado);
+    const faltando = (dados?.componentes || []).filter((c: ComponenteListado) => c.requerParaCompilar && !c.instalado);
     if (!faltando.length) return true;
 
     const tm = getTM();
@@ -217,15 +244,16 @@ export async function exigirComponentesDeCompilacao(terminalId) {
 // pra que um compile da IA mire o processador em que o usuario estava
 // trabalhando, em vez de no-op silencioso. Setado no listener de
 // aurora:editing-file-changed (toolbar setup) e consumido por handleCmmStep.
-let lastActiveProcessor = null;
+let lastActiveProcessor: string | null = null;
 
 // Step do run em andamento, usado por logFatalError pra reportar a
 // falha ao status bar com o tipo certo. Os passos cmm/asm/verilog/prism
 // ja chamam statusUpdater.compilationError por dentro; este fallback
 // cobre os que nao tocam o updater (verilator top-level/proc, wave).
-let activeRunStep = null;
+let activeRunStep: Pedido | null = null;
 
-function logFatalError(terminalId, error) {
+function logFatalError(terminalId: string, erro: unknown): void {
+    const error = erro as ErroDoPasso;
     // User-triggered cancel is not a failure: render it as a friendly
     // info card (no "Erro Fatal:" prefix, no red error styling).
     //
@@ -277,7 +305,7 @@ function logFatalError(terminalId, error) {
         );
     }
     // No-op se um passo interno ja mostrou o erro (isCompiling vira false).
-    statusUpdater.compilationError(activeRunStep, error.message);
+    statusUpdater.compilationError(String(activeRunStep), error.message);
 }
 
 // =====================================================================
@@ -293,7 +321,7 @@ function logFatalError(terminalId, error) {
  * runGtkWave (que internamente faz iverilog + vvp + gtkwave).
  * Sem branches sobre presenca de processador.
  */
-async function runProjectPipeline(compiler) {
+async function runProjectPipeline(compiler: CompiladorDoProjeto & { runGtkWave(): Promise<unknown> }): Promise<void> {
     switchTerminal('terminal-tcmm');
     checkCancellation();
     await precompileAllProcessors(compiler, 'tcmm', getTM());
@@ -321,14 +349,14 @@ async function runProjectPipeline(compiler) {
  * Se o arquivo em foco nao for fonte de processador, no-op com mensagem.
  */
 async function handleCmmStep() {
-    let editingPath = TabManager.getEditingFilePath?.();
+    let editingPath: string | null | undefined = TabManager.getEditingFilePath?.();
     // Quando nao ha fonte em foco (compile disparado pela Aurora Intelligence
     // com o chat focado), nao no-op: mira o processador em que o usuario
     // estava trabalhando (resolveFallbackCmmPath), igual ao botao manual.
     if (!isProcessorSourcePath(editingPath)) {
         editingPath = await resolveFallbackCmmPath(lastActiveProcessor);
     }
-    if (!isProcessorSourcePath(editingPath)) {
+    if (!editingPath || !isProcessorSourcePath(editingPath)) {
         switchTerminal('terminal-tcmm');
         getTM()?.appendToTerminal?.(
             'tcmm',
@@ -560,7 +588,7 @@ async function handlePrismStep() {
  * Monta o payload de paths que o IPC prism-compile-with-paths espera.
  * Todos absolutos, slashes normalizadas pra forward.
  */
-async function buildPrismCompilationPaths(projectPath) {
+async function buildPrismCompilationPaths(projectPath: string): Promise<CaminhosDoPrism> {
     const rawComponentsPath = await electronAPI.getComponentsPath();
     const join = electronAPI.joinPath;
     return {
@@ -640,7 +668,7 @@ class CompilationFlowManager {
      * allcomp (Full Build) fica escondido no DOM, mantido habilitado.
      */
     updateButtonStates() {
-        const allcomp = document.getElementById('allcomp');
+        const allcomp = document.getElementById('allcomp') as HTMLButtonElement | null;
         if (allcomp) allcomp.disabled = false;
         syncToolbarEnabledState();
         syncCmmcompEnabled();
@@ -662,17 +690,17 @@ class CompilationFlowManager {
      */
     _recusarSeJaRodando() {
         if (activeRunStep === null) return false;
-        const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
+        const activeId = document.querySelector<HTMLElement>('.tab.active')?.dataset?.terminal;
         getTM()?.appendToTerminal?.(
-            activeId || ERROR_TERMINAL[activeRunStep] || 'tcmm',
+            activeId || (ERROR_TERMINAL as Record<string, string>)[activeRunStep] || 'tcmm',
             tr('compilation.alreadyRunning'),
             'tips',
         );
         return true;
     }
 
-    /** @returns {Promise<boolean>} false = recusada por ja haver outra em curso. */
-    async runAll() {
+    /** @returns false = recusada por ja haver outra em curso. */
+    async runAll(): Promise<boolean> {
         if (this._recusarSeJaRodando()) return false;
         startCompilation(ALL_TERMINALS);
         activeRunStep = 'all';
@@ -694,7 +722,7 @@ class CompilationFlowManager {
             // ("twave"); prefixar "terminal-" aqui procurava por
             // #terminal-terminal-twave, nao achava nada, e o cartao era
             // engolido em silencio pelo appendToTerminal.
-            const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
+            const activeId = document.querySelector<HTMLElement>('.tab.active')?.dataset?.terminal;
             logFatalError(activeId || 'twave', error);
         } finally {
             statusUpdater.endRun('all');
@@ -704,8 +732,8 @@ class CompilationFlowManager {
         return true;
     }
 
-    /** @returns {Promise<boolean>} false = recusada por ja haver outra em curso. */
-    async runSingleStep(step) {
+    /** @returns false = recusada por ja haver outra em curso. */
+    async runSingleStep(step: Pedido): Promise<boolean> {
         if (this._recusarSeJaRodando()) return false;
         // beginRun mantem a barra em "executando" durante todo o pipeline
         // do botao (varios passos), impedindo que um sucesso de passo
@@ -723,7 +751,7 @@ class CompilationFlowManager {
     }
 
     /** O despacho em si, separado para o registro poder envolve-lo. */
-    async _despacharPasso(step) {
+    async _despacharPasso(step: Pedido): Promise<void> {
         switch (step) {
             // 'verilator' (top-level harness) intencionalmente fora:
             // o botao foi removido da toolbar (commit 5121cc2) e
@@ -740,7 +768,7 @@ class CompilationFlowManager {
             default:
                 console.warn(`Passo desconhecido: ${step}`);
                 logFatalError(
-                    ERROR_TERMINAL[step] || 'tcmm',
+                    (ERROR_TERMINAL as Record<string, string>)[step] || 'tcmm',
                     new Error(`Unknown compilation step: ${step}`),
                 );
         }
@@ -763,7 +791,7 @@ class CompilationFlowManager {
 
     cancelAll() {
         const tm = getTM();
-        const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
+        const activeId = document.querySelector<HTMLElement>('.tab.active')?.dataset?.terminal;
         // Id nu, igual ao que o TerminalManager indexa. Ver a nota em runAll:
         // com o prefixo "terminal-", TODO cartao daqui (o "cancelamento
         // solicitado", o "nada a cancelar") caia num terminal inexistente e
@@ -809,7 +837,7 @@ class CompilationFlowManager {
         } catch (_) { /* a API pode nao ter subido ainda */ }
 
         electronAPI.cancelVvpProcess()
-            .then((result) => {
+            .then((result: { success?: boolean } | null) => {
                 // Main reports "no compilation process running" when the
                 // user clicked Cancel while idle. Surface that as an info
                 // card and reset the flag so a subsequent build doesn't
@@ -823,7 +851,7 @@ class CompilationFlowManager {
                     );
                 }
             })
-            .catch(err => console.warn('cancelVvpProcess failed:', err?.message ?? err));
+            .catch((err: unknown) => console.warn('cancelVvpProcess failed:', (err as Error | null)?.message ?? err));
     }
 }
 

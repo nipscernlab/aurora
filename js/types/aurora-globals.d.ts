@@ -108,6 +108,10 @@ interface AuroraElectronAPI {
   runLogListar?(projeto: string): Promise<{ execucoes?: import('../compilation/run_log.js').ResumoDeExecucao[] } | null>;
   runLogLer?(projeto: string | null | undefined, id: string | null): Promise<{ ok: boolean; execucao: import('../compilation/run_history.js').ExecucaoGravada } | null>;
   onFileChanged?(cb: (filePath: string) => void): void;
+  componentesListar?(): Promise<{ componentes?: Array<{ nome: string; instalado: boolean; requerParaCompilar?: boolean; downloadMB: number }> } | null>;
+  prismCompileWithPaths(paths: unknown): Promise<{ success: boolean; message?: string; [k: string]: unknown }>;
+  cancelVvpProcess(): Promise<{ success?: boolean } | null>;
+  onProcessorCreated?(cb: (data: unknown) => void): void;
   onDirectoryChanged?(cb: (directoryPath: string, files: unknown) => void): void;
 }
 
@@ -118,6 +122,12 @@ interface AuroraGitAPI {
 }
 
 declare global {
+  /** O pedaco do TerminalManager (js/terminal/terminal_module.js) que os .ts usam. */
+  interface AuroraTerminalManager {
+    appendToTerminal?(terminalId: string, texto: string, tipo?: string): unknown;
+    clearTerminalImmediate?(terminalId: string): unknown;
+    clearHardwareProgress?(): unknown;
+  }
   /** Result of a CommandSpec execution in the main process. */
   interface ExecSpecResult {
     code: number;
@@ -141,6 +151,18 @@ declare global {
     /** De js/compilation/botoes_da_barra.ts, para o project_manager.js e o E2E. */
     syncCmmcompEnabled?: () => void;
     syncToolbarEnabledState?: () => Promise<void>;
+    /** O TerminalManager do renderer (renderer.js), criado sob demanda. */
+    globalTerminalManager?: AuroraTerminalManager;
+    initializeGlobalTerminalManager?: () => AuroraTerminalManager | null;
+    /** O ultimo CompilationModule criado; o fluxo acha o terminal por ele em ultimo caso. */
+    _latestCompilationModule?: { terminalManager?: AuroraTerminalManager };
+    /** O pedaco da API da AURORA que a barra e o Cancelar usam (js/api/aurora_api.js). */
+    AuroraAPI?: {
+      compile: { compileStep(step: string): unknown; compileAll(): unknown; cancel(): unknown };
+      events?: { emit?(nome: string, dados: unknown): void };
+    };
+    /** O TabManager exposto em window (renderer.js); o PRISM em aba abre por ele. */
+    TabManager?: { openPrismTab?(resultado: unknown): unknown };
     /** A instancia do js/tree/git_decorations.ts, para os testes e o console. */
     gitDecorations?: unknown;
     /** Returns the active yanc message language ('pt' | 'en'). */

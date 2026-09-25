@@ -29,10 +29,8 @@ import { parseInv, isInvHidden } from './inv_filter.js';
 import { applyGlyphToIcon } from '../ui/language_glyph.js';
 import { ProjectStore } from '../project/project_store.js';
 import type { RegraInv } from './inv_filter.js';
-// CRUD layer (context menu, inline create/rename, cut/copy/paste, delete).
-// Imported for its side effect: registers the singleton + window hook that
-// project_tree_actions routes right-clicks to when this view is active.
-import './standard_tree_crud.js';
+// A camada de edicao (standard_tree_crud) importa este modulo e e carregada
+// pelo file_tree_view_controller; importar ela daqui fechava um ciclo.
 
 // Files that never belong in the explorer: legacy config blobs, the
 // .spf project file itself, and dotfiles. Mirrors the old standard

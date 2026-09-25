@@ -1,5 +1,5 @@
 /**
- * file_tree_view_controller.js: single owner do par "qual file-tree
+ * file_tree_view_controller.ts: single owner do par "qual file-tree
  * view esta visivel agora" + listener do toggle button.
  *
  * Pre-controller, esse estado estava espalhado por 6+ lugares
@@ -37,16 +37,24 @@
  */
 
 import { treeView } from './tree_view.js';
+import { ProjectStore } from '../project/project_store.js';
+import { standardTreeRenderer } from './standard_tree_render.js';
+// A camada de edicao da vista de pastas (menu, criar, renomear, recortar,
+// colar, apagar) se registra ao ser carregada. Era carregada pelo proprio
+// standard_tree_render, que ela tambem importa: os dois formavam o unico ciclo
+// de import do renderer. Carregada daqui, de quem liga a vista de pastas, o
+// ciclo some.
+import './standard_tree_crud.js';
+
+type NomeDaVista = 'verilog' | 'hierarchy' | 'standard';
 
 const TOGGLE_BTN_ID = 'alternate-tree-toggle';
 
 class FileTreeViewController {
-    constructor() {
-        this._activeView = 'verilog';
-        this._hierarchyData = null;
-        this._renderers = Object.create(null);
-        this._initialized = false;
-    }
+    _activeView: NomeDaVista = 'verilog';
+    _hierarchyData: unknown = null;
+    _renderers: Partial<Record<NomeDaVista, () => void>> = Object.create(null);
+    _initialized = false;
 
     /**
      * Idempotent. Safe to call from multiple init paths, only the
@@ -82,22 +90,16 @@ class FileTreeViewController {
                 this._updateToggleUI();
             }
         };
-        if (window.ProjectStore?.subscribe) {
-            window.ProjectStore.subscribe(onChange);
-        } else {
-            // ProjectStore module may not have loaded yet, retry once.
-            queueMicrotask(() => window.ProjectStore?.subscribe?.(onChange));
-        }
+        ProjectStore.subscribe(onChange);
     }
 
     /**
-     * @param {'verilog'|'hierarchy'|'standard'} name
-     * @param {() => void} renderFn, invoked when this view becomes
+     * @param renderFn, invoked when this view becomes
      *   active. Should be idempotent (renderer-decides-what-to-do
      *   based on its own state). If the render throws, the controller
      *   logs and continues, view is still set active.
      */
-    registerRenderer(name, renderFn) {
+    registerRenderer(name: 'verilog'|'hierarchy'|'standard', renderFn: () => void) {
         this._renderers[name] = renderFn;
     }
 
@@ -142,7 +144,7 @@ class FileTreeViewController {
      * hierarchy data. The hierarchy toggle's enabled state and the
      * "go to hierarchy" path key off this single field.
      */
-    setHierarchyData(data) {
+    setHierarchyData(data: unknown) {
         this._hierarchyData = data ?? null;
         // Hierarchy data went away while we were showing it (e.g. a new
         // compile invalidated the old tree), drop back to the file view
@@ -161,7 +163,7 @@ class FileTreeViewController {
     // ------------- private -------------
 
     _hasProject() {
-        return typeof window !== 'undefined' && !!window.currentProjectPath;
+        return ProjectStore.hasProject();
     }
 
     /**
@@ -186,14 +188,14 @@ class FileTreeViewController {
         return views[(idx + 1) % views.length] ?? 'verilog';
     }
 
-    _showView(name) {
+    _showView(name: string) {
         if (!['verilog', 'hierarchy', 'standard'].includes(name)) {
             console.warn(`FileTreeViewController: unknown view "${name}"`);
             return;
         }
         treeView.setActive(name);
-        this._activeView = name;
-        const fn = this._renderers[name];
+        this._activeView = name as NomeDaVista;
+        const fn = this._renderers[name as NomeDaVista];
         if (typeof fn === 'function') {
             try { fn(); }
             catch (err) { console.error(`Renderer for "${name}" threw:`, err); }
@@ -202,7 +204,7 @@ class FileTreeViewController {
     }
 
     _installToggleListener() {
-        const btn = document.getElementById(TOGGLE_BTN_ID);
+        const btn = document.getElementById(TOGGLE_BTN_ID) as HTMLButtonElement | null;
         if (!btn) return;
         // Idempotent, multiple initialize() calls won't stack
         // listeners.
@@ -215,7 +217,7 @@ class FileTreeViewController {
     }
 
     _updateToggleUI() {
-        const btn = document.getElementById(TOGGLE_BTN_ID);
+        const btn = document.getElementById(TOGGLE_BTN_ID) as HTMLButtonElement | null;
         if (!btn) return;
 
         // Enabled whenever there's more than one view to rotate through.
@@ -225,7 +227,7 @@ class FileTreeViewController {
         btn.disabled = !enabled;
         btn.classList.toggle('disabled', !enabled);
 
-        const tr = (k) => (typeof window !== 'undefined' && window.t ? window.t(k) : null);
+        const tr = (k: string): string | null => (typeof window !== 'undefined' && window.t ? window.t(k) : null);
         const view = VIEW_UI[this._activeView] ?? VIEW_UI.verilog;
 
         const icon = btn.querySelector('i');
@@ -252,7 +254,7 @@ class FileTreeViewController {
 
 // Per-view button presentation. Icon + label name the CURRENTLY active
 // view; labelKey resolves through window.t when i18n is available.
-const VIEW_UI = {
+const VIEW_UI: Record<NomeDaVista, { icon: string; label: string; labelKey: string }> = {
     verilog:   { icon: 'ph ph-list-bullets',   label: 'Files',     labelKey: 'toolbar.treeView.files' },
     hierarchy: { icon: 'ph ph-tree-structure', label: 'Hierarchy', labelKey: 'toolbar.treeView.hierarchy' },
     standard:  { icon: 'ph ph-folders',        label: 'Folders',   labelKey: 'toolbar.treeView.folders' },
@@ -261,7 +263,7 @@ const VIEW_UI = {
 const fileTreeViewController = new FileTreeViewController();
 
 if (typeof window !== 'undefined') {
-    window.fileTreeViewController = fileTreeViewController;
+    (window as unknown as { fileTreeViewController?: FileTreeViewController }).fileTreeViewController = fileTreeViewController;
 }
 
 if (document.readyState === 'loading') {
@@ -279,7 +281,7 @@ if (document.readyState === 'loading') {
 // the freshest instance.
 
 fileTreeViewController.registerRenderer('verilog', () => {
-    window.projectTreeManager?.renderTree?.();
+    (window.projectTreeManager as { renderTree?(): unknown } | undefined)?.renderTree?.();
 });
 
 fileTreeViewController.registerRenderer('hierarchy', () => {
@@ -287,7 +289,7 @@ fileTreeViewController.registerRenderer('hierarchy', () => {
     // back to the controller's own hierarchyData when its instance
     // copy is null (see compilation_module.js renderHierarchicalTree
     //, it consults fileTreeViewController.getHierarchyData()).
-    const cm = window._latestCompilationModule;
+    const cm = window._latestCompilationModule as { renderHierarchicalTree?(): unknown } | undefined;
     if (cm?.renderHierarchicalTree) cm.renderHierarchicalTree();
 });
 
@@ -295,7 +297,7 @@ fileTreeViewController.registerRenderer('standard', () => {
     // Folder tree rooted at the .spf directory. render() is async but
     // the controller's renderer contract is fire-and-forget, the view
     // is already active; the rows paint when the lazy reads land.
-    window.standardTreeRenderer?.render();
+    standardTreeRenderer.render();
 });
 
 export { fileTreeViewController, FileTreeViewController };

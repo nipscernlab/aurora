@@ -19,6 +19,12 @@
 // don't bleed across cases.
 import { describe, it, expect, afterEach, vi } from 'vitest';
 
+// A vista de pastas e a camada de edicao dela sao carregadas pelo controlador;
+// aqui entram falsas, porque o que se testa e o controlador.
+const pastas = { render: vi.fn() };
+vi.mock('../../js/tree/standard_tree_render.js', () => ({ standardTreeRenderer: pastas }));
+vi.mock('../../js/tree/standard_tree_crud.js', () => ({}));
+
 /** Minimal DOM the controller wires itself into on initialize(). */
 function mountDom() {
     document.body.innerHTML = `
@@ -200,6 +206,23 @@ describe('FileTreeViewController — never stuck on an empty pane (§8)', () => 
 });
 
 describe('FileTreeViewController — renderer isolation (§8)', () => {
+    it('cada vista chama o seu desenho: pastas, arquivos e hierarquia', async () => {
+        const { controller } = await load({ projectPath: '/proj' });
+        window.projectTreeManager = { renderTree: vi.fn() };
+        window._latestCompilationModule = { renderHierarchicalTree: vi.fn() };
+        controller.showStandardMode();
+        expect(pastas.render).toHaveBeenCalled();
+        controller.showFileMode();
+        expect(window.projectTreeManager.renderTree).toHaveBeenCalled();
+        controller.setHierarchyData({ root: 'top' });
+        controller.showHierarchyMode();
+        expect(window._latestCompilationModule.renderHierarchicalTree).toHaveBeenCalled();
+        delete window.projectTreeManager;
+        delete window._latestCompilationModule;
+        controller.showFileMode();
+        controller.showHierarchyMode();
+    });
+
     it('still switches the view when a registered renderer throws', async () => {
         const { controller } = await load();
         controller.setHierarchyData({ root: 'top' });

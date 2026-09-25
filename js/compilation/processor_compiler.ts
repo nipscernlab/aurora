@@ -35,6 +35,7 @@ import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec } from './spec_runner.js';
+import { foiCancelada } from './cancelamento.js';
 import {
     buildCmmSpec, buildAsmPreSpec, buildAsmSpec,
     buildCppPpSpec, buildCppSpec,
@@ -92,11 +93,9 @@ const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? windo
 
 // O usuario ja mandou parar? Depois de um Cancelar, o .exe morto reporta a
 // morte como falha propria ("code 1") e o catch carimbava isso em vermelho no
-// terminal. Nao e defeito do programa, e o kill. Mesma bandeira que o
-// compilation_flow expoe (window.isCompilationCanceled); ver o gemeo em
-// compilation_module.js.
-const canceladoPeloUsuario = () =>
-    (typeof window !== 'undefined' && !!window.isCompilationCanceled?.());
+// terminal. Nao e defeito do programa, e o kill. A bandeira e a do
+// cancelamento.ts; ver o gemeo em compilation_module.js.
+const canceladoPeloUsuario = foiCancelada;
 
 /**
  * O nome do fonte que este processador compila, como o fluxo o declarou.

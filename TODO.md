@@ -2101,18 +2101,23 @@ A cadeia, nesta ordem:
       import do módulo de i18n. Cada troca deixa a dependência visível no
       grafo, tipada e testável; a catraca desce junto.
       Em curso desde 25/09: o `project_store` já é `.ts`, e leem dele em vez
-      de `window` o `compilation_flow`, o `aurora_api`, o `project_manager` e
+      de `window` o `compilation_flow`, o `aurora_api`, o `project_manager`,
       a árvore inteira (`standard_tree_render`, `file_tree_view_controller`,
-      `file_tree_toggler`, `file_tree_manager`), além de `spec_factory`,
-      `command_overrides`, `git_decorations` e `run_history`. Faltam 9
-      leituras em 8 arquivos
-      (`git grep -c "window\.currentProjectPath\|window\.currentSpfPath" -- js`):
-      `ai_assistant_manager` (2), `bug_report`, `standard_tree_crud`,
-      `terminal_module`, `shell_terminal`, `delete_project`, `close_project`
-      e `renderer.js` (1 cada). O espelho em `window` sai do store quando a
-      última leitura sair. A catraca de globais está em 41, e o renderer não
-      tem mais ciclo de import (o `standard_tree_render` deixou de carregar o
-      `standard_tree_crud`, que agora vem pelo controlador de vistas).
+      `file_tree_toggler`, `file_tree_manager`), o fechar e o excluir
+      projeto, o `bug_report` e outros menores. `window.currentSpfPath`
+      deixou de existir. Faltam 6 leituras de `window.currentProjectPath`
+      (`git grep -c "window\.currentProjectPath" -- js`):
+      `ai_assistant_manager` (2), `terminal_module`, `standard_tree_crud`,
+      `renderer.js` e `shell_terminal` (1 cada). Próximo: `shell_terminal`,
+      depois dividir o `terminal_module`. Quando a última sair, o store deixa
+      de espelhar em `window`. A catraca de globais está em 39, e o renderer
+      não tem ciclo de import.
+
+      Defeitos achados e corrigidos no caminho (25/09): `createSurferLayout`
+      e `formatFile` conferiam `.success` num envelope que só tem `.ok`; o
+      e-mail de relato saía sem sistema e versões (chamava um
+      `getSystemInfo` que nunca existiu); o diálogo de informações do projeto
+      punha valores do `.spf` crus no HTML.
 
       **A ordem mudou em 25/09, e por quê.** Trocar a leitura arquivo por
       arquivo obriga a converter cada arquivo inteiro antes, e mais da metade

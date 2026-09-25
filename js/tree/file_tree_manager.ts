@@ -1,98 +1,40 @@
+// file_tree_manager.ts
+//
+// O bootstrap da arvore de arquivos: o vigia da pasta do projeto, o botao de
+// atualizar, o aviso de pasta sumida e o cartao de "nenhum projeto". As
+// linhas de arquivo sao da vista de arquivos (file_mode.js), da hierarquia
+// (compilation_module.js) e da vista de pastas (standard_tree_render.ts).
+//
+// Morava aqui um TreeViewState, fachada de compatibilidade sobre o
+// file_tree_view_controller com metade dos metodos vazios; ninguem de fora o
+// usava, e ele saiu em 25/09/2026, junto com um toggleHierarchyView sem
+// chamador. Quem decide a vista e o controlador, chamado direto.
+
 import { electronAPI } from '../app/electron_api.js';
 import { showCardNotification } from '../ui/notification.js';
+import { ProjectStore, type ProjectSnapshot } from '../project/project_store.js';
+import { treeView } from './tree_view.js';
+import { fileTreeViewController } from './file_tree_view_controller.js';
+import { standardTreeRenderer } from './standard_tree_render.js';
+import '../components/aurora-tree.js';
+import { ligarMenuDoCabecalho } from './tree_header_menu.js';
 
 // i18n com reserva em ingles, o mesmo padrao do standard_tree_crud.js: a
 // mensagem vale mesmo que as traducoes ainda nao tenham carregado.
-const tt = (k, fb) => {
+const tt = (k: string, fb: string): string => {
     const v = window.t ? window.t(k) : null;
     return v && v !== k ? v : fb;
 };
-import '../components/aurora-tree.js';
-import { ligarMenuDoCabecalho } from './tree_header_menu.js';
-// file_tree_manager.js
-//
-// Owns the file-tree view bootstrap: the TreeViewState façade over the
-// view controller, the directory watcher, and the no-project empty
-// state. The actual file rows are rendered by the verilog view
-// (file_mode.js) and the hierarchy view (compilation_module.js). The
-// old generic "standard" tree renderer + its file-search lived here too
-// until 2026-05, when they were removed (fossil of the IDE-mode toggle,
-// and the source of a duplicate file-open handler bug).
 
-// --- Tree View State, façade over fileTreeViewController -------
-//
-// Pre-controller, TreeViewState owned isHierarchical / hierarchyData /
-// isToggleEnabled / compilationModule and a copy lived in BOTH this
-// file and tree_view_state_module.js (different objects, never in
-// sync). Now it's a thin façade:
-//
-//   - isHierarchical, hierarchyData, isToggleEnabled  → getters that
-//     read from the controller. No private fields here.
-//   - setHierarchical / hierarchyData write           → route to the
-//     controller's showHierarchyMode / showFileMode / setHierarchyData.
-//   - enable/disableToggle                            → no-ops. The
-//     controller enables the toggle automatically when hierarchyData
-//     is set; disables when it's null. Lifecycle calls (e.g. on each
-//     CompilationModule construction) used to re-disable the toggle
-//     blindly, that's the bug class we just removed.
-//   - setCompilationModule / compilationModule        → no-ops. The
-//     controller's hierarchy renderer always reads from
-//     window._latestCompilationModule (set in the constructor) so
-//     callers don't need to track "the latest" themselves.
-//
-// New code should call window.fileTreeViewController directly. The
-// façade exists so the dozens of legacy reads/writes don't all have
-// to migrate at once, and so any future drift between TreeViewState
-// and the controller is impossible by construction (there's no
-// "TreeViewState" state to drift).
-const TreeViewState = {
-    get isHierarchical() {
-        return window.fileTreeViewController?.isShowingHierarchy() ?? false;
-    },
-    set isHierarchical(value) {
-        // Treat as a request to flip views; the controller is
-        // idempotent against same-state writes.
-        if (value) window.fileTreeViewController?.showHierarchyMode();
-        else window.fileTreeViewController?.showFileMode();
-    },
+/** A arvore de projeto (js/project/file_mode.js), so o que o bootstrap usa. */
+interface ArvoreDoProjeto {
+    refreshTree?(): unknown;
+    activateTree?(): Promise<unknown>;
+    initPromise?: Promise<unknown>;
+}
 
-    get hierarchyData() {
-        return window.fileTreeViewController?.getHierarchyData() ?? null;
-    },
-    set hierarchyData(data) {
-        window.fileTreeViewController?.setHierarchyData(data);
-    },
-
-    get isToggleEnabled() {
-        return !!window.fileTreeViewController?.getHierarchyData();
-    },
-
-    get compilationModule() {
-        return window._latestCompilationModule ?? null;
-    },
-
-    setHierarchical(value) {
-        this.isHierarchical = value;
-    },
-
-    setCompilationModule(_module) {
-        // No-op: the controller resolves the latest CompilationModule
-        // via window._latestCompilationModule, set by the constructor.
-    },
-
-    enableToggle() {
-        // No-op: toggle enables automatically when hierarchyData
-        // is set on the controller. Old code called this without
-        // setting data first, which produced a useless enabled-but-
-        // empty toggle.
-    },
-
-    disableToggle() {
-        // No-op: same reasoning. If you actually want to disable the
-        // toggle (because the data became invalid), set
-        // hierarchyData = null instead.
-    },
-};
+const arvoreDoProjeto = (): ArvoreDoProjeto | undefined =>
+    window.projectTreeManager as ArvoreDoProjeto | undefined;
 
 // --- Empty-state placeholder ---------------------------------------
 //
@@ -106,7 +48,7 @@ const TreeViewState = {
 // view's own empty state in project_tree_render.js.)
 
 function buildEmptyStateCard() {
-    const tr = (k) => (window.t ? window.t(k) : k);
+    const tr = (k: string): string => (window.t ? window.t(k) : k);
     const config = {
         icon: 'ph ph-folder-plus',
         title: tr('fileTree.empty.noProjectTitle'),
@@ -142,8 +84,8 @@ function buildEmptyStateCard() {
  * whole pane. When a project later loads, renderTree() strips this
  * card before painting the file rows.
  */
-function renderTreeEmptyState() {
-    const container = window.treeView?.getContainer('verilog');
+function renderTreeEmptyState(): void {
+    const container = treeView.getContainer('verilog');
     if (!container) return;
     container.innerHTML = '';
     container.appendChild(buildEmptyStateCard());
@@ -151,25 +93,23 @@ function renderTreeEmptyState() {
 
 
 // Minimal escaper for the i18n strings we drop into innerHTML above.
-function escapeHtml(s) {
-    return String(s ?? '').replace(/[&<>"']/g, (ch) => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    })[ch]);
+function escapeHtml(s: unknown): string {
+    const trocas: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(s ?? '').replace(/[&<>"']/g, (ch) => trocas[ch]);
 }
 
 
 if (typeof window !== 'undefined') {
+    // O close_project.js e um E2E ainda chamam por window.
     window.renderTreeEmptyState = renderTreeEmptyState;
 }
 
 // --- Directory Watcher ---
 class DirectoryWatcher {
-    constructor() {
-        this.currentWatchedDirectory = null;
-        this.isWatching = false;
-    }
+    currentWatchedDirectory: string | null = null;
+    isWatching = false;
 
-    async startWatching(directoryPath) {
+    async startWatching(directoryPath: string | null | undefined): Promise<void> {
         await this.stopWatching();
         if (!directoryPath) return;
         try {
@@ -181,7 +121,7 @@ class DirectoryWatcher {
         }
     }
 
-    async stopWatching() {
+    async stopWatching(): Promise<void> {
         if (this.currentWatchedDirectory && this.isWatching) {
             try {
                 await electronAPI.stopWatchingDirectory(this.currentWatchedDirectory);
@@ -196,21 +136,18 @@ class DirectoryWatcher {
 
 // --- Public Manager Object ---
 class FileTreeManager {
-    constructor() {
-        this.directoryWatcher = new DirectoryWatcher();
-    }
+    directoryWatcher = new DirectoryWatcher();
 
     initialize() {
-        TreeViewState.disableToggle();
-        TreeViewState.setHierarchical(false);
+        fileTreeViewController.showFileMode();
 
         document.getElementById('refresh-button')?.addEventListener('click', () => {
-            if (TreeViewState.isHierarchical) return;
-            if (window.fileTreeViewController?.isShowingStandard?.()) {
-                window.standardTreeRenderer?.render?.();
+            if (fileTreeViewController.isShowingHierarchy()) return;
+            if (fileTreeViewController.isShowingStandard()) {
+                standardTreeRenderer.render();
                 return;
             }
-            window.projectTreeManager?.refreshTree();
+            arvoreDoProjeto()?.refreshTree?.();
         });
 
         // Hierarchy toggle e owned por file_tree_view_controller.js:
@@ -220,17 +157,17 @@ class FileTreeManager {
 
         electronAPI.onDirectoryChanged((dir, _files) => {
             if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
-            if (TreeViewState.isHierarchical) return;
+            if (fileTreeViewController.isShowingHierarchy()) return;
             // Standard (folder) view mirrors the disk, re-render it so
             // created/deleted files show up; the renderer restores the
             // currently-expanded folders.
-            if (window.fileTreeViewController?.isShowingStandard?.()) {
-                window.standardTreeRenderer?.render?.();
+            if (fileTreeViewController.isShowingStandard()) {
+                standardTreeRenderer.render();
                 return;
             }
             // Verilog view: re-le o .spf pra pegar processor creation/
             // deletion que reescreve o arquivo.
-            window.projectTreeManager?.refreshTree?.();
+            arvoreDoProjeto()?.refreshTree?.();
         });
 
         // A pasta do projeto sumiu do disco enquanto ele estava aberto.
@@ -273,29 +210,16 @@ class FileTreeManager {
      * direto. A coalescencia em activateTree garante que isso
      * + projectManager.loadProject nao gerem duplo loadConfiguration.
      */
-    async initializeTreeBasedOnMode() {
-        const ptm = window.projectTreeManager;
+    async initializeTreeBasedOnMode(): Promise<void> {
+        const ptm = arvoreDoProjeto();
         if (!ptm) return;
         // Espera o sinal REAL de readiness (DOMContentLoaded + cacheElements
         // + setupEventListeners, exposto como initPromise) em vez de chutar
         // 100ms. O sleep curto deixava activateTree rodar antes do DOM da
         // tree ser cacheado em cold start lento, e bailava silenciosamente.
         if (ptm.initPromise) await ptm.initPromise;
-        await ptm.activateTree();
+        await ptm.activateTree?.();
     }
-
-
-toggleHierarchyView() {
-    // Delegate to the file-tree view controller, it owns the
-    // toggle button and the view-switch state. Kept this stub so
-    // legacy callers (command palette, etc.) that still call
-    // `fileTreeManager.toggleHierarchyView()` keep working.
-    if (window.fileTreeViewController?.isShowingHierarchy?.()) {
-        window.fileTreeViewController.showFileMode();
-    } else {
-        window.fileTreeViewController?.showHierarchyMode?.();
-    }
-}
 
 
     get watcher() {
@@ -304,7 +228,7 @@ toggleHierarchyView() {
 }
 
 const fileTreeManager = new FileTreeManager();
-export { fileTreeManager, TreeViewState };
+export { fileTreeManager };
 
 
 // --- Empty-state wiring ---------------------------------------------
@@ -322,19 +246,17 @@ export { fileTreeManager, TreeViewState };
 // in file_mode.js. The "project open but zero processors" hint is
 // owned by the verilog view's own empty state.
 function bootstrapTreeEmptyStateWiring() {
-    const onProjectChange = (snapshot) => {
+    const onProjectChange = (snapshot: ProjectSnapshot) => {
         if (snapshot?.projectPath) {
             // Switched into a project, render the verilog tree so files
             // populate (it strips the no-project card on the way in).
-            window.projectTreeManager?.refreshTree?.();
+            arvoreDoProjeto()?.refreshTree?.();
         } else {
             renderTreeEmptyState();
         }
     };
 
-    if (window.ProjectStore?.subscribe) {
-        window.ProjectStore.subscribe(onProjectChange);
-    }
+    ProjectStore.subscribe(onProjectChange);
 
     // Cold start with no project: paint the empty card immediately so
     // the user is never staring at a blank file-tree pane. Skipped
@@ -347,13 +269,13 @@ function bootstrapTreeEmptyStateWiring() {
     try { willAutoRestore = !!localStorage.getItem('aurora-last-project-path'); }
     catch (_) { /* localStorage unavailable, treat as no restore */ }
 
-    if (!window.currentProjectPath && !willAutoRestore) {
+    if (!ProjectStore.hasProject() && !willAutoRestore) {
         // Defer one tick so treeView has had a chance to mount its
         // subcontainers (initialize() runs on DOMContentLoaded).
         queueMicrotask(() => {
-            if (!window.currentProjectPath) renderTreeEmptyState();
+            if (!ProjectStore.hasProject()) renderTreeEmptyState();
         });
-    } else if (!window.currentProjectPath && willAutoRestore) {
+    } else if (!ProjectStore.hasProject() && willAutoRestore) {
         // Auto-restore in flight. When it settles without a project (the
         // stored .spf was moved, or loading failed), fall back to the empty
         // card so the user can create or open one. The signal is the
@@ -362,7 +284,7 @@ function bootstrapTreeEmptyStateWiring() {
         // big project on a slow disk, which invited creating another one on
         // top of it.
         document.addEventListener('aurora:session-restore-settled', () => {
-            if (!window.currentProjectPath) renderTreeEmptyState();
+            if (!ProjectStore.hasProject()) renderTreeEmptyState();
         }, { once: true });
     }
 }

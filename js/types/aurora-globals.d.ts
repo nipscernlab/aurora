@@ -111,7 +111,11 @@ interface AuroraElectronAPI {
   listRecentProjects?(): Promise<string[] | null>;
   createBackup?(folderPath: string): Promise<{ success?: boolean; message?: string } | null>;
   renameProject?(newName: string): Promise<{ success?: boolean; message?: string; failedStep?: string; steps?: Array<Record<string, unknown>>; newSpfPath?: string; newName?: string; oldName?: string; [k: string]: unknown } | null>;
-  watchDirectory?(path: string | null): Promise<unknown>;
+  watchDirectory(path: string | null): Promise<unknown>;
+  stopWatchingDirectory(path: string): Promise<unknown>;
+  /** A pasta vigiada sumiu do disco (uma vez por desaparecimento). */
+  onDirectoryGone?(cb: (directoryPath: string) => void): void;
+  onDirectoryWatcherError?(cb: (directoryPath: string, error: unknown) => void): void;
   /** Os processadores do projeto, como o .spf os lista (nome, ou objeto com config). */
   getAvailableProcessors(projectPath: string): Promise<Array<string | { name?: string; [k: string]: unknown }> | null>;
   deleteProcessor?(name: string): Promise<{ success?: boolean; message?: string; [k: string]: unknown } | null>;
@@ -135,7 +139,7 @@ interface AuroraElectronAPI {
   prismCompileWithPaths(paths: unknown): Promise<{ success: boolean; message?: string; [k: string]: unknown }>;
   cancelVvpProcess(): Promise<{ success?: boolean } | null>;
   onProcessorCreated?(cb: (data: unknown) => void): void;
-  onDirectoryChanged?(cb: (directoryPath: string, files: unknown) => void): void;
+  onDirectoryChanged(cb: (directoryPath: string, files: unknown) => void): void;
 }
 
 /** Subset do window.gitAPI do preload (main/ipc/git.ts) que os .ts ja usam. */
@@ -169,6 +173,8 @@ declare global {
     /** Espelho do ProjectStore para quem ainda nao o importa (js/project/project_store.ts). */
     ProjectStore?: typeof import('../project/project_store.js').ProjectStore;
     gitAPI?: AuroraGitAPI;
+    /** O cartao de "nenhum projeto" na arvore (js/tree/file_tree_manager.ts). */
+    renderTreeEmptyState?: () => void;
     /** Os paineis do editor dividido (js/editor/split_editor.js), cada um com as suas abas. */
     SplitEditorManager?: {
       panes?: Array<{ tabs?: Map<string, { editor?: unknown }>; paneIndex?: number; _closeFile?(filePath: string): Promise<unknown> }>;

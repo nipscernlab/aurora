@@ -180,6 +180,7 @@ js/tree/tree_view.js
 js/tree/standard_tree_render.js
 js/tree/file_tree_view_controller.js
 js/tree/file_tree_toggler.js
+js/tree/file_tree_manager.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

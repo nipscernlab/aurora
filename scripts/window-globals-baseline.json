@@ -112,12 +112,6 @@
   "standardTreeRenderer": [
     "js/tree/standard_tree_render.js"
   ],
-  "syncCmmcompEnabled": [
-    "js/compilation/botoes_da_barra.ts"
-  ],
-  "syncToolbarEnabledState": [
-    "js/compilation/botoes_da_barra.ts"
-  ],
   "t": [
     "js/i18n/i18n.js"
   ],

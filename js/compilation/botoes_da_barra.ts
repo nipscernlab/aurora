@@ -7,8 +7,9 @@
  * aberto declara (todos os outros).
  *
  * Quem chama: o compilation_flow, nos eventos de foco, de .spf e de
- * processador; e o project_manager.js e um teste E2E, pelas duas funcoes em
- * window, que saem de la quando esses leitores importarem daqui.
+ * processador, e a interface_do_projeto.ts ao abrir um projeto, os dois por
+ * import. As duas funcoes ficam em window so para o teste E2E
+ * processor-hub-language, que as chama de dentro da pagina.
  *
  * Compilado por `tsc` (npm run build:ts) num botoes_da_barra.js ao lado, e
  * esse .js que o runtime carrega; os imports usam a extensao `.js`.

@@ -175,7 +175,7 @@ declare global {
     showNotification?: (mensagem: string, tipo?: string, duracaoMs?: number) => unknown;
     /** O seletor de .gtkw (js/wave/gtkw_picker.js); a barra so pede para re-sincronizar. */
     gtkwPickerManager?: { refresh?: () => unknown };
-    /** De js/compilation/botoes_da_barra.ts, para o project_manager.js e o E2E. */
+    /** De js/compilation/botoes_da_barra.ts, so para o E2E que as chama de dentro da pagina. */
     syncCmmcompEnabled?: () => void;
     syncToolbarEnabledState?: () => Promise<void>;
     /** O TerminalManager do renderer (renderer.js), criado sob demanda. */

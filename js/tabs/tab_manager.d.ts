@@ -20,5 +20,5 @@ export const TabManager: {
   tabs?: Map<string, unknown>;
   closeTab(filePath: string): Promise<unknown>;
   closeAllTabs(): Promise<unknown>;
-  addTab(filePath: string, content: string): unknown;
+  addTab(filePath: string, content: string, opcoes?: { preview?: boolean; revealPosition?: { line: number; column: number } }): unknown;
 };

@@ -155,6 +155,8 @@ js/wave/testbench_instrumenter.js
 js/wave/vcd_parser.js
 js/wave/wave_state_store.js
 js/project/project_store.js
+js/project/arquivos_faltando.js
+js/project/interface_do_projeto.js
 js/tree/git_decorations.js
 js/compilation/run_history.js
 js/compilation/cancelamento.js

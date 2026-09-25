@@ -6,232 +6,16 @@ import { fileTreeManager } from '../tree/file_tree_manager.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { ProjectStore } from './project_store.js';
 import { setAvailableProcessors } from './processor_list.js';
+import { abrirRelatorioDeFaltantes, apagarRelatorioDeFaltantes } from './arquivos_faltando.js';
+import {
+    habilitarBotoesDoProjeto, ligarIndicadorDeProjeto, mostrarInformacaoDoProjeto, mostrarNomeDoProjeto,
+} from './interface_do_projeto.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
-function updateProjectNameUI(projectData, spfPath) {
-    const spfNameElement = document.getElementById('current-spf-name');
-    if (!spfNameElement) return;
-
-    const setProjectName = (name) => {
-        // Nome real de projeto nao tem traducao, remove qualquer
-        // data-i18n pra que applyDOM no proximo locale change nao
-        // reescreva por cima.
-        spfNameElement.removeAttribute('data-i18n');
-        spfNameElement.textContent = name;
-    };
-
-    const metaName = projectData?.metadata?.projectName;
-    if (metaName) {
-        setProjectName(`${metaName}.spf`);
-        return;
-    }
-
-    // Fallback: derive the name from the .spf path so the label never gets
-    // stuck on "No project open" after a successful load with sparse metadata.
-    if (typeof spfPath === 'string' && spfPath.trim()) {
-        const base = spfPath.split(/[\\/]/).pop() || spfPath;
-        setProjectName(base.endsWith('.spf') ? base : `${base}.spf`);
-        return;
-    }
-
-    // Sem projeto: volta pra label traduzida e re-instala data-i18n.
-    spfNameElement.setAttribute('data-i18n', 'fileTree.noProject');
-    spfNameElement.textContent = window.t ? window.t('fileTree.noProject') : 'No project open';
-}
-
-/**
- * Cria (sobrescrevendo) um arquivo `.aurora-missing-files.log` na raiz do
- * projeto com cabecalho explicativo + lista paginada dos arquivos que o
- * .spf referencia mas nao existem no disco. Depois abre no Monaco como
- * preview tab (TabManager.addTab) pra que o usuario veja imediatamente
- * o que sumiu.
- *
- * No-op silencioso se `missing` for vazio/invalido, o caller ja gate-ia
- * a chamada, mas e idempotente por seguranca. Se a escrita ou a abertura
- * falham, propaga pra que o caller registre no console; nao quebra o
- * resto do loadProject.
- */
-async function openMissingFilesLogInEditor(missing, spfPath, basePath) {
-    if (!Array.isArray(missing) || missing.length === 0) return;
-    if (!basePath) return;
-
-    const ts = new Date().toLocaleString();
-    const projectName = (spfPath || '').split(/[\\/]/).pop() || '(unknown)';
-
-    const lines = [
-        '# Aurora — relatorio de arquivos faltantes',
-        '',
-        `Gerado em: ${ts}`,
-        `Projeto:   ${projectName}`,
-        `Base path: ${basePath}`,
-        '',
-        '--------------------------------------------------------------------------------',
-        'Estes paths estao listados no .spf do projeto, mas NAO existem no disco',
-        '(foram movidos, renomeados fora do Aurora, ou deletados manualmente).',
-        '',
-        'O que fazer:',
-        '  1. Restaure / recoloque o arquivo no caminho original abaixo, OU',
-        '  2. Remova-o do projeto clicando direito na file tree -> Remove from tree.',
-        '',
-        'Este arquivo e regenerado a cada abertura do projeto — se nao houver',
-        'arquivos faltantes na proxima vez, ele nao sera criado nem aberto.',
-        '--------------------------------------------------------------------------------',
-        '',
-    ];
-
-    const grouped = new Map();
-    for (const f of missing) {
-        const cat = f.category || 'unknown';
-        if (!grouped.has(cat)) grouped.set(cat, []);
-        grouped.get(cat).push(f);
-    }
-    for (const [cat, list] of grouped.entries()) {
-        lines.push(`[${cat}] (${list.length})`);
-        for (const f of list) {
-            lines.push(`  - ${f.name}`);
-            lines.push(`      ${f.path}`);
-        }
-        lines.push('');
-    }
-
-    const logFileName = '.aurora-missing-files.log';
-    const logPath = await electronAPI.joinPath(basePath, logFileName);
-    const content = lines.join('\n');
-    await electronAPI.writeFile(logPath, content);
-
-    // Open as a preview tab (italic). Without preview:false the file
-    // gets pinned; we want it dismissable with one click on another file.
-    TabManager.addTab(logPath, content, { preview: true });
-}
-
-/**
- * Remove o .aurora-missing-files.log da raiz do projeto se existir.
- * Chamado em loadProject quando nao ha mais arquivos faltantes pra
- * que o log de uma corrida anterior nao fique stale no projeto.
- * Silencioso em ausencia (fileExists check) e em erros de IO
- * (caller registra).
- */
-async function removeMissingFilesLog(basePath) {
-    if (!basePath) return;
-    const logFileName = '.aurora-missing-files.log';
-    const logPath = await electronAPI.joinPath(basePath, logFileName);
-    const exists = await electronAPI.fileExists?.(logPath);
-    if (!exists) return;
-    // Fecha a tab no Monaco se o usuario tinha o log aberto, antes
-    // de apagar do disco, assim o save no exit nao recria o arquivo.
-    if (window.TabManager?.tabs?.has?.(logPath)) {
-        try { await window.TabManager.closeTab?.(logPath); } catch (_) { /* best effort */ }
-    }
-    if (typeof electronAPI.deleteFile === 'function') {
-        await electronAPI.deleteFile(logPath);
-    }
-}
-
-function showProjectInfoDialog(projectData) {
-    const modalBackdrop = document.createElement('div');
-    modalBackdrop.className = 'aurora-modal-backdrop';
-    const modalContainer = document.createElement('div');
-    modalContainer.className = 'aurora-modal-container';
-    const metadata = projectData.metadata;
-
-    const formatDate = (ts) => new Date(ts).toLocaleString();
-    
-    modalContainer.innerHTML = `
-    <div class="aurora-modal">
-      <div class="aurora-modal-header">
-        <h2 class="aurora-modal-title">Project Information</h2>
-        <button class="aurora-modal-close" aria-label="Close">&times;</button>
-      </div>
-      <div class="aurora-modal-body">
-        <p><strong>Project Name:</strong> ${metadata.projectName}</p>
-        <p><strong>Created:</strong> ${formatDate(metadata.createdAt)}</p>
-        <p><strong>Last Modified:</strong> ${formatDate(metadata.lastModified)}</p>
-        <p><strong>Computer:</strong> ${metadata.computerName}</p>
-        <p><strong>App Version:</strong> ${metadata.appVersion}</p>
-      </div>
-    </div>`;
-
-    document.body.appendChild(modalBackdrop);
-    document.body.appendChild(modalContainer);
-
-    const closeModal = () => {
-        document.body.removeChild(modalBackdrop);
-        document.body.removeChild(modalContainer);
-    };
-    modalBackdrop.addEventListener('click', closeModal);
-    modalContainer.querySelector('.aurora-modal-close').addEventListener('click', closeModal);
-}
-
-// CORREÇÃO AQUI: Atualização direta da UI sem depender de animações CSS
-function enableCompileButtons() {
-    // cmmcomp NAO entra aqui: tem regra propria (so habilitado com .cmm
-    // em foco no Monaco), gerenciada por syncCmmcompEnabled em
-    // compilation_flow.js. Forcar disabled=false aqui o deixaria
-    // erroneamente clicavel ate o proximo aurora:editing-file-changed.
-    // Botoes nao-gated: sempre habilitados com projeto aberto. Os
-    // gated (vericomp/wavecomp/prismcomp/verilatorproc, a Wave Config e o
-    // cancelar-simulacao) seguem o estado do design via
-    // syncToolbarEnabledState, por isso cancel-everything NAO entra aqui:
-    // ele acompanha o botao Wave (so habilita com testbench definido).
-    const buttons = ['allcomp', 'fractalcomp', 'backupFolderBtn', 'projectInfo'];
-
-    buttons.forEach(id => {
-
-        const button = document.getElementById(id);
-        if (button) {
-            button.disabled = false;
-            button.style.cursor = 'pointer';
-        }
-    });
-
-    window.syncCmmcompEnabled?.();
-    window.syncToolbarEnabledState?.();
-
-    const statusElement = document.getElementById('ready');
-    const statusText = document.getElementById('status-text');
-    const icon = statusElement ? statusElement.querySelector('i') : null;
-
-    if (statusElement) {
-        // 1. Configura o cursor
-        statusElement.style.cursor = 'default';
-
-        // 2. Adiciona a classe visual de pronto. Class name has to be
-        // `is-ready` (with the `is-` prefix), that's what the CSS rule
-        // `#ready.is-ready` expects to flip the LABEL from red to green.
-        // (Havia um ponto colorido ali; ele saiu, e o rotulo assumiu o
-        // estado.) A previous version added plain `ready` here, which
-        // silently failed the selector match.
-        statusElement.classList.add('is-ready');
-        statusElement.classList.remove('fading'); // Remove caso tenha sobrado de alguma tentativa anterior
-
-        // 3. Troca o ícone imediatamente
-        if (icon) {
-            // Reseta as classes para garantir e aplica o novo ícone
-            icon.className = 'ph ph-plugs-connected';
-        }
-
-        // 4. O rotulo passa a ser o NOME DO PROJETO, nao "Ready".
-        //
-        // "Ready" queria dizer "ha projeto aberto", mas ao lado do progresso
-        // da compilacao lia-se "Pronto" e "Compilando" na mesma barra, ao
-        // mesmo tempo. O nome do projeto diz o que aquele item sempre quis
-        // dizer, e diz mais: qual projeto. A cor (verde/vermelho via
-        // #ready.is-ready) continua sendo o sinal de aberto/fechado. O
-        // data-i18n sai porque nome de projeto nao se traduz; close_project
-        // o devolve ao fechar.
-        if (statusText) {
-            const spf = window.currentSpfPath || window.ProjectStore?.getSpfPath?.() || '';
-            const nome = String(spf).split(/[\\/]/).pop().replace(/\.spf$/i, '');
-            statusText.removeAttribute('data-i18n');
-            statusText.textContent = nome || (window.t ? window.t('statusBar.notReady') : 'No project');
-            // O caminho inteiro fica no balao, para quem tem dois projetos
-            // de mesmo nome em pastas diferentes.
-            if (spf) statusElement.setAttribute('data-tooltip', spf);
-            else statusElement.removeAttribute('data-tooltip');
-        }
-    }
-}
+// O nome do projeto, os botoes, o indicador da barra e o dialogo de
+// informacoes moram em interface_do_projeto.ts; o relatorio dos arquivos que
+// sumiram do disco, em arquivos_faltando.ts.
 
 /**
  * Load project with full orchestration
@@ -275,8 +59,7 @@ async function loadProject(spfPath) {
             throw new Error(window.t ? window.t('error.config.noProjectBase') : 'Project base path could not be determined.');
         }
 
-        // Single source of truth, also mirrors window.currentProjectPath /
-        // window.currentSpfPath for the dozens of existing read sites.
+        // A fonte unica do projeto aberto.
         ProjectStore.setProject(spfPath, basePath);
 
         // Clean slate BEFORE the new tree loads. A direct project→project
@@ -297,7 +80,7 @@ async function loadProject(spfPath) {
         // ({name} vs "name"), ver processor_list.js.
         setAvailableProcessors(projectData?.structure?.processors);
 
-        updateProjectNameUI(projectData, spfPath);
+        mostrarNomeDoProjeto(projectData, spfPath);
         await TabManager.closeAllTabs();
 
         // Tree e sempre populada do .spf via
@@ -308,16 +91,14 @@ async function loadProject(spfPath) {
         if (window.projectTreeManager) {
             await window.projectTreeManager.activateTree();
         }
-        fileTreeManager.watcher?.startWatching?.(window.currentProjectPath);
+        fileTreeManager.watcher?.startWatching?.(ProjectStore.getProjectPath());
 
         if (window.recentProjectsManager) {
             window.recentProjectsManager.addProject(spfPath);
         }
 
         // Enable buttons and update status
-        if (typeof enableCompileButtons === 'function') {
-            enableCompileButtons();
-        }
+        habilitarBotoesDoProjeto();
 
         // Save as last opened project
         if (window.appInitializer) {
@@ -365,7 +146,7 @@ async function loadProject(spfPath) {
                 );
             }
             try {
-                await openMissingFilesLogInEditor(missing, spfPath, basePath);
+                await abrirRelatorioDeFaltantes(missing, spfPath, basePath);
             } catch (logErr) {
                 console.warn('Failed to open missing-files log:', logErr);
             }
@@ -374,7 +155,7 @@ async function loadProject(spfPath) {
             // anteriores se nao tem mais nada faltando. Sem isso, o
             // usuario corrige tudo e o log fica grudado no projeto.
             try {
-                await removeMissingFilesLog(basePath);
+                await apagarRelatorioDeFaltantes(basePath);
             } catch (cleanupErr) {
                 console.warn('Failed to remove stale missing-files log:', cleanupErr);
             }
@@ -413,17 +194,19 @@ class ProjectManager {
         });
 
         document.getElementById('projectInfo')?.addEventListener('click', async () => {
-            if (!window.currentSpfPath) return;
+            const spfPath = ProjectStore.getSpfPath();
+            if (!spfPath) return;
             try {
-                const projectData = await electronAPI.getProjectInfo(window.currentSpfPath);
-                showProjectInfoDialog(projectData);
+                const projectData = await electronAPI.getProjectInfo(spfPath);
+                mostrarInformacaoDoProjeto(projectData);
             } catch (error) {
                 console.error('Error getting project info:', error);
             }
         });
 
         document.getElementById('open-folder-button')?.addEventListener('click', () => {
-            if (window.currentProjectPath) electronAPI.openFolder(window.currentProjectPath);
+            const raiz = ProjectStore.getProjectPath();
+            if (raiz) electronAPI.openFolder(raiz);
         });
 
         // Listener para quando o projeto é aberto via "File > Open" ou atalhos
@@ -518,30 +301,7 @@ class ProjectManager {
     }
 }
 
-function setupStatusIndicator() {
-  const statusIndicator = document.getElementById('ready');
-  const openProjectButton = document.getElementById('openProjectBtn');
-
-  if (!statusIndicator || !openProjectButton) {
-    return;
-  }
-
-  // Define o estado inicial como 'pointer'
-  statusIndicator.style.cursor = 'pointer';
-
-  statusIndicator.addEventListener('click', () => {
-    // Só abre o diálogo se NÃO estiver ready (ou seja, se estiver Not Ready)
-    const isReady = statusIndicator.classList.contains('is-ready');
-    
-    if (!isReady) {
-      // Isso simula o clique no botão de abrir, que por sua vez chama o showOpenDialog (dialogo nativo do Windows)
-      // É o comportamento esperado para "Carregar um projeto" se nenhum estiver carregado.
-      openProjectButton.click();
-    }
-  });
-}
-
-document.addEventListener('DOMContentLoaded', setupStatusIndicator);
+document.addEventListener('DOMContentLoaded', ligarIndicadorDeProjeto);
 
 const projectManager = new ProjectManager();
 export { projectManager };

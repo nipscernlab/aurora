@@ -97,6 +97,13 @@ interface AuroraElectronAPI {
   /** Pede ao main que a arvore de arquivos se redesenhe. */
   triggerFileTreeRefresh(): Promise<void>;
   pathExists(path: string): Promise<boolean>;
+  openProject(spfPath: string): Promise<unknown>;
+  getProjectInfo?(projectPath: string): Promise<unknown>;
+  /** Cria a pasta e o .spf de um projeto novo. O main ignora o terceiro argumento. */
+  createProjectStructure(projectPath: string, spfPath: string, name?: string): Promise<{ success?: boolean; message?: string } | null>;
+  listRecentProjects?(): Promise<string[] | null>;
+  createBackup?(folderPath: string): Promise<{ success?: boolean; message?: string } | null>;
+  renameProject?(newName: string): Promise<{ success?: boolean; message?: string; failedStep?: string; steps?: Array<Record<string, unknown>>; newSpfPath?: string; newName?: string; oldName?: string; [k: string]: unknown } | null>;
   watchDirectory?(path: string | null): Promise<unknown>;
   /** Os processadores do projeto, como o .spf os lista (nome, ou objeto com config). */
   getAvailableProcessors(projectPath: string): Promise<Array<string | { name?: string; [k: string]: unknown }> | null>;
@@ -156,7 +163,16 @@ declare global {
     ProjectStore?: typeof import('../project/project_store.js').ProjectStore;
     gitAPI?: AuroraGitAPI;
     /** Os paineis do editor dividido (js/editor/split_editor.js), cada um com as suas abas. */
-    SplitEditorManager?: { panes?: Iterable<{ tabs?: Map<string, unknown>; _closeFile?(filePath: string): Promise<unknown> }> };
+    SplitEditorManager?: {
+      panes?: Iterable<{ tabs?: Map<string, unknown>; paneIndex?: number; _closeFile?(filePath: string): Promise<unknown> }>;
+      closePane?(paneIndex: number | undefined): unknown;
+    };
+    /** O gerenciador de projeto do renderer (js/project/project_manager.js). */
+    projectManager?: { loadProject?(spfPath: string): Promise<unknown> };
+    /** A lista de recentes da tela inicial (js/project/recent_projects.js). */
+    recentProjectsManager?: { removeProject?(spfPath: string): unknown };
+    /** O aviso no canto (js/ui/notification.js). */
+    showNotification?: (mensagem: string, tipo?: string, duracaoMs?: number) => unknown;
     /** O seletor de .gtkw (js/wave/gtkw_picker.js); a barra so pede para re-sincronizar. */
     gtkwPickerManager?: { refresh?: () => unknown };
     /** De js/compilation/botoes_da_barra.ts, para o project_manager.js e o E2E. */
@@ -196,8 +212,6 @@ declare global {
     availableProcessors?: string[];
     /** Set by command_overrides.ts for non-module callers. */
     CommandOverrides?: unknown;
-    /** Set by spf_store.ts for non-module callers. */
-    SpfStore?: unknown;
     /** Set by command_spec.ts for non-module callers. */
     CommandSpec?: unknown;
     /** A ponte dos dialogos para quem nao e modulo. Escrita por dialog_manager.ts. */

@@ -332,7 +332,3 @@ export const SpfStore = {
     return next;
   },
 };
-
-if (typeof window !== 'undefined') {
-  window.SpfStore = SpfStore;
-}

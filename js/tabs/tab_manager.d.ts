@@ -19,5 +19,6 @@ export const TabManager: {
   /** As abas do painel principal, por caminho. */
   tabs?: Map<string, unknown>;
   closeTab(filePath: string): Promise<unknown>;
+  closeAllTabs(): Promise<unknown>;
   addTab(filePath: string, content: string): unknown;
 };

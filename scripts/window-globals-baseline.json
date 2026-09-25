@@ -15,9 +15,6 @@
   "SharedModelRegistry": [
     "js/editor/shared_models.js"
   ],
-  "SpfStore": [
-    "js/project/spf_store.ts"
-  ],
   "SplitEditorManager": [
     "js/app/renderer.js",
     "js/editor/split_editor.js"

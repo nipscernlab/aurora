@@ -35,11 +35,8 @@ function makeFakeElectronApi() {
     };
 }
 
-// `window` precisa existir antes do import do SpfStore (que faz
-// `if (typeof window !== 'undefined') window.SpfStore = ...`). Como
-// ja importamos no topo do arquivo, isso ja rodou contra um window
-// undefined. Tudo bem, os testes usam SpfStore via import direto,
-// nao via window.SpfStore.
+// Os testes usam o SpfStore por import direto; ele deixou de se por em
+// window em 25/09/2026, quando o ultimo leitor de fora passou a importar.
 
 beforeEach(() => {
     globalThis.window = {

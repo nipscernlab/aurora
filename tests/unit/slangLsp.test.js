@@ -4,8 +4,13 @@
  * promete ali: todo canal responde sem erro e sem disparar processo, e o
  * editor segue sem o slang. O slangIndice.test.js cobre a configuracao do
  * indice.
+ *
+ * O vigia de arquivos e a publicacao de diagnosticos so rodam com o servidor
+ * de pe; aqui eles sao chamados direto (o modulo os exporta para teste).
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { cercar, pastaTemporaria } from '../helpers/cercado.js';
 
@@ -65,3 +70,24 @@ describe('slang_lsp sem o binario', () => {
   });
 });
 
+describe('o que so roda com o servidor de pe', () => {
+  it('o vigia sobe numa pasta e para, e sem pasta nao sobe', () => {
+    const proj = path.join(pasta.raiz, 'proj');
+    fs.mkdirSync(proj, { recursive: true });
+    expect(() => slang.startWatcher(proj)).not.toThrow();
+    expect(() => slang.stopWatcher()).not.toThrow();
+    expect(() => slang.startWatcher(null)).not.toThrow();
+    slang.stopWatcher();
+  });
+
+  it('diagnostico publicado, com e sem modulo desconhecido, e repassado sem lancar', () => {
+    const publicar = (diagnostics) => slang.handleMessage({
+      jsonrpc: '2.0', method: 'textDocument/publishDiagnostics', params: { uri, diagnostics },
+    });
+    expect(() => publicar([{ message: 'unknown module "alu"' }, null, { message: 7 }])).not.toThrow();
+    expect(() => publicar([])).not.toThrow();
+    expect(() => publicar('nao e lista')).not.toThrow();
+    // outra notificacao do servidor: ignorada
+    expect(() => slang.handleMessage({ jsonrpc: '2.0', method: 'window/logMessage', params: {} })).not.toThrow();
+  });
+});

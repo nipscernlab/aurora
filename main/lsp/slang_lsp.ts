@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * slang_lsp.js: SystemVerilog SEMANTIC language server bridge (O11).
+ * slang_lsp.ts: SystemVerilog SEMANTIC language server bridge (O11).
  *
  * Spawns a single long-lived `slang-server` (hudson-trading/slang-server,
  * bundled in components/Packages/slang-server/bin via
@@ -64,24 +63,22 @@
  * left untouched.
  */
 
-'use strict';
+import path from 'node:path';
+import fs from 'node:fs';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { ipcMain } from 'electron';
+import log from 'electron-log';
+import chokidar from 'chokidar';
 
-const path = require('path');
-const fs = require('fs');
-const { pathToFileURL, fileURLToPath } = require('url');
-const { ipcMain } = require('electron');
-const log = require('electron-log');
-const chokidar = require('chokidar');
-
-const state = require('../state');
-const janelas = require('../main_windows');
-const { ocultarPastaDeSistemaEm } = require('../pastas_ocultas');
-const { spfDoSender } = require('../ipc/project_paths');
-const { componentsPath } = require('../paths');
-const { spawnTracked } = require('../process_registry');
-const { isAllowed } = require('../compile/binary_allowlist');
-const { criarDisjuntor } = require('./disjuntor');
-const { criarLeitorDeQuadros } = require('./frame_reader');
+import state from '../state.js';
+import janelas from '../main_windows.js';
+import { ocultarPastaDeSistemaEm } from '../pastas_ocultas.js';
+import { spfDoSender } from '../ipc/project_paths.js';
+import { componentsPath } from '../paths.js';
+import { spawnTracked } from '../process_registry.js';
+import { isAllowed } from '../compile/binary_allowlist.js';
+import { criarDisjuntor } from './disjuntor.js';
+import { criarLeitorDeQuadros } from './frame_reader.js';
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -102,17 +99,13 @@ const FILE_DELETED = 3;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
-/** @type {import('child_process').ChildProcess | null} */
-let proc = null;
+let proc: import('child_process').ChildProcess|null = null;
 let ready = false;
 let enabled = true; // toggle; the renderer syncs the persisted state at boot
-/** @type {Promise<void> | null} */
-let startPromise = null;
+let startPromise: Promise<void>|null = null;
 let nextId = 1;
-/** @type {Map<number, {resolve:(v:any)=>void, reject:(e:any)=>void, timer:NodeJS.Timeout}>} */
-const pending = new Map();
-/** @type {Map<string, {version:number, text:string, languageId:string, owner?:number|null}>} */
-const openDocs = new Map();
+const pending: Map<number,{ resolve: (v: any) => void; reject: (e: any) => void; timer: NodeJS.Timeout; }> = new Map();
+const openDocs: Map<string,{ version: number; text: string; languageId: string; owner?: number|null; }> = new Map();
 /**
  * Leitor dos quadros Content-Length do stdout, linear no tamanho da resposta.
  * Substitui o `stdoutBuf = Buffer.concat(...)` por pedaco, que era quadratico
@@ -149,13 +142,11 @@ const SPAWN_ESTAVEL_MS = 10000;
  * Project dir the live server was started for (null = none / not started).
  * @type {string|null}
  */
-let currentProjectDir = null;
-/** @type {import('chokidar').FSWatcher | null} */
-let watcher = null;
+let currentProjectDir: string|null = null;
+let watcher: import('chokidar').FSWatcher|null = null;
 /** Mudancas de disco acumuladas ate o debounce fechar: path → FileChangeType. */
 const pendingFileChanges = new Map();
-/** @type {NodeJS.Timeout | null} */
-let fileChangeTimer = null;
+let fileChangeTimer: NodeJS.Timeout|null = null;
 /** Assinatura das pastas extras indexadas, pra so reiniciar quando ela muda. */
 let extraDirsSignature = '';
 
@@ -179,27 +170,26 @@ function binInstalled() {
  * aviso calculado contra o indice do projeto errado e pior do que aviso
  * nenhum. Um servidor por projeto e o conserto de verdade e fica anotado.
  *
- * @param {number | null} [donoId] webContents.id da janela
- * @returns {string | null}
+ * @param [donoId] webContents.id da janela
  */
-function projectDirNow(donoId = null) {
+function projectDirNow(donoId: number|null = null): string|null {
   const spf = (donoId != null ? spfDoSender({ id: donoId }) : null) || state.currentOpenProjectPath;
   return spf ? path.dirname(spf) : null;
 }
 
 /** A raiz do projeto a que um documento aberto pertence, ou null. */
-function projetoDoDocumento(/** @type {string} */ uri) {
+function projetoDoDocumento(uri: string) {
   const dono = openDocs.get(uri)?.owner;
   return dono == null ? null : projectDirNow(dono);
 }
 
 /** Caminho comparavel no Windows: barras iguais, sem barra final, minusculo. */
-function chave(/** @type {string} */ p) {
+function chave(p: string) {
   return String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
 }
 
 /** `alvo` esta dentro de `base` (ou e o proprio). */
-function dentroDe(/** @type {string} */ alvo, /** @type {string} */ base) {
+function dentroDe(alvo: string, base: string) {
   const a = chave(alvo);
   const b = chave(base);
   return !!a && !!b && (a === b || a.startsWith(b + '/'));
@@ -217,7 +207,7 @@ function dentroDe(/** @type {string} */ alvo, /** @type {string} */ base) {
  * Le o .spf direto (o renderer e o dono da escrita; aqui e so leitura) e devolve
  * a lista ordenada, sem repetir, das pastas de fora.
  */
-function extraSourceDirs(/** @type {string} */ projectDir) {
+function extraSourceDirs(projectDir: string) {
   const spf = state.currentOpenProjectPath;
   if (!spf || !projectDir) return [];
   let doc;
@@ -264,9 +254,8 @@ const RE_UNKNOWN_MODULE = /unknown module '([^']+)'/;
  * faltam. Le o .spf direto, como extraSourceDirs: o renderer e o dono da
  * escrita, aqui e so leitura.
  */
-function processadoresSemHardware(/** @type {string | null} */ projectDir) {
-  /** @type {Map<string, string>} */
-  const faltam = new Map();
+function processadoresSemHardware(projectDir: string|null) {
+  const faltam: Map<string,string> = new Map();
   const spf = state.currentOpenProjectPath;
   if (!spf || !projectDir) return faltam;
   let doc;
@@ -303,7 +292,7 @@ function processadoresSemHardware(/** @type {string | null} */ projectDir) {
  * chegaram, inclusive um `unknown module` de nome que o .spf nao declara: esse
  * continua sendo erro de verdade. Funcao pura, para o teste.
  */
-function suavizarProcessadorNaoCompilado(/** @type {any[]} */ diagnostics, /** @type {Map<string, string>} */ semHardware) {
+function suavizarProcessadorNaoCompilado(diagnostics: any[], semHardware: Map<string,string>) {
   if (!semHardware || semHardware.size === 0) return diagnostics;
   return diagnostics.map((d) => {
     const msg = d && typeof d.message === 'string' ? d.message : '';
@@ -335,7 +324,7 @@ function suavizarProcessadorNaoCompilado(/** @type {any[]} */ diagnostics, /** @
  * nao tem): ele prova os dois lados com uma pasta temporaria, sem depender do
  * estado do disco de quem roda.
  */
-function libraryDirs(/** @type {string} */ projectDir, hdlDir = HDL_LIB_DIR) {
+function libraryDirs(projectDir: string, hdlDir = HDL_LIB_DIR) {
   try {
     if (!fs.existsSync(hdlDir)) return [];
   } catch { return []; }
@@ -344,7 +333,7 @@ function libraryDirs(/** @type {string} */ projectDir, hdlDir = HDL_LIB_DIR) {
 }
 
 /** Tudo que o indice precisa ver alem da raiz: a biblioteca e o que o .spf importa de fora. */
-function indexExtraDirs(/** @type {string} */ projectDir, hdlDir = HDL_LIB_DIR) {
+function indexExtraDirs(projectDir: string, hdlDir = HDL_LIB_DIR) {
   const dirs = new Map();
   for (const dir of [...libraryDirs(projectDir, hdlDir), ...extraSourceDirs(projectDir)]) {
     if (!dirs.has(chave(dir))) dirs.set(chave(dir), dir);
@@ -353,7 +342,7 @@ function indexExtraDirs(/** @type {string} */ projectDir, hdlDir = HDL_LIB_DIR) 
 }
 
 /** Onde o slang procura a config local do workspace, e a nossa marca de posse. */
-function slangConfigPaths(/** @type {string} */ projectDir) {
+function slangConfigPaths(projectDir: string) {
   const dir = path.join(projectDir, '.slang', 'local');
   return { dir, config: path.join(dir, 'server.json'), marker: path.join(dir, '.aurora') };
 }
@@ -368,7 +357,7 @@ function slangConfigPaths(/** @type {string} */ projectDir) {
  *
  * Roda antes de subir o servidor: a config so e lida no boot dele.
  */
-function syncSlangConfig(/** @type {string} */ projectDir, /** @type {string[]} */ extraDirs) {
+function syncSlangConfig(projectDir: string, extraDirs: string[]) {
   if (!projectDir) return;
   const { dir, config, marker } = slangConfigPaths(projectDir);
   const nosso = fs.existsSync(marker);
@@ -411,17 +400,15 @@ function syncSlangConfig(/** @type {string} */ projectDir, /** @type {string[]} 
  * janela), a mensagem nao vai para lugar nenhum: um marcador de erro na
  * janela errada e pior do que marcador nenhum.
  *
- * @param {string} uri documento a que a mensagem se refere
- * @param {string} channel
- * @param {any} payload
+ * @param uri documento a que a mensagem se refere
  */
-function sendToOwner(uri, channel, payload) {
+function sendToOwner(uri: string, channel: string, payload: any) {
   const dono = openDocs.get(uri)?.owner;
   if (dono == null) return;
   janelas.mandar({ origem: { id: dono }, reserva: false }, channel, payload);
 }
 
-function writeMessage(/** @type {any} */ msg) {
+function writeMessage(msg: any) {
   if (!proc || !proc.stdin || !proc.stdin.writable) return;
   const body = Buffer.from(JSON.stringify(msg), 'utf8');
   try {
@@ -432,11 +419,11 @@ function writeMessage(/** @type {any} */ msg) {
   }
 }
 
-function notify(/** @type {string} */ method, /** @type {any} */ params) {
+function notify(method: string, params: any) {
   writeMessage({ jsonrpc: '2.0', method, params });
 }
 
-function request(/** @type {string} */ method, /** @type {any} */ params) {
+function request(method: string, params: any) {
   return new Promise((resolve, reject) => {
     const id = nextId++;
     const timer = setTimeout(() => {
@@ -476,7 +463,7 @@ function nudgeOpenDocs() {
  * com o `:` da unidade escapado (`file:///c%3A/...`) e a que o Node monta aqui
  * nao, entao a comparacao textual daria "nao" para o mesmo arquivo.
  */
-function estaAberto(/** @type {string} */ file) {
+function estaAberto(file: string) {
   const alvo = chave(file);
   for (const uri of openDocs.keys()) {
     let p;
@@ -515,7 +502,7 @@ function flushFileChanges() {
   nudgeOpenDocs();
 }
 
-function queueFileChange(/** @type {string} */ file, /** @type {number} */ type) {
+function queueFileChange(file: string, type: number) {
   const ext = path.extname(file).toLowerCase();
   const spf = state.currentOpenProjectPath;
   const eSpf = !!spf && chave(file) === chave(spf);
@@ -537,13 +524,13 @@ function queueFileChange(/** @type {string} */ file, /** @type {number} */ type)
  * abriu. Ignora pastas ocultas e as de saida (Temp, Backup), que so trariam
  * copia de arquivo ja indexado.
  */
-function startWatcher(/** @type {string | null} */ dir) {
+function startWatcher(dir: string|null) {
   stopWatcher();
   if (!dir) return;
   // O teste e sempre RELATIVO a raiz observada. Testar o caminho inteiro
   // parecia equivalente e nao e: um projeto guardado em `...\Temp\meu_projeto`
   // casaria com a propria regra de exclusao e o watcher nasceria vendo nada.
-  const ignorado = (/** @type {string} */ p) => {
+  const ignorado = (p: string) => {
     const rel = path.relative(dir, p);
     if (!rel || rel.startsWith('..')) return false;
     return rel.split(/[\\/]/).some((seg) => (
@@ -576,7 +563,7 @@ function stopWatcher() {
   if (w) { try { w.close(); } catch { /* ja fechado */ } }
 }
 
-function handleMessage(/** @type {any} */ msg) {
+function handleMessage(msg: any) {
   // Response to one of our requests.
   if (msg.id !== undefined && msg.id !== null && (msg.result !== undefined || msg.error !== undefined)) {
     const entry = pending.get(msg.id);
@@ -600,7 +587,7 @@ function handleMessage(/** @type {any} */ msg) {
       const diagnostics = Array.isArray(msg.params.diagnostics) ? msg.params.diagnostics : [];
       // O .spf so e lido quando ha um `unknown module` para julgar: no caso
       // comum (nenhum) a publicacao nao toca no disco.
-      const temDesconhecido = diagnostics.some((/** @type {{ message?: unknown }} */ d) => d && typeof d.message === 'string' && RE_UNKNOWN_MODULE.test(d.message));
+      const temDesconhecido = diagnostics.some((d: { message?: unknown; }) => d && typeof d.message === 'string' && RE_UNKNOWN_MODULE.test(d.message));
       sendToOwner(msg.params.uri, 'slang:diagnostics', {
         uri: msg.params.uri,
         diagnostics: temDesconhecido
@@ -623,7 +610,7 @@ function handleMessage(/** @type {any} */ msg) {
   }
 }
 
-function onStdout(/** @type {Buffer} */ chunk) {
+function onStdout(chunk: Buffer) {
   leitor.push(chunk);
 }
 
@@ -647,10 +634,10 @@ function handleProcessGone() {
  * dela e nao o ultimo aberto em qualquer lugar. Vale so durante o arranque.
  * @type {number | null}
  */
-let projetoPedidoPor = null;
+let projetoPedidoPor: number|null = null;
 
-function doStart() {
-  return new Promise((resolve, reject) => {
+function doStart(): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     if (!binInstalled()) { reject(new Error('slang-server not installed')); return; }
     const verdict = isAllowed(LS_BIN);
     if (!verdict.ok) { reject(new Error(verdict.error)); return; }
@@ -759,7 +746,7 @@ function start() {
   return startPromise;
 }
 
-async function ensureReady(/** @type {number | null} */ donoId = null) {
+async function ensureReady(donoId: number|null = null) {
   projetoPedidoPor = donoId;
   if (!enabled) return false;
   if (ready) return true;
@@ -769,9 +756,8 @@ async function ensureReady(/** @type {number | null} */ donoId = null) {
 
 /**
  * Kill the live server. clearDiag drops the markers the renderer shows.
- * @param {boolean} [clearDiag]
  */
-function stop(clearDiag) {
+function stop(clearDiag?: boolean) {
   if (clearDiag) {
     for (const uri of openDocs.keys()) sendToOwner(uri, 'slang:diagnostics', { uri, diagnostics: [] });
   }
@@ -796,7 +782,7 @@ function restart() {
 }
 
 /** If the open project changed under us, restart so slang re-indexes it. */
-function maybeRestartForProject(/** @type {number | null} */ donoId = null) {
+function maybeRestartForProject(donoId: number|null = null) {
   if (ready && projectDirNow(donoId) !== currentProjectDir) {
     // Keep openDocs, the renderer disposes old-project models (didClose) and
     // opens the new ones, so openDocs already reflects the new set; doStart
@@ -807,7 +793,7 @@ function maybeRestartForProject(/** @type {number | null} */ donoId = null) {
 
 // ── Document lifecycle (renderer-driven) ──────────────────────────────────────
 
-async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /** @type {string} */ languageId, /** @type {number | null} */ dono = null) {
+async function didOpen(uri: string, text: string, languageId: string, dono: number|null = null) {
   if (!enabled || typeof uri !== 'string' || typeof text !== 'string') return;
   // O servidor segue a janela em que se esta editando; ver projectDirNow.
   maybeRestartForProject(dono);
@@ -823,7 +809,7 @@ async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /*
   notify('textDocument/didOpen', { textDocument: { uri, languageId: languageId || 'systemverilog', version: 1, text } });
 }
 
-async function didChange(/** @type {string} */ uri, /** @type {string} */ text, /** @type {number | null} */ dono = null) {
+async function didChange(uri: string, text: string, dono: number|null = null) {
   if (!enabled || typeof uri !== 'string' || typeof text !== 'string') return;
   if (!(await ensureReady(dono))) return;
   const doc = openDocs.get(uri);
@@ -837,7 +823,7 @@ async function didChange(/** @type {string} */ uri, /** @type {string} */ text, 
   notify('textDocument/didChange', { textDocument: { uri, version: doc.version }, contentChanges: [{ text }] });
 }
 
-function didClose(/** @type {string} */ uri) {
+function didClose(uri: string) {
   if (typeof uri !== 'string') return;
   // Limpa ANTES de esquecer o documento: sendToOwner descobre a janela pelo
   // dono anotado nele, e depois do delete nao haveria para quem mandar.
@@ -871,7 +857,7 @@ const disjuntorCompletar = criarDisjuntor({
   aoFechar: () => log.info('[slang-ls] completar codigo voltou a responder.'),
 });
 
-async function completion(/** @type {string} */ uri, /** @type {any} */ position) {
+async function completion(uri: string, position: any) {
   if (!enabled) return null;
   if (!disjuntorCompletar.podeTentar()) return null;
   if (!(await ensureReady())) return null;
@@ -898,7 +884,7 @@ async function completion(/** @type {string} */ uri, /** @type {any} */ position
  * Falha em silencio: realce e enfeite, e o pedido sai a cada movimento de
  * cursor. Avisar a cada tremida seria pior do que nao realcar.
  */
-async function documentHighlight(/** @type {string} */ uri, /** @type {any} */ position) {
+async function documentHighlight(uri: string, position: any) {
   if (!enabled) return null;
   if (!(await ensureReady())) return null;
   try {
@@ -921,7 +907,7 @@ async function documentHighlight(/** @type {string} */ uri, /** @type {any} */ p
  * O Verible nao implementa: responde "method not found" (-32601). Este recurso
  * so existe com o slang ligado.
  */
-async function workspaceSymbol(/** @type {string} */ query) {
+async function workspaceSymbol(query: string) {
   if (!enabled) return null;
   if (!(await ensureReady())) return null;
   try {
@@ -946,7 +932,7 @@ async function workspaceSymbol(/** @type {string} */ query) {
  * Falha calada, como o realce: o editor pede isto a cada rolagem e a cada
  * edicao, e um aviso por pedido seria barulho constante para um enfeite.
  */
-async function inlayHint(/** @type {string} */ uri, /** @type {any} */ range) {
+async function inlayHint(uri: string, range: any) {
   if (!enabled) return null;
   if (!(await ensureReady())) return null;
   try {
@@ -964,7 +950,7 @@ async function inlayHint(/** @type {string} */ uri, /** @type {any} */ range) {
  * recurso valer, porque o caminho escrito e relativo e a pessoa teria de
  * descobrir a partir de onde.
  */
-async function documentLink(/** @type {string} */ uri) {
+async function documentLink(uri: string) {
   if (!enabled) return null;
   if (!(await ensureReady())) return null;
   try {
@@ -984,7 +970,7 @@ async function documentLink(/** @type {string} */ uri) {
  * portas. Largura e quem dirige sao duas das perguntas que mais se faz lendo
  * Verilog dos outros, e ate agora a resposta exigia abrir o outro arquivo.
  */
-async function hover(/** @type {string} */ uri, /** @type {any} */ position) {
+async function hover(uri: string, position: any) {
   if (!enabled) return null;
   if (!(await ensureReady())) return null;
   try {
@@ -994,7 +980,7 @@ async function hover(/** @type {string} */ uri, /** @type {any} */ position) {
   }
 }
 
-function setEnabled(/** @type {boolean} */ on) {
+function setEnabled(on: boolean) {
   on = !!on;
   if (on === enabled) return { enabled };
   enabled = on;
@@ -1030,15 +1016,8 @@ function register() {
 // escreve o resultado onde o slang le. processadoresSemHardware e
 // suavizarProcessadorNaoCompilado cuidam do unico `unknown module` legitimo, o
 // do processador que o C± ainda nao gerou.
-module.exports = {
-  register,
-  // Excluir um projeto precisa derrubar o servidor: o processo nasce com o
-  // diretorio de trabalho na pasta do projeto, e no Windows isso a prende.
-  // Ele sobe de novo sozinho no proximo arquivo aberto (ensureReady).
-  stop,
-  extraSourceDirs,
-  indexExtraDirs,
-  syncSlangConfig,
-  processadoresSemHardware,
-  suavizarProcessadorNaoCompilado,
-};
+export { register, stop, extraSourceDirs, indexExtraDirs, syncSlangConfig, processadoresSemHardware, suavizarProcessadorNaoCompilado };
+
+// Exportadas para teste: so rodam com o servidor de pe (o vigia que ele pede e
+// os diagnosticos que ele publica), e a CI nao tem o binario do slang.
+export { handleMessage, startWatcher, stopWatcher };

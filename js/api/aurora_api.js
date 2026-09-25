@@ -53,7 +53,7 @@ import { activeEditor, activeModel, flashLines, magicWandReveal } from './editor
 // Apelido ate os metodos de arquivo do `project` sairem para o modulo deles;
 // o repintar mora em abas_e_arvore.ts.
 const refreshTree = atualizarArvore;
-import { listarArquivosDoProjeto } from './arvore_do_projeto.js';
+import { acharArquivoNoProjeto, listarArquivosDoProjeto } from './arvore_do_projeto.js';
 import { examplesNs } from './examples_ns.js';
 import { manualNs } from './manual_ns.js';
 import { switchTerminal } from '../terminal/terminal.js';
@@ -67,54 +67,8 @@ import { motivoDe } from '../app/api_reply.js';
 
 
 
-/**
- * Resolve a file the AI named to an absolute path inside the open project:
- * even when it passes just a basename or a partial nested path, and even when
- * casing differs (Windows is case-insensitive; a plain endsWith match is not).
- * Strategy, in order:
- *   1. the path as given (relative → joined to root; absolute → as-is) if it
- *      exists on disk;
- *   2. an exact relative-path match in the project tree (case-insensitive);
- *   3. a path that ENDS WITH the requested partial path ("Software/foo.cmm");
- *   4. a basename match anywhere in the tree (shortest path wins on ties).
- * Returns the absolute path string, or null if the file is nowhere in the
- * project. Shared by editor.openFile and project.readFile so both "find" a file
- * instead of erroring the moment a literal path miss happens.
- */
-async function resolveProjectFile(filePath, root) {
-  if (!filePath || !root) return null;
-  const isAbsolute = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
-  const direct = isAbsolute
-    ? filePath
-    : `${root}\\${String(filePath).replace(/^[\\/]+/, '').replace(/\//g, '\\')}`;
-
-  // 1. Try the path as given first, cheapest, and the usual hit.
-  try {
-    await electronAPI.readFile(direct);
-    return direct;
-  } catch (_) { /* fall through to a project-wide search */ }
-
-  // An absolute path that doesn't exist has nothing to search against.
-  if (isAbsolute) return null;
-
-  // 2-4. Walk the whole project tree and match by name, case-insensitively.
-  let tree;
-  try { tree = await projectNs.getTree(root); } catch (_) { return null; }
-  if (!tree || !tree.ok || !Array.isArray(tree.data)) return null;
-  const paths = tree.data;                       // relative, forward-slash
-  const want = String(filePath).replace(/^[\\/]+/, '').replace(/\\/g, '/').toLowerCase();
-  const wantBase = want.split('/').pop();
-
-  let match = paths.find((p) => p.toLowerCase() === want)                       // exact rel path
-    || paths.find((p) => p.toLowerCase().endsWith(`/${want}`));                 // partial nested path
-  if (!match) {
-    const byBase = paths.filter((p) => p.toLowerCase().split('/').pop() === wantBase);
-    byBase.sort((a, b) => a.length - b.length);  // prefer the shallowest hit
-    match = byBase[0];
-  }
-  if (!match) return null;
-  return `${root}\\${match.replace(/\//g, '\\')}`;
-}
+// Achar um arquivo do projeto pelo nome que a IA deu mora em
+// arvore_do_projeto.ts (acharArquivoNoProjeto).
 
 /* ============================================================
  *  Event bus
@@ -292,7 +246,7 @@ const editorNs = {
     // Aceita o mesmo tipo de caminho aproximado que openFile aceita.
     if (filePath) {
       const root = window.currentProjectPath || '';
-      const abs = root ? await resolveProjectFile(filePath, root) : null;
+      const abs = root ? await acharArquivoNoProjeto(filePath, root) : null;
       if (!abs) return err(`"${filePath}" not found anywhere in the project.`);
       alvo = abs;
     }
@@ -302,7 +256,10 @@ const editorNs = {
     let ed = EditorManager.getEditorForFile?.(alvo) ?? null;
     if (!ed) {
       const r = await editorNs.openFile({ filePath: alvo });
-      if (!r?.success) return r;
+      // O envelope da API e `{ ok, data }`. Ate 25/09/2026 isto conferia um
+      // `.success` que ele nao tem, e formatar um arquivo fechado parava aqui,
+      // devolvendo o resultado do openFile no lugar do da formatacao.
+      if (!r?.ok) return r;
       ed = EditorManager.getEditorForFile?.(alvo) ?? null;
     }
     if (!ed?.getModel) return err(`Could not open an editor for "${alvo}"`);
@@ -380,7 +337,7 @@ const editorNs = {
     if (!root) return err('No project open');
     // Find the file anywhere in the project (basename / partial path / casing),
     // not just at the literal path the AI guessed.
-    const absPath = await resolveProjectFile(filePath, root);
+    const absPath = await acharArquivoNoProjeto(filePath, root);
     if (!absPath) {
       return err(`"${filePath}" not found anywhere in the project. Use get_project_tree to list available paths.`);
     }
@@ -763,7 +720,7 @@ const projectNs = {
     } catch (e) {
       // Literal path missed, search the whole project by name / partial path
       // / casing before giving up, so a file in a nested folder still opens.
-      const found = await resolveProjectFile(filePath, root);
+      const found = await acharArquivoNoProjeto(filePath, root);
       if (found && found.toLowerCase() !== target.toLowerCase()) {
         try { return await readAt(found); } catch (_) { /* fall through */ }
       }

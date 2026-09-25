@@ -47,3 +47,51 @@ export async function listarArquivosDoProjeto(rootPath?: string | null) {
   await walk(root, 0);
   return ok(relPaths);
 }
+
+/**
+ * Resolve a file the AI named to an absolute path inside the open project:
+ * even when it passes just a basename or a partial nested path, and even when
+ * casing differs (Windows is case-insensitive; a plain endsWith match is not).
+ * Strategy, in order:
+ *   1. the path as given (relative → joined to root; absolute → as-is) if it
+ *      exists on disk;
+ *   2. an exact relative-path match in the project tree (case-insensitive);
+ *   3. a path that ENDS WITH the requested partial path ("Software/foo.cmm");
+ *   4. a basename match anywhere in the tree (shortest path wins on ties).
+ * Returns the absolute path string, or null if the file is nowhere in the
+ * project. Shared by editor.openFile and project.readFile so both "find" a file
+ * instead of erroring the moment a literal path miss happens.
+ */
+export async function acharArquivoNoProjeto(filePath: string | null | undefined, root: string | null | undefined): Promise<string | null> {
+  if (!filePath || !root) return null;
+  const isAbsolute = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
+  const direct = isAbsolute
+    ? filePath
+    : `${root}\\${String(filePath).replace(/^[\\/]+/, '').replace(/\//g, '\\')}`;
+
+  // 1. Try the path as given first, cheapest, and the usual hit.
+  try {
+    await electronAPI.readFile(direct);
+    return direct;
+  } catch (_) { /* fall through to a project-wide search */ }
+
+  // An absolute path that doesn't exist has nothing to search against.
+  if (isAbsolute) return null;
+
+  // 2-4. Walk the whole project tree and match by name, case-insensitively.
+  const tree = await listarArquivosDoProjeto(root);
+  if (!tree.ok || !Array.isArray(tree.data)) return null;
+  const paths = tree.data;                       // relative, forward-slash
+  const want = String(filePath).replace(/^[\\/]+/, '').replace(/\\/g, '/').toLowerCase();
+  const wantBase = want.split('/').pop();
+
+  let match = paths.find((p) => p.toLowerCase() === want)                       // exact rel path
+    || paths.find((p) => p.toLowerCase().endsWith(`/${want}`));                 // partial nested path
+  if (!match) {
+    const byBase = paths.filter((p) => p.toLowerCase().split('/').pop() === wantBase);
+    byBase.sort((a, b) => a.length - b.length);  // prefer the shallowest hit
+    match = byBase[0];
+  }
+  if (!match) return null;
+  return `${root}\\${match.replace(/\//g, '\\')}`;
+}

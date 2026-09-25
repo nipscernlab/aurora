@@ -41,7 +41,6 @@ import { resolveSpec } from '../compilation/spec_runner.js';
 import { STEP_IDS, STEP_DESCRIPTIONS } from '../compilation/command_spec.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TabManager } from '../tabs/tab_manager.js';
-import { SharedModelRegistry } from '../editor/shared_models.js';
 import { setTooltipsEnabled } from '../ui/tooltip.js';
 import { gitNs } from './git_ns.js';
 import { prismNs } from './prism_ns.js';
@@ -51,7 +50,8 @@ import { processadoresDoProjeto } from './processadores_ns.js';
 import { arquivosDoProjeto } from './arquivos_ns.js';
 import { cicloDoProjeto } from './ciclo_do_projeto_ns.js';
 import { renomearProjeto } from './renomear_projeto_ns.js';
-import { loadRules, rulesNs } from './rules_ns.js';
+import { rulesNs } from './rules_ns.js';
+import { analiseDoAsm } from './analise_asm_ns.js';
 import { arquivosAbertos } from './abas_e_arvore.js';
 import { activeEditor, activeModel, flashLines, magicWandReveal } from './editor_ativo.js';
 import { acharArquivoNoProjeto, listarArquivosDoProjeto } from './arvore_do_projeto.js';
@@ -511,162 +511,8 @@ const projectNs = {
   // repintar e a vista da arvore) moram em arquivos_ns.ts.
   ...arquivosDoProjeto,
 
-  /**
-   * Parse a SAPHO assembly (.asm) file and return a structured summary
-   * the AI can reason about without re-reading the whole text.
-   *
-   * Resolution order (one of these must work):
-   *   1. explicit `filePath` (absolute, or relative to project root)
-   *   2. `processorName`  → <root>/<proc>/Software/<proc>.asm
-   *   3. neither          → active editor (must be .asm)
-   *
-   * The returned shape lets the AI ask "how many instructions are in
-   * the loop at @L3?" or "how many floating-point multiplications does
-   * this processor do?" in O(1) after one call.
-   */
-  async analyzeAsm({ filePath, processorName } = {}) {
-    const root = window.currentProjectPath || null;
-    let target = null;
-
-    if (filePath) {
-      target = String(filePath).trim();
-    } else if (processorName) {
-      if (!root) return err('No project open');
-      target = `${root}\\${processorName}\\Software\\${processorName}.asm`;
-    } else {
-      const active = window.tabManager?.getEditingFilePath?.()
-                  || window.TabManager?.getEditingFilePath?.();
-      if (!active || !active.toLowerCase().endsWith('.asm')) {
-        return err('no filePath/processorName and active file is not .asm');
-      }
-      target = active;
-    }
-
-    if (target.includes('..')) return err('path must not contain ".."');
-    const isAbsolute = /^[a-zA-Z]:[\\/]/.test(target) || target.startsWith('\\\\');
-    if (!isAbsolute && root) target = `${root}\\${target.replace(/^[\\/]+/, '')}`;
-
-    // Stay inside the project folder, same boundary as readFile.
-    if (root) {
-      const norm = (p) => p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
-      const r = norm(root);
-      const t = norm(target);
-      if (t !== r && !t.startsWith(r + '\\')) {
-        return err('file is outside the open project folder');
-      }
-    }
-
-    // Read text (live model wins if the file is open in Monaco, so the
-    // analysis tracks unsaved edits, same contract as readFile).
-    let text;
-    const liveModel = SharedModelRegistry.getModel(target);
-    if (liveModel) {
-      text = liveModel.getValue();
-    } else {
-      try { text = String(await electronAPI.readFile(target) ?? ''); }
-      catch (e) { return err(`File not found: "${target}"`); }
-    }
-
-    // Load the opcode table so we recognise mnemonics. Without rules
-    // we fall back to a regex-only parser (every uppercase identifier
-    // is treated as a mnemonic).
-    const rules    = await loadRules();
-    const opcodes  = (rules?.asm?.opcodes) || [];
-    const mneSet   = new Set(opcodes.map((o) => o.mnemonic));
-    const families = new Map(opcodes.map((o) => [o.mnemonic, o.family]));
-
-    /** @type {Record<string, number>} */
-    const byOpcode = Object.create(null);
-    /** @type {Record<string, number>} */
-    const byFamily = Object.create(null);
-    /** @type {{name:string,line:number}[]} */
-    const labelDefs = [];
-    /** @type {{from:number, target:string, mnemonic:string}[]} */
-    const branches = [];
-    /** @type {string[]} */
-    const unknownMnemonics = [];
-
-    const lines = text.split(/\r?\n/);
-    let total = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-      const raw = lines[i];
-      // Strip block-end comments (`//...`) but keep the body.
-      const noComment = raw.replace(/\/\/.*$/, '').trim();
-      if (!noComment) continue;
-      // Header directives (#PRNAME, #NUBITS, ...) are not instructions.
-      if (noComment.startsWith('#')) continue;
-
-      // Pull every leading `@label` (a single .asm line can carry
-      // several labels, e.g. `@main @L1 LOD 1`).
-      let rest = noComment;
-      while (rest.startsWith('@')) {
-        const m = /^@([A-Za-z_][A-Za-z0-9_]*)\s*(.*)$/.exec(rest);
-        if (!m) break;
-        labelDefs.push({ name: m[1], line: i + 1 });
-        rest = m[2];
-      }
-      if (!rest) continue;
-
-      // First whitespace-separated token after labels = mnemonic.
-      const tokens = rest.split(/\s+/);
-      const mne = tokens[0];
-      if (!mne) continue;
-      // Mnemonics are uppercase letters/digits/underscore.
-      if (!/^[A-Z][A-Z0-9_]*$/.test(mne)) continue;
-
-      total++;
-      byOpcode[mne] = (byOpcode[mne] || 0) + 1;
-      const fam = families.get(mne) || 'other';
-      byFamily[fam] = (byFamily[fam] || 0) + 1;
-
-      if (!mneSet.has(mne) && unknownMnemonics.indexOf(mne) < 0) {
-        unknownMnemonics.push(mne);
-      }
-
-      // Branches: JMP/JIZ/CAL take a single label-name operand. Record
-      // so we can identify loops below.
-      if (mne === 'JMP' || mne === 'JIZ' || mne === 'CAL') {
-        const tgt = tokens[1];
-        if (tgt && /^[A-Za-z_][A-Za-z0-9_]*$/.test(tgt)) {
-          branches.push({ from: i + 1, target: tgt, mnemonic: mne });
-        }
-      }
-    }
-
-    // Loop detection: a branch is a back-edge if its target label was
-    // defined on or before the branch's own line (classic JMP-loop).
-    // For each loop we estimate body size as branch_line − label_line.
-    const labelLine = new Map();
-    for (const l of labelDefs) {
-      if (!labelLine.has(l.name)) labelLine.set(l.name, l.line);
-    }
-    const loops = [];
-    for (const b of branches) {
-      const lineOfLabel = labelLine.get(b.target);
-      if (lineOfLabel == null) continue;
-      if (lineOfLabel <= b.from) {
-        loops.push({
-          label:   b.target,
-          labelLine: lineOfLabel,
-          branchLine: b.from,
-          branchMnemonic: b.mnemonic,
-          bodyInstructions: Math.max(0, b.from - lineOfLabel),
-        });
-      }
-    }
-    loops.sort((a, b) => b.bodyInstructions - a.bodyInstructions);
-
-    return ok({
-      filePath: target,
-      total,
-      byOpcode,
-      byFamily,
-      labels: labelDefs,
-      loops,
-      unknownMnemonics,        // warns if .asm has opcodes not in sapho_rules
-    });
-  },
+  // A analise de .asm (analyzeAsm) mora em analise_asm_ns.ts.
+  ...analiseDoAsm,
 
   // As memorias do projeto (listMemories, remember, forget) moram em
   // memorias_ns.ts.

@@ -107,6 +107,8 @@ js/api/arquivos_ns.js
 js/api/ciclo_do_projeto_ns.js
 js/api/renomear_projeto_ns.js
 js/api/rules_ns.js
+js/api/analise_asm_ns.js
+js/compilation/analise_asm.js
 js/api/examples_ns.js
 js/api/manual_ns.js
 js/compilation/processor_source.js

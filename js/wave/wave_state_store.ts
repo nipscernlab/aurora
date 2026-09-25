@@ -324,8 +324,3 @@ export const WaveStore = {
     return out;
   },
 };
-
-if (typeof window !== 'undefined') {
-  // Exposed for non-module callers, mirroring SpfStore.
-  window.WaveStore = WaveStore;
-}

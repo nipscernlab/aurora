@@ -185,8 +185,6 @@ declare global {
     availableProcessors?: string[];
     /** Set by command_overrides.ts for non-module callers. */
     CommandOverrides?: unknown;
-    /** Set by wave_state_store.ts for non-module callers. */
-    WaveStore?: unknown;
     /** Set by spf_store.ts for non-module callers. */
     SpfStore?: unknown;
     /** Set by command_spec.ts for non-module callers. */

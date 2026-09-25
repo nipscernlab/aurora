@@ -10,7 +10,7 @@
     "js/ui/notification.js"
   ],
   "ProjectStore": [
-    "js/project/project_store.js"
+    "js/project/project_store.ts"
   ],
   "SharedModelRegistry": [
     "js/editor/shared_models.js"
@@ -24,9 +24,6 @@
   ],
   "TabManager": [
     "js/app/renderer.js"
-  ],
-  "WaveStore": [
-    "js/wave/wave_state_store.ts"
   ],
   "_latestCompilationModule": [
     "js/compilation/compilation_module.js"
@@ -59,10 +56,10 @@
     "js/app/renderer.js"
   ],
   "currentProjectPath": [
-    "js/project/project_store.js"
+    "js/project/project_store.ts"
   ],
   "currentSpfPath": [
-    "js/project/project_store.js"
+    "js/project/project_store.ts"
   ],
   "fileTreeViewController": [
     "js/tree/file_tree_view_controller.js"
@@ -86,7 +83,7 @@
     "js/app/renderer.js"
   ],
   "isCompilationCanceled": [
-    "js/compilation/compilation_flow.js"
+    "js/compilation/cancelamento.ts"
   ],
   "onload": [
     "js/app/renderer.js"
@@ -119,10 +116,10 @@
     "js/tree/standard_tree_render.js"
   ],
   "syncCmmcompEnabled": [
-    "js/compilation/compilation_flow.js"
+    "js/compilation/botoes_da_barra.ts"
   ],
   "syncToolbarEnabledState": [
-    "js/compilation/compilation_flow.js"
+    "js/compilation/botoes_da_barra.ts"
   ],
   "t": [
     "js/i18n/i18n.js"

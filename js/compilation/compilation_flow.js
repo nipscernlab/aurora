@@ -43,48 +43,16 @@ import { lerConfigDeSimulacao } from '../project/processor_sim_config.js';
 import { languageLabel, setDrawnGlyphLanguage } from '../ui/language_glyph.js';
 import { compileProcessorSource, locateProcessorSource } from './processor_dispatch.js';
 import { statusUpdater } from '../ui/status_updater.js';
+import {
+    checkCancellation, desfazerCancelamento, eCancelamento, foiCancelada,
+    iniciarRodada, pedirCancelamento, primeiroCartao,
+} from './cancelamento.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
 // =====================================================================
-// Cancellation
+// Cancellation: o estado mora em cancelamento.ts
 // =====================================================================
-
-let compilationCanceled = false;
-
-// O cartao "Compilacao cancelada pelo usuario" pertence ao CANCELAMENTO, nao a
-// cada caminho que morreu por causa dele. Um clique em Cancelar mata o que
-// estiver rodando, e cada caminho morto chega ao logFatalError com o seu
-// proprio erro; sem esta marca, um unico clique escrevia o mesmo cartao uma vez
-// por caminho. Zera junto com a bandeira, no inicio da proxima compilacao.
-let cancelCardShown = false;
-
-const CANCELLED_TOKEN = Symbol.for('aurora.cancelled');
-
-function makeCancellationError() {
-    const err = new Error(tr('error.user.cancelled'));
-    err[CANCELLED_TOKEN] = true;
-    return err;
-}
-
-function isCancellationError(error) {
-    return !!(error && error[CANCELLED_TOKEN]);
-}
-
-function checkCancellation() {
-    if (compilationCanceled) {
-        throw makeCancellationError();
-    }
-}
-
-// Expoe pro CompilationModule consultar entre fases.
-if (typeof window !== 'undefined') {
-    window.checkCancellation = checkCancellation;
-    // Non-throwing peek, for code that must merely stay quiet once the user has
-    // cancelled (e.g. the terminal's progress bar refusing to rebuild itself
-    // from stream chunks that were already in flight when the kill landed).
-    window.isCompilationCanceled = () => compilationCanceled;
-}
 
 // =====================================================================
 // Terminal switching
@@ -228,7 +196,7 @@ async function comRegistro(pedido, corpo) {
             ...desfechoDaExecucao({
                 resolveu: true,
                 falha: falha && !falha.cancelada ? falha : null,
-                cancelada: compilationCanceled || !!(falha && falha.cancelada),
+                cancelada: foiCancelada() || !!(falha && falha.cancelada),
             }),
             // O que o COMPILADOR disse, lido da saida pelo mesmo reconhecedor
             // que pinta os marcadores. O deposito e zerado no inicio de cada
@@ -238,7 +206,7 @@ async function comRegistro(pedido, corpo) {
         return r;
     } catch (erro) {
         fecharExecucao(exec, {
-            ...desfechoDaExecucao({ resolveu: false, erro, cancelada: compilationCanceled }),
+            ...desfechoDaExecucao({ resolveu: false, erro, cancelada: foiCancelada() }),
             problemas: problemasParaRegistro(problemStore.listar()),
         });
         throw erro;
@@ -311,8 +279,7 @@ const ERROR_TERMINAL = Object.freeze({
  *   faltando).
  */
 function startCompilation(terminalsToClear) {
-    compilationCanceled = false;
-    cancelCardShown = false;
+    iniciarRodada();
     const tm = window.initializeGlobalTerminalManager();
     if (tm && Array.isArray(terminalsToClear)) {
         for (const id of terminalsToClear) tm.clearTerminalImmediate?.(id);
@@ -444,17 +411,16 @@ function logFatalError(terminalId, error) {
     // User-triggered cancel is not a failure: render it as a friendly
     // info card (no "Erro Fatal:" prefix, no red error styling).
     //
-    // `compilationCanceled` matters as much as the tagged error here. Only the
+    // `foiCancelada()` matters as much as the tagged error here. Only the
     // handful of `checkCancellation()` points between phases raise the tagged
     // error; a cancel that lands *inside* a running step kills the child, and
     // the step then rejects with whatever the dying tool reported, "cocotb
     // simulation failed with exit code 1". That is the kill, not a real fault,
     // so once the user has cancelled, every fatal is reported as the cancel.
-    if (isCancellationError(error) || compilationCanceled) {
+    if (eCancelamento(error) || foiCancelada()) {
         // Cancelamento engolido pelo handler chegava ao registro como OK.
         reportarFalhaNaExecucao({ cancelada: true, mensagem: null });
-        if (cancelCardShown) return;
-        cancelCardShown = true;
+        if (!primeiroCartao()) return;
         getTM()?.appendToTerminal?.(
             terminalId,
             tr('compilation.cancelledByUser'),
@@ -1280,7 +1246,7 @@ class CompilationFlowManager {
      * sobre a ultima, que e exatamente a pergunta que a IA precisa fazer
      * quando um resultado nao chegou.
      */
-    wasCancelled() { return compilationCanceled; }
+    wasCancelled() { return foiCancelada(); }
 
     cancelAll() {
         const tm = getTM();
@@ -1296,13 +1262,12 @@ class CompilationFlowManager {
         // clicks Cancel, nothing visible happens (the cancellation hasn't
         // propagated yet), they click again, and the second click looks
         // like a dead button.
-        if (compilationCanceled) {
+        if (!pedirCancelamento()) {
             tm?.appendToTerminal?.(
                 activeTerminalId, tr('compilation.cancelInProgress'), 'tips',
             );
             return;
         }
-        compilationCanceled = true;
 
         // Retire the progress bar at once. It is frozen at whatever % the last
         // stdout line reported, and leaving it there next to a "cancelled" card
@@ -1339,8 +1304,7 @@ class CompilationFlowManager {
                 // the flag, but a stray `checkCancellation()` between
                 // cancelAll and the next build would otherwise still throw.)
                 if (result && result.success === false) {
-                    compilationCanceled = false;
-                    cancelCardShown = false;
+                    desfazerCancelamento();
                     tm?.appendToTerminal?.(
                         activeTerminalId, tr('compilation.nothingToCancel'), 'tips',
                     );

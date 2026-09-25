@@ -145,6 +145,7 @@ js/wave/wave_state_store.js
 js/project/project_store.js
 js/tree/git_decorations.js
 js/compilation/run_history.js
+js/compilation/cancelamento.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

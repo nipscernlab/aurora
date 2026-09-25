@@ -141,7 +141,7 @@ declare global {
     getYancLang?: () => string;
     /** i18n do renderer; os modulos usam o shim `tr()`, que cai na chave se ela nao tiver subido. */
     t?: (chave: string, params?: Record<string, unknown>) => string;
-    /** Ligada pelo compilation_flow ao Cancelar: o .exe morto reporta a morte como falha propria. */
+    /** De js/compilation/cancelamento.ts: o .exe morto pelo Cancelar reporta a morte como falha propria. */
     isCompilationCanceled?: () => boolean;
     /** A pagina do PRISM se publica para o preload e para os testes. */
     prismViewer?: unknown;

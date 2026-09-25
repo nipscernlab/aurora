@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { getSimulator, setSimulator } from '../../js/wave/simulator_preference.js';
 import { getViewer, setViewer, getSurferMode, setSurferMode } from '../../js/wave/viewer_preference.js';
+import { getSurferMultiWindow, setSurferMultiWindow } from '../../js/wave/surfer_window_preference.js';
 
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
@@ -43,6 +44,27 @@ describe.each(casos)('preferencia de $nome', ({ get, set, chave, padrao, outro }
     });
     expect(get()).toBe(padrao);
     expect(set(outro)).toBe(outro);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('varias janelas do Surfer', () => {
+  it('padrao uma janela so; so true liga', () => {
+    expect(getSurferMultiWindow()).toBe(false);
+    expect(setSurferMultiWindow(true)).toBe(true);
+    expect(localStorage.getItem('aurora.surferMultiWindow')).toBe('true');
+    expect(getSurferMultiWindow()).toBe(true);
+    expect(setSurferMultiWindow('true')).toBe(false);
+    expect(getSurferMultiWindow()).toBe(false);
+  });
+
+  it('storage que lanca nao derruba', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => { throw new Error('bloqueado'); },
+      setItem: () => { throw new Error('cheio'); },
+    });
+    expect(getSurferMultiWindow()).toBe(false);
+    expect(setSurferMultiWindow(true)).toBe(true);
     vi.unstubAllGlobals();
   });
 });

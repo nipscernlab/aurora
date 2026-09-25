@@ -4,8 +4,15 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { showCardNotification } from '../ui/notification.js';
+import { ProjectStore } from '../project/project_store.js';
+import { fileTreeViewController } from './file_tree_view_controller.js';
+import { standardTreeRenderer } from './standard_tree_render.js';
 
 class FileTreeController {
+  collapseButton: HTMLElement | null = null;
+  backupButton: HTMLElement | null = null;
+  fileTreeContainer: HTMLElement | null = null;
+
   constructor() {
     this.init();
   }
@@ -42,11 +49,12 @@ class FileTreeController {
    * Handles the project backup process.
    */
   async handleBackup() {
-    const icon = this.backupButton.querySelector('i');
+    const botao = this.backupButton as HTMLElement;
+    const icon = botao.querySelector('i');
     if (!icon) return;
 
     // 1. Get current project path
-    const projectPath = window.currentProjectPath || localStorage.getItem('currentProjectPath');
+    const projectPath = ProjectStore.getProjectPath();
 
     // 2. Validate if a project is open
     if (!projectPath) {
@@ -56,19 +64,19 @@ class FileTreeController {
 
     // 3. UI Feedback: Start pulse animation and disable button
     icon.classList.add('backup-active');
-    this.backupButton.style.pointerEvents = 'none';
+    botao.style.pointerEvents = 'none';
     
     showCardNotification('Creating project backup... Please wait.', 'info', 5000);
 
     try {
         // 4. Invoke main process handler
-        const result = await electronAPI.createBackup(projectPath);
+        const result = await electronAPI.createBackup!(projectPath);
 
         // 5. Show result
-        if (result.success) {
-            showCardNotification(result.message, 'success', 6000);
+        if (result?.success) {
+            showCardNotification(result.message ?? '', 'success', 6000);
         } else {
-            showCardNotification(result.message || 'Failed to create backup.', 'error', 6000);
+            showCardNotification(result?.message || 'Failed to create backup.', 'error', 6000);
         }
     } catch (error) {
         console.error('Error invoking create-backup IPC handler:', error);
@@ -77,7 +85,7 @@ class FileTreeController {
         // 6. Restore UI
         setTimeout(() => {
             icon.classList.remove('backup-active');
-            this.backupButton.style.pointerEvents = 'auto';
+            botao.style.pointerEvents = 'auto';
         }, 500);
     }
 }
@@ -90,14 +98,13 @@ class FileTreeController {
    * everything. The action is decided from live state each click, so it
    * always does the right thing regardless of manual node toggles.
    */
-  async toggleTree() {
-    const view = window.fileTreeViewController?.getActiveView?.() ?? 'verilog';
+  async toggleTree(): Promise<void> {
+    const view = fileTreeViewController.getActiveView?.() ?? 'verilog';
 
     if (view === 'hierarchy') {
       this._setHierarchyExpanded(!this._anythingExpanded());
     } else if (view === 'standard') {
-      const r = window.standardTreeRenderer;
-      if (!r) return;
+      const r = standardTreeRenderer;
       if (r.hasExpanded()) r.collapseAll();
       else await r.expandAll();
     } else {
@@ -107,16 +114,12 @@ class FileTreeController {
     this.showCollapseEffect();
   }
 
-  /** True if the active view currently has any expanded node. */
-  _anythingExpanded() {
-    const view = window.fileTreeViewController?.getActiveView?.() ?? 'verilog';
-    if (view === 'hierarchy') {
-      return !!this.fileTreeContainer.querySelector('.hierarchy-children.expanded');
-    }
-    if (view === 'standard') {
-      return !!window.standardTreeRenderer?.hasExpanded?.();
-    }
-    return false;
+  /**
+   * Ha algum no aberto na hierarquia? So a hierarquia pergunta aqui: a vista de
+   * pastas responde pelo hasExpanded() do proprio standardTreeRenderer.
+   */
+  _anythingExpanded(): boolean {
+    return !!this.fileTreeContainer?.querySelector('.hierarchy-children.expanded');
   }
 
   /**
@@ -124,14 +127,15 @@ class FileTreeController {
    * both `.hierarchy-children` (.expanded/.collapsed) and the
    * `.hierarchy-toggle` flag the curved markers in h_tree.css key off.
    */
-  _setHierarchyExpanded(expand) {
-    this.fileTreeContainer.querySelectorAll('.hierarchy-children')
-      .forEach(children => {
+  _setHierarchyExpanded(expand: boolean): void {
+    const arvore = this.fileTreeContainer as HTMLElement;
+    arvore.querySelectorAll('.hierarchy-children')
+      .forEach((children) => {
         children.classList.toggle('expanded', expand);
         children.classList.toggle('collapsed', !expand);
       });
-    this.fileTreeContainer.querySelectorAll('.hierarchy-toggle')
-      .forEach(toggle => toggle.classList.toggle('expanded', expand));
+    arvore.querySelectorAll('.hierarchy-toggle')
+      .forEach((toggle) => toggle.classList.toggle('expanded', expand));
   }
 
   /**
@@ -163,7 +167,7 @@ class FileTreeController {
     // so the tooltip names both actions. data-tooltip drives Aurora's
     // custom tooltip (see js/ui/tooltip.js); window.t falls back to the
     // English string when i18n isn't ready.
-    const tr = (k, fb) => {
+    const tr = (k: string, fb: string): string => {
       const v = window.t ? window.t(k) : null;
       return (v && v !== k) ? v : fb;
     };
@@ -208,10 +212,11 @@ class FileTreeController {
   }
 }
 
-// Initialize the controller
+// Initialize the controller. Ninguem le a instancia: ela vive nos ouvintes dos
+// botoes (o window.fileTreeController que se gravava nao tinha leitor).
 function initFileTreeController() {
   if (document.getElementById('file-tree')) {
-    window.fileTreeController = new FileTreeController();
+    new FileTreeController();
   }
 }
 

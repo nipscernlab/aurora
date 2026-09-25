@@ -160,6 +160,7 @@ js/compilation/compilation_flow.js
 js/compilation/wave_toolchain.js
 js/wave/gtkw_custom.js
 js/wave/surfer_window_preference.js
+js/ai/memory.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

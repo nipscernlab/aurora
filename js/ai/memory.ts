@@ -1,8 +1,8 @@
-// memory.js: naming rules for PROJECT MEMORY (<root>/.aurora/memory/<name>.md).
+// memory.ts: naming rules for PROJECT MEMORY (<root>/.aurora/memory/<name>.md).
 //
 // Pure: no DOM, no globals, no IO, same posture as tool_permission.js, so the
 // unit suite can cover it without a renderer. The IO itself lives in
-// aurora_api.js (project.remember / listMemories / forget); this module owns
+// js/api/memorias_ns.ts (project.remember / listMemories / forget); this module owns
 // only the part that has to be provably safe.
 
 /**
@@ -18,10 +18,8 @@
  * name rather than substituting a default, or the model could land every memory
  * on one file. Capped at 64 chars to stay well under the path limit.
  *
- * @param {unknown} name
- * @returns {string}
  */
-export function memorySlug(name) {
+export function memorySlug(name: unknown): string {
     if (typeof name !== 'string') return '';
     return name
         .normalize('NFKD').replace(/[̀-ͯ]/g, '')   // acentos → ascii

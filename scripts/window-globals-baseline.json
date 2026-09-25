@@ -1,0 +1,139 @@
+{
+  "AuroraAPI": [
+    "js/api/aurora_api.js"
+  ],
+  "AuroraSlang": [
+    "js/editor/slang_integration.js"
+  ],
+  "AuroraUI": [
+    "js/ui/dialog_manager.ts",
+    "js/ui/notification.js"
+  ],
+  "ProjectStore": [
+    "js/project/project_store.js"
+  ],
+  "SharedModelRegistry": [
+    "js/editor/shared_models.js"
+  ],
+  "SpfStore": [
+    "js/project/spf_store.ts"
+  ],
+  "SplitEditorManager": [
+    "js/app/renderer.js",
+    "js/editor/split_editor.js"
+  ],
+  "TabManager": [
+    "js/app/renderer.js"
+  ],
+  "WaveStore": [
+    "js/wave/wave_state_store.ts"
+  ],
+  "_latestCompilationModule": [
+    "js/compilation/compilation_module.js"
+  ],
+  "abrirTerminal": [
+    "js/utils/resize.js"
+  ],
+  "aiAssistantManager": [
+    "js/ui/ai_assistant_manager.js"
+  ],
+  "appInitializer": [
+    "js/app/app_initializer.js"
+  ],
+  "auroraAbrirConfiguracoes": [
+    "js/processors/aurora_settings.js"
+  ],
+  "auroraIconSrc": [
+    "js/ui/icon_aurora.js"
+  ],
+  "auroraRewind": [
+    "js/ai/rewind.js"
+  ],
+  "availableProcessors": [
+    "js/project/processor_list.ts"
+  ],
+  "compilationFlowManager": [
+    "js/app/renderer.js"
+  ],
+  "compilationModule": [
+    "js/app/renderer.js"
+  ],
+  "currentProjectPath": [
+    "js/project/project_store.js"
+  ],
+  "currentSpfPath": [
+    "js/project/project_store.js"
+  ],
+  "fileTreeViewController": [
+    "js/tree/file_tree_view_controller.js"
+  ],
+  "getLocale": [
+    "js/i18n/i18n.js"
+  ],
+  "getYancLang": [
+    "js/i18n/i18n.js"
+  ],
+  "globalTerminalManager": [
+    "js/app/renderer.js"
+  ],
+  "gtkwPickerManager": [
+    "js/wave/gtkw_picker.js"
+  ],
+  "i18nApplyDOM": [
+    "js/i18n/i18n.js"
+  ],
+  "initializeGlobalTerminalManager": [
+    "js/app/renderer.js"
+  ],
+  "isCompilationCanceled": [
+    "js/compilation/compilation_flow.js"
+  ],
+  "onload": [
+    "js/app/renderer.js"
+  ],
+  "projectManager": [
+    "js/app/renderer.js"
+  ],
+  "projectTreeManager": [
+    "js/project/file_mode.js"
+  ],
+  "recentProjectsManager": [
+    "js/app/renderer.js"
+  ],
+  "renderTreeEmptyState": [
+    "js/tree/file_tree_manager.js"
+  ],
+  "setLocale": [
+    "js/i18n/i18n.js"
+  ],
+  "shellTerminal": [
+    "js/terminal/shell_terminal.js"
+  ],
+  "showNotification": [
+    "js/ui/notification.js"
+  ],
+  "standardTreeCrud": [
+    "js/tree/standard_tree_crud.js"
+  ],
+  "standardTreeRenderer": [
+    "js/tree/standard_tree_render.js"
+  ],
+  "syncCmmcompEnabled": [
+    "js/compilation/compilation_flow.js"
+  ],
+  "syncToolbarEnabledState": [
+    "js/compilation/compilation_flow.js"
+  ],
+  "t": [
+    "js/i18n/i18n.js"
+  ],
+  "toggleTerminal": [
+    "js/utils/resize.js"
+  ],
+  "treeView": [
+    "js/tree/tree_view.js"
+  ],
+  "waveConfigManager": [
+    "js/wave/wave_config_manager.js"
+  ]
+}

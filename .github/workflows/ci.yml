@@ -92,6 +92,12 @@ jobs:
       - name: Design tokens (no new hardcoded colours or durations)
         run: node scripts/check-design-tokens.js
 
+      # Catraca de globais. O que um arquivo poe em `window` e outro le de la
+      # e dependencia que o grafo de import nao mostra e o TypeScript ve como
+      # `any`. Nao exige tirar as 45 de hoje; exige que nenhuma nova nasca.
+      - name: Window globals (no new cross-file globals)
+        run: node scripts/check-window-globals.mts
+
       - name: Sanity check JS modules
         shell: pwsh
         run: |

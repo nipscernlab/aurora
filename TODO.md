@@ -2088,10 +2088,10 @@ os ciclos saem de um Tarjan sobre os `import`/`export ... from` relativos de
 
 A cadeia, nesta ordem:
 
-- [ ] **13.1 Catraca de globais.** Um script na CI que conta as globais que o
-      aplicativo põe em `window` e falha se o número subir, do jeito do
-      `scripts/check-design-tokens.js`. Não exige limpar as 45; exige que
-      nenhuma nova nasça. Linha de base: 45 em 25/09.
+- [x] **13.1 Catraca de globais.** `scripts/check-window-globals.mts`, na CI.
+      A base (`scripts/window-globals-baseline.json`) guarda os nomes, não só
+      a contagem, então trocar uma global por outra também acusa. Tirar uma
+      pede `--update`. Linha de base: 45 em 25/09.
 - [ ] **13.2 Trocar as globais por `import`, começando pelo estado mutável.**
       Primeiro `currentProjectPath` e `currentSpfPath`, lidos direto do
       `js/project/project_store.js`, que já existe e já é importado por 12

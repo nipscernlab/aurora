@@ -23,11 +23,16 @@ O plano de deploy, na ordem: instalar num PC do LABEL, gerar a release e
 testar, gerar uma segunda release e ver a atualização acontecer, e só então
 implantar na frota. As seções 1 a 4 são esse plano; as demais vêm depois.
 
-## Estado verificado em 24/09/2026
+## Estado verificado em 25/09/2026
 
-`main` em `1c19931b`, CI verde, árvore limpa. São 2544 testes unitários, 50
-E2E e os de toolchain. A catraca de tipos está em 99 erros conhecidos, em 26
-arquivos.
+`main` em `5b49d512`, CI verde, árvore limpa. São 2715 testes unitários, 50
+E2E e os de toolchain. A catraca de tipos está em 22 erros conhecidos, em 11
+arquivos (era 99 em 26 no dia 24). Restam 272 `.js` versionados, contra 87
+`.ts`. A release 6.21.0 (PR #149) está pronta e segura de propósito: sai
+depois da próxima versão do yanc.
+
+Desde 24/09 a CI também exige teste para toda linha alterada
+(`npm run coverage:diff`, ver o CONTRIBUTING, "Changing a file").
 
 O CI ficou vermelho de 21 a 24/09, por duas causas somadas, as duas do mesmo
 feitio: um passo carregava um módulo cujo `.js` só existe depois do
@@ -35,7 +40,10 @@ feitio: um passo carregava um módulo cujo `.js` só existe depois do
 `1c19931b`, com o build virando passo próprio logo depois do `npm ci`. Fica a
 lição, que vale para qualquer verificação nova: **na máquina de quem
 desenvolve os `.js` gerados estão sempre lá, então `npm run deadcode` e
-qualquer passo que carregue um módulo passam aqui e falham no runner.**
+qualquer passo que carregue um módulo passam aqui e falham no runner.** O
+inverso também morde: o knip resolvia `require('./x')` para o `x.js` gerado,
+que o `.gitignore` tira da análise, e nunca olhou um `.ts` até `5b49d512`.
+Por isso o `npm run deadcode` agora tira os `.js` gerados antes do knip.
 
 ---
 
@@ -1570,7 +1578,7 @@ temática quando for pego.
       um submódulo menor e simular aquele. Provado na AURORA de pé com o
       `contador`: simMode ligado, papel desenhado, dígito do `clk` presente.
       Três coisas que o uso real ensinou no mesmo dia. O PRISM guarda o nome
-      CRU do yosys, e para módulo parametrizado é `$paramodase\K=V`:
+      CRU do yosys, e para módulo parametrizado é `$paramod\base\K=V`:
       mandar isso ao `hierarchy -top` não acha nada, e a primeira versão caía
       no topo do projeto em silêncio; agora `prism_sim_target.js` vira o nome
       em módulo mais `-chparam`, testado contra nomes reais. O Voltar morria
@@ -2029,10 +2037,17 @@ sai quando ela acabar.
 - [ ] **O último `.d.ts` escrito à mão.**
       [js/tabs/tab_manager.d.ts](js/tabs/tab_manager.d.ts) repete à mão
       assinaturas que o próprio arquivo já descreve, e as duas cópias podem
-      divergir sem nada acusar. O `tab_manager.js` tem 1986 linhas, então vale
-      a válvula da regra: extrair o núcleo para `.ts` novo, não renomear o
-      arquivo. (O `electron_api.d.ts` não entra nessa conta: ele não duplica
-      assinatura, só descreve o Proxy da ponte.)
+      divergir sem nada acusar. Some quando o `tab_manager.js` (1986 linhas)
+      for convertido; desde 24/09 arquivo grande também é convertido inteiro,
+      ver a seção 14. (O `electron_api.d.ts` não entra nessa conta: ele não
+      duplica assinatura, só descreve o Proxy da ponte.)
+- [ ] **Nome herdado do objeto no canal do tree-sitter.**
+      `treesitter:wasm` ([main/treesitter/grammars.ts](main/treesitter/grammars.ts))
+      procura o nome pedido numa tabela comum, então `toString` acha a função
+      herdada e o handler rejeita, em vez de devolver `null` como as outras
+      recusas. Não lê arquivo nenhum. `tests/unit/treesitterGrammars.test.js`
+      trava o comportamento de hoje; consertar é trocar a busca por
+      `Object.hasOwn`, e o teste muda junto.
 - [ ] **Limite conhecido do rename de processador.**
       `artefatosDoProcessador` ([main/ipc/processor_rename.ts](main/ipc/processor_rename.ts))
       cobre só `Software`, `Hardware` e `Simulation`. Um arquivo com o nome do
@@ -2044,6 +2059,100 @@ sai quando ela acabar.
       [js/tabs/tab_utils.ts](js/tabs/tab_utils.ts), então o Save-As valida nome
       de processador e a árvore do projeto não. Igualar muda comportamento, e
       por isso não foi feito junto da unificação dos outros quatro.
+
+## 13. Desmacarronar o código (plano de 25/09/2026)
+
+O diagnóstico, medido e não suposto. O emaranhado não está nos `import`: o
+renderer tem 208 módulos e um único par que se importa em roda
+(`js/tree/standard_tree_crud.js` e `js/tree/standard_tree_render.js`). Está em
+dois lugares que o grafo de `import` não mostra.
+
+**Globais em `window`.** O próprio aplicativo põe 45 coisas em `window` num
+arquivo e as lê em outros. É dependência que não aparece em `import`, não tem
+tipo (para o TypeScript é `any`) e pode ser trocada por qualquer um. As mais
+espalhadas, em 25/09: `window.t` (lida em 63 arquivos), `showNotification`
+(20), `currentProjectPath` (18), `TabManager` (16), `fileTreeViewController`
+(11), `AuroraAPI`, `SplitEditorManager` e `projectTreeManager` (10 cada),
+`ProjectStore` e `currentSpfPath` (8). Estado mutável solto assim foi a raiz
+de bugs como o do git que caía no projeto de outra janela.
+
+**Arquivos gigantes que concentram mudança.** Commits de 25/06 a 25/09:
+`js/app/preload.js` 63, `js/ui/ai_assistant_manager.js` 40 (4022 linhas),
+`js/compilation/compilation_module.js` 37 (3725), `js/api/aurora_api.js` 27
+(3201), `main.js` 25, `js/compilation/compilation_flow.js` 25 (1354).
+
+Como foi medido, para refazer a conta: globais são os nomes em
+`window.X = ...` num arquivo de `js/` que aparecem como `window.X` em outro;
+os ciclos saem de um Tarjan sobre os `import`/`export ... from` relativos de
+`js/`; a mudança é `git log --since --name-only` contando por arquivo.
+
+A cadeia, nesta ordem:
+
+- [ ] **13.1 Catraca de globais.** Um script na CI que conta as globais que o
+      aplicativo põe em `window` e falha se o número subir, do jeito do
+      `scripts/check-design-tokens.js`. Não exige limpar as 45; exige que
+      nenhuma nova nasça. Linha de base: 45 em 25/09.
+- [ ] **13.2 Trocar as globais por `import`, começando pelo estado mutável.**
+      Primeiro `currentProjectPath` e `currentSpfPath`, lidos direto do
+      `js/project/project_store.js`, que já existe e já é importado por 12
+      módulos. Depois as instâncias únicas (`TabManager`,
+      `SplitEditorManager`, `fileTreeViewController`, `projectTreeManager`,
+      `AuroraAPI`) viram exportação do módulo que as cria. `window.t` vira
+      import do módulo de i18n. Cada troca deixa a dependência visível no
+      grafo, tipada e testável; a catraca desce junto.
+- [ ] **13.3 Dividir os gigantes por responsabilidade, na ordem de quem mais
+      muda:** `ai_assistant_manager` (o item da seção 12 já lista os próximos
+      grupos), `compilation_module`, `aurora_api` (três namespaces já saíram
+      para `js/api/*_ns.ts`) e `compilation_flow`. Cada parte extraída nasce
+      `.ts` e com teste; o que sobra do arquivo é convertido no fim. Não é a
+      válvula antiga: aqui a divisão é o objetivo, não um jeito de adiar a
+      conversão.
+- [ ] **13.4 (decisão do Luciano, com o Chrys e o Arthur) Contrato tipado da
+      ponte.** O `preload.js` é o arquivo que mais muda: toda funcionalidade
+      nova passa pela ponte entre renderer e main. Um contrato único dos canais,
+      lido pelos dois lados, tiraria esse gargalo, mas conversa com o desenho
+      da API da AURORA que está em curso.
+
+A conversão dos arquivos pequenos para `.ts` segue entre uma coisa e outra
+(seção 14).
+
+## 14. Migração para TypeScript: o que falta (25/09/2026)
+
+O objetivo é não sobrar JavaScript escrito à mão, e arquivo grande também é
+convertido inteiro (regra do CONTRIBUTING desde 24/09). Toda conversão vem
+com teste das linhas tocadas, escrito antes e conferido no `.js` antigo.
+
+As ferramentas: `npm run converter:ts -- <arquivo.js>` faz a parte mecânica
+(git mv, `require`/`module.exports` para `import`/`export` sem tocar no corpo,
+tipos do JSDoc para a assinatura, `.gitignore`). Teste de módulo que apaga,
+mata processo ou fala com a rede monta as travas por
+`tests/helpers/cercado.js` e chama `provar()` antes de qualquer caso. O commit
+do teste vai antes e só com os arquivos dele (`git commit -- <arquivos>`); o da
+conversão é um commit comum do índice, sem listar o `.js`, senão o git grava
+o `.js` gerado.
+
+- [ ] **14.1 Os 22 erros da catraca, em 11 arquivos.** `main/ai/claude_code.js`
+      e `main/ai/codex_cli.js` (4 cada, os mesmos: campos do payload e do
+      detect que o JSDoc não declara), `main/windows.js` (2), `main/ipc/project.js`
+      (2), `main/exemplos/instalar.js` (2, que vêm do `structure` do
+      `ProjectFile` inferido como `never[]` dentro do `project.js`: converter
+      os dois juntos), `main/ipc/search_worker.js` (3, ver 14.2),
+      `main/ipc/prism.js`, `main/ipc/history.js`, `main/ipc/files.js`,
+      `main/ipc/surfer_tab.js` e `scripts/check-component-drift.js` (1 cada).
+- [ ] **14.2 `search_worker.js` e `search_core.js` pedem outra estratégia.** Os
+      dois não são módulos: o `main/ipc/search.js` lê os dois como texto e roda
+      a concatenação num worker com `eval: true`. Convertidos como estão, o
+      CommonJS emitido traria o cabeçalho de `exports`, que não existe dentro
+      do worker. O `MAX_FILES` do `search_core` é o que obriga o
+      `substituirNoProjeto.test.js` a escrever 520 arquivos.
+- [ ] **14.3 Os outros cerca de 260 `.js`**, depois dos da catraca, com os da
+      seção 13 na frente.
+- [ ] **14.4 Histórico com sete commits de teste que não se sustentam
+      sozinhos.** `154dd23e`, `1c681c05`, `31ab24d5`, `48096d3e`, `995d7293`,
+      `9d827884` e `ee916b01` levaram junto a renomeação `.js` para `.ts` ainda
+      com o conteúdo antigo; a conversão entrou no commit seguinte, e a ponta
+      da `main` e a CI estão certas. Só importa para um `git bisect`: pule
+      esses sete. Reescrever exigiria force push na `main`, e não vale.
 
 ## Princípios de desenho
 

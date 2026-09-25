@@ -19,10 +19,18 @@
  * Matching is case-insensitive (Windows-friendly, like git's default).
  */
 
+/** Uma linha do .inv, compilada. */
+export interface RegraInv {
+  re: RegExp;
+  negate: boolean;
+  dirOnly: boolean;
+  anchored: boolean;
+}
+
 const RE_SPECIALS = '\\^$.|+()[]{}';
 
 /** Translate a glob body (no anchoring decision) into a regex source string. */
-function globToRegExp(glob) {
+function globToRegExp(glob: string): string {
   let out = '';
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i];
@@ -47,10 +55,9 @@ function globToRegExp(glob) {
 
 /**
  * Parse `.inv` text into an ordered list of compiled rules.
- * @returns {Array<{re: RegExp, negate: boolean, dirOnly: boolean, anchored: boolean}>}
  */
-export function parseInv(text) {
-  const rules = [];
+export function parseInv(text: unknown): RegraInv[] {
+  const rules: RegraInv[] = [];
   for (const raw of String(text || '').split(/\r?\n/)) {
     let line = raw.replace(/\s+$/, ''); // drop trailing whitespace
     if (!line || line.startsWith('#')) continue;
@@ -79,11 +86,11 @@ export function parseInv(text) {
  * Anchored rules test the full relative path; unanchored ones test the basename.
  * Last matching rule wins (so `!` re-includes).
  */
-export function isInvHidden(relPath, isDir, rules) {
+export function isInvHidden(relPath: string | null | undefined, isDir: boolean | undefined, rules: readonly RegraInv[] | null | undefined): boolean {
   if (!rules || rules.length === 0) return false;
   const rel = String(relPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
   if (!rel) return false;
-  const base = rel.split('/').pop();
+  const base = rel.split('/').pop() ?? '';
 
   let hidden = false;
   for (const r of rules) {

@@ -1,5 +1,5 @@
 /**
- * material_icons.js: folder/file icon resolver for the Folders (standard)
+ * material_icons.ts: folder/file icon resolver for the Folders (standard)
  * file-tree view, backed by the **Material Icon Theme** SVG set.
  *
  * The package's generated VSCode-icon-theme manifest (`material-icons.json`) is
@@ -43,18 +43,30 @@ const OVERRIDES = Object.freeze({
   mif: 'database',
 });
 
+/** O manifesto do Material Icon Theme, so os campos que a arvore consulta. */
+export interface Manifesto {
+  iconDefinitions?: Record<string, { iconPath?: string }>;
+  folderNames?: Record<string, string>;
+  folderNamesExpanded?: Record<string, string>;
+  fileNames?: Record<string, string>;
+  fileExtensions?: Record<string, string>;
+  folder?: string;
+  folderExpanded?: string;
+  file?: string;
+}
+
 /** basename without directory, from a manifest iconPath like "./../icons/folder-test.svg". */
-function baseName(p) {
-  return String(p || '').split(/[\\/]/).pop();
+function baseName(p: string | null | undefined): string {
+  return String(p || '').split(/[\\/]/).pop() ?? '';
 }
 
 /**
  * Resolve an icon-definition NAME to its vendored SVG URL using the manifest's
  * iconDefinitions (robust even if a def name differs from its file basename).
  * Falls back to `<name>.svg` when the def is missing.
- * @returns {string} document-relative URL
+ * @returns document-relative URL
  */
-export function iconUrlFromManifest(manifest, name) {
+export function iconUrlFromManifest(manifest: Manifesto | null | undefined, name: string): string {
   const def = manifest && manifest.iconDefinitions && manifest.iconDefinitions[name];
   const file = def && def.iconPath ? baseName(def.iconPath) : `${name}.svg`;
   return `${VENDOR_BASE}${file}`;
@@ -65,7 +77,7 @@ export function iconUrlFromManifest(manifest, name) {
  * Match is case-insensitive (manifest keys are lowercase). Unknown folders fall
  * back to the default folder / folder-open.
  */
-export function resolveFolderIconName(manifest, folderName, open = false) {
+export function resolveFolderIconName(manifest: Manifesto, folderName: string | null | undefined, open = false): string {
   const key = String(folderName || '').toLowerCase();
   const names = open ? (manifest.folderNamesExpanded || {}) : (manifest.folderNames || {});
   if (Object.prototype.hasOwnProperty.call(names, key)) return names[key];
@@ -79,7 +91,7 @@ export function resolveFolderIconName(manifest, folderName, open = false) {
  *   3. compound extension, longest first  (e.g. "test.js" before "js")
  *   4. default file icon
  */
-export function resolveFileIconName(manifest, fileName) {
+export function resolveFileIconName(manifest: Manifesto, fileName: string | null | undefined): string {
   const lower = String(fileName || '').toLowerCase();
 
   const byName = manifest.fileNames || {};
@@ -89,7 +101,7 @@ export function resolveFileIconName(manifest, fileName) {
   const parts = lower.split('.');
   // Simple (last) extension first checks the SAPHO override table.
   const simple = parts.length > 1 ? parts[parts.length - 1] : '';
-  if (simple && Object.prototype.hasOwnProperty.call(OVERRIDES, simple)) return OVERRIDES[simple];
+  if (simple && Object.prototype.hasOwnProperty.call(OVERRIDES, simple)) return (OVERRIDES as Record<string, string>)[simple];
 
   // Compound extensions, longest → shortest: "a.b.c" tries "b.c" then "c".
   for (let i = 1; i < parts.length; i++) {
@@ -103,11 +115,11 @@ export function resolveFileIconName(manifest, fileName) {
 // Runtime layer, fetch + cache the real manifest, sync URL helpers.
 // ---------------------------------------------------------------------------
 
-let _manifest = null;       // resolved manifest object (null until loaded)
-let _loadPromise = null;    // in-flight / settled load promise
+let _manifest: Manifesto | null = null;                  // resolved manifest object (null until loaded)
+let _loadPromise: Promise<Manifesto | null> | null = null; // in-flight / settled load promise
 
 /** Load + cache the manifest once. Resolves to the manifest, or null on failure. */
-export function ensureManifest() {
+export function ensureManifest(): Promise<Manifesto | null> {
   if (_manifest) return Promise.resolve(_manifest);
   if (_loadPromise) return _loadPromise;
   _loadPromise = (async () => {
@@ -125,16 +137,16 @@ export function ensureManifest() {
 }
 
 /** True once a load attempt has settled (manifest may still be null on failure). */
-export function ready() { return ensureManifest(); }
+export function ready(): Promise<Manifesto | null> { return ensureManifest(); }
 
 /** Folder icon URL (default glyph until the manifest is loaded). */
-export function iconUrlForFolder(folderName, { open = false } = {}) {
+export function iconUrlForFolder(folderName: string | null | undefined, { open = false }: { open?: boolean } = {}): string {
   if (!_manifest) return `${VENDOR_BASE}${open ? 'folder-open' : 'folder'}.svg`;
   return iconUrlFromManifest(_manifest, resolveFolderIconName(_manifest, folderName, open));
 }
 
 /** File icon URL (default glyph until the manifest is loaded). */
-export function iconUrlForFile(fileName) {
+export function iconUrlForFile(fileName: string | null | undefined): string {
   if (!_manifest) return `${VENDOR_BASE}file.svg`;
   return iconUrlFromManifest(_manifest, resolveFileIconName(_manifest, fileName));
 }

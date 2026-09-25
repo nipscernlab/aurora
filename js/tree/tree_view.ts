@@ -1,5 +1,5 @@
 /**
- * tree_view.js: Single source of truth for which file-tree view is
+ * tree_view.ts: Single source of truth for which file-tree view is
  * showing right now.
  *
  * Aurora has two ways to present the file tree:
@@ -45,17 +45,17 @@
 
 const VIEW_NAMES = Object.freeze(['verilog', 'hierarchy', 'standard']);
 
+type NomeDaVista = typeof VIEW_NAMES[number];
+
 class TreeViewController {
-    constructor() {
-        this.fileTree = null;
-    }
+    fileTree: HTMLElement | null = null;
 
     /**
      * Idempotent setup. Safe to call multiple times. Also called
      * lazily by `getContainer` / `setActive` so callers don't need
      * to worry about initialization order.
      */
-    initialize() {
+    initialize(): boolean {
         const fileTree = document.getElementById('file-tree');
         if (!fileTree) return false;
         this.fileTree = fileTree;
@@ -80,13 +80,13 @@ class TreeViewController {
      * the wrapper if needed. Pass the renderer's view name in;
      * write into the returned element directly.
      */
-    getContainer(viewName) {
-        if (!VIEW_NAMES.includes(viewName)) {
+    getContainer(viewName: string): HTMLElement | null {
+        if (!VIEW_NAMES.includes(viewName as NomeDaVista)) {
             console.warn(`TreeView: unknown view "${viewName}"`);
             return null;
         }
         if (!this.fileTree) this.initialize();
-        return this.fileTree?.querySelector(`:scope > .tree-view-${viewName}`) ?? null;
+        return this.fileTree?.querySelector<HTMLElement>(`:scope > .tree-view-${viewName}`) ?? null;
     }
 
     /**
@@ -95,8 +95,8 @@ class TreeViewController {
      * subtrees stay in the DOM but are display:none, preserving
      * their state for cheap toggling without re-render.
      */
-    setActive(viewName) {
-        if (!VIEW_NAMES.includes(viewName)) {
+    setActive(viewName: string): void {
+        if (!VIEW_NAMES.includes(viewName as NomeDaVista)) {
             console.warn(`TreeView: unknown view "${viewName}"`);
             return;
         }
@@ -105,7 +105,7 @@ class TreeViewController {
         this.fileTree.dataset.activeView = viewName;
     }
 
-    getActive() {
+    getActive(): string | null {
         if (!this.fileTree) this.initialize();
         return this.fileTree?.dataset.activeView ?? null;
     }
@@ -115,13 +115,13 @@ class TreeViewController {
      * renderer wants a clean slate (rare, most renderers should
      * reconcile rather than wipe).
      */
-    clear(viewName) {
+    clear(viewName: string): void {
         const c = this.getContainer(viewName);
         if (c) c.innerHTML = '';
     }
 
     /** Wipe all three. Used on close-project. */
-    clearAll() {
+    clearAll(): void {
         for (const name of VIEW_NAMES) this.clear(name);
     }
 }
@@ -129,7 +129,7 @@ class TreeViewController {
 const treeView = new TreeViewController();
 
 if (typeof window !== 'undefined') {
-    window.treeView = treeView;
+    (window as unknown as { treeView?: TreeViewController }).treeView = treeView;
 }
 
 if (document.readyState === 'loading') {

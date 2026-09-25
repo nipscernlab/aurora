@@ -20,10 +20,60 @@ import { electronAPI } from '../app/electron_api.js';
 import { execucoesAbertas } from './compilation_flow.js';
 import { nomeDoPasso as nomeDoPassoPuro } from './run_history_labels.js';
 
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
-const $ = (id) => document.getElementById(id);
+/** Uma linha da lista: o resumo que o main grava e o compilation_flow tem das vivas. */
+export interface ResumoDeExecucao {
+  id: string;
+  pedido?: string;
+  inicio: number;
+  ms?: number;
+  passos?: number;
+  ok?: boolean;
+  cancelada?: boolean;
+  andando?: boolean;
+}
 
-let modal = null;
+/** Um problema lido da saida do compilador, com arquivo e linha. */
+interface ProblemaGravado {
+  arquivo?: string;
+  linha?: number;
+  coluna?: number;
+  mensagem?: string;
+  severidade?: string;
+  ferramenta?: string;
+}
+
+/** Uma ferramenta da cadeia que rodou. */
+interface PassoGravado {
+  step: string;
+  ferramenta?: string;
+  args?: string[];
+  ms?: number;
+  code?: number;
+  concorrente?: boolean;
+}
+
+/** O retrato do projeto no instante do clique. */
+interface EstadoGravado {
+  topoSintese?: string;
+  topoSimulacao?: string;
+  simulador?: string;
+  visualizador?: string;
+  processadores?: string[];
+  fontes?: string[];
+}
+
+/** O registro inteiro de uma execucao, como o runlog:ler devolve. */
+export interface ExecucaoGravada extends Omit<ResumoDeExecucao, 'passos'> {
+  erro?: string;
+  estado?: EstadoGravado;
+  problemas?: ProblemaGravado[];
+  passos?: PassoGravado[];
+}
+
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
+const $ = (id: string): HTMLElement | null => document.getElementById(id);
+
+let modal: HTMLElement | null = null;
 let carregando = false;
 let redesenhar = false;
 
@@ -31,23 +81,23 @@ let redesenhar = false;
  * A tabela mora em js/compilation/run_history_labels.ts, que e dado puro e
  * por isso tem teste; aqui so se amarra a traducao desta tela.
  */
-function nomeDoPasso(step) {
+function nomeDoPasso(step: string): string {
   return nomeDoPassoPuro(step, tr);
 }
 
 /** O que o usuario clicou, com o nome que a barra de status ja usa. */
-function nomeDoPedido(pedido) {
+function nomeDoPedido(pedido: string | undefined): string {
   const chave = `compilation.type.${pedido}`;
   const t = tr(chave);
   return t === chave ? String(pedido || '?') : t;
 }
 
-function escapar(s) {
+function escapar(s: unknown): string {
   return String(s ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function duracao(ms) {
+function duracao(ms: unknown): string {
   if (typeof ms !== 'number' || !Number.isFinite(ms)) return '';
   if (ms < 1000) return `${Math.round(ms)} ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`;
@@ -57,18 +107,18 @@ function duracao(ms) {
 }
 
 /** `29/08 15:46`: dia e hora bastam, o ano e o do arquivo. */
-function quando(ms) {
+function quando(ms: number): string {
   const d = new Date(ms);
-  const pad = (n) => String(n).padStart(2, '0');
+  const pad = (n: number): string => String(n).padStart(2, '0');
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 /** Nome curto de um caminho, para o retrato nao virar uma parede de barras. */
-function base(caminho) {
+function base(caminho: string | undefined): string {
   return String(caminho || '').split(/[\\/]/).pop() || '';
 }
 
-function desfecho(e) {
+function desfecho(e: Pick<ResumoDeExecucao, 'andando' | 'cancelada' | 'ok'>): { classe: string; texto: string } {
   if (e.andando) return { classe: 'andando', texto: tr('runHistory.running') };
   if (e.cancelada) return { classe: 'cancelada', texto: tr('runHistory.cancelled') };
   if (e.ok) return { classe: 'ok', texto: tr('runHistory.ok') };
@@ -77,7 +127,7 @@ function desfecho(e) {
 
 /* ------------------------------------------------------------------ lista */
 
-async function desenharLista() {
+async function desenharLista(): Promise<void> {
   const lista = $('run-history-list');
   if (!lista) return;
   const projeto = window.currentProjectPath;
@@ -95,7 +145,8 @@ async function desenharLista() {
     // As vivas na frente, e sem a gravada de mesmo id: durante o instante entre
     // gravar e sair das abertas a execucao existe nos dois lugares, e sem esse
     // filtro ela apareceria duas vezes na lista.
-    const vivas = execucoesAbertas();
+    // O resumo so devolve null sem execucao, e as abertas sempre tem uma.
+    const vivas: ResumoDeExecucao[] = execucoesAbertas().flatMap((e) => (e ? [e] : []));
     const ids = new Set(vivas.map((e) => e.id));
     const execucoes = vivas.concat((r?.execucoes || []).filter((e) => !ids.has(e.id)));
     if (!execucoes.length) {
@@ -127,7 +178,7 @@ async function desenharLista() {
       </${tag}>`;
     }).join('');
   } catch (err) {
-    lista.innerHTML = `<p class="run-history-vazio">${escapar(tr('runHistory.readFailed', { erro: err?.message || err }))}</p>`;
+    lista.innerHTML = `<p class="run-history-vazio">${escapar(tr('runHistory.readFailed', { erro: (err as Error | null)?.message || err }))}</p>`;
   } finally {
     carregando = false;
     if (redesenhar) { redesenhar = false; desenharLista(); }
@@ -147,7 +198,7 @@ async function desenharLista() {
  * nao aparece: e melhor uma tela sem a secao do que uma secao vazia dizendo que
  * nao houve erro nenhum.
  */
-function problemasHtml(problemas) {
+function problemasHtml(problemas: ProblemaGravado[] | undefined): string {
   if (!Array.isArray(problemas) || !problemas.length) return '';
   const linhas = problemas.map((p) => {
     const lugar = p.coluna ? `${p.linha}:${p.coluna}` : String(p.linha ?? '');
@@ -163,7 +214,7 @@ function problemasHtml(problemas) {
 
 /* ---------------------------------------------------------------- detalhe */
 
-async function mostrarDetalhe(id) {
+async function mostrarDetalhe(id: string | null): Promise<void> {
   const painel = $('run-history-detail');
   const lista = $('run-history-list');
   if (!painel || !lista) return;
@@ -176,7 +227,7 @@ async function mostrarDetalhe(id) {
   // O retrato vem ANTES da cadeia: e a parte que responde "em que estado o
   // projeto estava", que e a pergunta desta tela. A cadeia e o que o terminal
   // ja mostrou na hora.
-  const retrato = [
+  const retrato: Array<[string, string]> = [
     [tr('runHistory.topSynth'), base(estado.topoSintese) || tr('runHistory.none')],
     [tr('runHistory.topSim'), base(estado.topoSimulacao) || tr('runHistory.none')],
     [tr('runHistory.simulator'), estado.simulador || tr('runHistory.none')],
@@ -227,7 +278,7 @@ async function mostrarDetalhe(id) {
   $('run-history-back')?.focus();
 }
 
-function voltarParaLista() {
+function voltarParaLista(): void {
   const painel = $('run-history-detail');
   const lista = $('run-history-list');
   if (painel) painel.hidden = true;
@@ -237,7 +288,7 @@ function voltarParaLista() {
 /* --------------------------------------------------------------- abre/fecha */
 
 /** Se a lista esta visivel agora: modal aberto e detalhe fechado. */
-function listaVisivel() {
+function listaVisivel(): boolean {
   return !!modal && modal.classList.contains('show') && $('run-history-list')?.hidden === false;
 }
 
@@ -256,9 +307,9 @@ function listaVisivel() {
  * nunca chegava a ser desenhada. Pintar na entrada e esperar depois da o
  * melhor dos dois: resposta imediata, e uma listagem por janela na rajada.
  */
-let pendente = null;
+let pendente: ReturnType<typeof setTimeout> | null = null;
 let repetir = false;
-function aoMudarRegistro() {
+function aoMudarRegistro(): void {
   if (!listaVisivel()) return;
   if (pendente) { repetir = true; return; }
   desenharLista();
@@ -270,7 +321,7 @@ function aoMudarRegistro() {
   }, 250);
 }
 
-function abrir() {
+function abrir(): void {
   modal = modal || $('runHistoryModal');
   if (!modal) return;
   voltarParaLista();
@@ -279,7 +330,7 @@ function abrir() {
   desenharLista();
 }
 
-function fechar() {
+function fechar(): void {
   if (!modal) return;
   if (pendente) { clearTimeout(pendente); pendente = null; }
   repetir = false;
@@ -287,7 +338,7 @@ function fechar() {
   modal.setAttribute('aria-hidden', 'true');
 }
 
-function ligar() {
+function ligar(): void {
   modal = $('runHistoryModal');
   if (!modal) return;
   $('run-history')?.addEventListener('click', abrir);

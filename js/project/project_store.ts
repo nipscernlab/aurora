@@ -1,5 +1,5 @@
 /**
- * project_store.js: Single source of truth for "which project is open".
+ * project_store.ts: Single source of truth for "which project is open".
  *
  * Aurora used to track the current project in three places that drifted:
  *   - window.currentProjectPath / window.currentSpfPath (set by loadProject)
@@ -17,12 +17,19 @@
  * should prefer ProjectStore.getProjectPath() / getSpfPath().
  */
 
-const subscribers = new Set();
-let projectPath = null;
-let spfPath = null;
+export interface ProjectSnapshot {
+  projectPath: string | null;
+  spfPath: string | null;
+}
 
-function notify() {
-  const snapshot = { projectPath, spfPath };
+type Subscriber = (snapshot: ProjectSnapshot) => void;
+
+const subscribers = new Set<Subscriber>();
+let projectPath: string | null = null;
+let spfPath: string | null = null;
+
+function notify(): void {
+  const snapshot: ProjectSnapshot = { projectPath, spfPath };
   subscribers.forEach((fn) => {
     try {
       fn(snapshot);
@@ -33,24 +40,24 @@ function notify() {
   });
 }
 
-function mirrorToWindow() {
+function mirrorToWindow(): void {
   if (typeof window === 'undefined') return;
   window.currentProjectPath = projectPath;
   window.currentSpfPath = spfPath;
 }
 
 export const ProjectStore = {
-  getProjectPath() {
+  getProjectPath(): string | null {
     return projectPath;
   },
-  getSpfPath() {
+  getSpfPath(): string | null {
     return spfPath;
   },
-  hasProject() {
+  hasProject(): boolean {
     return projectPath !== null;
   },
 
-  setProject(newSpfPath, newProjectPath) {
+  setProject(newSpfPath: string | null | undefined, newProjectPath: string | null | undefined): void {
     if (projectPath === newProjectPath && spfPath === newSpfPath) return;
     projectPath = newProjectPath || null;
     spfPath = newSpfPath || null;
@@ -58,7 +65,7 @@ export const ProjectStore = {
     notify();
   },
 
-  clearProject() {
+  clearProject(): void {
     if (projectPath === null && spfPath === null) return;
     projectPath = null;
     spfPath = null;
@@ -66,7 +73,7 @@ export const ProjectStore = {
     notify();
   },
 
-  subscribe(fn) {
+  subscribe(fn: Subscriber): () => boolean {
     subscribers.add(fn);
     return () => subscribers.delete(fn);
   },
@@ -76,5 +83,5 @@ if (typeof window !== 'undefined') {
   // Exposed globally so code that can't import (or that loaded before this
   // module) can still consult the store via window.ProjectStore. Prefer
   // importing where possible.
-  window.ProjectStore = ProjectStore;
+  (window as unknown as { ProjectStore: typeof ProjectStore }).ProjectStore = ProjectStore;
 }

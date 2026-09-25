@@ -20,18 +20,7 @@ import { electronAPI } from '../app/electron_api.js';
 import { ProjectStore } from '../project/project_store.js';
 import { execucoesAbertas } from './compilation_flow.js';
 import { nomeDoPasso as nomeDoPassoPuro } from './run_history_labels.js';
-
-/** Uma linha da lista: o resumo que o main grava e o compilation_flow tem das vivas. */
-export interface ResumoDeExecucao {
-  id: string;
-  pedido?: string;
-  inicio: number;
-  ms?: number;
-  passos?: number;
-  ok?: boolean;
-  cancelada?: boolean;
-  andando?: boolean;
-}
+import type { ResumoDeExecucao } from './run_log.js';
 
 /** Um problema lido da saida do compilador, com arquivo e linha. */
 interface ProblemaGravado {

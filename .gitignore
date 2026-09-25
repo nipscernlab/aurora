@@ -146,6 +146,10 @@ js/project/project_store.js
 js/tree/git_decorations.js
 js/compilation/run_history.js
 js/compilation/cancelamento.js
+js/wave/simulator_preference.js
+js/wave/viewer_preference.js
+js/terminal/problem_store.js
+js/compilation/run_log.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

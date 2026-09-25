@@ -24,17 +24,87 @@
  * compilation_flow.
  */
 
+import type { RunObservation } from './spec_runner.js';
+
 /** Versao do formato. Mudou o formato, muda aqui, e quem le sabe o que esperar. */
 export const FORMATO = 1;
+
+/** O que o compilation_flow junta do .spf e das preferencias no clique. */
+export interface ConfigDoRetrato {
+  topLevelFile?: string | null;
+  testbenchFile?: string | null;
+  synthesizableFiles?: string[];
+  simulador?: string | null;
+  visualizador?: string | null;
+  processadores?: string[];
+}
+
+/** O retrato gravado: so o que muda o resultado. */
+export interface Retrato {
+  topoSintese: string | null;
+  topoSimulacao: string | null;
+  fontes: string[];
+  simulador: string | null;
+  visualizador: string | null;
+  processadores: string[];
+}
+
+/** Uma ferramenta que rodou. */
+export interface PassoGravado {
+  step: string | null;
+  ferramenta: string | null;
+  args: string[];
+  code: number | null;
+  ms: number | null;
+  concorrente?: boolean;
+}
+
+/** Um problema como vai para o registro. */
+export interface ProblemaNoRegistro {
+  arquivo: string;
+  linha: number;
+  coluna: number | null;
+  severidade?: string;
+  ferramenta?: string;
+  mensagem: string;
+}
+
+/** O registro de uma execucao, como vai para o disco. */
+export interface Execucao {
+  formato: number;
+  id: string;
+  pedido: string;
+  projeto: string | null;
+  inicio: number;
+  fim: number | null;
+  ms?: number;
+  ok: boolean | null;
+  erro: string | null;
+  cancelada: boolean;
+  passos: PassoGravado[];
+  estado: Retrato | null;
+  problemas?: ProblemaNoRegistro[];
+}
+
+/** Uma linha da lista: o mesmo formato para a gravada e para a viva. */
+export interface ResumoDeExecucao {
+  id: string;
+  pedido?: string;
+  inicio: number;
+  ms?: number;
+  passos?: number;
+  ok?: boolean | null;
+  cancelada?: boolean;
+  andando?: boolean;
+}
 
 /**
  * Abre uma execucao.
  *
- * @param {{pedido:string, projeto?:string, config?:object, agora?:number}} p
  *   `pedido` e o que o usuario clicou ('cmm', 'wave', 'all', ...), e nao o que
  *   o sistema decidiu fazer: e a intencao que da sentido ao resto.
  */
-export function abrirExecucao({ pedido, projeto = null, config = null, agora = Date.now() }) {
+export function abrirExecucao({ pedido, projeto = null, config = null, agora = Date.now() }: { pedido: string; projeto?: string | null; config?: ConfigDoRetrato | null; agora?: number }): Execucao {
   return {
     formato: FORMATO,
     id: idDe(agora, pedido),
@@ -51,7 +121,7 @@ export function abrirExecucao({ pedido, projeto = null, config = null, agora = D
 }
 
 /** `2026-08-29T14-22-31-wave`, que ordena por nome e diz o que foi. */
-export function idDe(ms, pedido) {
+export function idDe(ms: number, pedido: string | null | undefined): string {
   const iso = new Date(ms).toISOString().replace(/\.\d+Z$/, '').replace(/[:]/g, '-');
   return `${iso}-${String(pedido || 'exec').replace(/[^\w-]/g, '')}`;
 }
@@ -63,7 +133,7 @@ export function idDe(ms, pedido) {
  * categoria, e as duas preferencias que trocam a ferramenta usada. Nao e um
  * despejo do `.spf`; um retrato que guarda tudo nao se compara com outro.
  */
-export function retrato(config) {
+export function retrato(config: ConfigDoRetrato | null | undefined): Retrato | null {
   if (!config) return null;
   return {
     topoSintese: config.topLevelFile || null,
@@ -84,9 +154,9 @@ export function retrato(config) {
  * aviso. Marcar e melhor do que escolher uma e mentir, e melhor do que perder o
  * passo, que foi o que a primeira versao fez.
  */
-export function anotarPasso(exec, obs, { concorrente = false } = {}) {
+export function anotarPasso(exec: Execucao | null, obs: Partial<RunObservation> | null, { concorrente = false } = {}): Execucao | null {
   if (!exec || !obs) return exec;
-  const passo = {
+  const passo: PassoGravado = {
     step: obs.step || null,
     ferramenta: nomeDoBinario(obs.binary),
     args: Array.isArray(obs.args) ? obs.args : [],
@@ -99,7 +169,7 @@ export function anotarPasso(exec, obs, { concorrente = false } = {}) {
 }
 
 /** `C:/comp/.../iverilog.exe` vira `iverilog.exe`; o caminho inteiro fica nos args. */
-function nomeDoBinario(caminho) {
+function nomeDoBinario(caminho: string | undefined): string | null {
   return String(caminho || '').split(/[\\/]/).pop() || null;
 }
 
@@ -122,13 +192,11 @@ function nomeDoBinario(caminho) {
  * Cancelar nao e falhar: e um terceiro estado, e o que era OK-por-engano em
  * cancelamento engolido vira "cancelada".
  *
- * @param {{ resolveu: boolean, falha?: {mensagem?: string}|null, cancelada?: boolean, erro?: unknown }} f
- * @returns {{ ok: boolean, erro: string|null, cancelada: boolean }}
  */
-export function desfechoDaExecucao({ resolveu, falha = null, cancelada = false, erro = null }) {
+export function desfechoDaExecucao({ resolveu, falha = null, cancelada = false, erro = null }: { resolveu: boolean; falha?: { mensagem?: string; }|null; cancelada?: boolean; erro?: unknown; }): { ok: boolean; erro: string|null; cancelada: boolean; } {
   if (cancelada) return { ok: false, erro: null, cancelada: true };
   if (!resolveu) {
-    return { ok: false, erro: erro == null ? null : String(erro && erro.message ? erro.message : erro), cancelada: false };
+    return { ok: false, erro: erro == null ? null : String(erro && (erro as Error).message ? (erro as Error).message : erro), cancelada: false };
   }
   if (falha) return { ok: false, erro: falha.mensagem ? String(falha.mensagem) : null, cancelada: false };
   return { ok: true, erro: null, cancelada: false };
@@ -154,10 +222,9 @@ const MAX_PROBLEMAS_NO_REGISTRO = 20;
  * nao diz o que houve; o erro de verdade existia so no terminal, e sumia com
  * ele.
  *
- * @param {Array<{arquivo: string, problemas: Array<object>}>} porArquivo
  */
-export function problemasParaRegistro(porArquivo, limite = MAX_PROBLEMAS_NO_REGISTRO) {
-  const saida = [];
+export function problemasParaRegistro(porArquivo: Array<{ arquivo: string; problemas: Array<{ linha: number; coluna?: number | null; severidade?: string; ferramenta?: string; mensagem?: string }> }>, limite = MAX_PROBLEMAS_NO_REGISTRO): ProblemaNoRegistro[] {
+  const saida: ProblemaNoRegistro[] = [];
   for (const grupo of (porArquivo || [])) {
     for (const p of (grupo.problemas || [])) {
       if (saida.length >= limite) return saida;
@@ -175,7 +242,7 @@ export function problemasParaRegistro(porArquivo, limite = MAX_PROBLEMAS_NO_REGI
 }
 
 /** Fecha a execucao com o desfecho. */
-export function fecharExecucao(exec, { ok, erro = null, cancelada = false, problemas = null, agora = Date.now() }) {
+export function fecharExecucao(exec: Execucao | null, { ok, erro = null, cancelada = false, problemas = null, agora = Date.now() }: { ok: boolean; erro?: string | null; cancelada?: boolean; problemas?: ProblemaNoRegistro[] | null; agora?: number }): Execucao | null {
   if (!exec) return exec;
   exec.fim = agora;
   exec.ms = agora - exec.inicio;
@@ -193,11 +260,11 @@ export function fecharExecucao(exec, { ok, erro = null, cancelada = false, probl
  * valor do historico esta nas ultimas execucoes: e nelas que a pergunta "por
  * que mudou" e feita. Cinquenta cobre semanas de uso normal.
  *
- * @param {string[]} nomes nomes de arquivo, como estao no disco
- * @param {number} limite quantos manter
- * @returns {string[]} os que devem sair, do mais antigo para o mais novo
+ * @param nomes nomes de arquivo, como estao no disco
+ * @param limite quantos manter
+ * @returns os que devem sair, do mais antigo para o mais novo
  */
-export function podar(nomes, limite = 50) {
+export function podar(nomes: string[], limite: number = 50): string[] {
   const ordenados = (nomes || []).filter((n) => /\.json$/i.test(n)).sort();
   return ordenados.length <= limite ? [] : ordenados.slice(0, ordenados.length - limite);
 }
@@ -215,14 +282,14 @@ export function podar(nomes, limite = 50) {
  * `ms` de quem ainda roda e o tempo ATE AGORA, e nao nulo: numa execucao longa
  * o que a pessoa quer saber e ha quanto tempo aquilo esta rodando.
  */
-export function resumo(exec, agora = Date.now()) {
+export function resumo(exec: Execucao | null, agora = Date.now()): ResumoDeExecucao | null {
   if (!exec) return null;
   const terminou = typeof exec.fim === 'number';
   return {
     id: exec.id,
     pedido: exec.pedido,
     inicio: exec.inicio,
-    ms: terminou ? (exec.ms ?? exec.fim - exec.inicio) : Math.max(0, agora - exec.inicio),
+    ms: terminou ? (exec.ms ?? (exec.fim as number) - exec.inicio) : Math.max(0, agora - exec.inicio),
     ok: exec.ok,
     cancelada: !!exec.cancelada,
     passos: Array.isArray(exec.passos) ? exec.passos.length : 0,

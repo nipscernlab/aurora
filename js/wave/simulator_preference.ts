@@ -1,5 +1,5 @@
 /**
- * simulator_preference.js: Qual simulador roda no botao Wave.
+ * simulator_preference.ts: Qual simulador roda no botao Wave.
  *
  * Default: iverilog (toolchain bundlada em components/Packages/msys).
  * Alternativa: verilator, transpila pra C++, builda com g++, executa
@@ -16,17 +16,18 @@
  */
 
 const STORAGE_KEY = 'aurora.waveSimulator';
-const VALID = new Set(['iverilog', 'verilator']);
+export type Simulador = 'iverilog' | 'verilator';
+const VALID: ReadonlySet<string> = new Set<Simulador>(['iverilog', 'verilator']);
 
 /**
  * Le a escolha atual. Retorna 'iverilog' como fallback se nada estiver
  * salvo ou o valor for desconhecido. Nunca lanca, chamado em hot paths
  * (cada clique no Wave), entao defensivo a corrupcao do storage.
  */
-export function getSimulator() {
+export function getSimulator(): Simulador {
     try {
         const v = (typeof localStorage !== 'undefined') ? localStorage.getItem(STORAGE_KEY) : null;
-        return VALID.has(v) ? v : 'iverilog';
+        return v !== null && VALID.has(v) ? v as Simulador : 'iverilog';
     } catch (_e) {
         return 'iverilog';
     }
@@ -36,8 +37,8 @@ export function getSimulator() {
  * Persiste a escolha. Valores invalidos sao normalizados pra 'iverilog'.
  * Idempotente.
  */
-export function setSimulator(value) {
-    const normalized = VALID.has(value) ? value : 'iverilog';
+export function setSimulator(value: string): Simulador {
+    const normalized: Simulador = VALID.has(value) ? value as Simulador : 'iverilog';
     try {
         if (typeof localStorage !== 'undefined') {
             localStorage.setItem(STORAGE_KEY, normalized);

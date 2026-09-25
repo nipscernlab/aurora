@@ -1,5 +1,5 @@
 /**
- * problem_store.js: os problemas da ultima compilacao, guardados por arquivo.
+ * problem_store.ts: os problemas da ultima compilacao, guardados por arquivo.
  *
  * O QUE ESTAVA ERRADO. O compilador diz onde esta o erro, e a AURORA mostrava
  * isso so como texto no terminal. Dentro do editor o arquivo ficava limpo:
@@ -28,14 +28,30 @@
  * problemas, que e quem mostra o que nao cabe no editor.
  */
 
+import type * as Monaco from 'monaco-editor';
+
+// O Monaco chega como global do carregador AMD, e nao por import: aqui so o tipo.
+declare const monaco: typeof Monaco;
+
+type Modelo = Monaco.editor.ITextModel;
+
+/** Um problema lido da saida de uma ferramenta (error_locations.problemasNaLinha). */
+export interface Problema {
+  arquivo: string;
+  linha: number;
+  coluna?: number | null;
+  severidade?: string;
+  mensagem: string;
+  ferramenta?: string;
+}
+
 const DONO = 'toolchain';
 
-/** @type {Map<string, Array<object>>} chave normalizada -> problemas */
-const porArquivo = new Map();
-/** @type {Map<string, string>} chave normalizada -> caminho como veio */
-const caminhoOriginal = new Map();
-/** @type {Set<() => void>} */
-const ouvintes = new Set();
+/** chave normalizada -> problemas */
+const porArquivo: Map<string, Problema[]> = new Map();
+/** chave normalizada -> caminho como veio */
+const caminhoOriginal: Map<string, string> = new Map();
+const ouvintes: Set<() => void> = new Set();
 let ligado = false;
 
 /**
@@ -46,18 +62,18 @@ let ligado = false;
  * Comparar o texto cru faria o mesmo arquivo virar duas entradas, e o marcador
  * nunca acharia o modelo.
  */
-function chaveDe(caminho) {
+function chaveDe(caminho: string | null | undefined): string {
   return String(caminho || '').replace(/\\/g, '/').toLowerCase();
 }
 
-function avisarOuvintes() {
+function avisarOuvintes(): void {
   for (const cb of ouvintes) {
     try { cb(); } catch (e) { console.warn('[problemas] ouvinte falhou:', e); }
   }
 }
 
 /** O modelo do Monaco desse arquivo, ou null. */
-function modeloDe(caminho) {
+function modeloDe(caminho: string): Modelo | null {
   if (typeof monaco === 'undefined') return null;
   const alvo = chaveDe(caminho);
   for (const model of monaco.editor.getModels()) {
@@ -67,7 +83,7 @@ function modeloDe(caminho) {
 }
 
 /** Um problema vira marcador. A coluna e opcional: o Icarus nao da nenhuma. */
-function paraMarcador(p, model) {
+function paraMarcador(p: Problema, model: Modelo): Monaco.editor.IMarkerData {
   const linha = Math.max(1, Math.min(p.linha, model.getLineCount()));
   const maxCol = model.getLineMaxColumn(linha);
   // Sem coluna, o marcador cobre a LINHA inteira. Escolher a coluna 1 poria um
@@ -89,14 +105,14 @@ function paraMarcador(p, model) {
 }
 
 /** Escreve (ou limpa) os marcadores de um modelo. */
-function aplicarNoModelo(model) {
+function aplicarNoModelo(model: Modelo | null): void {
   if (!model || typeof monaco === 'undefined') return;
   if (model.isDisposed && model.isDisposed()) return;
   const lista = porArquivo.get(chaveDe(model.uri.fsPath)) || [];
   monaco.editor.setModelMarkers(model, DONO, lista.map((p) => paraMarcador(p, model)));
 }
 
-function aplicarEmTodos() {
+function aplicarEmTodos(): void {
   if (typeof monaco === 'undefined') return;
   for (const model of monaco.editor.getModels()) aplicarNoModelo(model);
 }
@@ -108,7 +124,7 @@ export const problemStore = {
    * vermelho da rodada passada ao lado de uma barra de progresso e a interface
    * afirmando uma coisa que ela nao sabe mais.
    */
-  limpar() {
+  limpar(): void {
     porArquivo.clear();
     caminhoOriginal.clear();
     aplicarEmTodos();
@@ -117,10 +133,8 @@ export const problemStore = {
 
   /**
    * Le uma linha de saida da toolchain. Sem problema nela, nao faz nada.
-   * @param {string} texto
-   * @param {{ cmmPadrao?: string|null, problemasNaLinha: Function }} deps
    */
-  registrarLinha(texto, { cmmPadrao = null, problemasNaLinha }) {
+  registrarLinha(texto: string, { cmmPadrao = null, problemasNaLinha }: { cmmPadrao?: string | null; problemasNaLinha: (texto: string, o: { cmmPadrao?: string | null }) => Problema[] }): void {
     const achados = problemasNaLinha(texto, { cmmPadrao });
     if (!achados.length) return;
 
@@ -131,7 +145,7 @@ export const problemStore = {
         porArquivo.set(chave, []);
         caminhoOriginal.set(chave, p.arquivo);
       }
-      const lista = porArquivo.get(chave);
+      const lista = porArquivo.get(chave) ?? [];
       // O mesmo erro sai duas vezes com frequencia: o Verilator repete o local
       // na linha de continuacao, e um build completo passa pelo mesmo arquivo
       // em etapas diferentes. Repetir viraria dois rabiscos sobrepostos e dois
@@ -153,8 +167,8 @@ export const problemStore = {
   },
 
   /** Tudo o que se sabe, para o painel: [{ arquivo, problemas }]. */
-  listar() {
-    const saida = [];
+  listar(): Array<{ arquivo: string; problemas: Problema[] }> {
+    const saida: Array<{ arquivo: string; problemas: Problema[] }> = [];
     for (const [chave, problemas] of porArquivo) {
       if (!problemas.length) continue;
       saida.push({ arquivo: caminhoOriginal.get(chave) || chave, problemas });
@@ -163,7 +177,7 @@ export const problemStore = {
   },
 
   /** Quantos erros e quantos avisos ha no total. */
-  contagem() {
+  contagem(): { erros: number; avisos: number } {
     let erros = 0;
     let avisos = 0;
     for (const lista of porArquivo.values()) {
@@ -175,7 +189,7 @@ export const problemStore = {
   },
 
   /** Avisa quando a lista muda. Devolve como cancelar. */
-  aoMudar(cb) {
+  aoMudar(cb: () => void): () => boolean {
     ouvintes.add(cb);
     return () => ouvintes.delete(cb);
   },
@@ -187,7 +201,7 @@ export const problemStore = {
    * que ja estavam guardados. Sem isto, abrir o arquivo apontado pelo erro
    * mostraria o codigo limpo, que e o contrario do que se quer.
    */
-  ligar() {
+  ligar(): void {
     if (ligado || typeof monaco === 'undefined') return;
     ligado = true;
     monaco.editor.onDidCreateModel((model) => aplicarNoModelo(model));

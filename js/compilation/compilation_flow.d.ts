@@ -7,7 +7,7 @@
  * compilation_flow.js virar .ts.
  */
 
-import type { ResumoDeExecucao } from './run_history.js';
+import type { ResumoDeExecucao } from './run_log.js';
 
 /** As execucoes em andamento nesta janela, mais recente primeiro. */
 export function execucoesAbertas(agora?: number): Array<ResumoDeExecucao | null>;

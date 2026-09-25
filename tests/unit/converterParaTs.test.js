@@ -122,6 +122,28 @@ describe('paraEsm', () => {
     expect(s).toContain('module.exports.b = 3;');
   });
 
+  it('require preguicoso num try do topo: o requireTarde e declarado antes dele', () => {
+    const texto = [
+      "const a = require('./a');",
+      'let opc = null;',
+      "try { opc = require('./opcional'); } catch (_) { /* opcional */ }",
+      "const b = require('./b');",
+      '',
+    ].join('\n');
+    const s = paraEsm(`${barra(tmp)}/m5.js`, texto, []);
+    const declara = s.indexOf('const requireTarde = createRequire(__filename);');
+    expect(declara).toBeGreaterThan(s.indexOf("import a from './a.js';"));
+    expect(declara).toBeLessThan(s.indexOf("requireTarde('./opcional')"));
+    expect(s).toContain("import b from './b.js';");
+  });
+
+  it('import por nome longo vai um nome por linha', () => {
+    const nomes = ['primeiroNomeComprido', 'segundoNomeComprido', 'terceiroNomeComprido', 'quartoNomeComprido'];
+    const s = paraEsm(`${barra(tmp)}/m6.js`, `const { ${nomes.join(', ')} } = require('./muitos');\n`, []);
+    expect(s).toBe(`import {\n${nomes.map((n) => `  ${n},`).join('\n')}\n} from './muitos.js';\n`);
+    expect(paraEsm(`${barra(tmp)}/m7.js`, "const { a, b } = require('./poucos');\n", [])).toBe("import { a, b } from './poucos.js';\n");
+  });
+
   it('require numa forma que nao reconhece fica como esta, sem virar import errado', () => {
     const texto = "const [a] = require('m');\nconst { b } = require('n').promises;\n";
     const s = paraEsm(`${barra(tmp)}/m4.js`, texto, []);

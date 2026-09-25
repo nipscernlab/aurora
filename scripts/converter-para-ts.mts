@@ -107,12 +107,24 @@ export function paraEsm(abs: string, texto: string, avisos: string[]): string {
   // vitest, onde um require solto nao existe.
   if (/\brequire\(/.test(s.replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, ''))) {
     s = s.replace(/(^|[^.\w])require\(/g, '$1requireTarde(');
-    const ultimo = [...s.matchAll(/^import .*?;[ \t]*$/gm)].pop();
-    const ponto = ultimo && ultimo.index !== undefined ? ultimo.index + ultimo[0].length : 0;
+    // A declaracao vai depois do ultimo import que vem ANTES do primeiro uso:
+    // um require preguicoso num try do topo do modulo pode estar acima de
+    // imports que o arquivo tinha mais abaixo.
+    const primeiroUso = s.indexOf('requireTarde(');
+    const antes = [...s.matchAll(/^import .*?;[ \t]*$/gm)].filter((m) => m.index !== undefined && m.index < primeiroUso).pop();
+    const ponto = antes && antes.index !== undefined ? antes.index + antes[0].length : 0;
     s = `${s.slice(0, ponto)}\nimport { createRequire } from 'node:module';\n\nconst requireTarde = createRequire(__filename);\n${s.slice(ponto)}`;
     avisos.push('havia require fora do topo: virou requireTarde (createRequire). Conferir se era preguica de proposito');
   }
   return s;
+}
+
+/** Import por nome que passa de 100 colunas vai um nome por linha. */
+function quebrarImportLongo(linha: string): string {
+  if (linha.length <= 100) return linha;
+  const m = /^import \{ (.+) \} from ('[^']+');$/.exec(linha);
+  if (!m) return linha;
+  return `import {\n${m[1].split(', ').map((n) => `  ${n},`).join('\n')}\n} from ${m[2]};`;
 }
 
 /** `const X = require('m')` e variantes viram o import equivalente, ou null. */
@@ -147,7 +159,7 @@ function importDoRequire(st: ts.Statement, sf: ts.SourceFile, dir: string, aviso
     if (/^node:(child_process|https|http)$/.test(spec)) {
       avisos.push(`import por nome de '${spec}' (${nomes.join(', ')}): se um teste troca essa funcao, chamar pelo objeto do modulo`);
     }
-    return `import { ${nomes.join(', ')} } from '${spec}';`;
+    return quebrarImportLongo(`import { ${nomes.join(', ')} } from '${spec}';`);
   }
   return null;
 }

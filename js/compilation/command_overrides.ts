@@ -26,6 +26,7 @@
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
+import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import * as CommandSpec from './command_spec.js';
 import type { CommandSpec as CommandSpecType, CommandOverride } from './command_spec.js';
@@ -74,7 +75,7 @@ function mergeOverrides(a: CommandOverride | null, b: CommandOverride | null): C
 }
 
 async function readPersisted(): Promise<Record<string, CommandOverride>> {
-  const spfPath = window.currentSpfPath;
+  const spfPath = ProjectStore.getSpfPath();
   if (!spfPath) return {};
   try {
     const structure = await SpfStore.read(spfPath);
@@ -85,7 +86,7 @@ async function readPersisted(): Promise<Record<string, CommandOverride>> {
 }
 
 async function writePersisted(updater: (map: Record<string, CommandOverride>) => void): Promise<void> {
-  const spfPath = window.currentSpfPath;
+  const spfPath = ProjectStore.getSpfPath();
   if (!spfPath) throw new Error('No project is open — cannot persist override');
   await SpfStore.update(spfPath, (structure) => {
     if (!structure.commandOverrides || typeof structure.commandOverrides !== 'object') {

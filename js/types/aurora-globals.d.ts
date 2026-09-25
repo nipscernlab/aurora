@@ -122,6 +122,8 @@ declare global {
     currentProjectPath?: string | null;
     /** Absolute path of the open project file (legacy; dirname → project dir). */
     currentOpenProjectPath?: string | null;
+    /** Espelho do ProjectStore para quem ainda nao o importa (js/project/project_store.ts). */
+    ProjectStore?: typeof import('../project/project_store.js').ProjectStore;
     /** Returns the active yanc message language ('pt' | 'en'). */
     getYancLang?: () => string;
     /** i18n do renderer; os modulos usam o shim `tr()`, que cai na chave se ela nao tiver subido. */

@@ -18,6 +18,7 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { projectTempDir } from '../project/project_temp.js';
 import {
@@ -65,7 +66,7 @@ function isPythonFile(filePath: string | null | undefined): boolean {
 
 /** Best-effort lookup of a processor's config from the open project. */
 async function findProcessor(processorName: string | null | undefined): Promise<SpfProcessor> {
-  const spfPath = window.currentSpfPath;
+  const spfPath = ProjectStore.getSpfPath();
   if (!spfPath) throw new Error('No project is open');
   const structure = await SpfStore.read(spfPath);
   const processors = (structure.processors || []) as unknown as Array<string | SpfProcessor>;
@@ -114,15 +115,6 @@ async function joinComponents(...parts: string[]): Promise<string> {
   return p;
 }
 
-async function getProjectPath(): Promise<string | null> {
-  return (
-    window.currentProjectPath ||
-    (window.currentOpenProjectPath
-      ? await electronAPI.dirname(window.currentOpenProjectPath)
-      : null)
-  );
-}
-
 /**
  * Build a base spec for the given step. Throws for steps that need
  * runtime info the factory can't reconstruct (e.g., `verilator-run`
@@ -131,7 +123,7 @@ async function getProjectPath(): Promise<string | null> {
  * @param processorName  required for per-processor steps
  */
 export async function buildSpecForStep(step: string, processorName?: string): Promise<CommandSpec> {
-  const projectPath = await getProjectPath();
+  const projectPath = ProjectStore.getProjectPath();
   if (!projectPath) throw new Error('No project is open');
 
   const lang = (window.getYancLang?.() ?? 'pt') as 'pt' | 'en';
@@ -213,7 +205,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
   const gtkwaveBin    = await joinComponents('Packages', 'gtkwave-nipscern', 'gtkwave.exe');
   const fst2vcdBin    = await joinComponents('Packages', 'gtkwave-nipscern', 'fst2vcd.exe');
 
-  const structure = await SpfStore.read(window.currentSpfPath ?? '');
+  const structure = await SpfStore.read(ProjectStore.getSpfPath() ?? '');
   const synth = ((structure.synthesizableFiles || []) as unknown as Array<string | { path?: string }>)
     .map((f) => (typeof f === 'string' ? f : f?.path))
     .filter((p): p is string => Boolean(p));

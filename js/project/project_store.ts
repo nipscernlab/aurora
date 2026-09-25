@@ -83,5 +83,5 @@ if (typeof window !== 'undefined') {
   // Exposed globally so code that can't import (or that loaded before this
   // module) can still consult the store via window.ProjectStore. Prefer
   // importing where possible.
-  (window as unknown as { ProjectStore: typeof ProjectStore }).ProjectStore = ProjectStore;
+  window.ProjectStore = ProjectStore;
 }

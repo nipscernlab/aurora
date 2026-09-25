@@ -2101,14 +2101,18 @@ A cadeia, nesta ordem:
       import do módulo de i18n. Cada troca deixa a dependência visível no
       grafo, tipada e testável; a catraca desce junto.
       Em curso desde 25/09: o `project_store` já é `.ts`, e leem dele em vez
-      de `window` o `compilation_flow` e o `aurora_api` inteiros, o
-      `spec_factory`, o `command_overrides`, o `git_decorations` e o
-      `run_history`. Faltam 28 leituras em 13 arquivos
-      (`git grep -c "window\.currentProjectPath\|window\.currentSpfPath" -- js`);
-      os maiores são `project_manager` (7), `standard_tree_render` (5) e
-      `file_tree_manager` (4). O espelho em `window` sai do store quando a
-      última leitura sair. A catraca de globais está em 43 (saíram
-      `window.WaveStore` e `window.SpfStore`).
+      de `window` o `compilation_flow`, o `aurora_api`, o `project_manager` e
+      a árvore inteira (`standard_tree_render`, `file_tree_view_controller`,
+      `file_tree_toggler`, `file_tree_manager`), além de `spec_factory`,
+      `command_overrides`, `git_decorations` e `run_history`. Faltam 9
+      leituras em 8 arquivos
+      (`git grep -c "window\.currentProjectPath\|window\.currentSpfPath" -- js`):
+      `ai_assistant_manager` (2), `bug_report`, `standard_tree_crud`,
+      `terminal_module`, `shell_terminal`, `delete_project`, `close_project`
+      e `renderer.js` (1 cada). O espelho em `window` sai do store quando a
+      última leitura sair. A catraca de globais está em 41, e o renderer não
+      tem mais ciclo de import (o `standard_tree_render` deixou de carregar o
+      `standard_tree_crud`, que agora vem pelo controlador de vistas).
 
       **A ordem mudou em 25/09, e por quê.** Trocar a leitura arquivo por
       arquivo obriga a converter cada arquivo inteiro antes, e mais da metade

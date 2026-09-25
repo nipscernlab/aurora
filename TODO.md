@@ -2101,12 +2101,14 @@ A cadeia, nesta ordem:
       import do módulo de i18n. Cada troca deixa a dependência visível no
       grafo, tipada e testável; a catraca desce junto.
       Em curso desde 25/09: o `project_store` já é `.ts`, e leem dele em vez
-      de `window` o `spec_factory`, o `command_overrides`, o
-      `git_decorations`, o `run_history` e o `compilation_flow` inteiro.
-      Faltam 51 leituras em 14 arquivos
+      de `window` o `compilation_flow` e o `aurora_api` inteiros, o
+      `spec_factory`, o `command_overrides`, o `git_decorations` e o
+      `run_history`. Faltam 28 leituras em 13 arquivos
       (`git grep -c "window\.currentProjectPath\|window\.currentSpfPath" -- js`);
-      os maiores são `aurora_api` (21) e `project_manager` (7). O espelho em
-      `window` sai do store quando a última leitura sair.
+      os maiores são `project_manager` (7), `standard_tree_render` (5) e
+      `file_tree_manager` (4). O espelho em `window` sai do store quando a
+      última leitura sair. A catraca de globais está em 43 (saíram
+      `window.WaveStore` e `window.SpfStore`).
 
       **A ordem mudou em 25/09, e por quê.** Trocar a leitura arquivo por
       arquivo obriga a converter cada arquivo inteiro antes, e mais da metade
@@ -2134,6 +2136,23 @@ A cadeia, nesta ordem:
         `compilation_module` ganharam `.d.ts` parcial. Dois testes de fluxo
         (`compilationFlowCancelamento`, `compilationFlowPassos`) cobrem o
         despacho de cada botão e foram conferidos no `.js` antigo.
+      - [x] `aurora_api` (25/09): de 3201 para cerca de 1150 linhas. Saíram
+        o `wave` inteiro (`wave_ns.ts`, com os layouts do GTKWave e do Surfer
+        numa implementação só), o `rules` (`rules_ns.ts`) e o `project`
+        inteiro, dividido por responsabilidade: `ciclo_do_projeto_ns.ts`,
+        `renomear_projeto_ns.ts`, `arquivos_ns.ts`, `processadores_ns.ts`,
+        `memorias_ns.ts` e `analise_asm_ns.ts` (com a análise pura em
+        `js/compilation/analise_asm.ts`). Os ajudantes comuns viraram
+        `arvore_do_projeto.ts`, `abas_e_arvore.ts` e `editor_ativo.ts`. A
+        `AuroraAPI` passou a montar num teste de unidade
+        (`auroraApiMontagem`), e o manifesto de ferramentas é conferido
+        contra ela. Dois defeitos achados no caminho, do mesmo tipo: o
+        `createSurferLayout` e o `formatFile` conferiam `.success` num
+        envelope que só tem `.ok`, e paravam no meio. Falta dividir o que
+        sobrou (`editor`, `terminal`, `compile`, `ui`, `ai`, `settings`).
+      - [ ] E2E instável: `shell-terminal > navigates folders (cd persists,
+        prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
+        mudança do momento (o repetidor deu 3 verdes seguidas).
 - [ ] **13.4 (decisão do Luciano, com o Chrys e o Arthur) Contrato tipado da
       ponte.** O `preload.js` é o arquivo que mais muda: toda funcionalidade
       nova passa pela ponte entre renderer e main. Um contrato único dos canais,

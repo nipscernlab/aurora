@@ -1,4 +1,5 @@
 import { electronAPI } from '../app/electron_api.js';
+import { ProjectStore } from '../project/project_store.js';
 /**
  * git_decorations.ts: VSCode-style git status decorations on the file tree.
  *
@@ -10,7 +11,7 @@ import { electronAPI } from '../app/electron_api.js';
  *   - the "folders" (standard) view → rows are `.file-tree-item[data-path]`
  * The filename is also tinted with the status colour, exactly like VS Code.
  *
- * Driven by the LOCAL git status of the open project (window.gitAPI). It shows
+ * Driven by the LOCAL git status of the open project (ProjectStore + window.gitAPI). It shows
  * NOTHING when the project isn't a git repo, so non-git SAPHO projects stay
  * clean, the decorations only appear for cloned/initialised repos.
  *
@@ -166,7 +167,7 @@ class GitDecorations {
 
   /** Re-fetch git status for the open project and rebuild the decoration maps. */
   async refresh(): Promise<void> {
-    const root = window.currentProjectPath;
+    const root = ProjectStore.getProjectPath();
     if (!root || !window.gitAPI || typeof window.gitAPI.status !== 'function') { this._clear(); return; }
 
     let st;

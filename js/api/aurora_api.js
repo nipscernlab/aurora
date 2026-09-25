@@ -36,6 +36,7 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { ProjectStore } from '../project/project_store.js';
 import { listOverrides, setOverride, clearOverride } from '../compilation/command_overrides.js';
 import { resolveSpec } from '../compilation/spec_runner.js';
 import { STEP_IDS, STEP_DESCRIPTIONS } from '../compilation/command_spec.js';
@@ -246,7 +247,7 @@ const editorNs = {
 
     // Aceita o mesmo tipo de caminho aproximado que openFile aceita.
     if (filePath) {
-      const root = window.currentProjectPath || '';
+      const root = ProjectStore.getProjectPath() || '';
       const abs = root ? await acharArquivoNoProjeto(filePath, root) : null;
       if (!abs) return err(`"${filePath}" not found anywhere in the project.`);
       alvo = abs;
@@ -334,7 +335,7 @@ const editorNs = {
   /** Open a project file in the editor, optionally in a new split pane. */
   async openFile({ filePath, inNewSplit = false } = {}) {
     if (!filePath) return err('filePath required');
-    const root = window.currentProjectPath || '';
+    const root = ProjectStore.getProjectPath() || '';
     if (!root) return err('No project open');
     // Find the file anywhere in the project (basename / partial path / casing),
     // not just at the literal path the AI guessed.

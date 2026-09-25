@@ -43,6 +43,14 @@ describe('globaisCruzadas', () => {
     expect(g).toEqual({ k: { definidaEm: ['js/a.ts'], lidaEm: ['js/b.ts'] } });
   });
 
+  it('o cast com tipo de funcao, que tem parenteses, tambem nao esconde', () => {
+    const g = globaisCruzadas([
+      { rel: 'js/a.ts', src: '(window as unknown as { f?: () => void }).f = g;' },
+      { rel: 'js/b.js', src: 'window.f?.();' },
+    ]);
+    expect(Object.keys(g)).toEqual(['f']);
+  });
+
   it('nome com $ e _ entra; window[\'x\'] nao e contado', () => {
     const g = globaisCruzadas([
       { rel: 'js/a.js', src: 'window._$y = 1; window["k"] = 2;' },

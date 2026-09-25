@@ -33,9 +33,11 @@ export interface Global {
 }
 
 // `(window as T).X` tambem conta: o cast e o jeito de um .ts por em window um
-// nome que o tipo de Window nao declara, e nao pode esconder a global.
-const ATRIBUICAO = /\bwindow(?:\s+as\s+[^)]*\))?\.([A-Za-z_$][\w$]*)\s*=(?!=)/g;
-const LEITURA = /\bwindow(?:\s+as\s+[^)]*\))?\.([A-Za-z_$][\w$]*)/g;
+// nome que o tipo de Window nao declara, e nao pode esconder a global. O tipo
+// pode ter parenteses (`{ f?: () => void }`), entao o cast vai ate o primeiro
+// `).` da linha, e nao ate o primeiro `)`.
+const ATRIBUICAO = /\bwindow(?:\s+as\s+[^;\n]*?\))?\.([A-Za-z_$][\w$]*)\s*=(?!=)/g;
+const LEITURA = /\bwindow(?:\s+as\s+[^;\n]*?\))?\.([A-Za-z_$][\w$]*)/g;
 
 function juntar(mapa: Map<string, Set<string>>, nome: string, rel: string): void {
   let s = mapa.get(nome);

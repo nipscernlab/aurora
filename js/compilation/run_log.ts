@@ -193,7 +193,7 @@ function nomeDoBinario(caminho: string | undefined): string | null {
  * cancelamento engolido vira "cancelada".
  *
  */
-export function desfechoDaExecucao({ resolveu, falha = null, cancelada = false, erro = null }: { resolveu: boolean; falha?: { mensagem?: string; }|null; cancelada?: boolean; erro?: unknown; }): { ok: boolean; erro: string|null; cancelada: boolean; } {
+export function desfechoDaExecucao({ resolveu, falha = null, cancelada = false, erro = null }: { resolveu: boolean; falha?: { mensagem?: string | null }|null; cancelada?: boolean; erro?: unknown; }): { ok: boolean; erro: string|null; cancelada: boolean; } {
   if (cancelada) return { ok: false, erro: null, cancelada: true };
   if (!resolveu) {
     return { ok: false, erro: erro == null ? null : String(erro && (erro as Error).message ? (erro as Error).message : erro), cancelada: false };

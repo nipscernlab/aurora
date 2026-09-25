@@ -12,7 +12,7 @@ const electronAPI = {
 };
 const execucoesAbertas = vi.fn(() => []);
 vi.mock('../../js/app/electron_api.js', () => ({ electronAPI }));
-vi.mock('../../js/compilation/compilation_flow.js', () => ({ execucoesAbertas }));
+vi.mock('../../js/compilation/registro_de_execucao.js', () => ({ execucoesAbertas }));
 
 let tela;
 let ProjectStore;

@@ -55,7 +55,8 @@ window.globalTerminalManager = tm;
 
 const { ProjectStore } = await import('../../js/project/project_store.js');
 const flow = await import('../../js/compilation/compilation_flow.js');
-const { compilationFlowManager: fm, execucoesAbertas } = flow;
+const { compilationFlowManager: fm } = flow;
+const { execucoesAbertas } = await import('../../js/compilation/registro_de_execucao.js');
 
 const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 const textos = () => linhas.map((l) => l.texto);

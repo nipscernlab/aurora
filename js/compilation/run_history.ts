@@ -18,7 +18,7 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { ProjectStore } from '../project/project_store.js';
-import { execucoesAbertas } from './compilation_flow.js';
+import { execucoesAbertas } from './registro_de_execucao.js';
 import { nomeDoPasso as nomeDoPassoPuro } from './run_history_labels.js';
 import type { ResumoDeExecucao } from './run_log.js';
 
@@ -135,8 +135,7 @@ async function desenharLista(): Promise<void> {
     // As vivas na frente, e sem a gravada de mesmo id: durante o instante entre
     // gravar e sair das abertas a execucao existe nos dois lugares, e sem esse
     // filtro ela apareceria duas vezes na lista.
-    // O resumo so devolve null sem execucao, e as abertas sempre tem uma.
-    const vivas: ResumoDeExecucao[] = execucoesAbertas().flatMap((e) => (e ? [e] : []));
+    const vivas: ResumoDeExecucao[] = execucoesAbertas();
     const ids = new Set(vivas.map((e) => e.id));
     const execucoes = vivas.concat((r?.execucoes || []).filter((e) => !ids.has(e.id)));
     if (!execucoes.length) {

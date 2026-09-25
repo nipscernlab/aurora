@@ -33,9 +33,7 @@ import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { escolherTestbench } from './compilation_helpers.js';
-import { getViewer } from '../wave/viewer_preference.js';
-import { addRunObserver } from './spec_runner.js';
-import { abrirExecucao, anotarPasso, fecharExecucao, resumo, desfechoDaExecucao, problemasParaRegistro } from './run_log.js';
+import { comRegistro, reportarFalhaNaExecucao } from './registro_de_execucao.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { isProcessorSourcePath, resolveProcessorLanguage } from './processor_source.js';
@@ -90,168 +88,9 @@ const STEP_TERMINALS = Object.freeze({
     'verilator-fast': ['twave'],
 });
 /* =====================================================================
- *  Registro de execucoes
+ *  Registro de execucoes: mora em registro_de_execucao.ts, e cada botao
+ *  daqui passa por comRegistro.
  * ===================================================================== */
-
-/**
- * Envolve uma execucao de compilacao para que ela deixe rastro.
- *
- * O problema que isto resolve esta no cabecalho de js/compilation/run_log.js:
- * nao da para saber de antemao o que o usuario vai compilar, entao o que se
- * grava e o CLIQUE e o que ele acionou, e nao um formato por tipo de
- * compilacao. Aqui e o unico lugar que sabe as duas pontas, porque e daqui que
- * sai cada botao.
- *
- * O observador do spec_runner e quem enche a lista de passos: ele dispara em
- * TODA ferramenta que roda, sem que cada handler precise se lembrar de anotar.
- * Ele e desligado no fim, senao a execucao seguinte anotaria na anterior.
- *
- * Nada aqui pode derrubar uma compilacao: gravar o registro e melhor esforco.
- */
-let execucoesAtivas = 0;
-
-/**
- * As execucoes que ainda nao terminaram.
- *
- * A tela do historico lia so o disco, e o disco so recebe a execucao no fim:
- * quem abrisse a tela durante uma compilacao via a lista de ontem, parada,
- * enquanto a compilacao de agora rodava atras dela. Guardar as abertas aqui e
- * o que permite a tela mostrar a linha viva; ela sai daqui e vira linha
- * gravada quando o arquivo e escrito, sem a tela precisar saber da troca.
- */
-const execAbertas = new Set();
-
-/**
- * A falha fatal que cada execucao aberta reportou, se reportou.
- *
- * Um WeakMap e nao um campo no registro: o registro vai para o disco como
- * esta, e esta marca e so o recado entre o funil de erro e o fechamento. Quem
- * escreve e logFatalError, que e por onde TODOS os handlers passam quando
- * desistem, inclusive o Full Build e o cancelamento; quem le e comRegistro, na
- * hora de decidir o que gravar.
- */
-const falhaReportadaDe = new WeakMap();
-
-/**
- * Marca a(s) execucao(oes) aberta(s) a que uma falha fatal pertence.
- *
- * Com uma so aberta, e ela. Com mais de uma, a do pedido que esta ativo; se
- * nao der para saber, todas, porque marcar a mais custa um "falhou" onde a
- * pessoa ja viu um erro na tela, e marcar a menos e exatamente o bug que isto
- * conserta.
- */
-function reportarFalhaNaExecucao(falha) {
-    const abertas = [...execAbertas];
-    if (!abertas.length) return;
-    const doPasso = abertas.filter((e) => e.pedido === activeRunStep);
-    for (const e of (doPasso.length ? doPasso : abertas)) falhaReportadaDe.set(e, falha);
-}
-
-/**
- * Avisa quem mostra o registro que ele mudou.
- *
- * Evento no window, e nao uma chamada direta a tela: o compilation_flow nao
- * deve saber que existe uma tela de historico, e no dia em que houver duas
- * coisas interessadas, nada muda aqui.
- */
-function avisarRegistro() {
-    try {
-        window.dispatchEvent(new CustomEvent('aurora:run-log-changed'));
-    } catch (_) { /* sem window, num teste: o registro segue valendo */ }
-}
-
-/** O que esta rodando agora, no formato que a listagem do disco devolve. */
-export function execucoesAbertas(agora = Date.now()) {
-    return [...execAbertas].map((e) => resumo(e, agora)).sort((a, b) => b.inicio - a.inicio);
-}
-
-async function comRegistro(pedido, corpo) {
-    const projeto = window.currentProjectPath || null;
-    const exec = abrirExecucao({ pedido, projeto, config: await retratoDoProjeto() });
-    execucoesAtivas += 1;
-    execAbertas.add(exec);
-    avisarRegistro();
-    // Cada execucao tem a SUA inscricao, e cancela so a dela. A primeira versao
-    // guardava um observador unico e a primeira compilacao de verdade mostrou o
-    // custo: o PRISM foi clicado no meio de uma onda, substituiu o observador ao
-    // comecar e o zerou ao terminar, e a onda perdeu 36 dos seus 41 segundos.
-    //
-    // Com duas execucoes no ar, as DUAS recebem tudo, e nao ha como saber daqui
-    // qual delas causou cada ferramenta. Em vez de escolher uma e mentir, o
-    // passo sai marcado como concorrente, e quem ler sabe que aquele trecho do
-    // registro e ambiguo.
-    // Avisa a cada ferramenta que roda, e nao so no fim: numa compilacao
-    // inteira sao minutos, e uma tela que so acorda no fim nao esta ao vivo.
-    const cancelar = addRunObserver((obs) => {
-        anotarPasso(exec, obs, { concorrente: execucoesAtivas > 1 });
-        avisarRegistro();
-    });
-    try {
-        const r = await corpo();
-        // "Resolveu" nao quer dizer "deu certo": o executor nunca rejeita e o
-        // handler engole o erro depois de mostra-lo. O que vale e se alguem
-        // passou pelo funil de erro fatal durante esta execucao.
-        const falha = falhaReportadaDe.get(exec) || null;
-        fecharExecucao(exec, {
-            ...desfechoDaExecucao({
-                resolveu: true,
-                falha: falha && !falha.cancelada ? falha : null,
-                cancelada: foiCancelada() || !!(falha && falha.cancelada),
-            }),
-            // O que o COMPILADOR disse, lido da saida pelo mesmo reconhecedor
-            // que pinta os marcadores. O deposito e zerado no inicio de cada
-            // rodada, entao aqui ele tem exatamente os desta.
-            problemas: problemasParaRegistro(problemStore.listar()),
-        });
-        return r;
-    } catch (erro) {
-        fecharExecucao(exec, {
-            ...desfechoDaExecucao({ resolveu: false, erro, cancelada: foiCancelada() }),
-            problemas: problemasParaRegistro(problemStore.listar()),
-        });
-        throw erro;
-    } finally {
-        cancelar();
-        execucoesAtivas -= 1;
-        try {
-            if (projeto) await electronAPI?.runLogGravar?.(projeto, exec);
-        } catch (e) {
-            console.warn('[run-log] nao consegui gravar a execucao:', e);
-        } finally {
-            // So sai das abertas DEPOIS de gravar: tirar antes abriria uma
-            // janela em que a execucao nao esta nem aqui nem no disco, e a
-            // linha sumiria da tela por um instante antes de voltar gravada.
-            execAbertas.delete(exec);
-            avisarRegistro();
-        }
-    }
-}
-
-/**
- * O retrato do projeto no momento do clique.
- *
- * Le do .spf, que e a fonte da verdade sobre topo de sintese e de simulacao, e
- * junta as duas preferencias que trocam a ferramenta usada. Falha em silencio:
- * uma execucao sem retrato ainda vale mais do que execucao nenhuma.
- */
-async function retratoDoProjeto() {
-    try {
-        const spfPath = window.currentSpfPath || window.ProjectStore?.getSpfPath?.();
-        const s = spfPath && window.SpfStore ? await window.SpfStore.read(spfPath) : null;
-        return {
-            topLevelFile: s?.topLevelFile || null,
-            testbenchFile: s?.testbenchFile || null,
-            synthesizableFiles: (s?.synthesizableFiles || []).map((f) => (typeof f === 'string' ? f : f?.path)).filter(Boolean),
-            simulador: getSimulator(),
-            visualizador: getViewer(),
-            processadores: Array.isArray(window.availableProcessors)
-                ? window.availableProcessors.map((x) => (typeof x === 'string' ? x : x?.name)).filter(Boolean)
-                : [],
-        };
-    } catch (_) {
-        return null;
-    }
-}
 
 const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
 
@@ -419,7 +258,7 @@ function logFatalError(terminalId, error) {
     // so once the user has cancelled, every fatal is reported as the cancel.
     if (eCancelamento(error) || foiCancelada()) {
         // Cancelamento engolido pelo handler chegava ao registro como OK.
-        reportarFalhaNaExecucao({ cancelada: true, mensagem: null });
+        reportarFalhaNaExecucao({ cancelada: true, mensagem: null }, activeRunStep);
         if (!primeiroCartao()) return;
         getTM()?.appendToTerminal?.(
             terminalId,
@@ -440,7 +279,7 @@ function logFatalError(terminalId, error) {
     // Antes de qualquer saida: e esta marca que faz o historico dizer "falhou"
     // em vez de "OK" quando o handler engole a excecao e retorna normalmente,
     // que e o que todos eles fazem.
-    reportarFalhaNaExecucao({ cancelada: false, mensagem: error?.message ? String(error.message) : null });
+    reportarFalhaNaExecucao({ cancelada: false, mensagem: error?.message ? String(error.message) : null }, activeRunStep);
     if (!error?.jaNoTerminal) {
         getTM()?.appendToTerminal?.(
             terminalId, `Erro Fatal: ${error.message}`, 'error',

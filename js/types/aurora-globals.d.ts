@@ -104,6 +104,7 @@ interface AuroraElectronAPI {
   getPythonStatus(): Promise<PythonStatus>;
   execSpec(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;
   execSpecStreamed(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;
+  runLogGravar?(projeto: string, exec: import('../compilation/run_log.js').Execucao): Promise<unknown>;
   runLogListar?(projeto: string): Promise<{ execucoes?: import('../compilation/run_log.js').ResumoDeExecucao[] } | null>;
   runLogLer?(projeto: string | null | undefined, id: string | null): Promise<{ ok: boolean; execucao: import('../compilation/run_history.js').ExecucaoGravada } | null>;
   onFileChanged?(cb: (filePath: string) => void): void;

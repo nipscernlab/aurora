@@ -2100,6 +2100,15 @@ A cadeia, nesta ordem:
       `AuroraAPI`) viram exportação do módulo que as cria. `window.t` vira
       import do módulo de i18n. Cada troca deixa a dependência visível no
       grafo, tipada e testável; a catraca desce junto.
+      Em curso desde 25/09: o `project_store` já é `.ts`, e leem dele em vez
+      de `window` o `spec_factory`, o `command_overrides`, o `git_decorations`
+      e o `run_history`. Faltam cerca de 70 leituras em 15 arquivos
+      (`git grep -c "window\.currentProjectPath\|window\.currentSpfPath" -- js`);
+      os maiores são `aurora_api` (21), `compilation_flow` (18) e
+      `project_manager` (7). O caminho de cada arquivo: teste com DOM que
+      marca o projeto por `ProjectStore.setProject` (vale no `.js` antigo e
+      no novo), conversão, e só então a troca, cada um no seu commit. O
+      espelho em `window` sai do store quando a última leitura sair.
 - [ ] **13.3 Dividir os gigantes por responsabilidade, na ordem de quem mais
       muda:** `ai_assistant_manager` (o item da seção 12 já lista os próximos
       grupos), `compilation_module`, `aurora_api` (três namespaces já saíram

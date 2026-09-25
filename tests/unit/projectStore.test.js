@@ -27,7 +27,9 @@ describe('ProjectStore', () => {
     expect(ProjectStore.getSpfPath()).toBe('C:/p/p.spf');
     expect(ProjectStore.hasProject()).toBe(true);
     expect(window.currentProjectPath).toBe('C:/p');
-    expect(window.currentSpfPath).toBe('C:/p/p.spf');
+    // So o caminho do projeto ainda e espelhado; o do .spf deixou de ser em
+    // 25/09/2026, quando o ultimo leitor passou a importar o store.
+    expect(window.currentSpfPath).toBeUndefined();
     expect(fn).toHaveBeenCalledWith({ projectPath: 'C:/p', spfPath: 'C:/p/p.spf' });
   });
 
@@ -51,7 +53,7 @@ describe('ProjectStore', () => {
     ProjectStore.subscribe(fn);
     ProjectStore.clearProject();
     expect(window.currentProjectPath).toBeNull();
-    expect(window.currentSpfPath).toBeNull();
+    expect(window.currentSpfPath).toBeUndefined();
     expect(fn).toHaveBeenCalledWith({ projectPath: null, spfPath: null });
     ProjectStore.clearProject();
     expect(fn).toHaveBeenCalledTimes(1);

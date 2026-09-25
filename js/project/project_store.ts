@@ -11,10 +11,10 @@
  * This module owns project state in the renderer. Callers go through
  * `setProject` / `clearProject` instead of touching window.* directly.
  *
- * For backward compatibility the store mirrors its values to
- * window.currentProjectPath / window.currentSpfPath on every change, so
- * the dozens of existing read sites keep working unchanged. New code
- * should prefer ProjectStore.getProjectPath() / getSpfPath().
+ * O store ainda espelha o caminho do projeto em window.currentProjectPath,
+ * para os poucos leitores que nao o importam (TODO 13.2 lista quais). O
+ * espelho do .spf, window.currentSpfPath, saiu em 25/09/2026: ninguem mais o
+ * lia. Codigo novo usa ProjectStore.getProjectPath() / getSpfPath().
  */
 
 export interface ProjectSnapshot {
@@ -43,7 +43,6 @@ function notify(): void {
 function mirrorToWindow(): void {
   if (typeof window === 'undefined') return;
   window.currentProjectPath = projectPath;
-  window.currentSpfPath = spfPath;
 }
 
 export const ProjectStore = {

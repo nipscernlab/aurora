@@ -57,7 +57,7 @@ estado transversal tem exatamente um dono.
 
 | Conceito | Dono | Como os outros leem |
 |---|---|---|
-| Projeto atual (caminho e spf) | [`ProjectStore`](js/project/project_store.js) | `getProjectPath()` e `getSpfPath()`, espelhados em `window.currentProjectPath` e `window.currentSpfPath` para leituras legadas |
+| Projeto atual (caminho e spf) | [`ProjectStore`](js/project/project_store.js) | `getProjectPath()` e `getSpfPath()`; o caminho do projeto ainda é espelhado em `window.currentProjectPath` para as leituras legadas que sobram |
 | Abas abertas | `TabManager.tabs` ([tab_manager.js](js/tabs/tab_manager.js)) | `TabManager.tabs.get(filePath)` |
 | Instâncias do Monaco | `EditorManager.editors` ([monaco_editor.js](js/editor/monaco_editor.js)) | `EditorManager.getEditorForFile(filePath)` |
 | Modelos de texto compartilhados | `SharedModelRegistry` ([shared_models.js](js/editor/shared_models.js)) | `SharedModelRegistry.getModel(filePath)` |
@@ -80,8 +80,8 @@ dentro de `TabManager.addTab`. Um atalho de criação automática dentro de
 empilhados compartilhando o mesmo modelo, e o usuário via artefatos e não
 conseguia digitar.
 
-`window.currentProjectPath` e `window.currentSpfPath` só são escritos por
-`ProjectStore.setProject` e `clearProject`. Vários escritores divergem, e o
+`window.currentProjectPath` só é escrito por `ProjectStore.setProject` e
+`clearProject` (o `window.currentSpfPath` deixou de existir em 25/09/2026). Vários escritores divergem, e o
 descompasso entre cache e estado vivo causava o bug de arquivo fora da pasta
 sumindo ao reabrir.
 

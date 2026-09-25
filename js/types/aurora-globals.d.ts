@@ -165,8 +165,6 @@ declare global {
   }
   interface Window {
     electronAPI: AuroraElectronAPI;
-    /** Absolute path of the currently open .spf, set by the project lifecycle. */
-    currentSpfPath?: string | null;
     /** Absolute path of the current project dir (per-processor compile root). */
     currentProjectPath?: string | null;
     /** Absolute path of the open project file (legacy; dirname → project dir). */

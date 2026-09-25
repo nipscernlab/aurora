@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * verible_lsp.js: minimal stdio Language Server bridge for Verilog (O2).
+ * verible_lsp.ts: minimal stdio Language Server bridge for Verilog (O2).
  *
  * Spawns a single long-lived `verible-verilog-ls` (bundled in
  * components/Packages/verible/bin via download-verible.js) and speaks
@@ -22,19 +21,17 @@
  * diagnostics keep flowing without the renderer noticing.
  */
 
-'use strict';
+import path from 'node:path';
+import fs from 'node:fs';
+import { ipcMain } from 'electron';
+import log from 'electron-log';
 
-const path = require('path');
-const fs = require('fs');
-const { ipcMain } = require('electron');
-const log = require('electron-log');
-
-const janelas = require('../main_windows');
-const { componentsPath } = require('../paths');
-const { spawnTracked } = require('../process_registry');
-const { isAllowed } = require('../compile/binary_allowlist');
-const { criarDisjuntor } = require('./disjuntor');
-const { criarLeitorDeQuadros } = require('./frame_reader');
+import janelas from '../main_windows.js';
+import { componentsPath } from '../paths.js';
+import { spawnTracked } from '../process_registry.js';
+import { isAllowed } from '../compile/binary_allowlist.js';
+import { criarDisjuntor } from './disjuntor.js';
+import { criarLeitorDeQuadros } from './frame_reader.js';
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -52,20 +49,17 @@ const REQUEST_TIMEOUT_MS = 15000;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
-/** @type {import('child_process').ChildProcess | null} */
-let proc = null;
+let proc: import('child_process').ChildProcess|null = null;
 let ready = false;
-/** @type {Promise<void> | null} */
-let startPromise = null;
+let startPromise: Promise<void>|null = null;
 let nextId = 1;
-/** @type {Map<number, {resolve:(v:any)=>void, reject:(e:any)=>void, timer:NodeJS.Timeout}>} */
-const pending = new Map();
+const pending: Map<number,{ resolve: (v: any) => void; reject: (e: any) => void; timer: NodeJS.Timeout; }> = new Map();
 /**
  * The renderer's view of open buffers, kept across server restarts so a
  * respawned server can be re-seeded transparently.
  * @type {Map<string, {version:number, text:string, languageId:string, owner?:number|null}>}
  */
-const openDocs = new Map();
+const openDocs: Map<string,{ version: number; text: string; languageId: string; owner?: number|null; }> = new Map();
 /**
  * Leitor dos quadros Content-Length, linear no tamanho da resposta; substitui
  * o `Buffer.concat` por pedaco, quadratico. handleMessage e declarada abaixo
@@ -110,17 +104,14 @@ function binInstalled() {
  * ponto do fluxo onde a janela e conhecida; sem dono, nao manda, porque
  * marcador na janela errada e pior do que marcador nenhum.
  *
- * @param {string} uri
- * @param {string} channel
- * @param {any} payload
  */
-function sendToOwner(uri, channel, payload) {
+function sendToOwner(uri: string, channel: string, payload: any) {
   const dono = openDocs.get(uri)?.owner;
   if (dono == null) return;
   janelas.mandar({ origem: { id: dono }, reserva: false }, channel, payload);
 }
 
-function writeMessage(/** @type {any} */ msg) {
+function writeMessage(msg: any) {
   if (!proc || !proc.stdin || !proc.stdin.writable) return;
   const body = Buffer.from(JSON.stringify(msg), 'utf8');
   try {
@@ -131,11 +122,11 @@ function writeMessage(/** @type {any} */ msg) {
   }
 }
 
-function notify(/** @type {string} */ method, /** @type {any} */ params) {
+function notify(method: string, params: any) {
   writeMessage({ jsonrpc: '2.0', method, params });
 }
 
-function request(/** @type {string} */ method, /** @type {any} */ params) {
+function request(method: string, params: any) {
   return new Promise((resolve, reject) => {
     const id = nextId++;
     const timer = setTimeout(() => {
@@ -149,7 +140,7 @@ function request(/** @type {string} */ method, /** @type {any} */ params) {
   });
 }
 
-function handleMessage(/** @type {any} */ msg) {
+function handleMessage(msg: any) {
   // Response to one of our requests.
   if (msg.id !== undefined && msg.id !== null && (msg.result !== undefined || msg.error !== undefined)) {
     const entry = pending.get(msg.id);
@@ -177,7 +168,7 @@ function handleMessage(/** @type {any} */ msg) {
   }
 }
 
-function onStdout(/** @type {Buffer} */ chunk) {
+function onStdout(chunk: Buffer) {
   leitor.push(chunk);
 }
 
@@ -195,8 +186,8 @@ function handleProcessGone() {
   // NB: openDocs is intentionally kept so a respawn can re-seed the docs.
 }
 
-function doStart() {
-  return new Promise((resolve, reject) => {
+function doStart(): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     if (!binInstalled()) { reject(new Error('verible-verilog-ls not installed')); return; }
 
     // Defense in depth: the same allowlist that gates the toolchain executor
@@ -285,7 +276,7 @@ async function ensureReady() {
 
 // ── Document lifecycle (renderer-driven) ──────────────────────────────────────
 
-async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /** @type {string} */ languageId, /** @type {number | null} */ dono = null) {
+async function didOpen(uri: string, text: string, languageId: string, dono: number|null = null) {
   if (typeof uri !== 'string' || typeof text !== 'string') return;
   const lang = languageId || 'verilog';
   if (!(await ensureReady())) return;
@@ -301,7 +292,7 @@ async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /*
   notify('textDocument/didOpen', { textDocument: { uri, languageId: lang, version: 1, text } });
 }
 
-async function didChange(/** @type {string} */ uri, /** @type {string} */ text, /** @type {number | null} */ dono = null) {
+async function didChange(uri: string, text: string, dono: number|null = null) {
   if (typeof uri !== 'string' || typeof text !== 'string') return;
   if (!(await ensureReady())) return;
   const doc = openDocs.get(uri);
@@ -322,7 +313,7 @@ async function didChange(/** @type {string} */ uri, /** @type {string} */ text, 
   });
 }
 
-async function didClose(/** @type {string} */ uri) {
+async function didClose(uri: string) {
   if (typeof uri !== 'string') return;
   // Limpa ANTES de esquecer o documento: o dono esta anotado nele.
   sendToOwner(uri, 'lsp:diagnostics', { uri, diagnostics: [] });
@@ -332,7 +323,7 @@ async function didClose(/** @type {string} */ uri) {
 
 // ── On-demand requests ────────────────────────────────────────────────────────
 
-async function safeRequest(/** @type {string} */ method, /** @type {any} */ params, /** @type {any} */ fallback) {
+async function safeRequest(method: string, params: any, fallback: any) {
   if (!(await ensureReady())) return fallback;
   try { return await request(method, params); }
   catch (e) {
@@ -341,26 +332,26 @@ async function safeRequest(/** @type {string} */ method, /** @type {any} */ para
   }
 }
 
-function format(/** @type {string} */ uri) {
+function format(uri: string) {
   return safeRequest('textDocument/formatting', {
     textDocument: { uri },
     options: { tabSize: 2, insertSpaces: true },
   }, null);
 }
 
-function documentSymbols(/** @type {string} */ uri) {
+function documentSymbols(uri: string) {
   return safeRequest('textDocument/documentSymbol', { textDocument: { uri } }, null);
 }
 
-function hover(/** @type {string} */ uri, /** @type {any} */ position) {
+function hover(uri: string, position: any) {
   return safeRequest('textDocument/hover', { textDocument: { uri }, position }, null);
 }
 
-function definition(/** @type {string} */ uri, /** @type {any} */ position) {
+function definition(uri: string, position: any) {
   return safeRequest('textDocument/definition', { textDocument: { uri }, position }, null);
 }
 
-function references(/** @type {string} */ uri, /** @type {any} */ position) {
+function references(uri: string, position: any) {
   return safeRequest('textDocument/references', {
     textDocument: { uri }, position, context: { includeDeclaration: true },
   }, null);
@@ -379,7 +370,7 @@ function references(/** @type {string} */ uri, /** @type {any} */ position) {
  * NAO toca no sinal `clk` de quem instancia, que so por acaso tem o mesmo
  * nome. Um rename textual corromperia o projeto justamente ai.
  */
-function rename(/** @type {string} */ uri, /** @type {any} */ position, /** @type {string} */ newName) {
+function rename(uri: string, position: any, newName: string) {
   return safeRequest('textDocument/rename', { textDocument: { uri }, position, newName }, null);
 }
 
@@ -406,11 +397,11 @@ function rename(/** @type {string} */ uri, /** @type {any} */ position, /** @typ
  * so cai aqui quando ele esta desligado ou nao instalado: realce um pouco
  * largo e melhor do que nenhum, mas nao e o primeiro a ser escolhido.
  */
-function documentHighlight(/** @type {string} */ uri, /** @type {any} */ position) {
+function documentHighlight(uri: string, position: any) {
   return safeRequest('textDocument/documentHighlight', { textDocument: { uri }, position }, null);
 }
 
-function codeAction(/** @type {string} */ uri, /** @type {any} */ range, /** @type {any} */ diagnostics) {
+function codeAction(uri: string, range: any, diagnostics: any) {
   return safeRequest('textDocument/codeAction', {
     textDocument: { uri },
     range,
@@ -437,4 +428,4 @@ function register() {
   ipcMain.handle('lsp:document-highlight', (_e, { uri, position } = {}) => documentHighlight(uri, position));
 }
 
-module.exports = { register };
+export { register };

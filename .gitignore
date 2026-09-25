@@ -164,6 +164,7 @@ main/ai/provider.js
 main/ipc/preview.js
 main/components/registry.js
 main/ipc/components.js
+main/lsp/verible_lsp.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

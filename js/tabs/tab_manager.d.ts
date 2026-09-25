@@ -14,4 +14,10 @@ export const TabManager: {
   saveAllFiles(): Promise<void>;
   /** Caminho do arquivo em foco, ou vazio quando nao ha nenhum. */
   getEditingFilePath?(): string;
+  /** A aba ativa do painel principal. */
+  activeTab?: string | null;
+  /** As abas do painel principal, por caminho. */
+  tabs?: Map<string, unknown>;
+  closeTab(filePath: string): Promise<unknown>;
+  addTab(filePath: string, content: string): unknown;
 };

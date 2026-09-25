@@ -47,20 +47,16 @@ import { gitNs } from './git_ns.js';
 import { prismNs } from './prism_ns.js';
 import { waveNs } from './wave_ns.js';
 import { memoriasDoProjeto } from './memorias_ns.js';
+import { processadoresDoProjeto } from './processadores_ns.js';
+import { arquivosAbertos, atualizarArvore } from './abas_e_arvore.js';
+// Apelido ate os metodos de arquivo do `project` sairem para o modulo deles;
+// o repintar mora em abas_e_arvore.ts.
+const refreshTree = atualizarArvore;
 import { listarArquivosDoProjeto } from './arvore_do_projeto.js';
 import { examplesNs } from './examples_ns.js';
 import { manualNs } from './manual_ns.js';
 import { switchTerminal } from '../terminal/terminal.js';
-import { processorConfigPanel } from '../processors/processor_config_panel.js';
-
-
-// O cabecalho de hardware que o fonte declara, nas duas linguagens. Era um
-// laco solto aqui dentro, gemeo de outro no main/ipc/project.js, e nenhum dos
-// dois entendia C++. Ver js/compilation/processor_header.ts.
 import { ehPassoDaApi } from '../compilation/api_steps.js';
-import { configComTempo } from '../project/processor_sim_config.js';
-import { parseProcessorHeader } from '../compilation/processor_header.js';
-import { resolveProcessorSource } from '../compilation/processor_source.js';
 
 // Envelope de resposta e barramento de eventos. Moram em api_core.js, que nao
 // importa nada, porque importar ESTE arquivo inicializa a IDE inteira e por
@@ -209,18 +205,8 @@ const editorNs = {
   },
 
   async getOpenFiles() {
-    // Collect files from all splits (SplitEditorManager.panes[*].tabs) plus
-    // the main tab bar (TabManager.tabs) so no open file in any pane is missed.
-    const seen = new Set();
-    const splitMgr = window.SplitEditorManager;
-    if (splitMgr?.panes) {
-      for (const pane of splitMgr.panes) {
-        for (const fp of (pane.tabs?.keys?.() || [])) seen.add(fp);
-      }
-    }
-    const mainKeys = TabManager?.tabs?.keys?.();
-    if (mainKeys) for (const fp of mainKeys) seen.add(fp);
-    return ok(Array.from(seen));
+    // Todo painel, do editor dividido e da barra principal (abas_e_arvore.ts).
+    return ok(arquivosAbertos());
   },
 
   async getActiveText() {
@@ -596,33 +582,6 @@ const terminalNs = {
  *  project, current project, filesystem tree, file/processor/
  *  project lifecycle
  * ========================================================== */
-
-async function refreshTree() {
-  try { await electronAPI?.triggerFileTreeRefresh?.(); }
-  catch (_) { /* tree refresh is best-effort */ }
-}
-
-/**
- * Close `filePath` in every pane that shows it, the main TabManager pane
- * and any split panes. Used when a file's on-disk path changes underneath
- * the editor (e.g. a processor rename) so no tab is left pointing at a
- * path that no longer exists.
- */
-async function closeFileEverywhere(filePath) {
-  try {
-    if (TabManager?.tabs?.has?.(filePath)) await TabManager.closeTab(filePath);
-  } catch (_) { /* ignore */ }
-  const sem = window.SplitEditorManager;
-  if (sem?.panes) {
-    for (const pane of [...sem.panes]) {
-      try {
-        if (pane?.tabs?.has?.(filePath) && typeof pane._closeFile === 'function') {
-          await pane._closeFile(filePath);
-        }
-      } catch (_) { /* ignore */ }
-    }
-  }
-}
 
 /* ============================================================
  *  Project rename, job-based, observable, timeout-proof
@@ -1101,16 +1060,6 @@ const projectNs = {
     } catch (e) { return err(e?.message || 'renameFile failed'); }
   },
 
-  /** Processors of the open project (names + per-processor config). */
-  async listProcessors() {
-    const root = window.currentProjectPath || null;
-    if (!root) return err('No project open');
-    try {
-      const procs = await electronAPI.getAvailableProcessors(root);
-      return ok(procs || []);
-    } catch (e) { return err(e?.message || 'listProcessors failed'); }
-  },
-
   /**
    * The project's MISSING files, paths the .spf still references but that no
    * longer exist on disk (moved, renamed, or deleted outside Aurora). This is
@@ -1158,56 +1107,9 @@ const projectNs = {
   // memorias_ns.ts.
   ...memoriasDoProjeto,
 
-  /**
-   * Generate a processor in the open project.
-   * `config`: { processorName, language, nBits, nbMantissa, nbExponent,
-   *             dataStackSize, instructionStackSize, inputPorts,
-   *             outputPorts, gain }
-   *
-   * `language` e 'cmm' (o padrao, e o que todo projeto de hoje tem) ou
-   * 'cpp'. Em C++ so o nome e as duas contagens de porta viram fonte, como
-   * `#pragma yanc prname/nuioin/nuioou`; os outros campos numericos sao
-   * ignorados, porque o cppcomp assume o float de precisao simples sozinho.
-   * A linguagem tambem vai para a entrada do processador no .spf, e e ela
-   * que tira a ambiguidade quando ha um .cmm e um .cpp com o mesmo nome.
-   */
-  async createProcessor(config) {
-    const root = window.currentProjectPath || null;
-    if (!root) return err('No project open');
-    if (!config || !config.processorName) return err('processorName required');
-    const name = config.processorName;
-    try {
-      // Anti-duplicata pela FILE TREE (a pasta real no disco), nao so o .spf:
-      // se a pasta <root>/<name> existe, e um processador REAL ja feito:
-      // bloqueia, NAO duplica. Se o nome so consta no .spf mas a pasta sumiu
-      // (referencia "morta"/processador morto), deixa criar (revive a entrada).
-      const procDir = await electronAPI.joinPath(root, name);
-      if (await electronAPI.pathExists(procDir)) {
-        return err(`Processor "${name}" already exists on disk (folder ${name}/). `
-          + 'Pick a different name, or delete/rename the existing processor first.');
-      }
-      // O nome esta no .spf mas sem pasta? Entao a criacao revive uma referencia
-      // morta, sinaliza isso na resposta (informa o usuario, sem bloquear).
-      let revivedDanglingReference = false;
-      try {
-        const procs = await electronAPI.getAvailableProcessors(root);
-        revivedDanglingReference = (Array.isArray(procs) ? procs : [])
-          .map((p) => (typeof p === 'string' ? p : p && p.name))
-          .some((n) => typeof n === 'string' && n.toLowerCase() === name.toLowerCase());
-      } catch (_) { /* lista indisponivel — segue criando normalmente */ }
-
-      const r = await electronAPI.createProcessorProject({
-        projectLocation: root,
-        ...config,
-      });
-      if (r && r.success) {
-        await refreshTree();
-        emit('project:processor-created', { name });
-        return ok({ name, revivedDanglingReference });
-      }
-      return err((r && r.message) || 'createProcessor failed');
-    } catch (e) { return err(e?.message || 'createProcessor failed'); }
-  },
+  // Os processadores (listar, criar, apagar, renomear e a config de
+  // simulacao) moram em processadores_ns.ts.
+  ...processadoresDoProjeto,
 
   /**
    * Create a new SAPHO project at `location\name` and open it.
@@ -1453,111 +1355,6 @@ const projectNs = {
   },
 
   /**
-   * Delete a processor from the open project. Drives the existing
-   * `delete-processor` IPC which removes the processor's working
-   * directory and prunes its SPF entry, then re-broadcasts the
-   * processors list to the renderer (`project:processors` event).
-   */
-  async deleteProcessor(processorName) {
-    if (!processorName) return err('processorName required');
-    if (typeof electronAPI?.deleteProcessor !== 'function') {
-      return err('delete-processor IPC unavailable');
-    }
-    try {
-      const r = await electronAPI.deleteProcessor(processorName);
-      if (r && r.success === false) return err(motivoDe(r, 'deleteProcessor failed'));
-      await refreshTree();
-      emit('project:processor-deleted', { processorName });
-      return ok({ processorName });
-    } catch (e) {
-      return err(e?.message || 'deleteProcessor failed');
-    }
-  },
-
-  /**
-   * Rename a processor everywhere it matters: the working directory, the
-   * .cmm file, the `#PRNAME` directive, the auto-generated build artifacts
-   * and every .spf reference. The main process does the on-disk + .spf work
-   * (see the `rename-processor` IPC); here we additionally re-point any open
-   * editor tabs that lived under the old folder so the user never ends up
-   * staring at a tab whose file just moved.
-   *
-   * Only SAPHO-internal files are renamed. Custom user toplevels/testbenches
-   * at the project root are left untouched, rename those with rename_file.
-   */
-  async renameProcessor({ processorName, newName } = {}) {
-    const oldNm = String(processorName || '').trim();
-    const newNm = String(newName || '').trim();
-    if (!oldNm) return err('processorName required');
-    if (!newNm) return err('newName required');
-    if (/[^A-Za-z0-9_-]/.test(newNm)) {
-      return err('newName may only contain letters, numbers, _ and -');
-    }
-    const root = window.currentProjectPath || null;
-    if (!root) return err('No project open');
-    if (typeof electronAPI?.renameProcessor !== 'function') {
-      return err('rename-processor IPC unavailable');
-    }
-
-    const sep = root.includes('\\') ? '\\' : '/';
-    const norm = (p) => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
-    const oldDirNorm = norm(`${root}${sep}${oldNm}`);
-    const isUnderOld = (p) => {
-      const n = norm(p);
-      return n === oldDirNorm || n.startsWith(oldDirNorm + '/');
-    };
-
-    // Persist unsaved edits in files that are about to move so the rename
-    // doesn't strand them on a path that no longer exists.
-    try { await TabManager.saveAllFiles(); } catch (_) { /* best-effort */ }
-
-    // Snapshot which open files live under the old processor folder.
-    const openResp = await editorNs.getOpenFiles();
-    const openUnderOld = (openResp.ok && Array.isArray(openResp.data))
-      ? openResp.data.filter(isUnderOld) : [];
-
-    let r;
-    try { r = await electronAPI.renameProcessor(oldNm, newNm); }
-    catch (e) { return err(e?.message || 'renameProcessor failed'); }
-    if (r && r.success === false) return err(motivoDe(r, 'renameProcessor failed'));
-
-    const realOld = r?.oldName || oldNm;
-    const realNew = r?.newName || newNm;
-    const oldDir = r?.oldDir || `${root}${sep}${realOld}`;
-    const newDir = r?.newDir || `${root}${sep}${realNew}`;
-    const escOld = realOld.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const artifactRe = new RegExp(`([\\\\/])${escOld}(_tb)?(\\.v|\\.sv|\\.asm|\\.cmm)$`, 'i');
-    const remap = (p) => {
-      const np = newDir + p.slice(oldDir.length);
-      return np.replace(artifactRe, (_m, slash, tb, ext) => `${slash}${realNew}${tb || ''}${ext}`);
-    };
-
-    // Re-point open tabs: the old paths no longer exist on disk.
-    let reopenCmm = null;
-    for (const oldPath of openUnderOld) {
-      if (/\.cmm$/i.test(oldPath)) reopenCmm = remap(oldPath);
-      await closeFileEverywhere(oldPath);
-    }
-    if (reopenCmm) {
-      try {
-        const content = await electronAPI.readFile(reopenCmm);
-        TabManager.addTab(reopenCmm, content);
-      } catch (_) { /* the .cmm may not exist; leave it */ }
-    }
-
-    // The rename released the project's directory watcher so Windows would let
-    // the processor folder move. Re-establish it on the (unchanged) project
-    // root, main creates a fresh chokidar since releaseWatchersUnder dropped
-    // the entry, so file-system changes are detected again, no reopen needed.
-    try { await electronAPI.watchDirectory?.(window.currentProjectPath); }
-    catch (_) { /* best-effort; a project reopen would also restore it */ }
-
-    await refreshTree();
-    emit('project:processor-renamed', { oldName: realOld, newName: realNew });
-    return ok({ oldName: realOld, newName: realNew });
-  },
-
-  /**
    * Import an existing Verilog/cocotb file (.v / .sv / .vh / .py) into the open
    * project: copies it to the project root if it lives elsewhere and
    * registers it in the SPF (synthesizable / testbench list).
@@ -1659,94 +1456,6 @@ const projectNs = {
     } catch (e) {
       return err(e?.message || 'renameImportedFile failed');
     }
-  },
-
-  /**
-   * Read the per-processor simulation config (clk in MHz, numClocks,
-   * showArrays). The returned `simTime_us = numClocks / clk` is what
-   * Aurora bakes into the testbench's `$finish` line.
-   * Omit `processorName` to return the config of every processor.
-   */
-  async getProcessorConfig(processorName) {
-    const spfPath = window.ProjectStore?.getSpfPath?.();
-    if (!spfPath || !window.SpfStore) return err('No project open');
-    try {
-      const structure = await window.SpfStore.read(spfPath);
-      const procs = Array.isArray(structure.processors) ? structure.processors : [];
-      const project = window.currentProjectPath || null;
-      const all = await Promise.all(procs.map(async (p) => {
-        const name = typeof p === 'string' ? p : p?.name;
-        const raw  = (typeof p === 'object' && p) ? p : {};
-        const cfg = { name, ...configComTempo(p) };
-        // Also surface the header directives (NUBITS / NBMANT / NBEXPO …) for
-        // the named processor, same enrichment the Verilog flow uses. Le as
-        // duas linguagens: `#NUBITS 32` no C+- e `#pragma yanc nubits 32` no
-        // C++, com a chave saindo em maiuscula nas duas.
-        if (project && name) {
-          try {
-            const { language, sourceFile } = resolveProcessorSource(
-              typeof p === 'string' ? { name } : raw
-            );
-            const fonte = await electronAPI.joinPath(project, name, 'Software', sourceFile);
-            cfg.header = parseProcessorHeader(await electronAPI.readFile(fonte), language);
-          } catch (_) { /* fonte ausente — tudo bem */ }
-        }
-        return cfg;
-      }));
-      if (processorName) {
-        const hit = all.find((p) => p.name === processorName);
-        return hit ? ok(hit) : err(`unknown processor: ${processorName}`);
-      }
-      return ok(all);
-    } catch (e) { return err(e?.message || 'getProcessorConfig failed'); }
-  },
-
-  /**
-   * Update the per-processor sim config. Any of `clk` / `numClocks` /
-   * `showArrays` may be passed; omitted fields keep their current value.
-   * Persisted into `structure.processors[i]` of the .spf via SpfStore.update
-   * so the panel and status bar update automatically (aurora:spf-changed).
-   */
-  async setProcessorConfig({ processorName, clk, numClocks, showArrays } = {}) {
-    if (!processorName) return err('processorName required');
-    const spfPath = window.ProjectStore?.getSpfPath?.();
-    if (!spfPath || !window.SpfStore) return err('No project open');
-    const patch = {};
-    if (clk !== undefined) {
-      const n = Number(clk);
-      if (!Number.isFinite(n) || n <= 0) return err('clk must be a positive number (MHz)');
-      patch.clk = n;
-    }
-    if (numClocks !== undefined) {
-      const n = Number(numClocks);
-      if (!Number.isFinite(n) || n <= 0) return err('numClocks must be a positive integer');
-      patch.numClocks = Math.round(n);
-    }
-    if (showArrays !== undefined) patch.showArrays = !!showArrays;
-    if (!Object.keys(patch).length) return err('nothing to update (pass clk, numClocks, or showArrays)');
-    let foundProc = false;
-    let finalCfg  = null;
-    try {
-      await window.SpfStore.update(spfPath, (structure) => {
-        const procs = Array.isArray(structure.processors) ? structure.processors : [];
-        structure.processors = procs.map((p) => {
-          const name = typeof p === 'string' ? p : p?.name;
-          if (name !== processorName) {
-            return typeof p === 'string' ? { name: p } : p;
-          }
-          foundProc = true;
-          const prev = typeof p === 'object' && p ? p : { name };
-          const next = { ...prev, name, ...patch };
-          finalCfg = { name, ...configComTempo(next) };
-          return next;
-        });
-      });
-      if (!foundProc) return err(`processor not in this project: ${processorName}`);
-      // Refresh the panel popover so any open UI reflects the change.
-      processorConfigPanel.refresh();
-      emit('project:processor-config-changed', { processorName, ...patch });
-      return ok(finalCfg);
-    } catch (e) { return err(e?.message || 'setProcessorConfig failed'); }
   },
 
   /**

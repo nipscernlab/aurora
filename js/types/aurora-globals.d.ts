@@ -94,6 +94,12 @@ interface AuroraElectronAPI {
     Promise<{ success: boolean, path?: string, message?: string }>;
   /** Pede ao main que a arvore de arquivos se redesenhe. */
   triggerFileTreeRefresh(): Promise<void>;
+  pathExists(path: string): Promise<boolean>;
+  watchDirectory?(path: string | null): Promise<unknown>;
+  /** Os processadores do projeto, como o .spf os lista (nome, ou objeto com config). */
+  getAvailableProcessors(projectPath: string): Promise<Array<string | { name?: string; [k: string]: unknown }> | null>;
+  deleteProcessor?(name: string): Promise<{ success?: boolean; message?: string; [k: string]: unknown } | null>;
+  renameProcessor?(oldName: string, newName: string): Promise<{ success?: boolean; message?: string; oldName?: string; newName?: string; oldDir?: string; newDir?: string; [k: string]: unknown } | null>;
   /** O main avisa que o botao do Processor Hub pode habilitar. */
   onProcessorHubState?(cb: (...args: unknown[]) => void): void;
   /** O main avisa que a lista de processadores do projeto mudou. */
@@ -147,6 +153,8 @@ declare global {
     /** Espelho do ProjectStore para quem ainda nao o importa (js/project/project_store.ts). */
     ProjectStore?: typeof import('../project/project_store.js').ProjectStore;
     gitAPI?: AuroraGitAPI;
+    /** Os paineis do editor dividido (js/editor/split_editor.js), cada um com as suas abas. */
+    SplitEditorManager?: { panes?: Iterable<{ tabs?: Map<string, unknown>; _closeFile?(filePath: string): Promise<unknown> }> };
     /** O seletor de .gtkw (js/wave/gtkw_picker.js); a barra so pede para re-sincronizar. */
     gtkwPickerManager?: { refresh?: () => unknown };
     /** De js/compilation/botoes_da_barra.ts, para o project_manager.js e o E2E. */

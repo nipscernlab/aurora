@@ -56,6 +56,17 @@ describe('montagem da AuroraAPI', () => {
     for (const nome of ['listMemories', 'remember', 'forget']) expect(API.project[nome]).toBe(memoriasDoProjeto[nome]);
   });
 
+  it('os processadores do project sao os do processadores_ns.ts', async () => {
+    const { processadoresDoProjeto } = await import('../../js/api/processadores_ns.js');
+    for (const nome of Object.keys(processadoresDoProjeto)) expect(API.project[nome]).toBe(processadoresDoProjeto[nome]);
+  });
+
+  it('editor.getOpenFiles junta as abas de todos os paineis', async () => {
+    window.SplitEditorManager = { panes: [{ tabs: new Map([['C:/p/a.v', {}]]) }] };
+    expect((await API.editor.getOpenFiles()).data).toEqual(['C:/p/a.v']);
+    delete window.SplitEditorManager;
+  });
+
   it('project.getTree lista o projeto aberto pela arvore_do_projeto, ou recusa sem projeto', async () => {
     ProjectStore.clearProject();
     expect((await API.project.getTree()).error.message).toBe('No project open');

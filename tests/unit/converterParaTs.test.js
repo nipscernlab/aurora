@@ -137,6 +137,13 @@ describe('paraEsm', () => {
     expect(s).toContain("import b from './b.js';");
   });
 
+  it('o requireTarde vai depois de um import de varias linhas, e nao no meio dos imports', () => {
+    const nomes = ['primeiroNomeComprido', 'segundoNomeComprido', 'terceiroNomeComprido', 'quartoNomeComprido'];
+    const texto = `const a = require('./a');\nconst { ${nomes.join(', ')} } = require('./muitos');\nfunction f() { return require('./tarde'); }\n`;
+    const s = paraEsm(`${barra(tmp)}/m8.js`, texto, []);
+    expect(s.indexOf('const requireTarde')).toBeGreaterThan(s.indexOf("} from './muitos.js';"));
+  });
+
   it('import por nome longo vai um nome por linha', () => {
     const nomes = ['primeiroNomeComprido', 'segundoNomeComprido', 'terceiroNomeComprido', 'quartoNomeComprido'];
     const s = paraEsm(`${barra(tmp)}/m6.js`, `const { ${nomes.join(', ')} } = require('./muitos');\n`, []);

@@ -111,7 +111,8 @@ export function paraEsm(abs: string, texto: string, avisos: string[]): string {
     // um require preguicoso num try do topo do modulo pode estar acima de
     // imports que o arquivo tinha mais abaixo.
     const primeiroUso = s.indexOf('requireTarde(');
-    const antes = [...s.matchAll(/^import .*?;[ \t]*$/gm)].filter((m) => m.index !== undefined && m.index < primeiroUso).pop();
+    // [^;]* atravessa linhas: pega tambem o import de um nome por linha.
+    const antes = [...s.matchAll(/^import\b[^;]*;[ \t]*$/gm)].filter((m) => m.index !== undefined && m.index < primeiroUso).pop();
     const ponto = antes && antes.index !== undefined ? antes.index + antes[0].length : 0;
     s = `${s.slice(0, ponto)}\nimport { createRequire } from 'node:module';\n\nconst requireTarde = createRequire(__filename);\n${s.slice(ponto)}`;
     avisos.push('havia require fora do topo: virou requireTarde (createRequire). Conferir se era preguica de proposito');

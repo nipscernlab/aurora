@@ -1,4 +1,4 @@
-// knip.config.js — dead-code gate (run via `npx knip`).
+// knip.config.ts — dead-code gate (run via `npx knip`).
 //
 // Aurora's renderer is NOT a bundled import graph: index.html pulls in
 // classic <script> tags that share state through window globals, and the
@@ -12,8 +12,12 @@
 // `exports`/`types` stay noisy because the window-global renderer code has
 // no import edges for knip to follow, so we don't gate on them.
 
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { KnipConfig } from 'knip';
+
+const RAIZ = path.dirname(fileURLToPath(import.meta.url));
 
 // Toda página HTML do projeto, e todo módulo que ela carrega.
 //
@@ -32,18 +36,18 @@ const path = require('node:path');
 //
 // Caminho é resolvido a partir da pasta da própria página, senão o `src="prism.js"`
 // do html/prism/prism.html apontaria para a raiz do repositório.
-function entradasDasPaginas() {
-  const paginas = [];
+function entradasDasPaginas(): string[] {
+  const paginas: string[] = [];
   (function varrer(dir) {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, e.name);
       if (e.isDirectory()) varrer(p);
       else if (e.name.endsWith('.html')) paginas.push(p);
     }
-  })(path.join(__dirname, 'html'));
-  paginas.push(path.join(__dirname, 'index.html'));
+  })(path.join(RAIZ, 'html'));
+  paginas.push(path.join(RAIZ, 'index.html'));
 
-  const entradas = new Set();
+  const entradas = new Set<string>();
   for (const pagina of paginas) {
     const html = fs.readFileSync(pagina, 'utf8');
     const refs = [
@@ -53,20 +57,22 @@ function entradasDasPaginas() {
     for (const ref of refs) {
       if (!/\.(js|mjs)$/.test(ref)) continue;       // ignora ?inline, css, url externa
       if (/^https?:/.test(ref)) continue;
-      const abs = path.resolve(path.dirname(pagina), ref);
-      const rel = path.relative(__dirname, abs).split(path.sep).join('/');
+      let abs = path.resolve(path.dirname(pagina), ref);
+      // O .js da pagina e gerado de um .ts; sem ele (o deadcode tira os gerados
+      // antes do knip), a entrada e o proprio .ts.
+      if (!fs.existsSync(abs) && fs.existsSync(abs.replace(/\.js$/, '.ts'))) abs = abs.replace(/\.js$/, '.ts');
+      const rel = path.relative(RAIZ, abs).split(path.sep).join('/');
       if (!rel.startsWith('..') && !rel.startsWith('node_modules/')) entradas.add(rel);
     }
   }
   return [...entradas];
 }
 
-/** @type {import('knip').KnipConfig} */
-module.exports = {
+const config: KnipConfig = {
   entry: [
     'main.js',                 // Electron main process (package.json "main")
     'js/app/preload*.js',      // 4 contextBridge preloads, loaded by path
-    'scripts/*.js',            // npm-run build/release/bootstrap helpers
+    'scripts/*.{js,mts}',      // npm-run build/release/bootstrap helpers
     'components/Scripts/*.js', // toolchain download/copy (npm run bootstrap)
     // O corpo do worker da busca no projeto e lido como TEXTO por search.js
     // (readFileSync + Worker com eval), entao nao ha aresta de import para o
@@ -79,13 +85,17 @@ module.exports = {
   ],
   // Analyse only our own source. components/Packages is the downloaded
   // third-party toolchain; node_modules is excluded by knip's defaults.
+  // Os .ts tambem: sem eles o knip nunca analisava o que ja foi convertido, e
+  // uma dependencia usada so por um .ts (o simple-git, depois do ipc/git)
+  // aparecia como sem uso. Os .js gerados ao lado de cada .ts estao no
+  // .gitignore, que o knip respeita.
   project: [
     'main.js',
-    'main/**/*.js',
-    'js/**/*.js',
-    'scripts/*.js',
+    'main/**/*.{js,ts}',
+    'js/**/*.{js,ts}',
+    'scripts/*.{js,mts}',
     'components/Scripts/*.js',
-    'html/prism/prism.js',
+    'html/prism/prism.{js,ts}',
   ],
   // All flagged "unused" deps are reached in ways static analysis can't see:
   ignoreDependencies: [
@@ -102,6 +112,9 @@ module.exports = {
                                      //   (vite.config.mjs -> dist/vendor/material-icons/);
                                      //   js/tree/material_icons.js then fetches it by URL, so
                                      //   there is no import edge for knip to follow.
+    'digitaljs',                     // import() dinamico no html/prism/prism.ts, com o
+    'jquery',                        //   especificador em cast (`'jquery' as any`) porque
+    'jquery-ui',                     //   nenhum dos tres publica tipo; o knip nao le o cast
     'app-builder-lib',               // scripts/patch-latest-yml.js reaches into it for
                                      //   electron-builder's own buildBlockMap, to rebuild the
                                      //   .blockmap from the SIGNED installer. Deliberately NOT
@@ -113,3 +126,5 @@ module.exports = {
                                      //   degrades with a warning if the internal path moves.
   ],
 };
+
+export default config;

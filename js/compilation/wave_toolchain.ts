@@ -15,7 +15,7 @@ import { projectTempDir } from '../project/project_temp.js';
 // SpfStore), migrating these globals belongs to A3, not this extraction.
 
 // i18n shim, falls back to the key path if i18n didn't boot yet.
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
 /**
  * Resolve absolute paths to bundled toolchain executables and Aurora's
@@ -32,7 +32,7 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
  * and convert the FST it produces, that path uses the base tools object
  * directly (unlike Verilator, which merges in resolveVerilatorTools()).
  */
-export async function resolveWaveToolchain(componentsPath, projectPath = null) {
+export async function resolveWaveToolchain(componentsPath: string, projectPath: string | null = null) {
     // Os intermediarios vao para a Temp DO PROJETO (ver project_temp.js);
     // components/Temp so quando nao ha projeto, que e o caso de quem abre
     // um dump avulso pela API.
@@ -81,8 +81,8 @@ export async function resolveWaveToolchain(componentsPath, projectPath = null) {
  * the preferred names match and exactly one wave file exists, take it;
  * an ambiguous multi-file directory with no preferred match returns null.
  */
-export async function findWaveCandidateInDir(dir, topModule) {
-    let entries = [];
+export async function findWaveCandidateInDir(dir: string, topModule: string | null | undefined) {
+    let entries: string[] = [];
     try {
         entries = await electronAPI.listFilesInDirectory(dir);
     } catch (_e) {
@@ -122,7 +122,7 @@ export async function findWaveCandidateInDir(dir, topModule) {
  * (bash + coreutils the generated verilated.mk shells out to). Unlike the
  * base wave toolchain, Verilator merges these into its own tools object.
  */
-export async function resolveVerilatorTools(componentsPath) {
+export async function resolveVerilatorTools(componentsPath: string) {
     const bundleRoot = await electronAPI.joinPath(componentsPath, 'Packages', 'msys');
     const mingwBin = await electronAPI.joinPath(bundleRoot, 'mingw64', 'bin');
     const usrBin   = await electronAPI.joinPath(bundleRoot, 'usr', 'bin');

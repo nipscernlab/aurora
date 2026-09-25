@@ -1,5 +1,5 @@
 /**
- * surfer_window_preference.js: Quantas janelas do Surfer o botao Wave mantem.
+ * surfer_window_preference.ts: Quantas janelas do Surfer o botao Wave mantem.
  *
  * Default: false (uma janela so, a AURORA fecha a janela anterior antes de
  * abrir a nova, pra nao empilhar janelas a cada simulacao). Quando true,
@@ -22,7 +22,7 @@ const STORAGE_KEY = 'aurora.surferMultiWindow';
  * true = permitir varias janelas do Surfer (comparar); false = uma janela so.
  * Default false. Nunca lanca, chamado no hot path (cada clique no Wave).
  */
-export function getSurferMultiWindow() {
+export function getSurferMultiWindow(): boolean {
     try {
         return (typeof localStorage !== 'undefined')
             && localStorage.getItem(STORAGE_KEY) === 'true';
@@ -32,7 +32,7 @@ export function getSurferMultiWindow() {
 }
 
 /** Persiste a escolha (coage pra boolean). Idempotente, nunca lanca. */
-export function setSurferMultiWindow(value) {
+export function setSurferMultiWindow(value: unknown): boolean {
     const normalized = value === true;
     try {
         if (typeof localStorage !== 'undefined') {

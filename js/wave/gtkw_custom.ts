@@ -1,5 +1,5 @@
 /**
- * gtkw_custom.js: escreve um .gtkw a partir de uma lista de sinais.
+ * gtkw_custom.ts: escreve um .gtkw a partir de uma lista de sinais.
  *
  * O QUE ISTO NAO E
  * ----------------
@@ -51,10 +51,13 @@ const GRUPO = Object.freeze({
   fechado: { inicio: 0xC00200, fim: 0x1401200 },
 });
 
+/** Um sinal pedido: so o caminho, ou o caminho com base e grupo. */
+type EntradaDeSinal = string | { path: string; radix?: string; group?: string };
+
 /** Os nomes de base aceitos em `radix`. */
 export const RADIX_VALIDOS = Object.freeze(Object.keys(FLAGS));
 
-const hex = (n) => n.toString(16);
+const hex = (n: number): string => n.toString(16);
 
 /**
  * Normaliza a entrada de um sinal.
@@ -63,8 +66,8 @@ const hex = (n) => n.toString(16);
  * o caso comum ser uma lista de nomes e ninguem precisar aprender um formato
  * para pedir o obvio.
  */
-function normalizar(entrada) {
-  const bruto = typeof entrada === 'string' ? { path: entrada } : (entrada || {});
+function normalizar(entrada: EntradaDeSinal | null | undefined): { path: string; radix: string; group: string | null } | null {
+  const bruto: { path?: string; radix?: string; group?: string } = typeof entrada === 'string' ? { path: entrada } : (entrada || {});
   const path = String(bruto.path || '').trim();
   if (!path) return null;
   const radix = String(bruto.radix || 'dec').toLowerCase();
@@ -85,13 +88,18 @@ function normalizar(entrada) {
  *   title?: string|null,
  *   groupsOpen?: boolean,
  * }} entrada
- * @returns {{ conteudo: string, sinais: number, ignorados: string[] }}
  */
-export function buildCustomGtkw({ signals, dumpPath = null, savePath = null, title = null, groupsOpen = true } = {}) {
+export function buildCustomGtkw({ signals, dumpPath = null, savePath = null, title = null, groupsOpen = true }: {
+signals?: EntradaDeSinal[];
+dumpPath?: string|null;
+savePath?: string|null;
+title?: string|null;
+groupsOpen?: boolean;
+} = {}): { conteudo: string; sinais: number; ignorados: string[]; } {
   const grupo = groupsOpen ? GRUPO.aberto : GRUPO.fechado;
   const lista = Array.isArray(signals) ? signals : [];
-  const ignorados = [];
-  const limpos = [];
+  const ignorados: string[] = [];
+  const limpos: Array<NonNullable<ReturnType<typeof normalizar>>> = [];
   for (const bruto of lista) {
     const s = normalizar(bruto);
     if (s) limpos.push(s);
@@ -116,8 +124,8 @@ export function buildCustomGtkw({ signals, dumpPath = null, savePath = null, tit
     linhas.push(`-${title}`);
   }
 
-  let flagAtual = null;
-  let grupoAberto = null;
+  let flagAtual: number | null = null;
+  let grupoAberto: string | null = null;
   const fecharGrupo = () => {
     if (grupoAberto === null) return;
     linhas.push(`@${hex(grupo.fim)}`);
@@ -138,7 +146,7 @@ export function buildCustomGtkw({ signals, dumpPath = null, savePath = null, tit
         flagAtual = grupo.inicio;
       }
     }
-    const flag = FLAGS[s.radix];
+    const flag = FLAGS[s.radix as keyof typeof FLAGS];
     if (flag !== flagAtual) {
       linhas.push(`@${hex(flag)}`);
       flagAtual = flag;

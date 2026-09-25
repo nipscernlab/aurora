@@ -1,5 +1,5 @@
 /**
- * bug_report.js: relatar um problema por e-mail, em um clique.
+ * bug_report.ts: relatar um problema por e-mail, em um clique.
  *
  * O usuário escolhe o provedor e a AURORA abre a janela de composição dele no
  * navegador, já com destinatário, assunto e um corpo pronto em português,
@@ -22,7 +22,7 @@
  * Este arquivo escrevia o rotulo direto em portugues, entao quem usava a AURORA
  * em ingles via uma palavra em portugues no meio da tela.
  */
-function tr(chave, reserva) {
+function tr(chave: string, reserva: string): string {
   const f = typeof window !== 'undefined' ? window.t : null;
   if (typeof f !== 'function') return reserva;
   const v = f(chave);
@@ -31,7 +31,43 @@ function tr(chave, reserva) {
 
 
 import { electronAPI } from '../app/electron_api.js';
-import { abrirFormulario, diagnosticoEmTexto } from './bug_report_form.js';
+import { abrirFormulario } from './bug_report_form.js';
+import { showDialog } from './dialog_manager.js';
+import { TabManager } from '../tabs/tab_manager.js';
+import { ProjectStore } from '../project/project_store.js';
+
+/** Os campos codificados que cada provedor recebe. */
+interface CamposDoEmail { to: string; subject: string; body: string }
+
+/** O diagnostico curto que vai no corpo do e-mail. */
+interface Diagnostico {
+  versao?: string;
+  so?: string;
+  electron?: string;
+  chrome?: string;
+  node?: string;
+  projeto?: string;
+  arquivo?: string;
+  locale?: string;
+}
+
+/** O texto que o formulario ja recolheu, quando recolheu. */
+interface TextoDoRelato {
+  oQueAconteceu?: string;
+  oQueEsperava?: string;
+  comoReproduzir?: string;
+  terminal?: string;
+}
+
+/** O que o main devolve em bugreport:diagnostico (main/ipc/bug_report.ts). */
+interface DiagnosticoDoMain {
+  versao?: string;
+  sistema?: string;
+  electron?: string;
+  chrome?: string;
+  node?: string;
+  [k: string]: unknown;
+}
 
 const BUG_EMAIL = 'contact@nipscern.com';
 
@@ -46,68 +82,68 @@ const PROVEDORES = [
   {
     id: 'gmail',
     nome: 'Gmail',
-    url: (p) => 'https://mail.google.com/mail/?view=cm&fs=1'
+    url: (p: CamposDoEmail) => 'https://mail.google.com/mail/?view=cm&fs=1'
       + `&to=${p.to}&su=${p.subject}&body=${p.body}`,
   },
   {
     id: 'outlook',
     nome: 'Outlook',
-    url: (p) => 'https://outlook.live.com/mail/0/deeplink/compose'
+    url: (p: CamposDoEmail) => 'https://outlook.live.com/mail/0/deeplink/compose'
       + `?to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
     id: 'proton',
     nome: 'Proton Mail',
-    url: (p) => 'https://mail.proton.me/u/0/inbox'
+    url: (p: CamposDoEmail) => 'https://mail.proton.me/u/0/inbox'
       + `#action=compose&to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
     id: 'yandex',
     nome: 'Yandex Mail',
-    url: (p) => `https://mail.yandex.com/compose?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+    url: (p: CamposDoEmail) => `https://mail.yandex.com/compose?to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
     id: 'icloud',
     nome: 'iCloud Mail',
-    url: (p) => `https://www.icloud.com/mail/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+    url: (p: CamposDoEmail) => `https://www.icloud.com/mail/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
     id: 'zoho',
     nome: 'Zoho Mail',
-    url: (p) => 'https://mail.zoho.com/zm/#compose'
+    url: (p: CamposDoEmail) => 'https://mail.zoho.com/zm/#compose'
       + `?to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
     id: 'gmx',
     nome: 'GMX',
-    url: (p) => `https://www.gmx.com/mail/compose/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+    url: (p: CamposDoEmail) => `https://www.gmx.com/mail/compose/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
     id: 'aol',
     nome: 'AOL Mail',
-    url: (p) => `https://mail.aol.com/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+    url: (p: CamposDoEmail) => `https://mail.aol.com/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
     id: 'mailru',
     nome: 'Mail.ru',
-    url: (p) => `https://e.mail.ru/compose/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+    url: (p: CamposDoEmail) => `https://e.mail.ru/compose/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
     id: 'tutanota',
     nome: 'Tuta',
-    url: (p) => `https://app.tuta.com/mailto?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+    url: (p: CamposDoEmail) => `https://app.tuta.com/mailto?to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
     id: 'hey',
     nome: 'HEY',
-    url: (p) => `https://app.hey.com/mailto?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+    url: (p: CamposDoEmail) => `https://app.hey.com/mailto?to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
     // Thunderbird, Outlook instalado, Apple Mail e afins. Ultima opcao porque
     // depende de haver cliente configurado na maquina.
     id: 'mailto',
     nome: 'Cliente instalado',
-    url: (p) => `mailto:${p.to}?subject=${p.subject}&body=${p.body}`,
+    url: (p: CamposDoEmail) => `mailto:${p.to}?subject=${p.subject}&body=${p.body}`,
   },
 ];
 
@@ -121,11 +157,11 @@ const PROVEDORES = [
  * @param {{versao?: string, so?: string, electron?: string, chrome?: string,
  *          node?: string, projeto?: string, arquivo?: string, locale?: string}} d
  */
-function montarCorpo(d = {}, texto = {}) {
-  const val = (x) => (x === undefined || x === null || x === '' ? 'não informado' : String(x));
+function montarCorpo(d: Diagnostico = {}, texto: TextoDoRelato = {}): string {
+  const val = (x: unknown) => (x === undefined || x === null || x === '' ? 'não informado' : String(x));
   // Quando o formulario ja recolheu o texto, ele vem preenchido; quando o
   // usuario chamou o e-mail direto, ficam os cabecalhos vazios para preencher.
-  const ou = (v, vazio) => (String(v || '').trim() || vazio);
+  const ou = (v: unknown, vazio: string) => (String(v || '').trim() || vazio);
   return [
     'Descreva o problema abaixo. Quanto mais concreto, mais rápido de resolver.',
     '',
@@ -160,16 +196,14 @@ function montarCorpo(d = {}, texto = {}) {
 }
 
 /** Assunto padrão, com a versão para triagem. */
-function montarAssunto(versao) {
+function montarAssunto(versao: string | undefined): string {
   return `[AURORA ${versao || '?'}] Relato de problema`;
 }
 
 /**
  * URL de composição do provedor, com tudo codificado.
- * @param {string} id
- * @param {{assunto: string, corpo: string, para?: string}} conteudo
  */
-function urlDoProvedor(id, { assunto, corpo, para = BUG_EMAIL }) {
+function urlDoProvedor(id: string, { assunto, corpo, para = BUG_EMAIL }: { assunto: string; corpo: string; para?: string }): string | null {
   const p = PROVEDORES.find((x) => x.id === id);
   if (!p) return null;
   return p.url({
@@ -193,7 +227,7 @@ function urlDoProvedor(id, { assunto, corpo, para = BUG_EMAIL }) {
  * As marcas pertencem aos respectivos servicos. Aparecem aqui apenas para
  * identificar cada um na lista.
  */
-const ICONES = {
+const ICONES: Record<string, { arquivo: string; cor: string }> = {
   gmail:    { arquivo: 'mail_gmail.svg', cor: '#EA4335' },
   outlook:  { arquivo: 'mail_microsoftoutlook.svg', cor: '#0078D4' },
   proton:   { arquivo: 'mail_protonmail.svg', cor: '#6D4AFF' },
@@ -209,7 +243,7 @@ const ICONES = {
 };
 
 /** Marcação do ícone, como máscara colorida. */
-function iconeHtml(id) {
+function iconeHtml(id: string): string {
   const it = ICONES[id];
   if (!it) return '<i class="ph ph-envelope-simple" aria-hidden="true"></i>';
   const url = `./assets/icons/${it.arquivo}`;
@@ -219,21 +253,29 @@ function iconeHtml(id) {
     + `mask:url('${url}') center/contain no-repeat;"></span>`;
 }
 
-/** Diagnóstico que a interface consegue reunir sem perguntar nada. */
-async function coletar() {
-  const d = {};
+/**
+ * O diagnostico curto do corpo do e-mail.
+ *
+ * Sistema, Electron, Chromium e Node vem do diagnostico que o main reuniu para
+ * o formulario (bugreport:diagnostico), quando ele veio. Ate 25/09/2026 isto
+ * perguntava a um electronAPI.getSystemInfo que nunca existiu, e o e-mail saia
+ * sempre com o userAgent no lugar do sistema e "nao informado" nas versoes;
+ * o diagnostico do main chegava aqui e era guardado num campo que ninguem lia.
+ * O log, que o diagnostico do main tambem traz, continua fora: o corpo vai na
+ * URL, e ela tem limite.
+ */
+async function coletar(diag: DiagnosticoDoMain | null): Promise<Diagnostico> {
+  const d: Diagnostico = {};
   try { d.versao = await electronAPI.getAppVersion?.(); } catch (_) { /* opcional */ }
-  try {
-    const s = await electronAPI.getSystemInfo?.();
-    if (s) {
-      d.so = [s.platform, s.release, s.arch].filter(Boolean).join(' ');
-      d.electron = s.electron; d.chrome = s.chrome; d.node = s.node;
-    }
-  } catch (_) { /* opcional */ }
+  if (diag) {
+    d.versao = d.versao || diag.versao;
+    d.so = diag.sistema;
+    d.electron = diag.electron; d.chrome = diag.chrome; d.node = diag.node;
+  }
   if (!d.so) d.so = navigator.userAgent;
-  d.locale = window.i18nCurrentLocale || document.documentElement.lang || '—';
-  d.projeto = window.currentProjectPath || 'nenhum';
-  try { d.arquivo = window.TabManager?.getEditingFilePath?.() || 'nenhum'; }
+  d.locale = (window as unknown as { i18nCurrentLocale?: string }).i18nCurrentLocale || document.documentElement.lang || '—';
+  d.projeto = ProjectStore.getProjectPath() || 'nenhum';
+  try { d.arquivo = TabManager.getEditingFilePath?.() || 'nenhum'; }
   catch (_) { d.arquivo = 'nenhum'; }
   return d;
 }
@@ -245,43 +287,41 @@ async function coletar() {
  * envio direto não está configurado. Recebe o texto para o e-mail não sair
  * vazio pedindo que a pessoa escreva tudo de novo.
  */
-async function enviarPorEmail(texto = {}, diagDoMain = null) {
-  const dados = await coletar();
-  if (diagDoMain) {
-    // O diagnóstico do main é mais completo (log, memória, núcleos). Quando ele
-    // veio, é ele que vale, para o e-mail levar o mesmo que a tela mostrou.
-    dados.diagCompleto = diagnosticoEmTexto(diagDoMain);
-  }
+async function enviarPorEmail(texto: TextoDoRelato = {}, diagDoMain: DiagnosticoDoMain | null = null): Promise<void> {
+  const dados = await coletar(diagDoMain);
   const assunto = montarAssunto(dados.versao);
   const corpo = montarCorpo(dados, texto);
 
-  const escolha = await window.AuroraUI?.dialog?.({
+  const escolha = await showDialog({
     title: tr('bugReport.sendByEmail', 'Send by e-mail'),
     message: 'A AURORA abre a janela de composição do seu e-mail já preenchida. '
       + 'Escolha por onde enviar.',
     variant: 'info',
-    buttons: PROVEDORES.map((p) => ({
-      label: p.nome,
-      action: p.id,
-      type: p.id === 'gmail' ? 'save' : 'cancel',
-      iconHtml: iconeHtml(p.id),
-    })).concat([{ label: 'Cancelar', action: 'cancel', type: 'cancel' }]),
+    buttons: [
+      ...PROVEDORES.map((p) => ({
+        label: p.nome,
+        action: p.id,
+        type: p.id === 'gmail' ? 'save' : 'cancel',
+        iconHtml: iconeHtml(p.id),
+      })),
+      { label: 'Cancelar', action: 'cancel', type: 'cancel' },
+    ],
   });
 
   if (!escolha || escolha === 'cancel') return;
   const url = urlDoProvedor(escolha, { assunto, corpo });
   if (!url) return;
-  try { await electronAPI.openExternal(url); }
-  catch (e) { window.showNotification?.(`Não foi possível abrir: ${e?.message || e}`, 'error'); }
+  try { await electronAPI.openExternal!(url); }
+  catch (e) { window.showNotification?.(`Não foi possível abrir: ${(e as Error | null)?.message || e}`, 'error'); }
 }
 
 /** Ponto de entrada do botão: o formulário, com o e-mail como reserva. */
-async function abrirRelatorio() {
+async function abrirRelatorio(): Promise<void> {
   await abrirFormulario(enviarPorEmail);
 }
 
 if (typeof window !== 'undefined') {
-  window.auroraBugReport = abrirRelatorio;
+  (window as unknown as { auroraBugReport?: typeof abrirRelatorio }).auroraBugReport = abrirRelatorio;
   document.addEventListener('DOMContentLoaded', () => {
     // O botao vive na BARRA LATERAL das configuracoes, logo abaixo de
     // Componentes, e nao dentro de um painel. Passou por dois lugares antes:

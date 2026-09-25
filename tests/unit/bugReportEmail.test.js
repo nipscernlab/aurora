@@ -8,15 +8,17 @@ import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 
 const electronAPI = {
   getAppVersion: vi.fn(async () => '1.2.3'),
-  getSystemInfo: vi.fn(async () => ({ platform: 'win32', release: '10.0', arch: 'x64', electron: '30', chrome: '124', node: '20' })),
   openExternal: vi.fn(async () => {}),
 };
 vi.mock('../../js/app/electron_api.js', () => ({ electronAPI }));
+// O diagnostico que o main reune para o formulario (bugreport:diagnostico).
+const DIAG = { versao: '1.2.3', sistema: 'win32 10.0 x64', electron: '30', chrome: '124', node: '20', log: 'linhas do log' };
 const form = { porEmail: null };
 vi.mock('../../js/ui/bug_report_form.js', () => ({
   abrirFormulario: vi.fn(async (porEmail) => { form.porEmail = porEmail; }),
-  diagnosticoEmTexto: vi.fn(() => 'DIAG COMPLETO'),
 }));
+const dialogo = vi.fn(async () => 'gmail');
+vi.mock('../../js/ui/dialog_manager.js', () => ({ showDialog: (o) => dialogo(o) }));
 const TabManager = { getEditingFilePath: vi.fn(() => 'C:\\p\\top.v') };
 vi.mock('../../js/tabs/tab_manager.js', () => ({ TabManager }));
 
@@ -24,6 +26,8 @@ let ProjectStore;
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 // O searchParams ja decodifica; decodificar de novo quebraria no %APPDATA% do corpo.
 const corpoDe = (url) => new URL(url).searchParams.get('body');
+const assuntoDe = (url) => new URL(url).searchParams.get('su');
+const ultimaUrl = () => electronAPI.openExternal.mock.calls.at(-1)[0];
 
 beforeAll(async () => {
   document.body.innerHTML = '<button id="bug-report-btn"></button>';
@@ -36,8 +40,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  window.TabManager = TabManager;
-  window.AuroraUI = { dialog: vi.fn(async () => 'gmail') };
+  dialogo.mockResolvedValue('gmail');
+  electronAPI.getAppVersion.mockResolvedValue('1.2.3');
   window.showNotification = vi.fn();
   delete window.t;
   ProjectStore.setProject('C:\\p\\p.spf', 'C:\\p');
@@ -51,25 +55,29 @@ describe('o botao', () => {
 });
 
 describe('enviar por e-mail', () => {
-  it('abre o Gmail com assunto, corpo e diagnostico codificados', async () => {
-    await form.porEmail({ oQueAconteceu: 'travou', oQueEsperava: 'compilar', comoReproduzir: '1. abrir' });
-    const url = electronAPI.openExternal.mock.calls[0][0];
+  it('abre o Gmail com assunto, corpo e o diagnostico do main, sem o log', async () => {
+    await form.porEmail({ oQueAconteceu: 'travou', oQueEsperava: 'compilar', comoReproduzir: '1. abrir' }, DIAG);
+    const url = ultimaUrl();
     expect(url.startsWith('https://mail.google.com/mail/?view=cm&fs=1&to=contact%40nipscern.com')).toBe(true);
+    expect(assuntoDe(url)).toBe('[AURORA 1.2.3] Relato de problema');
     const corpo = corpoDe(url);
-    expect(new URL(url).searchParams.get('su')).toBe('[AURORA 1.2.3] Relato de problema');
-    expect(corpo).toContain('travou');
-    expect(corpo).toContain('compilar');
-    expect(corpo).toContain('AURORA: 1.2.3');
-    expect(corpo).toContain('Sistema: win32 10.0 x64');
-    expect(corpo).toContain('Electron: 30   Chromium: 124   Node: 20');
-    expect(corpo).toContain('Projeto aberto: C:\\p');
-    expect(corpo).toContain('Arquivo em foco: C:\\p\\top.v');
+    for (const trecho of [
+      'travou', 'compilar', 'AURORA: 1.2.3', 'Sistema: win32 10.0 x64',
+      'Electron: 30   Chromium: 124   Node: 20', 'Projeto aberto: C:\\p', 'Arquivo em foco: C:\\p\\top.v',
+    ]) expect(corpo).toContain(trecho);
+    expect(corpo).not.toContain('linhas do log');
+  });
+
+  it('sem versao do aplicativo, a do diagnostico do main vale', async () => {
+    electronAPI.getAppVersion.mockResolvedValueOnce(undefined);
+    await form.porEmail({}, DIAG);
+    expect(corpoDe(ultimaUrl())).toContain('AURORA: 1.2.3');
   });
 
   it('o dialogo lista todos os provedores, o Gmail em destaque, e o cancelar', async () => {
-    window.AuroraUI.dialog.mockResolvedValueOnce('cancel');
+    dialogo.mockResolvedValueOnce('cancel');
     await form.porEmail();
-    const botoes = window.AuroraUI.dialog.mock.calls[0][0].buttons;
+    const botoes = dialogo.mock.calls[0][0].buttons;
     expect(botoes.map((b) => b.action)).toEqual([
       'gmail', 'outlook', 'proton', 'yandex', 'icloud', 'zoho', 'gmx', 'aol', 'mailru', 'tutanota', 'hey', 'mailto', 'cancel',
     ]);
@@ -86,9 +94,9 @@ describe('enviar por e-mail', () => {
       ['mailru', 'https://e.mail.ru/'], ['tutanota', 'https://app.tuta.com/'], ['hey', 'https://app.hey.com/'],
       ['mailto', 'mailto:contact%40nipscern.com?subject='],
     ]) {
-      window.AuroraUI.dialog.mockResolvedValueOnce(id);
+      dialogo.mockResolvedValueOnce(id);
       await form.porEmail();
-      expect(electronAPI.openExternal.mock.calls.at(-1)[0].startsWith(comeco)).toBe(true);
+      expect(ultimaUrl().startsWith(comeco)).toBe(true);
     }
   });
 
@@ -96,7 +104,7 @@ describe('enviar por e-mail', () => {
     ProjectStore.clearProject();
     TabManager.getEditingFilePath.mockReturnValueOnce('');
     await form.porEmail();
-    const corpo = corpoDe(electronAPI.openExternal.mock.calls[0][0]);
+    const corpo = corpoDe(ultimaUrl());
     expect(corpo).toContain('COMO REPRODUZIR, PASSO A PASSO\n1. \n2. \n3. ');
     expect(corpo).toContain('Projeto aberto: nenhum');
     expect(corpo).toContain('Arquivo em foco: nenhum');
@@ -104,38 +112,32 @@ describe('enviar por e-mail', () => {
 
   it('o recorte do terminal entra no corpo quando veio', async () => {
     await form.porEmail({ terminal: 'erro na linha 3' });
-    expect(corpoDe(electronAPI.openExternal.mock.calls[0][0])).toContain('TERMINAL (erros e o que estava em volta)\nerro na linha 3');
+    expect(corpoDe(ultimaUrl())).toContain('TERMINAL (erros e o que estava em volta)\nerro na linha 3');
   });
 
-  it('sem versao nem sistema, o que falta sai como nao informado, e o sistema vem do navegador', async () => {
+  it('sem versao nem diagnostico do main: nao informado, e o sistema vem do navegador', async () => {
     electronAPI.getAppVersion.mockRejectedValueOnce(new Error('x'));
-    electronAPI.getSystemInfo.mockRejectedValueOnce(new Error('y'));
     TabManager.getEditingFilePath.mockImplementationOnce(() => { throw new Error('z'); });
     await form.porEmail();
-    const url = electronAPI.openExternal.mock.calls[0][0];
-    expect(new URL(url).searchParams.get('su')).toBe('[AURORA ?] Relato de problema');
+    const url = ultimaUrl();
+    expect(assuntoDe(url)).toBe('[AURORA ?] Relato de problema');
     const corpo = corpoDe(url);
     expect(corpo).toContain('AURORA: não informado');
     expect(corpo).toContain(`Sistema: ${navigator.userAgent}`);
+    expect(corpo).toContain('Electron: não informado');
     expect(corpo).toContain('Arquivo em foco: nenhum');
-    electronAPI.getSystemInfo.mockResolvedValueOnce(null);
-    await form.porEmail();
   });
 
-  it('com o diagnostico do main, ele e montado; abrir que falha avisa', async () => {
-    const { diagnosticoEmTexto } = await import('../../js/ui/bug_report_form.js');
+  it('abrir que falha avisa', async () => {
     electronAPI.openExternal.mockRejectedValueOnce(new Error('sem navegador'));
-    await form.porEmail({}, { versao: '1.2.3' });
-    expect(diagnosticoEmTexto).toHaveBeenCalledWith({ versao: '1.2.3' });
+    await form.porEmail({}, DIAG);
     expect(window.showNotification).toHaveBeenCalledWith('Não foi possível abrir: sem navegador', 'error');
   });
 
   it('dialogo que nao responde, ou provedor desconhecido, nao abre nada', async () => {
-    window.AuroraUI.dialog.mockResolvedValueOnce(undefined);
+    dialogo.mockResolvedValueOnce(undefined);
     await form.porEmail();
-    window.AuroraUI.dialog.mockResolvedValueOnce('pombo');
-    await form.porEmail();
-    delete window.AuroraUI;
+    dialogo.mockResolvedValueOnce('pombo');
     await form.porEmail();
     expect(electronAPI.openExternal).not.toHaveBeenCalled();
   });
@@ -143,6 +145,6 @@ describe('enviar por e-mail', () => {
   it('o titulo do dialogo vem traduzido', async () => {
     window.t = (k) => (k === 'bugReport.sendByEmail' ? 'Enviar por e-mail' : k);
     await form.porEmail();
-    expect(window.AuroraUI.dialog.mock.calls[0][0].title).toBe('Enviar por e-mail');
+    expect(dialogo.mock.calls[0][0].title).toBe('Enviar por e-mail');
   });
 });

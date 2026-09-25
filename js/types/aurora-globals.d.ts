@@ -91,6 +91,7 @@ interface AuroraElectronAPI {
     Promise<{ ok: boolean } | undefined>;
   /** Abre uma URL no navegador do sistema. Recusa `file://` de proposito. */
   openExternal?(url: string): Promise<unknown>;
+  getAppVersion?(): Promise<string>;
   /** Cria a pasta do processador, o fonte e a entrada no .spf. */
   createProcessorProject(formData: Record<string, unknown>):
     Promise<{ success: boolean, path?: string, message?: string }>;

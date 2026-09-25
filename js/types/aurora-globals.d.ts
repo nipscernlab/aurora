@@ -97,8 +97,15 @@ interface AuroraElectronAPI {
   /** Pede ao main que a arvore de arquivos se redesenhe. */
   triggerFileTreeRefresh(): Promise<void>;
   pathExists(path: string): Promise<boolean>;
-  openProject(spfPath: string): Promise<unknown>;
-  getProjectInfo?(projectPath: string): Promise<unknown>;
+  openProject(spfPath: string): Promise<{ success?: boolean; message?: string; projectData?: Record<string, unknown>; data?: Record<string, unknown> } | null>;
+  getProjectInfo(projectPath: string): Promise<unknown>;
+  /** O seletor nativo de .spf. */
+  showOpenDialog(): Promise<{ canceled: boolean; filePaths: string[] }>;
+  openFolder(path: string): Promise<unknown>;
+  onSimulateOpenProject(cb: (result: { canceled: boolean; filePaths: string[] }) => void): void;
+  onOpenLooseFile?(cb: (data: { filePath?: string }) => void): void;
+  onOpenFileAt(cb: (data: { filePath: string; line?: number; column?: number }) => void): void;
+  onOpenWave?(cb: (data: { vcdPath: string; modulo?: string; sinais?: string[] }) => void): void;
   /** Cria a pasta e o .spf de um projeto novo. O main ignora o terceiro argumento. */
   createProjectStructure(projectPath: string, spfPath: string, name?: string): Promise<{ success?: boolean; message?: string } | null>;
   listRecentProjects?(): Promise<string[] | null>;
@@ -164,13 +171,25 @@ declare global {
     gitAPI?: AuroraGitAPI;
     /** Os paineis do editor dividido (js/editor/split_editor.js), cada um com as suas abas. */
     SplitEditorManager?: {
-      panes?: Iterable<{ tabs?: Map<string, unknown>; paneIndex?: number; _closeFile?(filePath: string): Promise<unknown> }>;
+      panes?: Array<{ tabs?: Map<string, { editor?: unknown }>; paneIndex?: number; _closeFile?(filePath: string): Promise<unknown> }>;
+      focusedPane?: number;
       closePane?(paneIndex: number | undefined): unknown;
+      refreshLayout?(): unknown;
+      openInFocusedPane?(filePath: string, content: string): Promise<unknown>;
     };
+    /** A arvore de projeto (js/project/file_mode.js). */
+    projectTreeManager?: {
+      reset?(): unknown;
+      activateTree?(): Promise<unknown>;
+      refreshEditorFocusHighlight?(): unknown;
+      missingFiles?: import('../project/arquivos_faltando.js').ArquivoFaltando[];
+    };
+    /** O inicializador do app (js/app/app_initializer.js): lembra o ultimo projeto. */
+    appInitializer?: { saveCurrentProject?(spfPath: string): unknown };
     /** O gerenciador de projeto do renderer (js/project/project_manager.js). */
     projectManager?: { loadProject?(spfPath: string): Promise<unknown> };
     /** A lista de recentes da tela inicial (js/project/recent_projects.js). */
-    recentProjectsManager?: { removeProject?(spfPath: string): unknown };
+    recentProjectsManager?: { removeProject?(spfPath: string): unknown; addProject?(spfPath: string): unknown };
     /** O aviso no canto (js/ui/notification.js). */
     showNotification?: (mensagem: string, tipo?: string, duracaoMs?: number) => unknown;
     /** O seletor de .gtkw (js/wave/gtkw_picker.js); a barra so pede para re-sincronizar. */

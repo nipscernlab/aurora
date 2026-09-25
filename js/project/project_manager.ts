@@ -11,7 +11,15 @@ import {
     habilitarBotoesDoProjeto, ligarIndicadorDeProjeto, mostrarInformacaoDoProjeto, mostrarNomeDoProjeto,
 } from './interface_do_projeto.js';
 
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+/** O editor do Monaco, so o que o salto para a linha usa. */
+interface EditorParaRevelar {
+    layout(): void;
+    setPosition(p: { lineNumber: number; column: number }): void;
+    revealLineInCenter(line: number): void;
+    focus(): void;
+}
+
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
 // O nome do projeto, os botoes, o indicador da barra e o dialogo de
 // informacoes moram em interface_do_projeto.ts; o relatorio dos arquivos que
@@ -20,9 +28,9 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
 /**
  * Load project with full orchestration
  */
-async function loadProject(spfPath) {
+async function loadProject(spfPath: string | null | undefined): Promise<void> {
     try {
-        const result = await electronAPI.openProject(spfPath);
+        const result = await electronAPI.openProject(spfPath as string);
 
         if (!result || result.success === false) {
             const msg = (result && result.message) || 'Could not open project.';
@@ -31,7 +39,11 @@ async function loadProject(spfPath) {
 
         // Tolerância: result.projectData pode vir com forma variável dependendo
         // da versão do main.js. Tenta múltiplos caminhos antes de falhar.
-        const projectData = result.projectData || result.data || {};
+        const projectData = (result.projectData || result.data || {}) as {
+            structure?: { basePath?: string; processors?: unknown };
+            basePath?: string;
+            metadata?: { projectPath?: string; projectName?: string };
+        };
 
         // A RAIZ E ONDE O .spf ESTA, e nao o que esta escrito dentro dele.
         //
@@ -89,12 +101,12 @@ async function loadProject(spfPath) {
         // fileTreeManager.initializeTreeBasedOnMode nao gerem duplo
         // loadConfiguration (ver ARCHITECTURE.md §6).
         if (window.projectTreeManager) {
-            await window.projectTreeManager.activateTree();
+            await window.projectTreeManager.activateTree?.();
         }
         fileTreeManager.watcher?.startWatching?.(ProjectStore.getProjectPath());
 
         if (window.recentProjectsManager) {
-            window.recentProjectsManager.addProject(spfPath);
+            window.recentProjectsManager.addProject?.(spfPath as string);
         }
 
         // Enable buttons and update status
@@ -102,7 +114,7 @@ async function loadProject(spfPath) {
 
         // Save as last opened project
         if (window.appInitializer) {
-            window.appInitializer.saveCurrentProject(spfPath);
+            window.appInitializer.saveCurrentProject?.(spfPath as string);
         }
 
         // Tell the split/welcome layout that a project is now active so the
@@ -166,7 +178,7 @@ async function loadProject(spfPath) {
         try {
             await showDialog({
                 title: tr('dialog.project.loadErrorTitle'),
-                message: tr('dialog.project.loadErrorMessage', { error: error.message }),
+                message: tr('dialog.project.loadErrorMessage', { error: (error as Error | null)?.message }),
                 buttons: [{ label: tr('dialog.common.ok'), action: 'close', type: 'cancel' }]
             });
         } catch (dialogErr) {
@@ -198,7 +210,7 @@ class ProjectManager {
             if (!spfPath) return;
             try {
                 const projectData = await electronAPI.getProjectInfo(spfPath);
-                mostrarInformacaoDoProjeto(projectData);
+                mostrarInformacaoDoProjeto(projectData as Parameters<typeof mostrarInformacaoDoProjeto>[0]);
             } catch (error) {
                 console.error('Error getting project info:', error);
             }
@@ -224,9 +236,9 @@ class ProjectManager {
             if (!filePath) return;
             try {
                 const content = await electronAPI.readFile(filePath);
-                window.TabManager?.addTab?.(filePath, content ?? '');
+                TabManager.addTab(filePath, content ?? '');
             } catch (e) {
-                console.warn('open-loose-file falhou:', e?.message || e);
+                console.warn('open-loose-file falhou:', (e as Error | null)?.message || e);
             }
         });
 
@@ -236,9 +248,9 @@ class ProjectManager {
         // posiciona o cursor monaco via EditorManager.
         electronAPI.onOpenFileAt(async ({ filePath, line, column }) => {
             try {
-                const ln  = Number.isInteger(line)   && line   > 0 ? line   : 1;
-                const col = Number.isInteger(column) && column > 0 ? column : 1;
-                const reveal = (editor) => {
+                const ln  = typeof line === 'number'   && Number.isInteger(line)   && line   > 0 ? line   : 1;
+                const col = typeof column === 'number' && Number.isInteger(column) && column > 0 ? column : 1;
+                const reveal = (editor: EditorParaRevelar | null | undefined) => {
                     if (editor && typeof editor.revealLineInCenter === 'function') {
                         // Defer to the next frame and lay the editor out first:
                         // when the pane/tab just became visible, revealLineInCenter
@@ -254,26 +266,26 @@ class ProjectManager {
                 };
 
                 // Already open in the main pane → the editor exists, so jump now.
-                if (window.TabManager?.tabs?.has(filePath)) {
-                    window.TabManager.activateTab(filePath);
-                    reveal(window.EditorManager?.getEditorForFile?.(filePath));
+                if (TabManager.tabs?.has(filePath)) {
+                    TabManager.activateTab(filePath);
+                    reveal((window as unknown as { EditorManager?: { getEditorForFile?(p: string): EditorParaRevelar | null } }).EditorManager?.getEditorForFile?.(filePath));
                     return;
                 }
 
                 const content = await electronAPI.readFile(filePath);
                 const sem = window.SplitEditorManager;
-                if (sem && sem.focusedPane > 0) {
-                    await sem.openInFocusedPane(filePath, content);
+                if (sem && (sem.focusedPane ?? 0) > 0) {
+                    await sem.openInFocusedPane?.(filePath, content);
                     // Split panes create their Monaco editor synchronously in
                     // openFile, so it's available right after the await.
-                    const pane = sem.panes.find(p => p.paneIndex === sem.focusedPane);
-                    reveal(pane?.tabs?.get(filePath)?.editor);
+                    const pane = sem.panes?.find((p) => p.paneIndex === sem.focusedPane);
+                    reveal(pane?.tabs?.get(filePath)?.editor as EditorParaRevelar | undefined);
                 } else {
                     // Main pane: the editor is created on a deferred (Monaco-
                     // ready-gated) path, so getEditorForFile() would be null
                     // right here. Hand the target line to addTab, which
                     // positions the editor the moment it's created, no race.
-                    window.TabManager.addTab(filePath, content, {
+                    TabManager.addTab(filePath, content, {
                         preview: false,
                         revealPosition: { line: ln, column: col },
                     });
@@ -288,7 +300,7 @@ class ProjectManager {
         // aba ou janela, conforme a preferencia, o mesmo caminho do botao Wave.
         electronAPI.onOpenWave?.(async ({ vcdPath, modulo, sinais }) => {
             try {
-                await window.compilationModule?.abrirOndaExterna(vcdPath, modulo, sinais);
+                await (window as unknown as { compilationModule?: { abrirOndaExterna?(v: string, m?: string, s?: string[]): Promise<unknown> } }).compilationModule?.abrirOndaExterna?.(vcdPath, modulo, sinais);
             } catch (e) {
                 console.error('Failed to open the PRISM simulation wave:', e);
             }
@@ -296,7 +308,7 @@ class ProjectManager {
     }
 
     // Método público para ser chamado pelo renderer.js (New Project)
-    loadProject(spfPath) {
+    loadProject(spfPath: string | null | undefined): Promise<void> {
         return loadProject(spfPath);
     }
 }

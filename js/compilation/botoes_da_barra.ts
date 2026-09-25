@@ -30,11 +30,8 @@ const tr = (k: string): string => (window.t ? window.t(k) : k);
  * Habilita o botao C± so quando o arquivo em foco no Monaco e fonte de
  * processador (.cmm ou .cpp; processor_source.ts decide).
  * Chamado nos eventos `aurora:editing-file-changed` e depois de cada
- * execucao, cancelamento e abertura de projeto.
- *
- * Tambem exposto em window para que `enableCompileButtons` em
- * project_manager.js possa re-sincronizar depois de fazer o "habilita tudo"
- * geral, sem deixar o C± erroneamente habilitado quando nao ha .cmm em foco.
+ * execucao, cancelamento e abertura de projeto (a interface_do_projeto.ts o
+ * chama depois do "habilita tudo", para o C± nao ficar ligado sem fonte).
  */
 export function syncCmmcompEnabled(): void {
   const btn = document.getElementById('cmmcomp') as HTMLButtonElement | null;

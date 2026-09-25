@@ -136,6 +136,11 @@ declare global {
     /** Espelho do ProjectStore para quem ainda nao o importa (js/project/project_store.ts). */
     ProjectStore?: typeof import('../project/project_store.js').ProjectStore;
     gitAPI?: AuroraGitAPI;
+    /** O seletor de .gtkw (js/wave/gtkw_picker.js); a barra so pede para re-sincronizar. */
+    gtkwPickerManager?: { refresh?: () => unknown };
+    /** De js/compilation/botoes_da_barra.ts, para o project_manager.js e o E2E. */
+    syncCmmcompEnabled?: () => void;
+    syncToolbarEnabledState?: () => Promise<void>;
     /** A instancia do js/tree/git_decorations.ts, para os testes e o console. */
     gitDecorations?: unknown;
     /** Returns the active yanc message language ('pt' | 'en'). */

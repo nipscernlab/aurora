@@ -147,6 +147,7 @@ js/tree/git_decorations.js
 js/compilation/run_history.js
 js/compilation/cancelamento.js
 js/compilation/registro_de_execucao.js
+js/compilation/botoes_da_barra.js
 js/wave/simulator_preference.js
 js/wave/viewer_preference.js
 js/terminal/problem_store.js

@@ -31,14 +31,12 @@ import { resolveOverride } from './command_overrides.js';
 import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
-import { getSimulator } from '../wave/simulator_preference.js';
-import { escolherTestbench } from './compilation_helpers.js';
 import { comRegistro, reportarFalhaNaExecucao } from './registro_de_execucao.js';
+import { syncCmmcompEnabled, syncToolbarEnabledState } from './botoes_da_barra.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
-import { isProcessorSourcePath, resolveProcessorLanguage } from './processor_source.js';
+import { isProcessorSourcePath } from './processor_source.js';
 import { lerConfigDeSimulacao } from '../project/processor_sim_config.js';
-import { languageLabel, setDrawnGlyphLanguage } from '../ui/language_glyph.js';
 import { compileProcessorSource, locateProcessorSource } from './processor_dispatch.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import {
@@ -773,138 +771,8 @@ async function buildPrismCompilationPaths(projectPath) {
 }
 
 // =====================================================================
-// Botão C±: gating por arquivo em evidência
+// Botoes da barra: quem decide habilitado/desabilitado e botoes_da_barra.ts
 // =====================================================================
-
-/**
- * Habilita o botao C± so quando o arquivo em foco no Monaco e fonte de
- * processador (.cmm ou .cpp; processor_source.ts decide).
- * Chamado por listeners do evento `aurora:editing-file-changed` e por
- * `updateButtonStates` (apos runs / cancel / project load).
- *
- * Window-exposto pra que `enableCompileButtons` em project_manager.js
- * possa re-sincronizar depois de fazer o "habilita tudo" geral, sem
- * deixar o C± erroneamente habilitado quando nao ha .cmm em foco.
- */
-function syncCmmcompEnabled() {
-    const btn = document.getElementById('cmmcomp');
-    if (!btn) return;
-    const path = TabManager.getEditingFilePath?.();
-    const isCmm = isProcessorSourcePath(path);
-    btn.disabled = !isCmm;
-    btn.style.cursor = isCmm ? 'pointer' : 'not-allowed';
-    sincronizarGlifoDaLinguagem(path);
-}
-
-/**
- * O simbolo desenhado segue o fonte em foco: C± com um .cmm, C++ com um .cpp.
- * O botao compila as duas linguagens e o terminal e o mesmo para as duas,
- * entao o que o desenho tem a dizer e qual delas vai rodar se a pessoa
- * clicar agora. Sem fonte em foco o simbolo fica como estava, para o botao
- * nao piscar entre dois desenhos a cada clique numa aba qualquer.
- */
-function sincronizarGlifoDaLinguagem(path) {
-    if (!isProcessorSourcePath(path)) return;
-    const lang = resolveProcessorLanguage({ name: '', sourceFile: String(path).split(/[\\/]/).pop() });
-    setDrawnGlyphLanguage(document, lang);
-    const rotulo = document.querySelector('[data-terminal="tcmm"] .tab-label');
-    if (rotulo) rotulo.textContent = languageLabel(lang);
-}
-
-if (typeof window !== 'undefined') {
-    window.syncCmmcompEnabled = syncCmmcompEnabled;
-}
-
-// =====================================================================
-// Gating por estado do design (.spf): top-level / testbench / processador
-// =====================================================================
-
-/**
- * Habilita/desabilita os botoes da toolbar conforme o que o .spf tem:
- *
- *   - top-level definido  → Verilog (synth), PRISM, Verilator (top-level)
- *   - processador no proj → Verilator (processador CMM)
- *   - testbench definido  → Wave, Wave Config, e a lista .gtkw (via seu
- *                            proprio manager)
- *
- * Le a mesma fonte de verdade que a status bar (SpfStore). Re-sincroniza
- * em aurora:spf-changed, open/close de projeto e criar/deletar processador.
- */
-async function syncToolbarEnabledState() {
-    // Botao desabilitado com o MOTIVO no tooltip. Antes ele so trocava o
-    // cursor, e um botao cinza sem explicacao e a pior das tres formas de
-    // falar de uma coisa que falta: o terminal explica quando se clica, a
-    // barra de status explica no title, e o botao, que e onde a pessoa esta
-    // olhando, ficava mudo. O tooltip original volta quando ele reabre; o
-    // atributo `data-i18n-tooltip` e a fonte dele, e e por isso que o valor de
-    // reposicao vem de la e nao de um texto guardado.
-    const setEnabled = (id, on, why = '') => {
-        const btn = document.getElementById(id);
-        if (!btn) return;
-        btn.disabled = !on;
-        btn.style.cursor = on ? 'pointer' : 'not-allowed';
-        if (!on && why) {
-            btn.setAttribute('data-tooltip', why);
-        } else if (on && btn.dataset.i18nTooltip && window.t) {
-            const original = window.t(btn.dataset.i18nTooltip);
-            if (original && original !== btn.dataset.i18nTooltip) btn.setAttribute('data-tooltip', original);
-        }
-    };
-
-    let hasTop = false;
-    let hasTb = false;
-    let isPyTb = false;
-    const spfPath = window.currentSpfPath || window.ProjectStore?.getSpfPath?.();
-    if (spfPath && window.SpfStore) {
-        try {
-            const s = await window.SpfStore.read(spfPath);
-            hasTop = !!s.topLevelFile;
-            // A MESMA regra do alvo (compilation_helpers.escolherTestbench):
-            // olhar so o campo escalar deixava o botao apagado para sempre num
-            // projeto que guardasse o testbench apenas na lista, enquanto a
-            // compilacao encontrava o arquivo sem dificuldade.
-            const tb = escolherTestbench(s);
-            hasTb = !!tb;
-            // .py = testbench cocotb (Python). O Fast Sim e Verilator-binary e
-            // compila o tb como Verilog, entao .py nao se aplica (vai pelo Wave).
-            isPyTb = /\.py$/i.test(tb || '');
-        } catch (_e) { /* sem projeto / leitura falhou → tudo desabilitado */ }
-    }
-
-    // O botao Verilator (processador) age sobre o PROCESSADOR ATIVO mostrado
-    // na status bar (o .cmm em foco). Sem processador ativo → desabilitado.
-    // Mesma fonte do alvo em _resolveProcessorTarget, entao gate e alvo nunca
-    // divergem.
-    const hasActiveProc = !!getActiveProcessorName();
-
-    const semTopo = tr('statusBar.noTopLevel') + '. ' + tr('statusBar.howTopLevel');
-    const semTb = tr('statusBar.noTestbench') + '. ' + tr('statusBar.howTestbench');
-    setEnabled('vericomp', hasTop, semTopo);
-    setEnabled('prismcomp', hasTop, semTopo);
-    setEnabled('verilatorproc', hasActiveProc);
-    setEnabled('wavecomp', hasTb, semTb);
-    // Fast Sim (headless, sem onda) tem dois caminhos:
-    //  - testbench .v  -> Verilator binario, exige o toggle em Verilator
-    //    (iverilog nao tem caminho binario headless);
-    //  - testbench .py -> cocotb headless, roda em qualquer engine.
-    // Re-sincronizado no evento aurora:wave-simulator-changed (initialize()).
-    setEnabled('fastsim', hasTb && (isPyTb || getSimulator() === 'verilator'));
-    // Cancelar NAO segue a regra do Wave (era `hasTb`, espelhando o botao de
-    // Wave por ser o par visual dele na toolbar). Cancelar esta ACIMA de todo o
-    // fluxo SAPHO, nao so da simulacao: C±, ASM, Verilog e PRISM compilam sem
-    // testbench nenhum, e com o botao desabilitado nao havia como matar um
-    // cmmcomp/yosys travado. Fica sempre habilitado, clicar com nada rodando
-    // ja responde "nada a cancelar" (cancelAll → nothingToCancel).
-    setEnabled('cancel-everything', true);
-    setEnabled('waveConfigBtn', hasTb, semTb);
-    // A lista .gtkw gerencia seu proprio disabled (gtkw_picker.refresh le
-    // o testbench); so pedimos pra re-sincronizar.
-    window.gtkwPickerManager?.refresh?.();
-}
-
-if (typeof window !== 'undefined') {
-    window.syncToolbarEnabledState = syncToolbarEnabledState;
-}
 
 // =====================================================================
 // Manager class, dispatcher publico

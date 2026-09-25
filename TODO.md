@@ -2101,14 +2101,21 @@ A cadeia, nesta ordem:
       import do módulo de i18n. Cada troca deixa a dependência visível no
       grafo, tipada e testável; a catraca desce junto.
       Em curso desde 25/09: o `project_store` já é `.ts`, e leem dele em vez
-      de `window` o `spec_factory`, o `command_overrides`, o `git_decorations`
-      e o `run_history`. Faltam cerca de 70 leituras em 15 arquivos
+      de `window` o `spec_factory`, o `command_overrides`, o
+      `git_decorations`, o `run_history` e o `compilation_flow` inteiro.
+      Faltam 51 leituras em 14 arquivos
       (`git grep -c "window\.currentProjectPath\|window\.currentSpfPath" -- js`);
-      os maiores são `aurora_api` (21), `compilation_flow` (18) e
-      `project_manager` (7). O caminho de cada arquivo: teste com DOM que
-      marca o projeto por `ProjectStore.setProject` (vale no `.js` antigo e
-      no novo), conversão, e só então a troca, cada um no seu commit. O
-      espelho em `window` sai do store quando a última leitura sair.
+      os maiores são `aurora_api` (21) e `project_manager` (7). O espelho em
+      `window` sai do store quando a última leitura sair.
+
+      **A ordem mudou em 25/09, e por quê.** Trocar a leitura arquivo por
+      arquivo obriga a converter cada arquivo inteiro antes, e mais da metade
+      das leituras estava em dois gigantes marcados para o 13.3. Dividir o
+      gigante resolve as duas coisas de uma vez: cada parte nasce `.ts`, com
+      teste e já importando o store. Por isso o 13.2 e o 13.3 andam juntos,
+      gigante por gigante, na ordem de quantas leituras ele tem e de quanto
+      ele muda. O `compilation_flow` foi o primeiro (abaixo); o próximo é o
+      `aurora_api`, que tem 21 leituras e já tem três namespaces fora.
 - [ ] **13.3 Dividir os gigantes por responsabilidade, na ordem de quem mais
       muda:** `ai_assistant_manager` (o item da seção 12 já lista os próximos
       grupos), `compilation_module`, `aurora_api` (três namespaces já saíram
@@ -2116,6 +2123,17 @@ A cadeia, nesta ordem:
       `.ts` e com teste; o que sobra do arquivo é convertido no fim. Não é a
       válvula antiga: aqui a divisão é o objetivo, não um jeito de adiar a
       conversão.
+      - [x] `compilation_flow` (25/09): de 1354 linhas `.js` para 831 `.ts`,
+        com quatro módulos fora: `cancelamento.ts` (as duas bandeiras do
+        Cancelar), `registro_de_execucao.ts` (o histórico de cada clique),
+        `botoes_da_barra.ts` (habilitar e o motivo no tooltip) e
+        `precompilacao.ts` (achar os processadores e compilar cmm+asm, no
+        projeto do compilador e não no aberto a cada leitura). Os vizinhos
+        pequenos viraram `.ts` junto (`run_log`, `problem_store`, as
+        preferências de onda, `prism_mode`); `rewind`, `terminal` e
+        `compilation_module` ganharam `.d.ts` parcial. Dois testes de fluxo
+        (`compilationFlowCancelamento`, `compilationFlowPassos`) cobrem o
+        despacho de cada botão e foram conferidos no `.js` antigo.
 - [ ] **13.4 (decisão do Luciano, com o Chrys e o Arthur) Contrato tipado da
       ponte.** O `preload.js` é o arquivo que mais muda: toda funcionalidade
       nova passa pela ponte entre renderer e main. Um contrato único dos canais,

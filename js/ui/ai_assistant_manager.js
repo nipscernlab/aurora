@@ -28,7 +28,6 @@ import { lerPaginasDoManual, montarBlocoTutorial, aberturaDoTutorial } from '../
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
-import { formatAttachmentSize, composerChipHtml, bubbleChipHtml } from '../ai/chat_attachments.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
 import {
     formatArgsForTitle,
@@ -37,6 +36,7 @@ import {
     summariseResult,
 } from '../ai/tool_chip_text.js';
 import { abrirReferencia } from '../ai/abrir_referencia.js';
+import { adicionarArquivos, abrirImagem, desenharAnexos, desenharAnexosNaBolha, escaparHtml } from '../ai/anexos_do_chat.js';
 import { lerContextoDoTurno } from '../ai/contexto_do_turno.js';
 import {
     citacaoDeResultado,
@@ -1877,121 +1877,34 @@ class AIAssistantManager {
   }
 
   /* ---------------- composer attachments (images + files) ---------------- */
+  // Ler, desenhar e abrir em tela cheia moram em js/ai/anexos_do_chat.ts; o
+  // painel guarda a lista pendente e a faixa do composer.
 
   /** Read dropped / picked / pasted files into pendingAttachments, then render. */
   async _addFiles(fileList) {
-    const files = Array.from(fileList || []);
-    const MAX_IMAGE = 8 * 1024 * 1024;   // 8 MB per image
-    const MAX_TEXT = 256 * 1024;         // 256 KB of text context per file
-    for (const file of files) {
-      if (this.pendingAttachments.length >= 10) {
-        this.appendBubble('assistant', '_Up to 10 attachments per message._', false);
-        break;
-      }
-      const isImage = (file.type || '').startsWith('image/');
-      try {
-        if (isImage) {
-          if (file.size > MAX_IMAGE) {
-            this.appendBubble('assistant', `_"${file.name}" is too large (images max 8 MB)._`, false);
-            continue;
-          }
-          const dataUrl = await this._readAs(file, 'dataURL');
-          this.pendingAttachments.push({
-            id: this._attId(), kind: 'image', name: file.name || 'image.png',
-            mime: file.type || 'image/png', size: file.size, dataUrl,
-          });
-        } else {
-          const text = await this._readAs(file, 'text');
-          const clipped = text.length > MAX_TEXT;
-          this.pendingAttachments.push({
-            id: this._attId(), kind: 'file', name: file.name || 'file.txt',
-            mime: file.type || 'text/plain', size: file.size,
-            text: clipped ? text.slice(0, MAX_TEXT) : text, clipped,
-          });
-        }
-      } catch (_) {
-        this.appendBubble('assistant', `_Could not read "${file.name}"._`, false);
-      }
-    }
+    await adicionarArquivos(this.pendingAttachments, fileList,
+      (texto) => this.appendBubble('assistant', texto, false));
     this._renderAttachments();
   }
-
-  _readAs(file, how) {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-      if (how === 'dataURL') r.readAsDataURL(file); else r.readAsText(file);
-    });
-  }
-
-  _attId() { return `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 
   _removeAttachment(id) {
     this.pendingAttachments = this.pendingAttachments.filter((a) => a.id !== id);
     this._renderAttachments();
   }
 
-  _escAtt(s) {
-    const d = document.createElement('div');
-    d.textContent = String(s == null ? '' : s);
-    return d.innerHTML;
-  }
+  _escAtt(s) { return escaparHtml(s); }
 
   /** Render the preview chips row above the composer. */
   _renderAttachments() {
     if (!this.attachmentsEl) return;
-    const list = this.pendingAttachments;
-    this.attachmentsEl.hidden = list.length === 0;
-    // Pure chip markup lives in chat_attachments.js; the class still owns the
-    // element, the state, and the remove-button wiring. `esc` is the same
-    // DOM-based escaper as before, so the markup stays byte-identical.
-    const esc = (s) => this._escAtt(s);
-    this.attachmentsEl.innerHTML = list
-      .map((a) => composerChipHtml(a, esc, formatAttachmentSize))
-      .join('');
-    this.attachmentsEl.querySelectorAll('.ai-att-remove').forEach((btn) => {
-      btn.addEventListener('click', () => this._removeAttachment(btn.dataset.id));
-    });
+    desenharAnexos(this.attachmentsEl, this.pendingAttachments, (id) => this._removeAttachment(id));
   }
 
   /** Render a read-only attachments strip inside a sent user bubble. */
-  _renderBubbleAttachments(bubble, atts) {
-    if (!bubble || !atts || !atts.length) return;
-    const strip = document.createElement('div');
-    strip.className = 'ai-msg-attachments';
-    const esc = (s) => this._escAtt(s);
-    strip.innerHTML = atts.map((a) => bubbleChipHtml(a, esc, formatAttachmentSize)).join('');
-    const content = bubble.querySelector('.ai-msg-content');
-    (content || bubble).appendChild(strip);
-  }
+  _renderBubbleAttachments(bubble, atts) { desenharAnexosNaBolha(bubble, atts); }
 
-  /** Full-size image viewer for an attached chat image, dim backdrop with the
-   *  image fit to the screen; click the backdrop / × or press Esc to close. */
-  _openImageLightbox(src, alt) {
-    if (!src) return;
-    const overlay = document.createElement('div');
-    overlay.className = 'ai-lightbox';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-label', 'Image preview');
-    overlay.innerHTML =
-      `<img class="ai-lightbox-img" src="${src}" alt="${this._escAtt(alt || '')}">` +
-      `<button class="ai-lightbox-close" type="button" aria-label="Close"><i class="ph ph-x"></i></button>`;
-    const close = () => {
-      overlay.classList.remove('open');
-      document.removeEventListener('keydown', onKey, true);
-      setTimeout(() => overlay.remove(), 160);
-    };
-    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
-    overlay.addEventListener('click', (e) => {
-      // Close on the backdrop or the ×, but not when clicking the image itself.
-      if (e.target.closest('.ai-lightbox-img') && !e.target.closest('.ai-lightbox-close')) return;
-      close();
-    });
-    document.addEventListener('keydown', onKey, true);
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('open'));
-  }
+  /** Full-size image viewer for an attached chat image. */
+  _openImageLightbox(src, alt) { abrirImagem(src, alt); }
 
   /**
    * Shared turn dispatcher used by send() (a real user message) and

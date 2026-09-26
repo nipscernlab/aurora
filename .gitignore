@@ -195,6 +195,7 @@ js/tree/menu_da_arvore.js
 js/tree/texto_da_arvore.js
 js/ai/abrir_referencia.js
 js/terminal/classificacao_do_terminal.js
+js/ai/anexos_do_chat.js
 js/terminal/exportar_log.js
 js/terminal/barra_de_progresso.js
 js/terminal/texto_do_terminal.js

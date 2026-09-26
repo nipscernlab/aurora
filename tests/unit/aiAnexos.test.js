@@ -104,6 +104,8 @@ describe('anexos no composer', () => {
     expect(painel.attachmentsEl.innerHTML).toContain('&lt;b&gt;a&lt;/b&gt;.txt');
     expect(painel._escAtt(null)).toBe('');
     expect(painel._escAtt('a & b')).toBe('a &amp; b');
+    // Aspas tambem: o texto entra em title e alt, e aspa crua fecharia o atributo.
+    expect(painel._escAtt(`x" onmouseover="y'`)).toBe('x&quot; onmouseover=&quot;y&#39;');
   });
 
   it('sem a faixa de anexos no DOM, desenhar nao faz nada', () => {
@@ -142,8 +144,7 @@ describe('imagem em tela cheia', () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'setTimeout'] });
     const ov = abrir();
     expect(ov.getAttribute('role')).toBe('dialog');
-    // O escape de hoje nao cobre aspas: o alt com aspas termina nelas.
-    expect(ov.querySelector('img').getAttribute('alt')).toBe('foto ');
+    expect(ov.querySelector('img').getAttribute('alt')).toBe('foto "1"');
     vi.advanceTimersToNextFrame();
     expect(ov.classList.contains('open')).toBe(true);
   });

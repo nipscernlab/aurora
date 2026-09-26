@@ -32,11 +32,15 @@ export function idDeAnexo(): string {
   return `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/** Escapa texto para entrar no HTML dos chips. */
+const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+/**
+ * Escapa texto para entrar no HTML dos chips, inclusive dentro de atributo.
+ * O escape anterior passava pelo textContent do DOM, que nao escapa aspas: um
+ * nome com aspas fechava o title ou o alt onde entrava.
+ */
 export function escaparHtml(s: unknown): string {
-  const d = document.createElement('div');
-  d.textContent = String(s == null ? '' : s);
-  return d.innerHTML;
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 }
 
 /**

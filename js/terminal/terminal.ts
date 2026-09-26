@@ -13,10 +13,10 @@
  * from the old tab to the new one. The indicator lives inside the scrolling
  * tab list, so it tracks the tabs as the strip scrolls for free.
  */
-function positionTerminalIndicator(activeTab) {
+function positionTerminalIndicator(activeTab: HTMLElement): void {
   const list = activeTab?.closest('.terminal-tabs-list');
   if (!list || !activeTab) return;
-  let ind = list.querySelector(':scope > .terminal-tab-indicator');
+  let ind = list.querySelector(':scope > .terminal-tab-indicator') as HTMLElement | null;
   if (!ind) {
     ind = document.createElement('div');
     ind.className = 'terminal-tab-indicator';
@@ -43,15 +43,25 @@ function positionTerminalIndicator(activeTab) {
  * call while the loop is already running is a no-op; it stops once it reaches
  * the bottom and a later append restarts it.
  */
-export function smoothFollowToBottom(el) {
-  if (!el || el._followRAF) return;
+/** O que a rolagem precisa: a caixa que rola, com o laco pendurado nela. */
+interface Rolavel {
+  scrollHeight: number;
+  clientHeight: number;
+  scrollTop: number;
+  _followRAF?: number;
+  _followVel?: number;
+}
+
+export function smoothFollowToBottom(el: Rolavel | Element | null | undefined): void {
+  const r = el as Rolavel | null | undefined;
+  if (!r || r._followRAF) return;
   const CAP = 45;          // px/frame ceiling: a controlled glide, never a teleport
-  el._followVel = 0;
+  r._followVel = 0;
   let atBottom = 0;        // consecutive frames settled at a STABLE bottom
   let lastTarget = -1;
   const step = () => {
-    const target = el.scrollHeight - el.clientHeight;
-    const gap = target - el.scrollTop;
+    const target = r.scrollHeight - r.clientHeight;
+    const gap = target - r.scrollTop;
     const stable = Math.abs(target - lastTarget) < 0.5;   // height stopped changing
     lastTarget = target;
     if (gap > 0.5) {
@@ -61,9 +71,9 @@ export function smoothFollowToBottom(el) {
       // visible glide instead of the near-instant snap it was without it.
       // Velocity retention 0.62 (was 0.72) = MORE friction, so it brakes more
       // gradually near the end, a softer, smoother landing.
-      el._followVel = Math.min((el._followVel + gap * 0.16) * 0.62, gap, CAP);
-      el.scrollTop += Math.max(el._followVel, 1);
-      el._followRAF = requestAnimationFrame(step);
+      r._followVel = Math.min(((r._followVel as number) + gap * 0.16) * 0.62, gap, CAP);
+      r.scrollTop += Math.max(r._followVel, 1);
+      r._followRAF = requestAnimationFrame(step);
       return;
     }
     // At the bottom, but don't stop yet. content-visibility:auto rows settle
@@ -71,15 +81,15 @@ export function smoothFollowToBottom(el) {
     // switch, where the whole body was unrendered while hidden), which moves the
     // true bottom down. Snap exactly and keep watching until the height has held
     // steady for a few frames, otherwise the view stops short of the last line.
-    el.scrollTop = target;
-    el._followVel = 0;
-    if (stable && atBottom++ > 5) { el._followRAF = 0; return; }
-    el._followRAF = requestAnimationFrame(step);
+    r.scrollTop = target;
+    r._followVel = 0;
+    if (stable && atBottom++ > 5) { r._followRAF = 0; return; }
+    r._followRAF = requestAnimationFrame(step);
   };
-  el._followRAF = requestAnimationFrame(step);
+  r._followRAF = requestAnimationFrame(step);
 }
 
-export function switchTerminal(targetId) {
+export function switchTerminal(targetId: string): void {
   const targetContent = document.getElementById(targetId);
 
   // Verificacao de seguranca: se o terminal nao existir no HTML, bail
@@ -108,7 +118,7 @@ export function switchTerminal(targetId) {
   // Mark the corresponding tab as active
   // O replace remove o prefixo 'terminal-' para achar o data-terminal correto
   const dataTerm = targetId.replace('terminal-', '');
-  const activeTab = document.querySelector(`.tab[data-terminal="${dataTerm}"]`);
+  const activeTab = document.querySelector<HTMLElement>(`.tab[data-terminal="${dataTerm}"]`);
 
   if (activeTab) {
     activeTab.classList.add('active');
@@ -119,7 +129,7 @@ export function switchTerminal(targetId) {
 // Keep the sliding indicator aligned with the active terminal tab on first
 // paint and whenever the strip reflows (window resize).
 function syncTerminalIndicator() {
-  const active = document.querySelector('.terminal-tabs-list .tab.active');
+  const active = document.querySelector<HTMLElement>('.terminal-tabs-list .tab.active');
   if (active) positionTerminalIndicator(active);
 }
 window.addEventListener('resize', syncTerminalIndicator, { passive: true });

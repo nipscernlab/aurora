@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * sync-sapho-rules.js: dev-only generator for `resources/sapho_rules.json`.
+ * sync-sapho-rules.mts: dev-only generator for `resources/sapho_rules.json`.
  *
  * Reads the yanc compiler sources (default `C:\Users\LCOM\Documents\Github\yanc`,
  * overridable via `--yanc <path>` or `$YANC_PATH`) and consolidates the
@@ -21,13 +21,12 @@
  * The resulting JSON is checked into git so CI / packaging never has
  * to look for yanc.
  */
-'use strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const fs = require('fs');
-const path = require('path');
-const { execFileSync } = require('child_process');
-
-const REPO_ROOT = path.resolve(__dirname, '..');
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_PATH  = path.join(REPO_ROOT, 'resources', 'sapho_rules.json');
 const DEFAULT_YANC = 'C:\\Users\\LCOM\\Documents\\Github\\yanc';
 
@@ -35,23 +34,23 @@ const DEFAULT_YANC = 'C:\\Users\\LCOM\\Documents\\Github\\yanc';
  *  Argument / env resolution
  * ========================================================== */
 
-function resolveYancPath() {
+function resolveYancPath(): string {
   const idx = process.argv.indexOf('--yanc');
   if (idx >= 0 && process.argv[idx + 1]) return process.argv[idx + 1];
   if (process.env.YANC_PATH) return process.env.YANC_PATH;
   return DEFAULT_YANC;
 }
 
-function readSafe(p) {
+function readSafe(p: string): string | null {
   try { return fs.readFileSync(p, 'utf8'); }
   catch (e) {
-    if (e.code !== 'ENOENT') throw e;
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
     console.warn(`[sync-sapho-rules] missing: ${path.relative(process.cwd(), p)}`);
     return null;
   }
 }
 
-function gitCommit(yancPath) {
+function gitCommit(yancPath: string): string | null {
   try {
     return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: yancPath, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().trim().slice(0, 12);
@@ -86,9 +85,27 @@ const MACRO_DIRECTIVES      = new Set(['#PRACA']);
 // lexer, not by a named rule, they never reach this scraper.
 const OPERATOR_SHAPE_RE = /^[<>=!&|+\-*/%~^?:]+$/;
 
-function parseLexer(src) {
+interface LexEntry {
+  symbol: string;
+  token: string;
+  kind?: string;
+  description?: string;
+}
+
+interface LexResult {
+  hwDirectives: LexEntry[];
+  macroDirectives: LexEntry[];
+  keywords: string[];
+  types: string[];
+  ioKeywords: string[];
+  stdlibFunctions: string[];
+  operators: LexEntry[];
+  diracTokens: LexEntry[];
+}
+
+function parseLexer(src: string | null): LexResult | null {
   if (!src) return null;
-  const result = {
+  const result: LexResult = {
     hwDirectives:     [], // #NBMANT, #NUBITS, #NUIOIN, ...
     macroDirectives:  [], // #PRACA
     keywords:         [],
@@ -109,7 +126,7 @@ function parseLexer(src) {
   while ((m = ruleRe.exec(src))) {
     const text  = m[1];
     const token = m[2] || m[3];
-    const entry = { symbol: text, token };
+    const entry: LexEntry = { symbol: text, token };
 
     if (text.startsWith('#')) {
       (MACRO_DIRECTIVES.has(text) ? result.macroDirectives : result.hwDirectives).push(entry);
@@ -157,16 +174,21 @@ function parseLexer(src) {
 
 const DECL_RE = /^\s*(?:extern\s+)?(?:char|int)\s+(\w+)\s*(?:\[\d+\])?\s*(?:=\s*([^;]+?))?\s*;\s*(?:\/\/\s*(.+))?\s*$/gm;
 
-function parseDirectiveSource(src) {
+interface DirectiveInfo {
+  default?: number;
+  description?: string;
+}
+
+function parseDirectiveSource(src: string | null): Record<string, DirectiveInfo> {
   if (!src) return {};
-  const acc = {};
+  const acc: Record<string, DirectiveInfo> = {};
   let m;
   while ((m = DECL_RE.exec(src))) {
     const name        = m[1].toLowerCase();
     const defaultRaw  = m[2]?.trim();
     const description = m[3]?.trim();
     const prev = acc[name] || {};
-    const next = { ...prev };
+    const next: DirectiveInfo = { ...prev };
     if (defaultRaw && /^-?\d+$/.test(defaultRaw)) next.default = parseInt(defaultRaw, 10);
     if (description) next.description = description;
     acc[name] = next;
@@ -174,18 +196,18 @@ function parseDirectiveSource(src) {
   return acc;
 }
 
-function buildDirectives(lexResult, ...sources) {
+function buildDirectives(lexResult: LexResult | null, ...sources: (string | null)[]) {
   // Merge information from every directive source in order, first hit
   // wins for `description`, later sources still fill in missing
   // `default`s where they appear.
-  const merged = {};
+  const merged: Record<string, DirectiveInfo> = {};
   for (const src of sources) {
     const parsed = parseDirectiveSource(src);
     for (const [name, info] of Object.entries(parsed)) {
       merged[name] = { ...info, ...(merged[name] || {}) };
     }
   }
-  const out = {};
+  const out: Record<string, LexEntry & DirectiveInfo> = {};
   for (const d of (lexResult?.hwDirectives || [])) {
     const key = d.symbol.replace(/^#/, '');
     const lookup = key.toLowerCase();
@@ -205,7 +227,7 @@ function buildDirectives(lexResult, ...sources) {
  *  Section comments above groups give us categories.
  * ========================================================== */
 
-function inferSeverity(code) {
+function inferSeverity(code: string): string {
   if (code.includes('_ERR_'))  return 'error';
   if (code.includes('_WARN_')) return 'warning';
   if (code.includes('_INFO_')) return 'info';
@@ -222,7 +244,7 @@ function inferSeverity(code) {
 // pins the closing dash run.
 const SECTION_RE = /^\s*\/\/\s+(.+?)\s+-{3,}\s*$/gm;
 
-function decodeC(s) {
+function decodeC(s: string): string {
   // Convert C-escape sequences relevant to message strings. We don't
   // need a full C unescape, printf format specifiers (%d, %s, …)
   // stay verbatim because the AI surfaces them as patterns.
@@ -236,7 +258,7 @@ function decodeC(s) {
 // Skip a quoted C string literal starting at index i (i points at the
 // opening `"`). Returns the index *after* the closing `"`. Handles
 // embedded escapes so a `\"` inside the literal doesn't terminate it.
-function skipString(src, i) {
+function skipString(src: string, i: number): number {
   i++; // past opening "
   while (i < src.length && src[i] !== '"') {
     if (src[i] === '\\' && i + 1 < src.length) i += 2;
@@ -249,7 +271,7 @@ function skipString(src, i) {
 // preprocessor allows commas inside string literals and parens
 // (think `MSG_CLI_HELP` with "cmmcomp (YANC)" in the body), so a
 // naive `body.split(',')` would mangle them.
-function splitTopLevelComma(body) {
+function splitTopLevelComma(body: string): string[] {
   let depth = 0;
   for (let i = 0; i < body.length; i++) {
     const c = body[i];
@@ -265,7 +287,7 @@ function splitTopLevelComma(body) {
 
 // Concatenate all `"..."` literals in `s` (the C preprocessor glues
 // adjacent string literals into one) and decode the C escapes.
-function concatStrings(s) {
+function concatStrings(s: string): string {
   const re = /"((?:[^"\\]|\\.)*)"/g;
   let out = '';
   let m;
@@ -273,15 +295,23 @@ function concatStrings(s) {
   return decodeC(out);
 }
 
-function parseMessages(src) {
+interface Message {
+  code: string;
+  severity: string;
+  category: string;
+  pt: string;
+  en: string;
+}
+
+function parseMessages(src: string | null): Message[] {
   if (!src) return [];
 
-  const sections = [];
+  const sections: { name: string; index: number }[] = [];
   let sm;
   while ((sm = SECTION_RE.exec(src))) {
     sections.push({ name: sm[1].trim().toLowerCase(), index: sm.index });
   }
-  const categoryAt = (pos) => {
+  const categoryAt = (pos: number): string => {
     let cat = 'general';
     for (const s of sections) {
       if (s.index <= pos) cat = s.name;
@@ -298,7 +328,7 @@ function parseMessages(src) {
   // literals. That makes the parser robust to embedded parens inside
   // the message body (e.g. `"cmmcomp (YANC)"` in `MSG_CLI_HELP`).
   const defRe = /#define\s+(MSG_\w+)\b/g;
-  const out = [];
+  const out: Message[] = [];
   let dm;
   while ((dm = defRe.exec(src))) {
     const code = dm[1];
@@ -336,9 +366,9 @@ function parseMessages(src) {
  *  BNF dump can come later if the AI needs more structure.
  * ========================================================== */
 
-function parseGrammar(src) {
+function parseGrammar(src: string | null): { tokens: string[]; productions: string[] } {
   if (!src) return { tokens: [], productions: [] };
-  const tokens = new Set();
+  const tokens = new Set<string>();
   const tokenRe = /%token(?:\s*<\w+>)?\s+([^\n]+)/g;
   let tm;
   while ((tm = tokenRe.exec(src))) {
@@ -351,7 +381,7 @@ function parseGrammar(src) {
   // so the prologue (C declarations) doesn't pollute the list.
   const parts = src.split(/^%%$/m);
   const grammarBody = parts[1] || '';
-  const productions = new Set();
+  const productions = new Set<string>();
   const prodRe = /^([a-z]\w*)\s*\n?\s*:/gm;
   let pm;
   while ((pm = prodRe.exec(grammarBody))) {
@@ -387,7 +417,7 @@ function parseGrammar(src) {
 // argument to eval_opcode(). The numbers come from eval.h in yanc; we
 // re-derive their meaning from how they're used in ASMComp.l (and from
 // the inline comments in eval_opcode rules).
-const OPERAND_KIND = {
+const OPERAND_KIND: Record<number, string> = {
   0:  'none',           // accumulator-only / stack-only / no operand
   18: 'memory',         // variable or memory address
   19: 'label',          // jump / call target (@label)
@@ -400,7 +430,7 @@ const OPERAND_KIND = {
 // Classify a mnemonic into a coarse family used to group the ISA in
 // the system prompt. Each entry is checked in order; the first match
 // wins. Order matters: more-specific suffixes go before broader rules.
-function classifyMnemonic(mne) {
+export function classifyMnemonic(mne: string): string {
   // Special / pseudo
   if (mne === 'NOP')   return 'special';
   if (mne === 'F_ROT') return 'special';
@@ -452,8 +482,8 @@ function classifyMnemonic(mne) {
 
 // Tag prefix/suffix variants so the AI knows when an opcode is a
 // PUSH-prefix / stack-variant / float-variant of another opcode.
-function variantTags(mne) {
-  const tags = [];
+function variantTags(mne: string): string[] {
+  const tags: string[] = [];
   if (/^F_/.test(mne))      tags.push('float');
   if (/^S_/.test(mne))      tags.push('stack');
   if (/^SF_/.test(mne)) { tags.push('stack'); tags.push('float'); }
@@ -464,9 +494,20 @@ function variantTags(mne) {
   return Array.from(new Set(tags));
 }
 
-function parseAsmLexer(src) {
+export interface AsmOpcode {
+  mnemonic: string;
+  opcode: number;
+  operandKind: string;
+  operandCode: number;
+  hdlName: string;
+  family: string;
+  variants: string[];
+  description: string;
+}
+
+export function parseAsmLexer(src: string | null): AsmOpcode[] | null {
   if (!src) return null;
-  const opcodes = [];
+  const opcodes: AsmOpcode[] = [];
 
   // Each rule looks like:
   //   "LOD"   eval_opcode(  0,18, yytext,    "LOD"  ); // loads data from memory
@@ -507,6 +548,7 @@ function parseAsmLexer(src) {
  *  Main
  * ========================================================== */
 
+/* v8 ignore start */ // a cola da linha de comando: le o yanc do disco e grava o JSON
 function main() {
   const yancPath = resolveYancPath();
   if (!fs.existsSync(yancPath)) {
@@ -570,4 +612,5 @@ function main() {
   if (out.source.yancCommit) console.log(`  yanc commit: ${out.source.yancCommit}`);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main();
+/* v8 ignore stop */

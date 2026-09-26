@@ -37,7 +37,7 @@
     "deadcode:all": "knip --no-config-hints",
     "typecheck": "node scripts/check-types.js",
     "bench": "node scripts/bench.js",
-    "rules:sync": "node scripts/sync-sapho-rules.js",
+    "rules:sync": "node scripts/sync-sapho-rules.mts",
     "components:verify": "node scripts/verify-components.js",
     "postinstall": "node scripts/verify-components.js --postinstall",
     "prebuild": "npm run bootstrap && npm run build:ts && npm run build:renderer",

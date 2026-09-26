@@ -8,7 +8,7 @@
  * como relacionar com a lista de autocompletar.
  *
  * A fonte da verdade e o resources/sapho_rules.json, que o
- * scripts/sync-sapho-rules.js extrai do proprio yanc.
+ * scripts/sync-sapho-rules.mts extrai do proprio yanc.
  */
 
 import fs from 'node:fs';

@@ -246,7 +246,9 @@ declare global {
       project?: { listMemories?(): Promise<{ ok: boolean; data?: { memories?: unknown[] } } | null | undefined> };
     };
     /** O TabManager exposto em window (renderer.js); o PRISM em aba abre por ele. */
-    TabManager?: { openPrismTab?(resultado: unknown): unknown; addTab?(filePath: string, content: string): unknown };
+    TabManager?: { openPrismTab?(resultado: unknown): unknown; addTab?(filePath: string, content: string, opcoes?: { preview?: boolean; revealPosition?: { line: number; column: number } }): unknown };
+    /** Abre o painel de problemas (js/terminal/problems_panel.ts). */
+    openProblemsPanel?: () => void;
     /** O terminal da aba TCMD (js/terminal/shell_terminal.ts), para a arvore e a API. */
     shellTerminal?: {
       openAt(dirPath: string): Promise<void>;

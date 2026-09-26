@@ -1,5 +1,5 @@
 /**
- * terminal_excerpt.js: o recorte do terminal que acompanha um relato.
+ * terminal_excerpt.ts: o recorte do terminal que acompanha um relato.
  *
  * POR QUE UM RECORTE, E NAO O LOG INTEIRO
  * --------------------------------------
@@ -33,7 +33,10 @@ const LIMITE_LINHAS = 120;
 /** Sem erro nenhum, vale este tanto do fim. */
 const CAUDA_SEM_ERRO = 25;
 
-const TIPOS = [
+/** Uma linha do terminal, com o tipo que ele aplicou ('' quando nenhum). */
+export interface Linha { tipo: string; texto: string }
+
+const TIPOS: Array<[string, string]> = [
   ['error', 'ERRO'],
   ['warning', 'AVISO'],
   ['success', 'OK'],
@@ -42,7 +45,7 @@ const TIPOS = [
 ];
 
 /** O tipo de uma entrada de log, pela classe que o terminal aplicou. */
-function tipoDa(entrada) {
+function tipoDa(entrada: Element): string {
   const achado = TIPOS.find(([classe]) => entrada.classList.contains(classe));
   return achado ? achado[1] : '';
 }
@@ -53,18 +56,16 @@ function tipoDa(entrada) {
  * Uma entrada pode conter varias mensagens agrupadas (o terminal junta
  * repeticoes num cartao so), e cada uma vira uma linha.
  *
- * @param {Element} terminal
- * @returns {Array<{tipo: string, texto: string}>}
  */
-function linhasDoTerminal(terminal) {
+function linhasDoTerminal(terminal: Element): Array<{ tipo: string; texto: string; }> {
   if (!terminal) return [];
-  const linhas = [];
+  const linhas: Linha[] = [];
   terminal.querySelectorAll('.log-entry').forEach((entrada) => {
     const tipo = tipoDa(entrada);
     const marcaDeHora = entrada.querySelector(':scope > .timestamp');
     const agrupadas = entrada.querySelectorAll('.grouped-message');
 
-    const empurrar = (texto) => {
+    const empurrar = (texto: string | null | undefined) => {
       const limpo = String(texto || '').replace(/\s+/g, ' ').trim();
       if (limpo) linhas.push({ tipo, texto: limpo });
     };
@@ -94,13 +95,11 @@ function linhasDoTerminal(terminal) {
  * Exportada para poder ser testada sem DOM: e aqui que mora a decisao, e uma
  * regra que descarte o erro em vez de guarda-lo torna o relato inutil.
  *
- * @param {Array<{tipo: string, texto: string}>} linhas
- * @returns {{linhas: Array<{tipo: string, texto: string}>, cortadas: number}}
  */
-export function recortar(linhas) {
+export function recortar(linhas: Array<{ tipo: string; texto: string; }>): { linhas: Array<{ tipo: string; texto: string; }>; cortadas: number; } {
   if (!Array.isArray(linhas) || linhas.length === 0) return { linhas: [], cortadas: 0 };
 
-  const interessa = (l) => l.tipo === 'ERRO' || l.tipo === 'AVISO';
+  const interessa = (l: Linha) => l.tipo === 'ERRO' || l.tipo === 'AVISO';
   const temErro = linhas.some(interessa);
 
   // Sem erro, o que vale e onde a sessao parou.
@@ -109,7 +108,7 @@ export function recortar(linhas) {
     return { linhas: cauda, cortadas: linhas.length - cauda.length };
   }
 
-  const manter = new Set();
+  const manter = new Set<number>();
   linhas.forEach((l, i) => {
     if (!interessa(l)) return;
     for (let k = Math.max(0, i - VIZINHANCA); k <= Math.min(linhas.length - 1, i + VIZINHANCA); k++) {
@@ -122,7 +121,7 @@ export function recortar(linhas) {
   const indices = [...manter].sort((a, b) => a - b);
   const escolhidos = indices.slice(-LIMITE_LINHAS);
 
-  const saida = [];
+  const saida: Linha[] = [];
   let anterior = -1;
   for (const i of escolhidos) {
     if (anterior >= 0 && i > anterior + 1) {
@@ -145,7 +144,7 @@ const TERMINAIS = ['tcmm', 'tasm', 'tveri', 'twave', 'thtest', 'tprism', 'tcmd']
 /** O recorte como texto, pronto para o relato. */
 export function recorteEmTexto() {
   if (typeof document === 'undefined') return '';
-  const partes = [];
+  const partes: string[] = [];
 
   TERMINAIS.forEach((id) => {
     const terminal = document.querySelector(`#terminal-${id} .terminal-body`);

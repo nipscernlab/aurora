@@ -1,5 +1,5 @@
 /**
- * problems_panel.js: a lista do que a ultima compilacao reclamou.
+ * problems_panel.ts: a lista do que a ultima compilacao reclamou.
  *
  * O marcador no editor (problem_store.js) resolve metade do problema: ele
  * mostra o erro DENTRO do arquivo. A outra metade e saber que o erro existe
@@ -20,30 +20,30 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { problemStore } from './problem_store.js';
+import type { Problema } from './problem_store.js';
 
-const $ = (id) => document.getElementById(id);
+const $ = (id: string) => document.getElementById(id);
 
 /** Igual ao painel de busca: chave faltando no locale nao vaza para a tela. */
-function tt(key, fallback) {
+function tt(key: string, fallback: string): string {
   const fn = window.t;
   if (typeof fn !== 'function') return fallback;
   const v = fn(key);
   return (v && v !== key) ? v : fallback;
 }
 
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
-  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-));
+const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = (s: unknown) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
 /** O nome do arquivo, sem a pasta. A pasta inteira nao cabe e nao ajuda. */
-function nomeCurto(caminho) {
+function nomeCurto(caminho: string): string {
   const partes = String(caminho || '').split(/[/\\]/);
   return partes[partes.length - 1] || caminho;
 }
 
-let modal = null;
+let modal: HTMLElement | null = null;
 /** O que a lista esta mostrando agora, para o clique achar o arquivo. */
-let mostrando = [];
+let mostrando: Array<{ arquivo: string; problemas: Problema[] }> = [];
 
 // ── o contador na barra ──────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ function pintarBotao() {
   btn.classList.toggle('tem-erro', erros > 0);
   btn.classList.toggle('tem-aviso', erros === 0 && avisos > 0);
 
-  let contador = btn.querySelector('.problems-count');
+  let contador = btn.querySelector('.problems-count') as HTMLElement | null;
   if (!contador) {
     contador = document.createElement('span');
     contador.className = 'problems-count';
@@ -121,7 +121,7 @@ function render() {
   wrap.innerHTML = partes.join('');
 }
 
-async function abrirProblema(gi, pi) {
+async function abrirProblema(gi: number, pi: number): Promise<void> {
   const grupo = mostrando[gi];
   const p = grupo && grupo.problemas[pi];
   if (!p) return;
@@ -165,13 +165,13 @@ export function initProblemsPanel() {
   modal?.addEventListener('aurora-modal-close', fechar);
 
   $('problems-list')?.addEventListener('click', (e) => {
-    const linha = e.target.closest('.problems-row');
+    const linha = (e.target as Element).closest('.problems-row') as HTMLElement | null;
     if (!linha) return;
     abrirProblema(Number(linha.dataset.grupo), Number(linha.dataset.item));
   });
   $('problems-list')?.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    const linha = e.target.closest('.problems-row');
+    const linha = (e.target as Element).closest('.problems-row') as HTMLElement | null;
     if (!linha) return;
     e.preventDefault();
     abrirProblema(Number(linha.dataset.grupo), Number(linha.dataset.item));

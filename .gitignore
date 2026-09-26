@@ -193,6 +193,8 @@ js/tree/spf_da_arvore.js
 js/tree/edicao_em_linha.js
 js/tree/menu_da_arvore.js
 js/tree/texto_da_arvore.js
+js/ai/abrir_referencia.js
+js/ai/contexto_do_turno.js
 js/tree/tree_history.js
 js/tree/fs_name_utils.js
 js/tree/tree_selection.js

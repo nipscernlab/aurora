@@ -207,6 +207,8 @@ declare global {
       missingFiles?: import('../project/arquivos_faltando.js').ArquivoFaltando[];
       createNewCocotbFile?(): unknown;
       createGitignore?(): unknown;
+      /** Os arquivos que a visao Verilog lista; a IA acha por eles um nome citado na resposta. */
+      verilogFiles?: import('../ai/file_ref.js').ArquivoDaArvore[];
     };
     /** O controlador das duas visoes da arvore (js/tree/file_tree_view_controller.ts); lido por window para nao fechar ciclo. */
     fileTreeViewController?: { getActiveView?(): string };
@@ -238,6 +240,8 @@ declare global {
     AuroraAPI?: {
       compile: { compileStep(step: string): unknown; compileAll(): unknown; cancel(): unknown };
       events?: { emit?(nome: string, dados: unknown): void };
+      /** As memorias do projeto, que o painel de IA le a cada turno. */
+      project?: { listMemories?(): Promise<{ ok: boolean; data?: { memories?: unknown[] } } | null | undefined> };
     };
     /** O TabManager exposto em window (renderer.js); o PRISM em aba abre por ele. */
     TabManager?: { openPrismTab?(resultado: unknown): unknown; addTab?(filePath: string, content: string): unknown };

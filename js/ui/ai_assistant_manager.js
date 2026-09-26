@@ -23,7 +23,6 @@ import { aiMarkSvg } from './ai_mark.js';
 import { constrainTerminalHeight, persistTerminalHeight, faixaDosPaineis, semAnimar } from '../utils/resize.js';
 // Mesma regra de tamanho da árvore de arquivos e do terminal.
 import { resolvePaneSize, maxLateralWidth, PANE } from '../utils/pane_size.js';
-import { TabManager } from '../tabs/tab_manager.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { lerPaginasDoManual, montarBlocoTutorial, aberturaDoTutorial } from '../ai/api_tutorial.js';
 
@@ -37,7 +36,8 @@ import {
     prettyToolName,
     summariseResult,
 } from '../ai/tool_chip_text.js';
-import { fileRefCandidates, resolveTrackedFile } from '../ai/file_ref.js';
+import { abrirReferencia } from '../ai/abrir_referencia.js';
+import { lerContextoDoTurno } from '../ai/contexto_do_turno.js';
 import {
     citacaoDeResultado,
     citacaoJaEsta,
@@ -2048,36 +2048,9 @@ class AIAssistantManager {
     const isSub = isSubProvider(this.currentProvider);
     const subEntry = this.providersAvailable.find((p) => p.name === this.currentProvider);
 
-    // Inject the current project path into the system prompt on every
-    // turn. Without this, the model has to spend a `get_current_project`
-    // tool-call (and the user's tokens) just to know where it is:
-    // worse, models that don't reliably call tools first sometimes
-    // hallucinate paths from earlier projects. The block is rebuilt
-    // per-turn so switching projects mid-chat just works.
-    const projectPath =
-      window.currentProjectPath || window.currentOpenProjectPath || null;
-    const spfPath = window.ProjectStore?.getSpfPath?.() || null;
-    // Project memories ride along in the same block. Read per turn rather than
-    // cached: a memory written during THIS turn has to be visible on the next
-    // one, and a cache keyed on anything less than the turn would go stale
-    // exactly when it matters. They are a handful of small files.
-    let memories = [];
-    try {
-      const r = await window.AuroraAPI?.project?.listMemories?.();
-      if (r?.ok) memories = r.data?.memories || [];
-    } catch (e) {
-      console.warn('[ai] could not load project memories:', e);  // never block a turn over this
-    }
-    // Componentes ausentes, lidos do disco a cada turno pelo mesmo motivo das
-    // memorias: a pessoa pode ter baixado o componente no meio da conversa, e um
-    // valor guardado faria a IA continuar recusando o que ja esta instalado.
-    let componentes = [];
-    try {
-      const r = await window.electronAPI?.componentesListar?.();
-      componentes = r?.componentes || [];
-    } catch (e) {
-      console.warn('[ai] could not read components:', e);  // never block a turn over this
-    }
+    // O caminho do projeto, as memorias e os componentes ausentes, relidos a
+    // cada turno (js/ai/contexto_do_turno.ts diz por que).
+    const { projectPath, spfPath, memories, componentes } = await lerContextoDoTurno();
     // Os dois vao SEPARADOS para o main, e nao concatenados como antes.
     //
     // O SYSTEM_PROMPT nao muda dentro de uma versao; o contexto do projeto e
@@ -3967,50 +3940,9 @@ class AIAssistantManager {
 
   /* ---------------- clickable file references ---------------- */
 
-  /**
-   * A regra de para onde uma referencia aponta mora em js/ai/file_ref.ts,
-   * que e pura e tem teste; e regra de sandbox, entao precisa ter.
-   * Estes dois metodos sao so a leitura dos dois globais que ela pede.
-   */
-  _resolveTrackedFile(fileName) {
-    return resolveTrackedFile(fileName, window.projectTreeManager?.verilogFiles);
-  }
-
-  _fileRefCandidates(ref) {
-    return fileRefCandidates(ref, {
-      trackedFiles: window.projectTreeManager?.verilogFiles,
-      projectRoot: window.currentProjectPath,
-    });
-  }
-
-  /** Open a referenced project file in the editor, jumping to `line` if given. */
+  /** Abre um arquivo citado na resposta, na linha se ela veio (js/ai/abrir_referencia.ts). */
   async openFileRef(fileName, line) {
-    const tr = (k, p) => (window.t ? window.t(k, p) : null);
-    let filePath = null;
-    for (const cand of this._fileRefCandidates(fileName)) {
-      try {
-        if (await electronAPI.fileExists(cand)) { filePath = cand; break; }
-      } catch (_) { /* try the next candidate */ }
-    }
-    if (!filePath) {
-      showCardNotification(
-        tr('notification.ai.fileNotFound', { name: fileName }) || `File not in project: ${fileName}`,
-        'warning', 3000,
-      );
-      return;
-    }
-    try {
-      const content = await electronAPI.readFile(filePath);
-      const opts = (Number.isFinite(line) && line > 0)
-        ? { revealPosition: { line, column: 1 } }
-        : {};
-      TabManager.addTab(filePath, content, opts);
-    } catch (_e) {
-      showCardNotification(
-        tr('notification.ai.fileOpenError', { name: fileName }) || `Could not open ${fileName}`,
-        'error', 3000,
-      );
-    }
+    await abrirReferencia(fileName, line);
   }
 }
 

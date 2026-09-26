@@ -41,7 +41,7 @@ function resolveYancPath(): string {
   return DEFAULT_YANC;
 }
 
-function readSafe(p: string): string | null {
+export function readSafe(p: string): string | null {
   try { return fs.readFileSync(p, 'utf8'); }
   catch (e) {
     if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
@@ -103,7 +103,7 @@ interface LexResult {
   diracTokens: LexEntry[];
 }
 
-function parseLexer(src: string | null): LexResult | null {
+export function parseLexer(src: string | null): LexResult | null {
   if (!src) return null;
   const result: LexResult = {
     hwDirectives:     [], // #NBMANT, #NUBITS, #NUIOIN, ...
@@ -196,7 +196,7 @@ function parseDirectiveSource(src: string | null): Record<string, DirectiveInfo>
   return acc;
 }
 
-function buildDirectives(lexResult: LexResult | null, ...sources: (string | null)[]) {
+export function buildDirectives(lexResult: LexResult | null, ...sources: (string | null)[]) {
   // Merge information from every directive source in order, first hit
   // wins for `description`, later sources still fill in missing
   // `default`s where they appear.
@@ -303,7 +303,7 @@ interface Message {
   en: string;
 }
 
-function parseMessages(src: string | null): Message[] {
+export function parseMessages(src: string | null): Message[] {
   if (!src) return [];
 
   const sections: { name: string; index: number }[] = [];
@@ -366,7 +366,7 @@ function parseMessages(src: string | null): Message[] {
  *  BNF dump can come later if the AI needs more structure.
  * ========================================================== */
 
-function parseGrammar(src: string | null): { tokens: string[]; productions: string[] } {
+export function parseGrammar(src: string | null): { tokens: string[]; productions: string[] } {
   if (!src) return { tokens: [], productions: [] };
   const tokens = new Set<string>();
   const tokenRe = /%token(?:\s*<\w+>)?\s+([^\n]+)/g;

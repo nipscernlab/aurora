@@ -114,3 +114,23 @@ describe('as restricoes do SAPHO estao contadas como o yanc realmente se comport
         expect(SYSTEM_PROMPT).toContain('in asmcomp, not cmmcomp');
     });
 });
+
+// O modelo planeja otimizacao de assembly por este texto, e o numero de
+// opcodes e as instrucoes de ponteiro mudaram no yanc v5.5 (LDA e STA sairam,
+// LDI/STI ganharam base numerica). O resumo tem de bater com a tabela que o
+// sync-sapho-rules gera do proprio yanc.
+describe('o resumo do ISA bate com o sapho_rules.json', () => {
+    const regras = JSON.parse(readFileSync(new URL('../../resources/sapho_rules.json', import.meta.url), 'utf8'));
+    const ops = regras.asm.opcodes;
+
+    it('as contagens de opcodes e mnemonicos sao as da tabela', () => {
+        const opcodes = new Set(ops.map((o) => o.opcode)).size;
+        expect(SYSTEM_PROMPT).toContain(`The ISA has ${opcodes} opcodes (0 to ${opcodes - 1}) and ${ops.length} mnemonics`);
+    });
+
+    it('ponteiro se le com LDI 0 e se grava com STI 0, sem LDA/STA', () => {
+        expect(ops.some((o) => o.mnemonic === 'LDA' || o.mnemonic === 'STA')).toBe(false);
+        expect(SYSTEM_PROMPT).toContain('read with LDI 0 and written with STI 0');
+        expect(SYSTEM_PROMPT).not.toMatch(/\bLDA \(|\bSTA \(/);
+    });
+});

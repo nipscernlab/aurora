@@ -10,7 +10,9 @@
  *   - HDL/  (processor.v, core.v, addr_dec.v, instr_dec.v, ula.v,
  *            myFIFO.v, bibliotecas verilog do toolchain SAPHO, v2+.
  *            v5.4 acrescentou o parametro FROUND, o nivel de
- *            arredondamento do float, em processor/core/ula.)
+ *            arredondamento do float, em processor/core/ula.
+ *            v5.5 tirou LDA/STA do ISA e renumerou os opcodes, entao
+ *            HDL e asmcomp de versoes diferentes nao funcionam juntos.)
  *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
@@ -52,7 +54,7 @@ const { verifyChecksum } = require('./lib/checksum');
 // release). null = compute + log only (no enforcement yet).
 const EXPECTED_SHA256 = null;
 
-const YANC_TAG      = 'v5.4';
+const YANC_TAG      = 'v5.5';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';

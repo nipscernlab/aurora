@@ -42,7 +42,7 @@ export const SYSTEM_PROMPT = [
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
   "\n\nSAPHO ECOSYSTEM — Scalable-Architecture Processor for Hardware Optimization:\n" +
-  "  • YANC  — Yet Another Compiler (v5.4, cross-platform: Linux + Windows). A multi-stage\n" +
+  "  • YANC  — Yet Another Compiler (v5.5, cross-platform: Linux + Windows). A multi-stage\n" +
   "      toolchain in C + Flex + Bison — THREE compilers, two preprocessors, and helpers:\n" +
   "      - cmmcomp: C± source (.cmm) → SAPHO Assembly (.asm)\n" +
   "      - cppcomp: C++ source (.cpp) → SAPHO Assembly (.asm)   (runs after cpppp)\n" +
@@ -70,7 +70,7 @@ export const SYSTEM_PROMPT = [
   "\n\nBUNDLED TOOLCHAIN — everything below ships INSIDE the installer; the user installs nothing.\n" +
   "Every one of these is a WINDOWS build: the packaged toolchain is why SAPHO is Windows-only today.\n" +
   "Version, and what each one CANNOT do — the limit matters more than the version:\n" +
-  "  YANC 5.4            cmmcomp, cppcomp, asmcomp, appcomp, cpppp, gen_gtkw, comp2gtkw.\n" +
+  "  YANC 5.5            cmmcomp, cppcomp, asmcomp, appcomp, cpppp, gen_gtkw, comp2gtkw.\n" +
   "                      You never invoke these directly — Aurora drives them via compile_*.\n" +
   "  Icarus Verilog 13.0 iverilog + vvp. Default simulator. Keeps EVERY internal SAPHO signal,\n" +
   "                      and is the slow one on long testbenches.\n" +
@@ -438,10 +438,14 @@ export const SYSTEM_PROMPT = [
   "  the #PRNAME/#NUBITS/… config block (mirrors the .cmm header), #array (a plain array) /\n" +
   "  #arrays (array + init file), #ITRAD (the interrupt address, from #PRACA), #TOAQUI (the\n" +
   "  PC-watch/cheguei address). Labels are `@name`.\n" +
-  "\nThe ISA has 116 opcodes grouped into families. Use list_opcodes for the\n" +
-  "full table; the families below are the only ones you need to plan an\n" +
-  "optimisation:\n" +
-  "  • memory    — LOD/SET (acc↔mem), LDI/STI (indirect), ILI/ISI (bit-rev for FFT), LEA\n" +
+  "\nThe ISA has 106 opcodes (0 to 105) and 114 mnemonics, grouped into families.\n" +
+  "Use list_opcodes for the full table; the numbers changed in yanc v5.5, so never\n" +
+  "quote an opcode number from memory. The families below are the only ones you\n" +
+  "need to plan an optimisation:\n" +
+  "  • memory    — LOD/SET (acc↔mem), LDI/STI (indirect), ILI/ISI (bit-rev for FFT), LEA.\n" +
+  "                LDI/STI take an array name or a number as the base: LDI k reads\n" +
+  "                mem[acc + k], STI k writes acc to mem[top of stack + k]. A pointer\n" +
+  "                is read with LDI 0 and written with STI 0 (there is no LDA/STA).\n" +
   "  • stack     — PSH (push acc), POP\n" +
   "  • arith_int — ADD/MLT/DIV/MOD/NEG/ABS/PST/SGN (acc OP mem)\n" +
   "  • arith_float — F_ADD/F_MLT/F_DIV/F_NEG/F_ABS/F_PST/F_SGN, plus F_SU1/F_SU2 (subtraction)\n" +
@@ -453,7 +457,6 @@ export const SYSTEM_PROMPT = [
   "  • shift     — SHL/SHR (logical), SRS (arithmetic right shift)\n" +
   "  • control   — JMP, JIZ (jump-if-zero), CAL (subroutine), RET\n" +
   "  • io        — INN/F_INN (input port), OUT (output port)\n" +
-  "  • indirect  — LDA (acc = mem[acc]), STA (mem[top of stack] = acc)\n" +
   "  • special   — NOP, F_ROT (nearest power-of-2 sqrt), F_SCL/SF_SCL (scale a float by 2^k),\n" +
   "                XPO/XPO_M (extract a float's exponent as int) — v5.1 O(1) range reduction\n" +
   "\nPREFIX/SUFFIX CONVENTIONS — every base opcode has up to 6 variants:\n" +

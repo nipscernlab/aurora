@@ -12,6 +12,7 @@ import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { showCardNotification } from '../ui/notification.js';
 import { fileRefCandidates } from './file_ref.js';
+import { aiPathIsText } from './chat_render.js';
 import { ProjectStore } from '../project/project_store.js';
 
 /** Os caminhos que um nome pode ser, do mais provavel ao menos. */
@@ -49,5 +50,35 @@ export async function abrirReferencia(fileName: string, line?: number | null): P
       tr('notification.ai.fileOpenError', { name: fileName }) || `Could not open ${fileName}`,
       'error', 3000,
     );
+  }
+}
+
+/**
+ * Um caminho absoluto clicado na conversa. Pergunta ao main o que ele e:
+ * pasta abre no explorador do sistema; arquivo de texto ou codigo abre numa
+ * aba de previa; qualquer outro (imagem, video, pdf) abre no programa padrao.
+ */
+export async function abrirCaminhoDoChat(rawPath: string | null | undefined): Promise<void> {
+  if (!rawPath) return;
+  let info: { isDirectory?: boolean } | null | undefined = null;
+  try { info = await electronAPI?.getFileStats?.(rawPath); }
+  catch (_) { info = null; }
+  if (!info) {
+    try { window.showNotification?.(`Path not found: ${rawPath}`, 'warning'); } catch (_) { /* ignore */ }
+    return;
+  }
+  if (info.isDirectory) {
+    electronAPI?.openFolder?.(rawPath);           // shell.openPath → Explorer
+    return;
+  }
+  if (aiPathIsText(rawPath)) {
+    try {
+      const content = await electronAPI.readFile(rawPath);
+      window.TabManager?.addTab?.(rawPath, content ?? '', { preview: true });
+    } catch (_) {
+      electronAPI?.openFolder?.(rawPath);         // fallback: default app
+    }
+  } else {
+    electronAPI?.openFolder?.(rawPath);           // shell.openPath → default app
   }
 }

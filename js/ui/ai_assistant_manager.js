@@ -14,7 +14,6 @@
  * Delete operate on those files (see `main/ai/conversations.js`).
  */
 
-import { electronAPI } from '../app/electron_api.js';
 import { motivoDe } from '../app/api_reply.js';
 import { showConfirm } from './dialog_manager.js';
 import { abrirAjudaDe } from './help_link.js';
@@ -35,7 +34,9 @@ import {
     prettyToolName,
     summariseResult,
 } from '../ai/tool_chip_text.js';
-import { abrirReferencia } from '../ai/abrir_referencia.js';
+import { abrirReferencia, abrirCaminhoDoChat } from '../ai/abrir_referencia.js';
+import { confiaEmLinksExternos, definirConfiancaEmLinks, confirmarLinkExterno } from '../ai/link_externo.js';
+import { estadoDaAssinatura, estadoDoProvedor } from '../ai/estado_do_provedor.js';
 import { adicionarArquivos, abrirImagem, desenharAnexos, desenharAnexosNaBolha, escaparHtml } from '../ai/anexos_do_chat.js';
 import { lerContextoDoTurno } from '../ai/contexto_do_turno.js';
 import { avisoDeAssinatura, desenharFila } from '../ai/fila_do_chat.js';
@@ -50,7 +51,7 @@ import { chatListHtml, serializeMessagesForStorage } from '../ai/chat_history.js
 import { buildApiMessages, buildProjectContext } from '../ai/chat_turn.js';
 import {
   escapeHtml, renderMarkdown, highlightCodeBlocks,
-  linkifyFileRefs, aiPathIsText, TRUST_LINKS_KEY,
+  linkifyFileRefs,
 } from '../ai/chat_render.js';
 import { marcarPonto, rotuloDoPedido, voltarAoPonto, listarPontos } from '../ai/rewind.js';
 import {
@@ -1086,100 +1087,32 @@ class AIAssistantManager {
     if (this.currentProvider === provider) this.renderSubStatus();
   }
 
-  /**
-   * Friendly plan label for the status row. Raw values come straight
-   * from the CLI/JWT (`pro`, `max`, `plus`, `business`, `free`, …), we
-   * uppercase them and map the few that have well-known marketing names.
-   */
+  /** A linha de estado da assinatura (js/ai/estado_do_provedor.ts). */
   renderSubStatus() {
     if (!this.ccStatusEl) return;
     const sm = SUB_META[this.currentProvider];
     if (!sm) return;
-    const s = this.subStatus[this.currentProvider];
-    const meta = PROVIDER_META[this.currentProvider] || {};
-    let state = 'off';
-    let icon = 'ph-x-circle';
-    let title = 'Checking…';
-    let detail = '';
-
-    if (!s) {
-      title = `Checking ${sm.cliName}…`;
-    } else if (!s.installed && !s.downloadable) {
-      state = 'off'; icon = 'ph-x-circle';
-      title = sm.notInstalled;
-      detail = sm.installHint;
-    } else if (!s.authed) {
-      state = 'warn'; icon = 'ph-warning-circle';
-      title = 'Not signed in';
-      detail = `Run <code>${sm.loginCmd}</code> in a terminal, then re-check.`;
-    } else if (!s.installed) {
-      // B12: signed in and downloadable, ready to use; the ~230 MB binary is
-      // fetched on the first message (then this flips to the version detail).
-      state = 'on'; icon = 'ph-check-circle';
-      const plan = formatPlanLabel(s.plan) || 'SUBSCRIPTION';
-      title = `${meta.label || sm.cliName} · ${plan}`;
-      detail = 'Downloads on first message';
-    } else {
-      state = 'on'; icon = 'ph-check-circle';
-      const plan = formatPlanLabel(s.plan) || 'SUBSCRIPTION';
-      title = `${meta.label || sm.cliName} · ${plan}`;
-      detail = s.version || sm.cliName;
-    }
-
+    const { state, html } = estadoDaAssinatura(
+      this.subStatus[this.currentProvider], sm, PROVIDER_META[this.currentProvider] || {});
     this.ccStatusEl.dataset.state = state;
-    this.ccStatusEl.innerHTML = `
-      <div class="ai-cc-row">
-        <i class="ph ${icon} ai-cc-icon" aria-hidden="true"></i>
-        <span class="ai-cc-title">${title}</span>
-        <button type="button" class="ai-cc-recheck" data-cc-recheck
-                title="Re-check connection">
-          <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
-        </button>
-      </div>
-      ${detail ? `<p class="ai-cc-detail">${escapeHtml(detail)}</p>` : ''}`;
+    this.ccStatusEl.innerHTML = html;
   }
 
-  /**
-   * Connection status row for an API (BYOK) provider, OpenAI, Anthropic,
-   * Google, DeepSeek, Groq, Ollama. Mirrors renderSubStatus so the user
-   * sees a uniform "what am I connected to?" badge regardless of whether
-   * the provider is subscription- or key-backed.
-   */
+  /** A linha de estado de um provedor de API (js/ai/estado_do_provedor.ts). */
   renderProviderStatus() {
     if (!this.ccStatusEl) return;
     const provider = this.currentProvider;
-    const meta = PROVIDER_META[provider] || {};
-    const entry = this.providersAvailable.find((p) => p.name === provider);
-    const configured = !!(this.providersConfigured && this.providersConfigured[provider]);
-
-    let state, icon, title, detail;
-    if (configured) {
-      state = 'on';
-      icon = 'ph-check-circle';
-      title = `${meta.label || provider} · Connected`;
-      const model = entry?.model || entry?.defaultModel || '';
-      detail = model ? `Model: ${model}` : '';
-    } else {
-      state = 'off';
-      icon = 'ph-x-circle';
-      title = `${meta.label || provider} · Not configured`;
-      detail = 'Add an API key in Settings → AI Assistant.';
-    }
-
+    const { state, html } = estadoDoProvedor(
+      provider,
+      PROVIDER_META[provider] || {},
+      this.providersAvailable.find((p) => p.name === provider),
+      !!(this.providersConfigured && this.providersConfigured[provider]),
+    );
     this.ccStatusEl.dataset.state = state;
-    this.ccStatusEl.innerHTML = `
-      <div class="ai-cc-row">
-        <i class="ph ${icon} ai-cc-icon" aria-hidden="true"></i>
-        <span class="ai-cc-title">${escapeHtml(title)}</span>
-      </div>
-      ${detail ? `<p class="ai-cc-detail">${escapeHtml(detail)}</p>` : ''}`;
+    this.ccStatusEl.innerHTML = html;
   }
 
   /** True when the active subscription CLI is installed and signed in. */
-  isSubReady() {
-    const s = this.subStatus[this.currentProvider];
-    return !!(s && s.installed && s.authed);
-  }
 
   /* ---------------- subscription provider: usage ---------------- */
 
@@ -1196,105 +1129,15 @@ class AIAssistantManager {
     if (this.currentProvider === provider) this.renderUsage();
   }
 
-  /**
-   * Redirect warning before opening a model-supplied link in the OS browser.
-   * Shows the exact destination URL (as text, no injection) and only calls
-   * openExternal on explicit confirmation. openExternal itself also rejects
-   * non-http(s)/mailto schemes in the main process (defence in depth).
-   */
-  _getTrustExternalLinks() {
-    try { return localStorage.getItem(TRUST_LINKS_KEY) === '1'; } catch (_) { return false; }
-  }
+  // O aviso antes de abrir link externo mora em js/ai/link_externo.ts.
+  _getTrustExternalLinks() { return confiaEmLinksExternos(); }
 
-  _setTrustExternalLinks(v) {
-    try { localStorage.setItem(TRUST_LINKS_KEY, v ? '1' : '0'); } catch (_) { /* ignore */ }
-    // Keep any Settings toggle bound to the same preference in sync, live.
-    window.dispatchEvent(new CustomEvent('aurora:trust-external-links-changed', { detail: { value: !!v } }));
-  }
+  _setTrustExternalLinks(v) { definirConfiancaEmLinks(v); }
 
-  _confirmExternalLink(url) {
-    if (!url) return;
+  _confirmExternalLink(url) { confirmarLinkExterno(url); }
 
-    // Bypass the warning entirely when the user has chosen to trust external
-    // links (the dialog checkbox, mirrored by the Settings toggle).
-    if (this._getTrustExternalLinks()) {
-      electronAPI?.openExternal?.(url);
-      return;
-    }
-
-    document.querySelector('.ai-link-warning')?.remove();
-
-    const overlay = document.createElement('div');
-    overlay.className = 'ai-link-warning';
-    overlay.innerHTML =
-      '<div class="ai-link-warning-card" role="dialog" aria-modal="true" aria-label="Open external link">' +
-        '<div class="ai-link-warning-head"><i class="ph ph-arrow-square-out"></i>' +
-          '<span>Open external link?</span></div>' +
-        '<p class="ai-link-warning-text">This leaves Aurora and opens in your default browser:</p>' +
-        '<div class="ai-link-warning-url"></div>' +
-        '<label class="ai-link-warning-trust">' +
-          '<input type="checkbox" class="ai-link-warning-trust-cb">' +
-          '<span>Always open external links without asking</span>' +
-        '</label>' +
-        '<div class="ai-link-warning-actions">' +
-          '<button class="ai-link-warning-cancel" type="button">Cancel</button>' +
-          '<button class="ai-link-warning-open" type="button">Open link</button>' +
-        '</div>' +
-      '</div>';
-    // textContent, never innerHTML, the URL is untrusted model output.
-    overlay.querySelector('.ai-link-warning-url').textContent = url;
-
-    const close = () => {
-      overlay.remove();
-      document.removeEventListener('keydown', onKey);
-    };
-    const onKey = (ev) => { if (ev.key === 'Escape') close(); };
-    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });
-    overlay.querySelector('.ai-link-warning-cancel').addEventListener('click', close);
-    overlay.querySelector('.ai-link-warning-open').addEventListener('click', () => {
-      // If "always" was ticked, persist the bypass before opening.
-      if (overlay.querySelector('.ai-link-warning-trust-cb')?.checked) {
-        this._setTrustExternalLinks(true);
-      }
-      electronAPI?.openExternal?.(url);
-      close();
-    });
-    document.addEventListener('keydown', onKey);
-
-    document.body.appendChild(overlay);
-    overlay.querySelector('.ai-link-warning-open').focus();
-  }
-
-  /**
-   * Route a clicked absolute filesystem path. We stat it in the main process
-   * (get-file-stats) and then: directory → open in the OS file manager
-   * (shell.openPath ⇒ Explorer on Windows); text/code file → open inside Monaco
-   * as a tab; any other file (image/video/audio/pdf/…) → OS default app.
-   */
-  async _openChatPath(rawPath) {
-    if (!rawPath) return;
-    let info = null;
-    try { info = await electronAPI?.getFileStats?.(rawPath); }
-    catch (_) { info = null; }
-    if (!info) {
-      try { window.showNotification?.(`Path not found: ${rawPath}`, 'warning'); } catch (_) { /* ignore */ }
-      return;
-    }
-    if (info.isDirectory) {
-      electronAPI?.openFolder?.(rawPath);           // shell.openPath → Explorer
-      return;
-    }
-    if (aiPathIsText(rawPath)) {
-      try {
-        const content = await electronAPI.readFile(rawPath);
-        window.TabManager?.addTab?.(rawPath, content ?? '', { preview: true });
-      } catch (_) {
-        electronAPI?.openFolder?.(rawPath);         // fallback: default app
-      }
-    } else {
-      electronAPI?.openFolder?.(rawPath);           // shell.openPath → default app
-    }
-  }
+  /** Um caminho absoluto clicado na conversa (js/ai/abrir_referencia.ts). */
+  async _openChatPath(rawPath) { await abrirCaminhoDoChat(rawPath); }
 
   renderUsage() {
     if (!this.usageBars) return;

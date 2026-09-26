@@ -2105,13 +2105,23 @@ A cadeia, nesta ordem:
       a árvore inteira (`standard_tree_render`, `file_tree_view_controller`,
       `file_tree_toggler`, `file_tree_manager`), o fechar e o excluir
       projeto, o `bug_report` e outros menores. `window.currentSpfPath`
-      deixou de existir. Faltam 6 leituras de `window.currentProjectPath`
-      (`git grep -c "window\.currentProjectPath" -- js`):
-      `ai_assistant_manager` (2), `terminal_module`, `standard_tree_crud`,
-      `renderer.js` e `shell_terminal` (1 cada). Próximo: `shell_terminal`,
-      depois dividir o `terminal_module`. Quando a última sair, o store deixa
-      de espelhar em `window`. A catraca de globais está em 39, e o renderer
-      não tem ciclo de import.
+      deixou de existir. Em 26/09 sairam mais tres leituras de
+      `window.currentProjectPath`: o `shell_terminal` (que virou `.ts`), os
+      links do `terminal_module` (que sairam para `links_do_terminal.ts`) e o
+      `standard_tree_crud` (dividido e convertido, abaixo). Faltam 3
+      (`git grep -c "window\.currentProjectPath" -- js`): `ai_assistant_manager`
+      (2) e `renderer.js` (1). Quando a última sair, o store deixa de espelhar
+      em `window`. A catraca de globais está em 39, e o renderer não tem ciclo
+      de import.
+
+      **O `renderer.js` fica por último, e por quê.** Ele é a raiz do grafo:
+      importa uns 30 módulos, e boa parte ainda é `.js` sem tipos. Um `.ts`
+      não importa `.js` sem tipos no `build:ts` (`allowJs: false`), então
+      convertê-lo agora pediria `.d.ts` para metade do renderer. Ele vira `.ts`
+      quando o que ele importa já for `.ts`. A leitura dele é no boot, antes
+      de qualquer projeto abrir, então hoje ela vale sempre `null`. Achado no
+      caminho, ainda aberto: o atalho F2 do `renderer.js` abre a pasta de um
+      `currentProjectPath` local que ninguém atribui, então nunca faz nada.
 
       Defeitos achados e corrigidos no caminho (25/09): `createSurferLayout`
       e `formatFile` conferiam `.success` num envelope que só tem `.ok`; o
@@ -2159,6 +2169,27 @@ A cadeia, nesta ordem:
         `createSurferLayout` e o `formatFile` conferiam `.success` num
         envelope que só tem `.ok`, e paravam no meio. Falta dividir o que
         sobrou (`editor`, `terminal`, `compile`, `ui`, `ai`, `settings`).
+      - [~] `terminal_module` (26/09): de 1767 para 1532 linhas. Saíram os
+        links da saída das ferramentas (`links_do_terminal.ts`: reconhecer,
+        ligar o clique, levar o editor à linha), com o `error_locations`
+        convertido antes porque o módulo novo o importa. Teste de
+        caracterização em `linksDoTerminal`. Falta dividir o resto
+        (contadores, filtros, cartões agrupados, barra de progresso,
+        exportar log, limpar) e converter.
+      - [x] `standard_tree_crud` (26/09): de 1486 linhas `.js` para cerca de
+        1200 `.ts`, com cinco módulos fora: `menu_da_arvore.ts` (o card do
+        botão direito), `edicao_em_linha.ts` (o campo de criar e renomear),
+        `spf_da_arvore.ts` (o `.spf` acompanhando a árvore),
+        `abas_da_arvore.ts` (abas e pastas abertas que acompanham um
+        renomear) e `texto_da_arvore.ts`. Os quatro módulos puros de que ele
+        depende viraram `.ts` antes (`tree_history`, `fs_name_utils`,
+        `tree_selection`, `spf_paths`). O teste de caracterização
+        (`standardTreeCrud`, 82 casos) cobria todas as linhas antes da
+        divisão. Defeito achado e corrigido: as mensagens de erro saíam
+        "Could not rename: unknown: travado", porque o `'unknown'` ia para o
+        parâmetro do nome da operação do `motivoDe`.
+      - [x] `shell_terminal` (26/09) virou `.ts`, com teste de caracterização
+        (`shellTerminal`). O import de CSS ganhou `js/types/css.d.ts`.
       - [ ] E2E instável: `shell-terminal > navigates folders (cd persists,
         prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
         mudança do momento (o repetidor deu 3 verdes seguidas).

@@ -222,4 +222,44 @@ describe('painel: clicar leva ao lugar', () => {
 
     expect(lista().querySelectorAll('.problems-row')).toHaveLength(1);
   });
+
+  it('Enter e espaco numa linha abrem o problema; outra tecla ou fora de linha, nao', async () => {
+    registrar(problemStore, 'C:/proj/Hardware/top.v:5: error: x');
+    abrir();
+    const linha = lista().querySelector('.problems-row');
+    const tecla = (alvo, key) => alvo.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    tecla(linha, 'a');
+    tecla(lista(), 'Enter');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(abertos).toHaveLength(0);
+    tecla(linha, 'Enter');
+    await new Promise((r) => setTimeout(r, 0));
+    abrir();
+    tecla(lista().querySelector('.problems-row'), ' ');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(abertos).toHaveLength(2);
+  });
+
+  it('clique fora de uma linha nao abre nada; arquivo que nao le fica no console e o painel continua aberto', async () => {
+    registrar(problemStore, 'C:/proj/Hardware/top.v:5: error: x');
+    abrir();
+    lista().click();
+    const erro = [];
+    const original = console.error;
+    console.error = (...a) => erro.push(a);
+    window.electronAPI = { readFile: async () => { throw new Error('travado'); } };
+    lista().querySelector('.problems-row').click();
+    await new Promise((r) => setTimeout(r, 0));
+    console.error = original;
+    expect(abertos).toHaveLength(0);
+    expect(erro).toHaveLength(1);
+    expect(document.getElementById('problemsModal').classList.contains('show')).toBe(true);
+  });
+
+  it('o texto vem da traducao quando ela existe', () => {
+    window.t = (k) => (k === 'problems.none' ? 'Nenhum problema' : k);
+    registrar(problemStore, 'C:/proj/Hardware/top.v:5: error: x');
+    problemStore.limpar();
+    expect(botao().getAttribute('data-tooltip')).toBe('Nenhum problema');
+  });
 });

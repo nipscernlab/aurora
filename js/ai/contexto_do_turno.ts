@@ -14,6 +14,8 @@
  * Saiu do ai_assistant_manager.js (TODO 13.3).
  */
 
+import { ProjectStore } from '../project/project_store.js';
+
 export interface ContextoDoTurno {
   projectPath: string | null;
   spfPath: string | null;
@@ -22,8 +24,8 @@ export interface ContextoDoTurno {
 }
 
 export async function lerContextoDoTurno(): Promise<ContextoDoTurno> {
-  const projectPath = window.currentProjectPath || window.currentOpenProjectPath || null;
-  const spfPath = window.ProjectStore?.getSpfPath?.() || null;
+  const projectPath = ProjectStore.getProjectPath();
+  const spfPath = ProjectStore.getSpfPath();
 
   let memories: unknown[] = [];
   try {

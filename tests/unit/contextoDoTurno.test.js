@@ -31,13 +31,19 @@ describe('contexto do turno', () => {
     });
   });
 
+  it('o projeto vem do ProjectStore, nao de uma global sobrescrita', async () => {
+    ProjectStore.setProject('C:/p/p.spf', 'C:/p');
+    window.currentProjectPath = 'D:/outra-janela';
+    window.ProjectStore = { getSpfPath: () => 'D:/outra-janela/x.spf' };
+    expect(await lerContextoDoTurno()).toMatchObject({ projectPath: 'C:/p', spfPath: 'C:/p/p.spf' });
+  });
+
   it('sem projeto, sem API ou com resposta vazia, vem vazio', async () => {
     window.AuroraAPI.project.listMemories.mockResolvedValueOnce({ ok: false });
     window.electronAPI.componentesListar.mockResolvedValueOnce(null);
     expect(await lerContextoDoTurno()).toEqual({ projectPath: null, spfPath: null, memories: [], componentes: [] });
     window.AuroraAPI.project.listMemories.mockResolvedValueOnce({ ok: true, data: {} });
     window.electronAPI.componentesListar.mockResolvedValueOnce({});
-    delete window.ProjectStore;
     expect(await lerContextoDoTurno()).toMatchObject({ spfPath: null, memories: [], componentes: [] });
     delete window.AuroraAPI;
     delete window.electronAPI;

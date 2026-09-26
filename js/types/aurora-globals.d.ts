@@ -184,8 +184,6 @@ declare global {
     electronAPI: AuroraElectronAPI;
     /** Absolute path of the current project dir (per-processor compile root). */
     currentProjectPath?: string | null;
-    /** Absolute path of the open project file (legacy; dirname → project dir). */
-    currentOpenProjectPath?: string | null;
     /** Espelho do ProjectStore para quem ainda nao o importa (js/project/project_store.ts). */
     ProjectStore?: typeof import('../project/project_store.js').ProjectStore;
     gitAPI?: AuroraGitAPI;

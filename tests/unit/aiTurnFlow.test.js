@@ -732,4 +732,12 @@ describe('referencia a arquivo na resposta', () => {
     expect(showCardNotification).toHaveBeenLastCalledWith('Could not open src/top.v', 'error', 3000);
     expect(TabManager.addTab).not.toHaveBeenCalled();
   });
+
+  it('a raiz e a do projeto aberto no store, nao uma global sobrescrita', async () => {
+    await abrirPainel();
+    window.currentProjectPath = 'D:/outra-janela';
+    electronAPI.fileExists.mockResolvedValue(false);
+    await painel.openFileRef('src/top.v');
+    expect(electronAPI.fileExists).toHaveBeenCalledWith('C:/proj/src/top.v');
+  });
 });

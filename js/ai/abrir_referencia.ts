@@ -12,12 +12,13 @@ import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { showCardNotification } from '../ui/notification.js';
 import { fileRefCandidates } from './file_ref.js';
+import { ProjectStore } from '../project/project_store.js';
 
 /** Os caminhos que um nome pode ser, do mais provavel ao menos. */
 export function candidatosDaReferencia(ref: unknown): string[] {
   return fileRefCandidates(ref, {
     trackedFiles: window.projectTreeManager?.verilogFiles,
-    projectRoot: window.currentProjectPath,
+    projectRoot: ProjectStore.getProjectPath(),
   });
 }
 

@@ -9,9 +9,6 @@
     "js/ui/dialog_manager.ts",
     "js/ui/notification.js"
   ],
-  "ProjectStore": [
-    "js/project/project_store.ts"
-  ],
   "SharedModelRegistry": [
     "js/editor/shared_models.js"
   ],
@@ -95,13 +92,13 @@
     "js/i18n/i18n.js"
   ],
   "shellTerminal": [
-    "js/terminal/shell_terminal.js"
+    "js/terminal/shell_terminal.ts"
   ],
   "showNotification": [
     "js/ui/notification.js"
   ],
   "standardTreeCrud": [
-    "js/tree/standard_tree_crud.js"
+    "js/tree/standard_tree_crud.ts"
   ],
   "standardTreeRenderer": [
     "js/tree/standard_tree_render.ts"

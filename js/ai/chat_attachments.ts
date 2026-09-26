@@ -1,4 +1,4 @@
-// chat_attachments.js: pure helpers for the AI composer's file/image
+// chat_attachments.ts: pure helpers for the AI composer's file/image
 // attachments, extracted from ai_assistant_manager.js (A2 god-file decomposition).
 //
 // Pure: no DOM, no FileReader, no instance state. The class keeps the
@@ -7,8 +7,23 @@
 // helpers the data plus an `esc` HTML-escaper, so the rendered markup stays
 // byte-identical to the class's DOM-based escaper.
 
+/** Um anexo do composer: imagem (com os bytes em dataUrl) ou arquivo de texto. */
+export interface Anexo {
+    id: string;
+    kind: 'image' | 'file';
+    name: string;
+    mime?: string;
+    size?: number;
+    dataUrl?: string;
+    text?: string;
+    clipped?: boolean;
+}
+
+type Escapar = (s: unknown) => string;
+type Tamanho = (n: number | null | undefined) => string;
+
 // Human-readable byte size: "B" / "KB" / "MB".
-export function formatAttachmentSize(n) {
+export function formatAttachmentSize(n: number | null | undefined): string {
     if (n == null) return '';
     if (n < 1024) return `${n} B`;
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
@@ -18,7 +33,7 @@ export function formatAttachmentSize(n) {
 // Composer preview chip (the strip above the input). `esc` escapes text for
 // HTML, `fmtSize` formats the byte size. Image chips show a thumbnail; file
 // chips show the size (+ " · clipped" when the text was truncated).
-export function composerChipHtml(a, esc, fmtSize) {
+export function composerChipHtml(a: Anexo, esc: Escapar, fmtSize: Tamanho): string {
     const thumb = a.kind === 'image'
         ? `<img class="ai-att-thumb" src="${a.dataUrl}" alt="">`
         : `<i class="ph ph-file-text ai-att-icon" aria-hidden="true"></i>`;
@@ -36,7 +51,7 @@ export function composerChipHtml(a, esc, fmtSize) {
 // renders as a thumbnail; an image whose payload was dropped (a reopened chat
 // keeps only the name/ext) falls back to a name + icon chip, so the message
 // keeps its context instead of going blank.
-export function bubbleChipHtml(a, esc, fmtSize) {
+export function bubbleChipHtml(a: Anexo, esc: Escapar, fmtSize: Tamanho): string {
     if (a.kind === 'image' && a.dataUrl) {
         return `<img class="ai-att-thumb ai-att-thumb-lg" src="${a.dataUrl}" alt="${esc(a.name)}" title="${esc(a.name)}">`;
     }

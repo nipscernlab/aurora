@@ -12,6 +12,8 @@ import type * as Monaco from 'monaco-editor';
 export const EditorManager: {
   /** O editor em foco, se houver um. */
   activeEditor?: Monaco.editor.IStandaloneCodeEditor | null;
+  /** O editor que mostra `filePath`, se houver um aberto. */
+  getEditorForFile?(filePath: string): Monaco.editor.IStandaloneCodeEditor | null | undefined;
 };
 
 export function initMonaco(...args: unknown[]): unknown;

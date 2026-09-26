@@ -22,5 +22,9 @@ export const TabManager: {
   closeAllTabs(): Promise<unknown>;
   activateTab(filePath: string): unknown;
   promotePreviewToPermanent(filePath: string): unknown;
-  addTab(filePath: string, content: string, opcoes?: { preview?: boolean; revealPosition?: { line: number; column: number } }): unknown;
+  addTab(filePath: string, content: string, opcoes?: { preview?: boolean; revealPosition?: { line: number; column: number }; viewState?: unknown }): unknown;
+  /** Caminhos das abas com mudanca nao salva. */
+  unsavedChanges?: Set<string>;
+  /** Grava uma aba; `false` quando a gravacao nao aconteceu. */
+  saveFile(filePath: string): Promise<boolean | void>;
 };

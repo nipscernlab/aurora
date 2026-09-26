@@ -58,8 +58,6 @@ import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { standardTreeRenderer } from './standard_tree_render.js';
 import { treeView } from './tree_view.js';
-import { iconUrlForFile, iconUrlForFolder } from './material_icons.js';
-import { applyGlyphToIcon, glyphClasses } from '../ui/language_glyph.js';
 import { TreeHistory, Op } from './tree_history.js';
 import { ProjectStore } from '../project/project_store.js';
 import { switchTerminal } from '../terminal/terminal.js';
@@ -69,30 +67,12 @@ import {
     resolveDropTarget, isNoOpDrop,
 } from './fs_name_utils.js';
 import { nextSelection, pruneSelection, topMostPaths } from './tree_selection.js';
-import { SpfStore } from '../project/spf_store.js';
-import { renomearNoSpf, removerDoSpf, reporNoSpf, processadorEm } from '../project/spf_paths.js';
-import { EditorManager } from '../editor/monaco_editor.js';
 import { motivoDe } from '../app/api_reply.js';
-
-// i18n with English fallback (same pattern as file_tree_toggler.js), the
-// menu works before locales load and the keys are optional.
-const tr = (k, fb, p) => {
-    const v = window.t ? window.t(k, p) : null;
-    if (v && v !== k) return v;
-    // Interpolate {placeholders} into the English fallback too.
-    return String(fb).replace(/\{(\w+)\}/g, (m, key) => (p && key in p ? String(p[key]) : m));
-};
-
-const VALIDATION_MSGS = {
-    empty:        () => tr('fileTree.crud.errEmpty', 'A file or folder name must be provided.'),
-    whitespace:   () => tr('fileTree.crud.errWhitespace', 'Leading or trailing whitespace detected in the name.'),
-    separators:   () => tr('fileTree.crud.errSeparators', 'The name contains invalid path separators.'),
-    invalidChars: () => tr('fileTree.crud.errInvalidChars', 'The name contains characters that are not allowed (< > : " | ? *).'),
-    reserved:     () => tr('fileTree.crud.errReserved', 'This name is reserved by the operating system.'),
-    dots:         () => tr('fileTree.crud.errDots', '"." and ".." are not valid names.'),
-    endsBad:      () => tr('fileTree.crud.errEndsBad', 'Names cannot end with a dot or a space.'),
-    exists:       () => tr('fileTree.crud.errExists', 'A file or folder with this name already exists here.'),
-};
+import { tr, MENSAGENS_DE_NOME as VALIDATION_MSGS } from './texto_da_arvore.js';
+import { MenuDaArvore } from './menu_da_arvore.js';
+import { montarEdicaoEmLinha } from './edicao_em_linha.js';
+import { SpfDaArvore } from './spf_da_arvore.js';
+import { abasAbertas, abasAfetadas, migrarAbas, remapearExpandidas } from './abas_da_arvore.js';
 
 class StandardTreeCrud {
     constructor() {
@@ -104,12 +84,12 @@ class StandardTreeCrud {
         // múltipla. Um Ctrl+C de cinco arquivos cola os cinco.
         this.clipboard = null;
         this._inlineCleanup = null;
-        /** O card de menu que esta aberto agora, ou null. Ver _renderMenu. */
-        this._menu = null;
-        this._menuDismiss = null;
-        this._menuAttachTimer = null;
+        /** O card do menu de botao direito (menu_da_arvore.ts). */
+        this.menu = new MenuDaArvore();
+        /** O .spf acompanhando a arvore (spf_da_arvore.ts). */
+        this.spf = new SpfDaArvore();
         /** caminho apagado -> o que ele tinha no .spf, para o Ctrl+Z repor. */
-        this._spfRetirado = new Map();
+        this._spfRetirado = this.spf.retirado;
 
         // Ctrl+Z e Ctrl+Shift+Z da arvore. Os executores ficam aqui porque a
         // pilha nao toca disco: ela so sabe a forma das operacoes.
@@ -245,90 +225,24 @@ class StandardTreeCrud {
         else { this.selectedPath = null; this._refreshDecorations(); }
     }
 
-    _openTabPaths() {
-        try { return Array.from(TabManager.tabs?.keys?.() || []); } catch (_) { return []; }
-    }
+    _openTabPaths() { return abasAbertas(); }
 
     /** Open tabs equal to `path` (file) or under it (directory). */
-    _affectedTabs(path, isDir) {
-        const target = normSlash(path).toLowerCase();
-        return this._openTabPaths().filter((p) => {
-            const n = normSlash(p).toLowerCase();
-            return n === target || (isDir && isUnder(p, path));
-        });
-    }
+    /** Open tabs equal to `path` (file) or under it (directory). */
+    _affectedTabs(path, isDir) { return abasAfetadas(path, isDir); }
 
     // ------------------------------------------------------------ .spf
 
-    /**
-     * O `.spf` acompanha o que a árvore fez com o arquivo.
-     *
-     * Ele guarda o topo de síntese, o topo de simulação e as duas listas de
-     * arquivos. Mexer no disco sem mexer nele deixava a referência apontando
-     * para um caminho que não existe, e o usuário só descobria dois passos
-     * depois, quando o arquivo sumia da visão Verilog ou a compilação
-     * reclamava de um nome que ele acabara de mudar.
-     *
-     * Melhor esforço de propósito: o arquivo já mudou de lugar no disco, e uma
-     * falha ao anotar isso não pode desfazer o que o usuário pediu. A regra em
-     * si é pura e está em spf_paths.js.
-     */
-    async _spfRenomeou(de, para) {
-        const spf = ProjectStore.getSpfPath?.();
-        if (!spf) return;
-        try { await SpfStore.update(spf, (cfg) => { renomearNoSpf(cfg, de, para); }); }
-        catch (err) { console.error('spf rename bookkeeping failed:', err); }
-    }
+    // O .spf acompanha a arvore: spf_da_arvore.ts.
+    async _spfRenomeou(de, para) { await this.spf.renomeou(de, para); }
 
-    /**
-     * O que sai do `.spf` fica guardado por caminho, porque apagar pela árvore
-     * é desfazível: sem isto o Ctrl+Z traria o arquivo de volta como um
-     * arquivo qualquer, sem a marca de topo que ele tinha, e ninguém veria
-     * erro nenhum, só o botão Verilog deixando de achar o topo.
-     *
-     * @param {string[]} caminhos
-     */
-    async _spfRemoveu(caminhos) {
-        const spf = ProjectStore.getSpfPath?.();
-        if (!spf || !caminhos?.length) return;
-        try {
-            await SpfStore.update(spf, (cfg) => {
-                for (const caminho of caminhos) {
-                    const retirado = removerDoSpf(cfg, [caminho]);
-                    if (retirado.total) this._spfRetirado.set(normSlash(caminho).toLowerCase(), retirado);
-                }
-            });
-        } catch (err) { console.error('spf delete bookkeeping failed:', err); }
-    }
+    async _spfRemoveu(caminhos) { await this.spf.removeu(caminhos); }
 
     /** O outro lado do Ctrl+Z: devolve ao `.spf` o que o apagar tirou. */
-    async _spfRepos(caminho) {
-        const spf = ProjectStore.getSpfPath?.();
-        const chave = normSlash(caminho).toLowerCase();
-        const retirado = this._spfRetirado.get(chave);
-        if (!spf || !retirado) return;
-        this._spfRetirado.delete(chave);
-        try { await SpfStore.update(spf, (cfg) => { reporNoSpf(cfg, retirado); }); }
-        catch (err) { console.error('spf restore bookkeeping failed:', err); }
-    }
+    async _spfRepos(caminho) { await this.spf.repos(caminho); }
 
-    /**
-     * O nome do processador cuja pasta é `caminho`, ou null.
-     *
-     * A árvore recusa renomear e apagar essa pasta. Renomear é o primeiro de
-     * cinco passos (pasta, `.cmm`, `#PRNAME`, `.spf` e artefatos), e fazer só o
-     * primeiro deixa um projeto que não compila sem dizer por quê; quem faz os
-     * cinco é o `renameProcessor` da API.
-     */
-    async _processadorEm(caminho) {
-        const spf = ProjectStore.getSpfPath?.();
-        const raiz = this._root();
-        if (!spf || !raiz) return null;
-        try {
-            const cfg = await SpfStore.read(spf);
-            return processadorEm(cfg, raiz, caminho);
-        } catch (_) { return null; }
-    }
+    /** O nome do processador cuja pasta e `caminho`, ou null (ver spf_da_arvore.ts). */
+    async _processadorEm(caminho) { return this.spf.processadorEm(caminho, this._root()); }
 
     /** Avisa e recusa quando o alvo é a pasta de um processador. */
     async _barradoPorSerProcessador(caminho, acao) {
@@ -726,93 +640,10 @@ class StandardTreeCrud {
         ];
     }
 
-    _renderMenu(items, x, y) {
-        const menu = document.createElement('div');
-        menu.className = 'verilog-context-menu';
-        menu.id = 'standard-tree-context-menu';
+    // O card do menu: menu_da_arvore.ts.
+    _renderMenu(items, x, y) { this.menu.abrir(items, x, y); }
 
-        for (const it of items) {
-            if (it === 'divider') {
-                const d = document.createElement('div');
-                d.className = 'context-menu-divider';
-                menu.appendChild(d);
-                continue;
-            }
-            const el = document.createElement('div');
-            el.className = 'context-menu-item'
-                + (it.danger ? ' delete-item' : '')
-                + (it.disabled ? ' disabled' : '');
-            el.innerHTML = `<i class="ph ${it.icon}"></i><span></span>`;
-            el.querySelector('span').textContent = it.label;
-            if (!it.disabled) {
-                el.addEventListener('click', () => {
-                    this._closeMenu();
-                    Promise.resolve(it.run()).catch((err) => {
-                        console.error('tree action failed:', err);
-                        showCardNotification(String(err?.message || err), 'error', 4000);
-                    });
-                });
-            }
-            menu.appendChild(el);
-        }
-
-        menu.style.left = `${x}px`;
-        menu.style.top = `${y}px`;
-        document.body.appendChild(menu);
-        // A referencia fica no objeto, nao no id: o menu anterior continua no
-        // DOM por 150 ms enquanto esvaece, e procurar por id nesse intervalo
-        // devolvia o card velho e deixava o novo orfao. Botao direito repetido
-        // empilhava um card por clique.
-        this._menu = menu;
-        requestAnimationFrame(() => {
-            if (this._menu !== menu) return;
-            const rect = menu.getBoundingClientRect();
-            if (rect.right > window.innerWidth) menu.style.left = `${x - rect.width}px`;
-            if (rect.bottom > window.innerHeight) menu.style.top = `${y - rect.height}px`;
-            menu.classList.add('show');
-        });
-
-        const dismiss = (e) => {
-            if (e.type === 'keydown' && e.key !== 'Escape') return;
-            if (e.type === 'click' && menu.contains(e.target)) return;
-            this._closeMenu();
-        };
-        this._menuDismiss = dismiss;
-        // Liga no proximo tick para o contextmenu que abriu o card nao o
-        // fechar. Se outro menu abrir antes disso, o timer e cancelado em
-        // _closeMenu e este dismiss nunca chega ao document.
-        this._menuAttachTimer = setTimeout(() => {
-            this._menuAttachTimer = null;
-            if (this._menuDismiss !== dismiss) return;
-            document.addEventListener('click', dismiss);
-            document.addEventListener('contextmenu', dismiss);
-            document.addEventListener('keydown', dismiss);
-        }, 0);
-    }
-
-    _closeMenu() {
-        if (this._menuAttachTimer) {
-            clearTimeout(this._menuAttachTimer);
-            this._menuAttachTimer = null;
-        }
-        const menu = this._menu;
-        if (menu) {
-            this._menu = null;
-            // Some o id e os cliques: o card que esvaece nao pode ser
-            // confundido com o que esta abrindo nem receber acoes.
-            menu.removeAttribute('id');
-            menu.style.pointerEvents = 'none';
-            menu.classList.remove('show');
-            setTimeout(() => menu.remove(), 150);
-        }
-        const dismiss = this._menuDismiss;
-        if (dismiss) {
-            this._menuDismiss = null;
-            document.removeEventListener('click', dismiss);
-            document.removeEventListener('contextmenu', dismiss);
-            document.removeEventListener('keydown', dismiss);
-        }
-    }
+    _closeMenu() { this.menu.fechar(); }
 
     // ------------------------------------------------- open terminal / paths
 
@@ -842,102 +673,16 @@ class StandardTreeCrud {
     }
 
     /**
-     * Shared inline-input builder. Mounts `inputWrap` (a .file-item lookalike
-     * with an <input> and a validation bubble), wires validation + commit /
-     * cancel semantics and returns the input element.
+     * O campo de criar ou renomear (edicao_em_linha.ts). Um de cada vez: abrir
+     * um fecha o anterior.
      */
-    _mountInline({ mountEl, before, depth, kind, initial, selectRange, validate, commit, onClose }) {
+    _mountInline(opts) {
         this._cancelInline();
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'file-tree-item tree-inline-edit';
-        wrapper.style.setProperty('--depth', String(depth));
-        wrapper.innerHTML = `
-            <div class="file-item">
-                <div class="file-item-row">
-                    <span class="folder-toggle-spacer"></span>
-                    <span class="file-item-icon"></span>
-                    <input class="tree-inline-input" type="text" spellcheck="false" />
-                </div>
-            </div>
-            <div class="tree-inline-error hidden"></div>
-        `;
-        const input = wrapper.querySelector('input');
-        const errorBox = wrapper.querySelector('.tree-inline-error');
-        const iconEl = wrapper.querySelector('.file-item-icon');
-
-        // O icone acompanha o que esta sendo digitado, em vez de esperar o
-        // arquivo existir. Assim da para ver, ainda durante a digitacao, que
-        // "main.py" vai virar um Python e "main.v" um Verilog, e um erro de
-        // extensao aparece antes de criar o arquivo e nao depois.
-        const pintarIcone = () => {
-            const nome = baseName(input.value.trim()) || (kind === 'folder' ? 'nova-pasta' : 'novo-arquivo');
-            iconEl.style.backgroundImage = '';
-            for (const classe of glyphClasses()) iconEl.classList.remove(classe);
-            if (kind === 'folder') {
-                iconEl.style.backgroundImage = `url("${iconUrlForFolder(nome)}")`;
-                return;
-            }
-            // Fonte de processador (.cmm ou .cpp) nao tem equivalente no tema
-            // Material e mantem o glifo proprio da AURORA, como nas abas e no
-            // resto da arvore.
-            if (applyGlyphToIcon(iconEl, nome)) return;
-            iconEl.style.backgroundImage = `url("${iconUrlForFile(nome)}")`;
-        };
-        pintarIcone();
-
-        if (before) mountEl.insertBefore(wrapper, before);
-        else mountEl.prepend(wrapper);
-
-        input.value = initial || '';
-
-        let done = false;
-        const cleanup = () => {
-            if (done) return;
-            done = true;
-            wrapper.remove();
-            this._inlineCleanup = null;
-            onClose?.();
-        };
-        this._inlineCleanup = cleanup;
-
-        const showError = (msg) => {
-            errorBox.textContent = msg || '';
-            errorBox.classList.toggle('hidden', !msg);
-            input.classList.toggle('invalid', !!msg);
-        };
-
-        const currentError = () => {
-            const res = validate(input.value);
-            return res.ok ? null : VALIDATION_MSGS[res.error]?.() || res.error;
-        };
-
-        input.addEventListener('input', () => { showError(currentError()); pintarIcone(); });
-
-        const tryCommit = async () => {
-            const err = currentError();
-            if (err) { showError(err); return; }
-            const value = input.value;
-            cleanup();
-            await commit(value);
-        };
-
-        input.addEventListener('keydown', (e) => {
-            e.stopPropagation();
-            if (e.key === 'Enter') { e.preventDefault(); tryCommit(); }
-            else if (e.key === 'Escape') { e.preventDefault(); cleanup(); }
+        const { input, fechar } = montarEdicaoEmLinha({
+            ...opts,
+            onClose: () => { this._inlineCleanup = null; opts.onClose?.(); },
         });
-        // VS Code semantics: blur commits when valid, cancels otherwise.
-        input.addEventListener('blur', () => {
-            if (done) return;
-            if (!input.value.trim() || currentError()) cleanup();
-            else tryCommit();
-        });
-
-        wrapper.scrollIntoView({ block: 'nearest' });
-        input.focus();
-        if (selectRange) input.setSelectionRange(selectRange[0], selectRange[1]);
-        else input.select();
+        this._inlineCleanup = fechar;
         return input;
     }
 
@@ -1112,42 +857,10 @@ class StandardTreeCrud {
     }
 
     /** Close-and-reopen every affected tab at its new path (saved first by callers). */
-    async _migrateOpenTabs(oldBase, newBase, affected) {
-        if (!affected.length) return;
-        const activeBefore = TabManager.activeTab;
-        let newActive = null;
-        for (const p of affected) {
-            const newP = newBase + p.slice(oldBase.length);
-            // Onde o cursor estava, o que estava selecionado e para onde a
-            // rolagem tinha ido. Sem isto, renomear um arquivo aberto o
-            // devolvia na linha 1: o mesmo texto, mas o usuário perdia o
-            // lugar, que numa fonte de mil linhas é a parte que dói.
-            const viewState = EditorManager.getEditorForFile?.(p)?.saveViewState?.() ?? null;
-            // Buffers were saved before the rename, skip the unsaved prompt.
-            TabManager.unsavedChanges?.delete?.(p);
-            await TabManager.closeTab(p);
-            try {
-                const content = await electronAPI.readFile(newP);
-                TabManager.addTab(newP, content, viewState ? { viewState } : {});
-                if (activeBefore === p) newActive = newP;
-            } catch (err) {
-                console.error('tab migration failed for', newP, err);
-            }
-        }
-        if (newActive) TabManager.activateTab(newActive);
-    }
+    /** Close-and-reopen every affected tab at its new path (saved first by callers). */
+    async _migrateOpenTabs(oldBase, newBase, affected) { await migrarAbas(oldBase, newBase, affected); }
 
-    _remapExpanded(oldBase, newBase) {
-        const expanded = standardTreeRenderer._expanded;
-        const oldNorm = normSlash(oldBase).toLowerCase();
-        for (const p of Array.from(expanded)) {
-            const n = normSlash(p).toLowerCase();
-            if (n === oldNorm || isUnder(p, oldBase)) {
-                expanded.delete(p);
-                expanded.add(newBase + p.slice(oldBase.length));
-            }
-        }
-    }
+    _remapExpanded(oldBase, newBase) { remapearExpandidas(oldBase, newBase); }
 
     // --------------------------------------------------------------- delete
 

@@ -188,6 +188,11 @@ js/ai/system_prompt.js
 js/terminal/shell_terminal.js
 js/terminal/error_locations.js
 js/terminal/links_do_terminal.js
+js/tree/abas_da_arvore.js
+js/tree/spf_da_arvore.js
+js/tree/edicao_em_linha.js
+js/tree/menu_da_arvore.js
+js/tree/texto_da_arvore.js
 js/tree/tree_history.js
 js/tree/fs_name_utils.js
 js/tree/tree_selection.js

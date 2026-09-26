@@ -58,6 +58,10 @@ vi.mock('../../js/app/electron_api.js', () => ({
 
 import { aiAssistantManager } from '../../js/ui/ai_assistant_manager.js';
 import { STREAM_STALL_MS } from '../../js/ai/ai_metadata.js';
+import { ProjectStore } from '../../js/project/project_store.js';
+import { electronAPI } from '../../js/app/electron_api.js';
+import { TabManager } from '../../js/tabs/tab_manager.js';
+import { showCardNotification } from '../../js/ui/notification.js';
 
 const AIAssistantManager = aiAssistantManager.constructor;
 
@@ -134,12 +138,15 @@ beforeEach(() => {
   window.aiAPI = api;
   window.AuroraAPI = { project: { listMemories: vi.fn(async () => ({ ok: true, data: { memories: [] } })) } };
   window.electronAPI = { componentesListar: vi.fn(async () => ({ componentes: [] })) };
-  window.currentProjectPath = 'C:/proj';
-  window.ProjectStore = { getSpfPath: () => 'C:/proj/proj.spf' };
+  // O projeto aberto entra pelo store, que e de onde o renderer le; o espelho
+  // em window e o do store, como no app.
+  ProjectStore.setProject('C:/proj/proj.spf', 'C:/proj');
+  window.ProjectStore = ProjectStore;
   localStorage.clear();
 });
 
 afterEach(() => {
+  ProjectStore.clearProject();
   vi.useRealTimers();
   painel?._disarmStreamWatchdog?.();
   document.body.innerHTML = '';
@@ -676,5 +683,53 @@ describe('o turno que a propria assistente comeca', () => {
 
     await mandar('para, faz outra coisa');
     expect(painel._autoChainCount).toBe(0);
+  });
+});
+
+// Os nomes de arquivo na resposta da IA viram link; o clique abre o arquivo do
+// projeto, na linha quando ela veio. A regra de para onde o nome aponta e do
+// js/ai/file_ref.ts (teste proprio); aqui, de onde vem a raiz e o que acontece
+// quando o arquivo existe, nao existe ou nao abre.
+describe('referencia a arquivo na resposta', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete window.t;
+    delete window.projectTreeManager;
+  });
+
+  it('procura o nome relativo na pasta do projeto e abre na linha', async () => {
+    await abrirPainel();
+    electronAPI.fileExists.mockImplementation(async (c) => c === 'C:/proj/src/top.v');
+    electronAPI.readFile.mockResolvedValueOnce('module top;');
+    await painel.openFileRef('src/top.v', 12);
+    expect(electronAPI.fileExists).toHaveBeenCalledWith('C:/proj/src/top.v');
+    expect(TabManager.addTab).toHaveBeenCalledWith('C:/proj/src/top.v', 'module top;', { revealPosition: { line: 12, column: 1 } });
+  });
+
+  it('um arquivo da arvore vence o caminho na pasta; sem linha, abre sem posicao', async () => {
+    await abrirPainel();
+    window.projectTreeManager = { verilogFiles: [{ name: 'top.v', path: 'D:/outro/top.v' }] };
+    electronAPI.fileExists.mockResolvedValue(true);
+    await painel.openFileRef('top.v', 0);
+    expect(TabManager.addTab).toHaveBeenCalledWith('D:/outro/top.v', '', {});
+  });
+
+  it('candidato que falha ao conferir passa para o proximo; nenhum existe, avisa', async () => {
+    await abrirPainel();
+    electronAPI.fileExists.mockRejectedValue(new Error('x'));
+    await painel.openFileRef('nada.v');
+    expect(showCardNotification).toHaveBeenCalledWith('File not in project: nada.v', 'warning', 3000);
+    window.t = (k, p) => `${k}:${p.name}`;
+    await painel.openFileRef('nada.v');
+    expect(showCardNotification).toHaveBeenLastCalledWith('notification.ai.fileNotFound:nada.v', 'warning', 3000);
+  });
+
+  it('arquivo que existe mas nao le avisa com o nome', async () => {
+    await abrirPainel();
+    electronAPI.fileExists.mockResolvedValue(true);
+    electronAPI.readFile.mockRejectedValueOnce(new Error('travado'));
+    await painel.openFileRef('src/top.v');
+    expect(showCardNotification).toHaveBeenLastCalledWith('Could not open src/top.v', 'error', 3000);
+    expect(TabManager.addTab).not.toHaveBeenCalled();
   });
 });

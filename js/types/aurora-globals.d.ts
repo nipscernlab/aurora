@@ -148,6 +148,8 @@ interface AuroraElectronAPI {
   cancelVvpProcess(): Promise<{ success?: boolean } | null>;
   onProcessorCreated?(cb: (data: unknown) => void): void;
   onDirectoryChanged(cb: (directoryPath: string, files: unknown) => void): void;
+  /** O dialogo nativo de salvar (main/ipc/files.js), com as opcoes do Electron. */
+  showSaveDialog?(opts: Record<string, unknown>): Promise<{ canceled?: boolean; filePath?: string } | null | undefined>;
   /** O shell interativo da aba TCMD (main/ipc/shell.js): um PTY por id de sessao. */
   shellStart(opts: { id: string; cwd?: string; cols?: number; rows?: number }):
     Promise<{ ok: boolean; error?: string } | null | undefined>;

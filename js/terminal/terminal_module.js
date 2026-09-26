@@ -1,8 +1,13 @@
 import { electronAPI } from '../app/electron_api.js';
 import '../components/aurora-terminal.js';
-import { showCardNotification } from '../ui/notification.js';
 import { switchTerminal, smoothFollowToBottom } from './terminal.js';
 import { linhaComLinks, ligarLinks, irParaLinha } from './links_do_terminal.js';
+import { tr, formatarBytes } from './texto_do_terminal.js';
+import { barraNoTerminal, atualizarBarra, derrubarBarra, formatarEta } from './barra_de_progresso.js';
+import { exportarLog } from './exportar_log.js';
+import {
+    tipoDaMensagem, contarMensagens, aplicarFiltro, semRuidoDoGtkwave,
+} from './classificacao_do_terminal.js';
 
 // Hard cap on retained `.log-entry` nodes per terminal body. A streaming
 // compile (Verilator/iverilog dumping thousands of lines) appends one node
@@ -19,30 +24,6 @@ const MAX_TERMINAL_ENTRIES = 5000;
 // thousands of same-type warnings into a single group). Trim the oldest
 // grouped lines past this limit so one card can't grow without bound.
 const MAX_GROUPED_MESSAGES = 5000;
-
-/** 1234567 -> "1.2 MB": o pill do dump atualiza varias vezes por segundo. */
-/**
- * O texto traduzido, ou a reserva em ingles.
- *
- * Estes rotulos estavam fixos em ingles: quem usa a AURORA em portugues via
- * ingles no meio da tela.
- */
-function tr(chave, reserva) {
-  const f = typeof window !== 'undefined' ? window.t : null;
-  if (typeof f !== 'function') return reserva;
-  const v = f(chave);
-  return (v && v !== chave) ? v : reserva;
-}
-
-function formatarBytes(n) {
-    if (!Number.isFinite(n) || n < 0) return '0 B';
-    if (n < 1024) return `${n} B`;
-    const kb = n / 1024;
-    if (kb < 1024) return `${kb.toFixed(1)} KB`;
-    const mb = kb / 1024;
-    if (mb < 1024) return `${mb.toFixed(1)} MB`;
-    return `${(mb / 1024).toFixed(2)} GB`;
-}
 
 class TerminalManager {
     constructor() {
@@ -195,29 +176,7 @@ class TerminalManager {
     recountMessages(terminalId) {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
-
-        const counts = { error: 0, warning: 0, success: 0, tips: 0 };
-
-        const entries = terminal.querySelectorAll('.log-entry');
-        entries.forEach(entry => {
-            // Determine the type of this entry from its classes.
-            let type = null;
-            if (entry.classList.contains('error'))   type = 'error';
-            else if (entry.classList.contains('warning')) type = 'warning';
-            else if (entry.classList.contains('success')) type = 'success';
-            else if (entry.classList.contains('tips') || entry.classList.contains('info')) type = 'tips';
-            if (!type) return;
-
-            // Grouped card: count each child message individually.
-            const grouped = entry.querySelectorAll('.grouped-message');
-            if (grouped.length > 0) {
-                counts[type] += grouped.length;
-            } else {
-                counts[type] += 1;
-            }
-        });
-
-        this.messageCounts[terminalId] = counts;
+        this.messageCounts[terminalId] = contarMensagens(terminal);
         this.updateCounterDisplay();
     }
 
@@ -416,88 +375,14 @@ class TerminalManager {
         this._scheduleTerminalRefresh(terminalId);
     }
 
-    /**
-     * Match a card against a filter category. The visible filter buttons
-     * are error / warning / success / tips, but the renderer actually
-     * emits two flavours of the info-style card (`.tips` from
-     * detectMessageType-classified compiler hints, `.info` from
-     * `appendToTerminal(..., 'info')` Aurora wrapper notes). Both render
-     * with the same styling, so the filter has to treat them as one
-     * group; otherwise the user clicks "filter-tip", sees the counter
-     * say 5, and then sees zero rows because every one of those 5 was
-     * actually a `.info` card. Same equivalency `recountMessages` uses.
-     */
-    _cardMatchesFilter(card, filter) {
-        if (filter === 'tips') {
-            return card.classList.contains('tips') || card.classList.contains('info');
-        }
-        return card.classList.contains(filter);
-    }
 
     applyFilter(terminalId) {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
-
-        const cards = terminal.querySelectorAll('.log-entry');
-        // "All four filters active" is semantically the same as "no
-        // filter", every category is included. Treat it like the empty
-        // set so the user gets the obvious "I clicked everything ON,
-        // therefore I should see everything" behaviour instead of an
-        // identity-but-confusing pass through the per-card check.
-        const activeCount = this.activeFilters.size;
-        const hasActiveFilters = activeCount > 0 && activeCount < 4;
-
-        cards.forEach(card => {
-            const hasLineLinks = card.querySelector('.line-link') !== null;
-
-            // Verbose-off path. Plain (unclassified) cards stay hidden
-            // unless they carry a `line N` link, those are compile
-            // diagnostics the user must always be able to click through
-            // to, regardless of verbose mode. The previous version of
-            // this branch let the line-link override bypass the TYPE
-            // filter too, which made any error/warning containing a
-            // line number show up under every filter, exactly the
-            // "filter doesn't filter" symptom the user hit.
-            if (!this.verboseMode && card.classList.contains('plain')) {
-                card.style.display = hasLineLinks ? '' : 'none';
-                return;
-            }
-
-            if (!hasActiveFilters) {
-                card.style.display = '';
-                return;
-            }
-
-            const matchesAny = [...this.activeFilters].some(t => this._cardMatchesFilter(card, t));
-            card.style.display = matchesAny ? '' : 'none';
-        });
+        aplicarFiltro(terminal, this.activeFilters, this.verboseMode);
     }
 
-    filterGtkWaveOutput(result) {
-        const noisePrefixes = [
-            'GTKWave Analyzer',
-            'FSTLOAD |',
-            'GTKWAVE |',
-            'WM Destroy',
-            '[0] start time',
-            '[0] end time'
-        ];
-
-        const filterLines = (text) => {
-            if (!text) return '';
-            return text.split('\n')
-                .filter(line => {
-                    return !noisePrefixes.some(prefix => line.trim().startsWith(prefix));
-                })
-                .join('\n');
-        };
-
-        return {
-            ...result,
-            stdout: filterLines(result.stdout),
-            stderr: filterLines(result.stderr),
-        };
-    }
+    filterGtkWaveOutput(result) { return semRuidoDoGtkwave(result); }
 
     setupTerminalLogListener() {
         // Module-level guard, every `new TerminalManager()` used to
@@ -601,27 +486,7 @@ class TerminalManager {
             });
     }
 
-    detectMessageType(content) {
-        const text = typeof content === 'string' ?
-            content :
-            (content.stdout || '') + ' ' + (content.stderr || '');
-
-        // C-toolchain style: `<file>:<line>: error: ...` / `warning: ...`.
-        // Catches lowercase iverilog / yosys / gcc-style diagnostics that
-        // the older substring checks (`'ERROR'`, `'Warning'`) miss.
-        // Checked first because it's the most specific (token + colon).
-        if (/\berror:/i.test(text)) return 'error';
-        if (/\bwarning:/i.test(text)) return 'warning';
-
-        if (text.includes('Atenção') || text.includes('Warning')) return 'warning';
-        if (text.includes('Erro') || text.includes('ERROR')) return 'error';
-        if (text.includes('Sucesso') || text.includes('Success')) return 'success';
-        if (text.includes('Info') || text.includes('Tip')) return 'tips';
-        if (text.includes('não está sendo usada') || text.includes('Economize memória')) return 'tips';
-        if (text.includes('de sintaxe') || text.includes('cadê a função')) return 'error';
-
-        return 'plain';
-    }
+    detectMessageType(content) { return tipoDaMensagem(content); }
 
     makeLineNumbersClickable(text) {
         return linhaComLinks(text);
@@ -833,15 +698,8 @@ class TerminalManager {
     }
 
     /**
-     * Barra de progresso ASCII inline para o fluxo de hardware-test (THTEST).
-     * UM unico elemento que se atualiza no lugar: criado na primeira chamada,
-     * mutado depois. NAO e um .log-entry, entao o filtro de verbose e os
-     * contadores o ignoram e ele fica sempre visivel. Movido pro fim do
-     * terminal a cada update pra acompanhar a ultima saida streamada.
-     *
-     * @param {string} terminalId
-     * @param {{pct:number, cyc:number, total:number, reads?:number,
-     *          label:string, done?:boolean}} p
+     * A barra do teste de hardware (barra_de_progresso.ts), no terminal pedido.
+     * Uma por terminal, guardada em updatableCards.
      */
     renderHardwareProgress(terminalId, p) {
         // A cancel already tore the bar down (clearHardwareProgress). Stream
@@ -857,165 +715,17 @@ class TerminalManager {
         this.revealActiveOutputTerminal(terminalId);
 
         this.updatableCards[terminalId] = this.updatableCards[terminalId] || {};
-        let el = this.updatableCards[terminalId].hwProgress;
-        if (!el || !el.isConnected) {
-            // Real DOM progress bar (replaces the old ASCII █░ string): a label
-            // row, an aurora-gradient fill on a track, and a meta line. The fill
-            // is driven frame-by-frame by _driveProgress (not a CSS transition),
-            // so it creeps continuously between the discrete stdout updates.
-            el = document.createElement('div');
-            el.className = 'hw-progress';
-            el.innerHTML =
-                '<div class="hw-progress-head">' +
-                  '<span class="hw-progress-label"></span>' +
-                  '<span class="hw-progress-pct"></span>' +
-                '</div>' +
-                '<div class="hw-progress-track"><div class="hw-progress-fill"></div></div>' +
-                '<div class="hw-progress-meta"></div>';
-            el._label = el.querySelector('.hw-progress-label');
-            el._pct = el.querySelector('.hw-progress-pct');
-            el._fill = el.querySelector('.hw-progress-fill');
-            el._meta = el.querySelector('.hw-progress-meta');
-            el._displayPct = 0;       // currently painted % (float — the tween source)
-            el._targetPct = 0;        // % the running tween is heading toward
-            el._t0 = null;            // perf clock at first counted update (ETA)
-            el._c0 = 0;               // cyc at _t0
-            el._lastUpdateAt = null;  // perf clock of the previous update
-            el._emaInterval = null;   // smoothed gap between updates (tween duration)
-            terminal.appendChild(el);
-            this.updatableCards[terminalId].hwProgress = el;
-        } else {
-            // Re-anexar move o no pro fim, mantem a barra colada embaixo
-            // mesmo se linhas plain (verbose) chegarem entre os updates.
-            terminal.appendChild(el);
-        }
-
-        // A new run reusing the same card: cancel any pending auto-hide + un-hide.
-        if (el._hideTimer) { clearTimeout(el._hideTimer); el._hideTimer = null; }
-        if (el._removeTimer) { clearTimeout(el._removeTimer); el._removeTimer = null; }
-        el.classList.remove('hiding');
-
-        const done = !!p.done;
-        el._label.textContent = p.label || '';
-        el.classList.toggle('done', done);
-
-        // Resolve the target as a FLOAT. Callers hand us a pre-rounded integer
-        // pct, but cyc/total carries the full precision, and rounding first is
-        // itself a source of stepping (many updates land on the same integer,
-        // then one jumps a whole point). Prefer the raw ratio when we have it.
-        const exact = (p.total > 0 && p.cyc != null) ? (p.cyc / p.total) * 100 : (p.pct || 0);
-        const pct = Math.max(0, Math.min(100, exact));
-
-        // Is this a NEW run inheriting a card the last one left behind (the
-        // auto-hide hasn't fired yet, or the run failed and never retired it)?
-        // Two tells: the card already finished and we're moving again, or the
-        // target fell well below what's painted. Both are impossible within a
-        // run, progress there is monotonic, so either means "start over".
-        // This matters because the rest of the card's state (the % floor, the
-        // ETA baseline, the update-rate EMA) all assume a single run; carried
-        // over, they would pin the bar at the old 100% and quote a nonsense ETA.
-        if ((el._runDone && !done) || pct < (el._displayPct || 0) - 5) {
-            if (el._raf) { cancelAnimationFrame(el._raf); el._raf = null; }
-            el._displayPct = pct;
-            el._targetPct = pct;
-            el._t0 = null;            // ETA re-baselines off this run's first update
-            el._c0 = 0;
-            el._lastUpdateAt = null;  // don't smooth across the gap between runs
-            el._emaInterval = null;
-        }
-        el._runDone = done;
-
-        // Tween duration = the SMOOTHED gap between updates, so the fill arrives
-        // at each value just as the next one lands and the motion reads as one
-        // continuous creep. Using the raw last gap (as before) made this jerky:
-        // stdout arrives in bursts, so a burst produced a near-zero duration (the
-        // bar leapt) followed by a long silence (it sat frozen). An EMA rides
-        // through the bursts and tracks the real average rate instead.
-        const nowP = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-        if (el._lastUpdateAt != null) {
-            const gap = nowP - el._lastUpdateAt;
-            el._emaInterval = (el._emaInterval == null)
-                ? gap
-                : (el._emaInterval * 0.7 + gap * 0.3);
-        }
-        el._lastUpdateAt = nowP;
-        const growMs = done
-            ? 260                                                    // finish: settle quickly
-            : Math.max(180, Math.min(el._emaInterval ?? 600, 4000));
-        this._driveProgress(el, pct, growMs);
-
-        // ETA from the average rate since the first counted update.
-        const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-        if (el._t0 == null && p.cyc > 0) { el._t0 = now; el._c0 = p.cyc; }
-        let etaTxt = '';
-        if (!done && el._t0 != null && p.cyc > el._c0) {
-            const rate = (p.cyc - el._c0) / (now - el._t0);   // cyc per ms
-            if (rate > 0 && p.total > p.cyc) {
-                etaTxt = ` · ~${this._fmtEta((p.total - p.cyc) / rate)} left`;
+        const el = barraNoTerminal(terminal, this.updatableCards[terminalId].hwProgress);
+        this.updatableCards[terminalId].hwProgress = el;
+        atualizarBarra(el, p, () => {
+            if (this.updatableCards[terminalId]
+                && this.updatableCards[terminalId].hwProgress === el) {
+                this.updatableCards[terminalId].hwProgress = null;
             }
-        }
-        // `reads` e o TOTAL de leituras de entrada (somando todos os input_<N>),
-        // entao o rotulo agregado "leituras" cabe mesmo com varias entradas.
-        const readsWord = (typeof window !== 'undefined' && window.t)
-            ? window.t('terminal.htest.reads') : 'reads';
-        const tail = (p.reads != null) ? ` · ${p.reads} ${readsWord}` : '';
-        el._meta.textContent = done
-            ? `${p.total}/${p.total}${tail} · done`
-            : `${p.cyc}/${p.total}${tail}${etaTxt}`;
-
-        // Hold the completed (solid-green) bar a few seconds, then retire it.
-        if (done) {
-            el._hideTimer = setTimeout(() => {
-                el.classList.add('hiding');
-                el._removeTimer = setTimeout(() => {
-                    try { el.remove(); } catch (_) { /* already gone */ }
-                    if (this.updatableCards[terminalId]
-                        && this.updatableCards[terminalId].hwProgress === el) {
-                        this.updatableCards[terminalId].hwProgress = null;
-                    }
-                }, 420);   // matches the .hiding opacity transition
-            }, 3200);
-        }
-
+        });
         this.scrollToBottom(terminalId);
     }
 
-    /**
-     * Drive the fill AND the percentage from one rAF loop, so the two can never
-     * disagree and the bar moves every frame rather than once per stdout update.
-     *
-     * Retargeting mid-flight is the point: each update rewrites the tween's
-     * from/target/clock while the loop keeps running, so the fill bends toward
-     * the new value from wherever it currently sits, no restart, no snap. That
-     * is why the loop reads `el._*` on every frame instead of closing over the
-     * arguments, and why a live loop is reused (`if (el._raf) return`) instead
-     * of being cancelled and replaced.
-     *
-     * @param {HTMLElement} el      the .hw-progress node
-     * @param {number} target       destination percentage (float, 0-100)
-     * @param {number} dur          ms to travel there (the smoothed update gap)
-     */
-    _driveProgress(el, target, dur) {
-        const nowFn = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
-        // Never walk backwards: a late/out-of-order update would otherwise make
-        // the bar visibly retreat. Progress is monotonic by construction.
-        el._targetPct = Math.max(el._displayPct || 0, target);
-        el._animFrom = el._displayPct || 0;
-        el._animT0 = nowFn();
-        el._animDur = Math.max(1, dur);
-
-        if (el._raf) return;   // loop already live — it picks the new target up
-
-        const step = () => {
-            const k = Math.min(1, (nowFn() - el._animT0) / el._animDur);
-            const val = el._animFrom + (el._targetPct - el._animFrom) * k;
-            el._displayPct = val;
-            el._fill.style.transform = `scaleX(${val / 100})`;
-            el._pct.textContent = `${Math.round(val)}%`;
-            el._raf = (k < 1) ? requestAnimationFrame(step) : null;
-        };
-        el._raf = requestAnimationFrame(step);
-    }
 
     /**
      * Tear every hardware-progress bar down immediately, wherever it lives.
@@ -1027,29 +737,16 @@ class TerminalManager {
      * is not necessarily the one that created the bar on screen.
      */
     clearHardwareProgress() {
-        const drop = (el) => {
-            if (!el) return;
-            if (el._hideTimer) { clearTimeout(el._hideTimer); el._hideTimer = null; }
-            if (el._removeTimer) { clearTimeout(el._removeTimer); el._removeTimer = null; }
-            if (el._raf) { cancelAnimationFrame(el._raf); el._raf = null; }
-            try { el.remove(); } catch (_) { /* already detached */ }
-        };
         Object.values(this.updatableCards || {}).forEach((cards) => {
             if (!cards || !cards.hwProgress) return;
-            drop(cards.hwProgress);
+            derrubarBarra(cards.hwProgress);
             cards.hwProgress = null;
         });
-        document.querySelectorAll('.hw-progress').forEach(drop);
+        document.querySelectorAll('.hw-progress').forEach(derrubarBarra);
     }
 
     /** Format a millisecond ETA as a compact `Ns` / `Mm Ss` string. */
-    _fmtEta(ms) {
-        const s = Math.max(0, Math.round(ms / 1000));
-        if (s < 60) return `${s}s`;
-        const m = Math.floor(s / 60);
-        const r = s % 60;
-        return r > 0 ? `${m}m ${r}s` : `${m}m`;
-    }
+    _fmtEta(ms) { return formatarEta(ms); }
 
     /**
      * Log entry com um trecho clicavel (link de pasta). `message` e a string
@@ -1118,135 +815,9 @@ class TerminalManager {
         exportButton.addEventListener('click', () => this.exportCurrentLog());
     }
 
-    /**
-     * Format Date as `YYYY-MM-DD_HH-mm-ss`, filesystem-safe (no colons,
-     * no slashes) so it slots straight into a filename suffix.
-     */
-    _logTimestampForFilename(d = new Date()) {
-        const pad = (n) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-               `_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-    }
 
-    /**
-     * Serialize ALL terminals' log entries to one plain-text file the
-     * user picks via the Save dialog. The export covers every terminal
-     * (TCMM / TASM / TVERI / TWAVE / TCMD), not just the focused one:
-     * because users usually file bug reports with the full context of
-     * what each stage emitted, not "whatever happened to be selected".
-     *
-     * Layout:
-     *   # Aurora terminal log export
-     *   # ... metadata ...
-     *
-     *   ===== TCMM =====
-     *   <stamp> [LEVEL] line...
-     *   ...
-     *
-     *   ===== TASM =====
-     *   ...
-     *
-     * Grouped cards (.log-entry holding multiple .grouped-message
-     * children) get flattened with the card timestamp prefixed to each
-     * child line so the export is grep-friendly.
-     */
-    async exportCurrentLog() {
-        const sections = [];
-        let totalEntries = 0;
-        const terminalsWithEntries = [];
-
-        Object.entries(this.terminals).forEach(([terminalId, terminal]) => {
-            if (!terminal) return;
-            const entries = terminal.querySelectorAll('.log-entry');
-            if (entries.length === 0) {
-                sections.push(`===== ${terminalId.toUpperCase()} =====\n(empty)\n`);
-                return;
-            }
-            terminalsWithEntries.push(terminalId);
-            totalEntries += entries.length;
-
-            const sectionLines = [`===== ${terminalId.toUpperCase()} =====`];
-            entries.forEach((entry) => {
-                const stampEl = entry.querySelector(':scope > .timestamp');
-                const stamp = stampEl ? stampEl.textContent.trim() : '';
-                const type = entry.classList.contains('error')   ? 'ERROR'
-                           : entry.classList.contains('warning') ? 'WARN '
-                           : entry.classList.contains('success') ? 'OK   '
-                           : entry.classList.contains('info')    ? 'INFO '
-                           : entry.classList.contains('tips')    ? 'TIP  '
-                           : '     ';
-
-                const grouped = entry.querySelectorAll('.grouped-message');
-                if (grouped.length > 0) {
-                    grouped.forEach((g) => {
-                        sectionLines.push(`${stamp} [${type}] ${g.textContent.replace(/\s+/g, ' ').trim()}`);
-                    });
-                } else {
-                    const body = entry.querySelector('.message-content') || entry;
-                    const text = (body === entry && stampEl)
-                        ? entry.textContent.replace(stampEl.textContent, '')
-                        : body.textContent;
-                    sectionLines.push(`${stamp} [${type}] ${text.replace(/\s+/g, ' ').trim()}`);
-                }
-            });
-            sections.push(sectionLines.join('\n') + '\n');
-        });
-
-        if (totalEntries === 0) {
-            showCardNotification('All terminals are empty — nothing to export.', 'info', 3500);
-            return;
-        }
-
-        const header = [
-            `# Aurora terminal log export`,
-            `# Exported: ${new Date().toISOString()}`,
-            `# Terminals with content: ${terminalsWithEntries.join(', ') || '(none)'}`,
-            `# Total entries: ${totalEntries}`,
-            ''
-        ].join('\n');
-        const body = sections.join('\n');
-
-        const stamp = this._logTimestampForFilename();
-        const defaultName = `aurora-log-all-${stamp}.txt`;
-
-        try {
-            const api = electronAPI;
-            if (!api?.showSaveDialog || !api?.writeFile) {
-                showCardNotification('Export not available in this build.', 'error', 4000);
-                return;
-            }
-            const result = await api.showSaveDialog({
-                title: tr('terminal.exportAllTitle', 'Export terminal log (all terminals)'),
-                defaultPath: defaultName,
-                filters: [
-                    { name: 'Plain text', extensions: ['txt', 'log'] },
-                    { name: 'All files',  extensions: ['*'] }
-                ],
-            });
-            if (!result || result.canceled || !result.filePath) {
-                // User dismissed the dialog, silent, not an error.
-                return;
-            }
-
-            const writeResult = await api.writeFile(result.filePath, header + body);
-            const ok = writeResult === true
-                    || writeResult?.success === true
-                    || writeResult === undefined; // ipc handlers that resolve to void mean success
-            if (ok) {
-                const fileName = String(result.filePath).split(/[\\/]/).pop();
-                showCardNotification(
-                    `Exported ${totalEntries} entries from ${terminalsWithEntries.length} terminal(s) to ${fileName}.`,
-                    'success', 4500, 'Export complete'
-                );
-            } else {
-                const msg = writeResult?.error || writeResult?.message || 'Write failed.';
-                showCardNotification(`Could not export the log: ${msg}`, 'error', 5000);
-            }
-        } catch (err) {
-            console.error('exportCurrentLog failed:', err);
-            showCardNotification(`Could not export the log: ${err.message || err}`, 'error', 5000);
-        }
-    }
+    /** Todos os terminais num arquivo de texto (exportar_log.ts). */
+    async exportCurrentLog() { await exportarLog(this.terminals); }
 
     setupClearButton() {
         const clearButton = document.getElementById('clear-terminal');

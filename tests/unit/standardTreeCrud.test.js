@@ -921,7 +921,11 @@ describe('renomear', () => {
         expect(api.renamePath).toHaveBeenLastCalledWith(P('a.v'), P('b.v'), { overwrite: true });
         api.renamePath.mockResolvedValueOnce({ success: false, error: 'travado' });
         await crud._performRename(entrada, P('b.v'));
-        expect(showCardNotification).toHaveBeenLastCalledWith('Could not rename: unknown: travado', 'error', 4000);
+        expect(showCardNotification).toHaveBeenLastCalledWith('Could not rename: travado', 'error', 4000);
+        // Sem motivo na resposta, a mensagem diz isso, em vez de um "unknown" solto.
+        api.renamePath.mockResolvedValueOnce({ success: false });
+        await crud._performRename(entrada, P('b.v'));
+        expect(showCardNotification.mock.lastCall[0]).toMatch(/^Could not rename: a API respondeu sem dizer o erro/);
     });
 });
 
@@ -1007,7 +1011,7 @@ describe('apagar', () => {
         api.undoStage.mockResolvedValue({ success: false, error: 'rede' });
         respostas = ['delete', 'perm'];
         await crud.deleteEntries([P('a.v')]);
-        expect(dialog.mock.calls[1][0].message).toBe('Could not stage the deletion (unknown: rede). Delete permanently instead?');
+        expect(dialog.mock.calls[1][0].message).toBe('Could not stage the deletion (rede). Delete permanently instead?');
         expect(api.deleteFileOrDirectory).toHaveBeenCalledWith(P('a.v'));
         expect(crud.history.podeDesfazer()).toBe(false);
         api.deleteFileOrDirectory.mockRejectedValueOnce(new Error('negado'));
@@ -1148,11 +1152,11 @@ describe('copiar e colar', () => {
         api.renamePath.mockResolvedValueOnce({ success: false, error: 'travado' });
         crud.copy([P('a.v')], true);
         await crud.paste(P('dst'));
-        expect(showCardNotification).toHaveBeenLastCalledWith('Could not move: unknown: travado', 'error', 4000);
+        expect(showCardNotification).toHaveBeenLastCalledWith('Could not move: travado', 'error', 4000);
         api.copyAnyPath.mockResolvedValueOnce({ success: false, error: 'cheio' });
         crud.copy([P('a.v')], false);
         await crud.paste(P('dst'));
-        expect(showCardNotification).toHaveBeenLastCalledWith('Could not copy: unknown: cheio', 'error', 4000);
+        expect(showCardNotification).toHaveBeenLastCalledWith('Could not copy: cheio', 'error', 4000);
         expect(crud.history.podeDesfazer()).toBe(false);
     });
 });
@@ -1190,7 +1194,7 @@ describe('desfazer e refazer', () => {
         crud.history.registrar({ kind: 'move', de: P('a.v'), para: P('z.v') });
         api.renamePath.mockResolvedValue({ success: false });
         await crud.desfazer();
-        expect(showCardNotification).toHaveBeenLastCalledWith('Could not undo: unknown: nao foi possivel mover de volta', 'error', 4000);
+        expect(showCardNotification).toHaveBeenLastCalledWith('Could not undo: nao foi possivel mover de volta', 'error', 4000);
     });
 
     it('desfazer um apagar restaura da espera e devolve ao .spf o que ele tinha', async () => {

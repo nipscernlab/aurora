@@ -239,7 +239,7 @@ class StandardTreeCrud {
         const r = qual === 'desfazer' ? await h.desfazer() : await h.refazer();
         if (!r.ok) {
             showCardNotification(
-                tr('fileTree.crud.undoFailed', 'Could not undo: {error}', { error: motivoDe(r, 'unknown') }),
+                tr('fileTree.crud.undoFailed', 'Could not undo: {error}', { error: motivoDe(r, '') }),
                 'error', 4000,
             );
             return;
@@ -865,7 +865,7 @@ class StandardTreeCrud {
         }
         if (!res?.success) {
             showCardNotification(
-                tr('fileTree.crud.errRename', 'Could not rename: {error}', { error: motivoDe(res, 'unknown') }),
+                tr('fileTree.crud.errRename', 'Could not rename: {error}', { error: motivoDe(res, '') }),
                 'error', 4000,
             );
             return;
@@ -1043,7 +1043,7 @@ class StandardTreeCrud {
                     title: tr('fileTree.crud.deleteTitle', 'Delete'),
                     message: tr('fileTree.crud.trashFailed',
                         'Could not stage the deletion ({error}). Delete permanently instead?',
-                        { error: motivoDe(res, 'unknown') }),
+                        { error: motivoDe(res, '') }),
                     variant: 'warning',
                     buttons: [
                         { label: tr('dialog.common.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
@@ -1191,7 +1191,7 @@ class StandardTreeCrud {
             const res = await electronAPI.renamePath(item.path, dest, { overwrite });
             if (!res?.success) {
                 showCardNotification(
-                    tr('fileTree.crud.errMove', 'Could not move: {error}', { error: motivoDe(res, 'unknown') }),
+                    tr('fileTree.crud.errMove', 'Could not move: {error}', { error: motivoDe(res, '') }),
                     'error', 4000,
                 );
                 return {};
@@ -1205,7 +1205,7 @@ class StandardTreeCrud {
         const res = await electronAPI.copyAnyPath(item.path, dest, { overwrite });
         if (!res?.success) {
             showCardNotification(
-                tr('fileTree.crud.errCopy', 'Could not copy: {error}', { error: motivoDe(res, 'unknown') }),
+                tr('fileTree.crud.errCopy', 'Could not copy: {error}', { error: motivoDe(res, '') }),
                 'error', 4000,
             );
             return {};

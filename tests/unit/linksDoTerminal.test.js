@@ -169,6 +169,13 @@ describe('ligar o clique', () => {
     expect(tm.goToLine).toHaveBeenCalledWith(7, 3);
   });
 
+  it('a pasta do projeto vem do ProjectStore, nao de uma global sobrescrita', async () => {
+    ProjectStore.setProject('C:/p/p.spf', 'C:\\p');
+    window.currentProjectPath = 'C:\\outra-janela';
+    bloco('<span class="line-link" data-line="1" data-file="top.v">x</span>').querySelector('span').click();
+    await vi.waitFor(() => expect(api.fileExists).toHaveBeenCalledWith('C:\\p\\top.v'));
+  });
+
   it('sem projeto, o relativo segue como veio; absoluto e UNC seguem sempre', async () => {
     const abrir = async (arquivo) => {
       api.fileExists.mockClear();

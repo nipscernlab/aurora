@@ -20,6 +20,7 @@ import { EditorManager } from '../editor/monaco_editor.js';
 import { comLinks, problemasNaLinha } from './error_locations.js';
 import { problemStore } from './problem_store.js';
 import { abrirAjudaDe, AJUDAS } from '../ui/help_link.js';
+import { ProjectStore } from '../project/project_store.js';
 
 /** O .cmm que a AURORA mandou compilar por ultimo: o yanc diz a linha e nao o arquivo. */
 function ultimoCmmCompilado(): string | null {
@@ -107,7 +108,7 @@ async function arquivoDoLink(link: Element, scopeEl: Element): Promise<string | 
   if (explicitFile) {
     // Absolute paths go through as-is; relative paths resolve against the
     // open project root.
-    const root = window.currentProjectPath || '';
+    const root = ProjectStore.getProjectPath() || '';
     const isAbs = /^[A-Za-z]:[\\/]/.test(explicitFile) || explicitFile.startsWith('\\\\');
     return isAbs ? explicitFile :
       (root ? `${root}\\${explicitFile.replace(/^[\\/]+/, '')}` : explicitFile);

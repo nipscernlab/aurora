@@ -14,6 +14,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { electronAPI } from '../app/electron_api.js';
 import { motivoDe } from '../app/api_reply.js';
+import { ProjectStore } from '../project/project_store.js';
 
 const SESSION_ID = 'tcmd';
 // Windows-style absolute paths: `C:\...` or UNC `\\host\...`, stopping at
@@ -149,7 +150,7 @@ class ShellTerminal {
     if (this._startPromise) return this._startPromise;
     this._startPromise = (async () => {
       this._fit();
-      const cwd = window.currentProjectPath || undefined;
+      const cwd = ProjectStore.getProjectPath() || undefined;
       const cols = this.term?.cols || 80;
       const rows = this.term?.rows || 24;
       try {

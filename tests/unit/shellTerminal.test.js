@@ -104,6 +104,13 @@ describe('inicio do shell', () => {
     expect(FakeTerminal.ultimo.montado).toBe(document.querySelector('.tcmd-xterm'));
   });
 
+  it('a pasta vem do ProjectStore, nao de uma global que alguem sobrescreveu', async () => {
+    ProjectStore.setProject('C:/p/proj.spf', 'C:/p');
+    window.currentProjectPath = 'C:/outra-janela';
+    await st._onActivate();
+    expect(electronAPI.shellStart.mock.calls[0][0].cwd).toBe('C:/p');
+  });
+
   it('sem projeto, o shell nasce na pasta padrao do processo', async () => {
     await st._onActivate();
     expect(electronAPI.shellStart.mock.calls[0][0].cwd).toBeUndefined();

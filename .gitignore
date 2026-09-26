@@ -207,6 +207,7 @@ js/tree/standard_tree_crud.js
 js/terminal/terminal.js
 js/components/aurora-terminal.js
 js/terminal/terminal_module.js
+js/terminal/progress_line.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

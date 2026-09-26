@@ -1,5 +1,5 @@
 /**
- * progress_line.js: reconhece uma linha de progresso no meio da saida de uma
+ * progress_line.ts: reconhece uma linha de progresso no meio da saida de uma
  * ferramenta.
  *
  * POR QUE EXISTE
@@ -28,12 +28,17 @@
  * Modulo puro: nao toca DOM, nao importa nada. E onde os formatos sao testados.
  */
 
-/**
- * @typedef {{
- *   pct: number, cyc: number|null, total: number|null,
- *   reads: number|null, label: string, done: boolean,
- * }} Progresso
- */
+export interface Progresso {
+  pct: number;
+  cyc: number | null;
+  total: number | null;
+  reads: number | null;
+  label: string;
+  done: boolean;
+}
+
+/** O que cada formato extrai da linha. */
+interface Lido { pct?: number; cyc?: number; total?: number; reads?: number; rotulo?: string }
 
 /** Quanto texto pode sobrar em volta do padrao antes de a linha virar outra coisa. */
 const SOBRA_MAXIMA = 24;
@@ -51,9 +56,9 @@ const SOBRA_MAXIMA = 24;
 const PREFIXO_LOG = /^\s*[\d.]+\s*(?:ns|us|ms|ps|fs|s)\s+(?:INFO|DEBUG)\s+\S*\s*/i;
 
 /** Percentual inteiro entre 0 e 100, ou null quando nao da para calcular. */
-function percentual(feito, total) {
-  if (!Number.isFinite(feito) || !Number.isFinite(total) || total <= 0) return null;
-  return Math.max(0, Math.min(100, Math.round((feito / total) * 100)));
+function percentual(feito: number | undefined, total: number | undefined): number | null {
+  if (!Number.isFinite(feito) || !Number.isFinite(total) || (total as number) <= 0) return null;
+  return Math.max(0, Math.min(100, Math.round(((feito as number) / (total as number)) * 100)));
 }
 
 /**
@@ -63,7 +68,7 @@ function percentual(feito, total) {
  * captura e nao dizem nada ao aluno, entao caem aqui em vez de ocuparem a
  * unica linha de texto da barra.
  */
-function limparRotulo(bruto, reserva) {
+function limparRotulo(bruto: string | undefined, reserva: string): string {
   const texto = String(bruto || '')
     .replace(/^\s*[\d.]+\s*(ns|us|ms|ps|fs|s)\b/i, '')
     .replace(/\b(INFO|DEBUG|WARNING)\b/gi, '')
@@ -82,7 +87,7 @@ function limparRotulo(bruto, reserva) {
  * harness imprimir: qualquer coisa depois dela e sinal de que o formato mudou,
  * e a linha deve ser ecoada para alguem ver.
  */
-const FORMATOS = [
+const FORMATOS: Array<{ re: RegExp; ler: (m: RegExpMatchArray) => Lido; sobra: number }> = [
   {
     // O harness do teste de hardware: "@@AURORA_PROG <ciclo> <total> <leituras>".
     re: /^@@AURORA_PROG\s+(\d+)\s+(\d+)\s+(\d+)\s*$/,
@@ -120,11 +125,8 @@ const FORMATOS = [
  * Le uma linha e devolve o progresso que ela anuncia, ou null se ela for
  * conteudo comum, que o chamador deve ecoar.
  *
- * @param {string} linha
- * @param {{rotuloPadrao?: string}} [opcoes]
- * @returns {Progresso|null}
  */
-export function lerProgresso(linha, opcoes = {}) {
+export function lerProgresso(linha: string, opcoes: { rotuloPadrao?: string; } = {}): Progresso|null {
   const bruto = String(linha == null ? '' : linha);
   if (!bruto.trim()) return null;
   const texto = bruto.replace(PREFIXO_LOG, '');
@@ -136,7 +138,8 @@ export function lerProgresso(linha, opcoes = {}) {
     // O que sobra da linha fora do padrao. Muito texto em volta significa que
     // o numero e parte de uma frase, e nao um contador: "50% of tests failed"
     // tem que chegar ao terminal inteiro.
-    const resto = (texto.slice(0, m.index) + texto.slice(m.index + m[0].length)).trim();
+    const inicio = m.index as number;
+    const resto = (texto.slice(0, inicio) + texto.slice(inicio + m[0].length)).trim();
     if (resto.length > formato.sobra) continue;
 
     const dados = formato.ler(m);

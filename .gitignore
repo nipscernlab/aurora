@@ -75,6 +75,9 @@ components/bin/
 components/HDL/
 components/Header/
 components/Macros/
+# O Scripts/aurora.bat do yanc (teste de um yanc local) copia tambem a pasta
+# SAPHO do stage, com a mesma regra das outras: vem do yanc, nao se versiona.
+components/SAPHO/
 
 # --- Test scratch ---
 coverage/

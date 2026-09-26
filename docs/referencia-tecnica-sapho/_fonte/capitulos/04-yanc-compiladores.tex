@@ -280,10 +280,14 @@ endereçamento indireto fixo de pseudo-instruções). As famílias incluem:
     \lstinline|INV|, \lstinline|LAN|, \lstinline|LOR|, \lstinline|LIN|;
     comparações \lstinline|LES|, \lstinline|GRE|, \lstinline|EQU|;
     deslocamentos \lstinline|SHL|, \lstinline|SHR|, \lstinline|SRS|.
-  \item[Ponteiros/pseudo-instruções] \lstinline|LDA|, \lstinline|STA|,
-    \lstinline|LEA| (\emph{load-effective-address}) e a família \lstinline|..._V|
-    (acesso com deslocamento constante, p.\,ex.\ \lstinline|LOD_V|,
-    \lstinline|ADD_V|).
+  \item[Ponteiros/pseudo-instruções] \lstinline|LEA| (\emph{load-effective-address})
+    e a família \lstinline|..._V| (acesso com deslocamento constante, p.\,ex.\
+    \lstinline|LOD_V|, \lstinline|ADD_V|), que reusam opcodes de outras instruções.
+    Um ponteiro é desreferenciado com \lstinline|LDI|/\lstinline|STI| recebendo um
+    número como operando, que é a base crua do endereço: \lstinline|LDI 0| lê
+    \lstinline|mem[acc]|, \lstinline|STI 0| grava em \lstinline|mem[topo da pilha]| e
+    \lstinline|LDI 3| lê \lstinline|mem[acc+3]|. As antigas \lstinline|LDA| e
+    \lstinline|STA| saíram do ISA na v5.5.
 \end{description}
 
 O \tool{asmcomp} associa a cada mnemônico um índice numérico de 7 bits

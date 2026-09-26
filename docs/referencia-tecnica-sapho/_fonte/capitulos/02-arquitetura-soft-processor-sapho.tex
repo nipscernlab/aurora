@@ -232,25 +232,40 @@ assign opcode  = mem_instr[NBOPCO+NBOPER-1:NBOPER];
 assign operand = mem_instr[NBOPER       -1:     0];
 \end{lstlisting}
 
-Os saltos são decididos diretamente sobre o opcode (sem passar pela ULA). O \lstinline|JMP|
-(opcode 15) é incondicional; o \lstinline|JIZ| (opcode 16, \emph{jump if zero}) salta quando o
-acumulador é zero --- o sinal \lstinline|is_um| indica acumulador não nulo:
+Os saltos são decididos diretamente sobre o opcode (sem passar pela ULA). Os quatro
+opcodes de controle de fluxo são nomeados por \lstinline|localparam| no próprio
+\lstinline|prefetch|, com a numeração da tabela do ISA (\file{Compilers/common/isa.tsv} no
+\repo{yanc}, que o \file{Scripts/check_isa.py} mantém em acordo com o RTL):
 
 \begin{lstlisting}[language=Verilog]
-// JMP                                       JIZ
-assign wJMP = (opcode == 5'd15) | ((opcode == 5'd16) & ~is_um);
+localparam [NBOPCO-1:0] OP_JMP = 16, OP_JIZ = 17, OP_CAL = 18, OP_RET = 19;
+\end{lstlisting}
+
+O \lstinline|JMP| (opcode 16) é incondicional; o \lstinline|JIZ| (opcode 17, \emph{jump if
+zero}) salta quando o acumulador é zero, e o sinal \lstinline|is_um| indica acumulador não
+nulo. O ramo do \lstinline|JIZ| só existe quando o programa o usa:
+
+\begin{lstlisting}[language=Verilog]
+generate if ((JIZ) != 0) begin : jmp_sel
+//             JMP                                        JIZ
+assign wJMP = (opcode == OP_JMP) | ((opcode == OP_JIZ) & ~is_um);
+end else begin : jmp_sel
+//             JMP
+assign wJMP = (opcode == OP_JMP);
+end endgenerate
 \end{lstlisting}
 
 Quando a chamada de subrotina (\lstinline|CAL|) está habilitada, o \lstinline|prefetch|
-reconhece também \lstinline|CAL| (opcode 17) e \lstinline|RET| (opcode 18), gerando os
+reconhece também \lstinline|CAL| (opcode 18) e \lstinline|RET| (opcode 19), gerando os
 sinais de \emph{push}/\emph{pop} para a pilha de subrotina:
 
 \begin{lstlisting}[language=Verilog]
-wire wCAL = (opcode == 5'd17);
-wire wRET = (opcode == 5'd18);
-assign pc_load  = wJMP | wCAL | wRET;
-assign isp_push = wCAL;
-assign isp_pop  = wRET;
+wire wCAL = (opcode == OP_CAL);
+wire wRET = (opcode == OP_RET);
+
+assign pc_load    =  wJMP | wCAL | wRET;
+assign isp_push   =  wCAL;
+assign isp_pop    =  wRET;
 \end{lstlisting}
 
 \subsection{Interrupção e marcador \texttt{\#TOAQUI}}
@@ -292,48 +307,91 @@ O decodificador (\file{instr\_dec.v}) recebe o opcode de 7 bits e produz: os sin
 \emph{push}/\emph{pop} das pilhas, o código de operação da ULA (\lstinline|ula_op|, 6 bits),
 o \emph{enable} de escrita em memória (\lstinline|mem_wr|), os controles de I/O
 (\lstinline|req_in|, \lstinline|out_en|) e os controles de endereçamento indireto
-(\lstinline|ldi|, \lstinline|sti|, \lstinline|fft|, \lstinline|lda|, \lstinline|sta|).
+(\lstinline|ldi|, \lstinline|sti|, \lstinline|fft|).
 
-\subsection{Reconhecimento condicional de cada opcode}
+\subsection{A tabela de decodificação}
 \label{sec:arq-decod-cond}
 
-Cada instrução só gera lógica de reconhecimento quando seu parâmetro está ligado. O padrão,
-repetido para todos os opcodes, é um \lstinline|generate|:
+O decodificador inteiro é uma tabela: um \lstinline|case| combinacional sobre o opcode, com
+uma linha por opcode, numerada como em \file{Compilers/common/isa.tsv}. Cada linha preenche
+um vetor de controle de 14 bits, \lstinline|{ula_op, push, pop, mem_wr, req_in, out_en, ldi,
+sti, fft}|, e é guardada pelo parâmetro do seu mnemônico. Trecho real de
+\file{instr_dec.v}:
 
 \begin{lstlisting}[language=Verilog]
-wire wLOD; generate if ((LOD) != 0)
-  begin : dec_wlod assign wLOD = opcode == 7'd00; end
-  else begin : dec_wlod assign wLOD = 1'b0; end endgenerate
+// {ula_op, push, pop, mem_wr, req_in, out_en, ldi, sti, fft}
+reg [13:0] ctl;
+
+always @ (*) begin
+    ctl = 14'd0;                                    // pass-acc, no push, no pop, no write
+    case (opcode)
+    //                        ula    push pop  wr   in   out  ldi  sti  fft
+    // memory and stack
+    7'd1  : if (LOD     ) ctl = {6'd1 , 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
+    7'd2  : if (P_LOD   ) ctl = {6'd1 , 1'b1, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
+    7'd3  : if (LDI     ) ctl = {6'd1 , 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1, 1'b0, 1'b0};
+    // ...
+    7'd7  : if (STI     ) ctl = {6'd0 , 1'b0, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b1, 1'b0};
+    // ...
+    7'd105: if (S_SRS   ) ctl = {6'd45, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
+    default: ;
+    endcase
+end
+
+assign {push, pop, mem_wr, req_in, out_en, ldi, sti, fft} = ctl[7:0];
 \end{lstlisting}
 
-Os sinais agregados (por exemplo, \lstinline|mem_wr|, \lstinline|push|, \lstinline|pop|) são
-ORs dos reconhecedores das instruções que os disparam. Por exemplo, a escrita em memória é
-ativada por \lstinline|SET|, \lstinline|SET_P|, \lstinline|STI|, \lstinline|ISI| e
-\lstinline|STA|:
+O montador liga (\lstinline|.LOD(1)|, \lstinline|.STI(1)| etc.) apenas os parâmetros dos
+mnemônicos que o programa usa. Numa linha cujo parâmetro vale 0 o \lstinline|if| é
+constante falso, a linha não altera \lstinline|ctl| e a síntese remove o comparador
+correspondente; o decodificador cresce com o programa, como o resto da ULA. Os opcodes
+sem linha (o \lstinline|NOP|, 0, e os desvios 16 a 19, tratados no \lstinline|prefetch|)
+caem no \lstinline|default| e deixam \lstinline|ctl| em zero: \lstinline|ula_op = 0|
+(repassa o acumulador), sem \emph{push}, sem \emph{pop} e sem escrita.
 
-\begin{lstlisting}[language=Verilog]
-assign mem_wr = wSET | wSET_P | wSTI | wISI | wSTA;
-\end{lstlisting}
+Os sinais agregados deixaram de ser ORs de reconhecedores: cada um é uma coluna da tabela.
+A escrita em memória, por exemplo, é a coluna \lstinline|wr|, em 1 nas linhas de
+\lstinline|SET| (5), \lstinline|SET_P| (6), \lstinline|STI| (7) e \lstinline|ISI| (8).
+O comentário de \file{instr_dec.v} registra a medida feita quando essa forma substituiu a
+expansão manual anterior: equivalência provada no Yosys com os parâmetros de 7 programas, e
+o decodificador do \lstinline|sapho_all| no Quartus caiu de 76 para 31 ALUTs, sem RAM
+inferida.
 
 \subsection{Geração do código da ULA (\lstinline|ula_op|)}
 \label{sec:arq-decod-ula}
 
-O campo \lstinline|ula_op| (6 bits) é montado bit a bit. Cada bit (\lstinline|b0|..\lstinline|b5|)
-é o OR dos reconhecedores das instruções cujo código de ULA tem aquele bit em 1. O valor
-final é registrado (atraso de um ciclo) antes de chegar à ULA:
+O campo \lstinline|ula_op| (6 bits) é a primeira coluna da tabela, \lstinline|ctl[13:8]|. O
+valor é registrado (atraso de um ciclo) antes de chegar à ULA, com \emph{reset} síncrono
+para 0, que para a ULA é um \lstinline|NOP| inofensivo enquanto o resto do \emph{pipeline}
+é reiniciado:
 
 \begin{lstlisting}[language=Verilog]
-always @ (posedge clk) ula_op <= {b5,b4,b3,b2,b1,b0};
+always @ (posedge clk) if (rst) ula_op <= 6'd0; else ula_op <= ctl[13:8];
 \end{lstlisting}
+
+Deixar o \lstinline|case| combinacional e o registrador depois dele é intencional: um
+\lstinline|case| com saídas constantes dentro do bloco síncrono é o padrão que as
+ferramentas mapeiam para ROM.
 
 \section{Conjunto de instruções (ISA)}
 \label{sec:arq-isa}
 
 O opcode tem \textbf{7 bits} (\lstinline|NBOPCO = 7|, fixo em \file{processor.v} e replicado
-como \lstinline|NBITS_OPC| no montador, em \file{eval.c}). A associação \emph{mnemônico
-$\rightarrow$ opcode} está no analisador léxico do montador
-(\file{ASMComp.l}); a associação \emph{opcode $\rightarrow$ \lstinline|ula_op|} está no
-decodificador (\file{instr\_dec.v}). As convenções de sufixo são:
+como \lstinline|NBITS_OPC| no montador, em \file{eval.c}). A tabela de referência do ISA é
+\file{Compilers/common/isa.tsv}, no \repo{yanc}: uma linha por mnemônico, com opcode, classe
+de operando e efeito sobre acumulador, pilha e memória. O ISA aparece escrito à mão em mais
+quatro lugares, a associação \emph{mnemônico $\rightarrow$ opcode} no analisador léxico do
+montador (\file{ASMComp.l}), a associação \emph{opcode $\rightarrow$ \lstinline|ula_op|} no
+decodificador (\file{instr_dec.v}) e na ULA (\file{ula.v}), e os opcodes de desvio nos
+\lstinline|localparam| de \file{core.v}; o \file{Scripts/check_isa.py} confere os quatro
+contra a tabela.
+
+Na v5.5 são \textbf{106 opcodes} (0 a 105) e \textbf{114 mnemônicos}: \lstinline|LEA| e a
+família \lstinline|_V| não têm opcode próprio e reusam o de outra instrução. Os opcodes são
+numerados por família: 0 \lstinline|NOP|; 1 a 10 memória e pilha; 11 a 15 E/S; 16 a 19
+desvios; 20 a 29 aritmética inteira; 30 a 43 aritmética em ponto flutuante; 44 a 61
+unários inteiros; 62 a 73 unários em ponto flutuante; 74 a 79 conversões; 80 a 89 lógica;
+90 a 99 comparações; 100 a 105 deslocamentos. As convenções de sufixo são:
 
 \begin{description}[leftmargin=2.6em]
   \item[\texttt{S\_}] segundo operando vindo da \textbf{pilha de dados} (em vez da memória).
@@ -351,37 +409,44 @@ decodificador (\file{instr\_dec.v}). As convenções de sufixo são:
 \textbf{Op.} & \textbf{Mnemônico} & \textbf{Descrição} \\
 \midrule
 \endhead
-0  & \lstinline|LOD|    & Carrega o acumulador com dado da memória. \\
-1  & \lstinline|P_LOD|  & PUSH seguido de LOD. \\
-2  & \lstinline|LDI|    & Load com endereçamento indireto (índice no acumulador). \\
-3  & \lstinline|ILI|    & Load indireto com reversão de bits (FFT). \\
-4  & \lstinline|SET|    & Armazena o acumulador na memória. \\
-5  & \lstinline|SET_P|  & SET seguido de POP. \\
-6  & \lstinline|STI|    & Store com endereçamento indireto (índice na pilha). \\
-7  & \lstinline|ISI|    & Store indireto com reversão de bits (FFT). \\
-8  & \lstinline|PSH|    & Empurra o acumulador na pilha de dados. \\
-9  & \lstinline|POP|    & Retira da pilha de dados para o acumulador. \\
-10 & \lstinline|INN|    & Entrada de dado (porta de I/O). \\
-11 & \lstinline|F_INN|  & Entrada em ponto flutuante (aplica I2F). \\
-12 & \lstinline|P_INN|  & PUSH seguido de INN. \\
-13 & \lstinline|PF_INN| & PUSH seguido de F\_INN. \\
-14 & \lstinline|OUT|    & Saída de dado (porta de I/O). \\
-15 & \lstinline|JMP|    & Salto incondicional. \\
-16 & \lstinline|JIZ|    & Salta se o acumulador for zero. \\
-17 & \lstinline|CAL|    & Chamada de subrotina (empilha retorno). \\
-18 & \lstinline|RET|    & Retorno de subrotina (desempilha). \\
-96 & \lstinline|NOP|    & Nenhuma operação. \\
-102& \lstinline|LDA|    & \lstinline|acc = mem[acc]| (indireto base-less). \\
-103& \lstinline|STA|    & \lstinline|mem[topo_pilha] = acc|, com POP. \\
+0  & \lstinline|NOP|    & Nenhuma operação. \\
+1  & \lstinline|LOD|    & Carrega o acumulador com dado da memória. \\
+2  & \lstinline|P_LOD|  & PUSH seguido de LOD. \\
+3  & \lstinline|LDI|    & Load indireto: \lstinline|acc = mem[base + acc]|; \lstinline|LDI 0| lê \lstinline|mem[acc]|. \\
+4  & \lstinline|ILI|    & Load indireto com reversão de bits (FFT). \\
+5  & \lstinline|SET|    & Armazena o acumulador na memória. \\
+6  & \lstinline|SET_P|  & SET seguido de POP. \\
+7  & \lstinline|STI|    & Store indireto: \lstinline|mem[base + topo] = acc|, com POP; \lstinline|STI 0| grava em \lstinline|mem[topo]|. \\
+8  & \lstinline|ISI|    & Store indireto com reversão de bits (FFT). \\
+9  & \lstinline|PSH|    & Empurra o acumulador na pilha de dados. \\
+10 & \lstinline|POP|    & Retira da pilha de dados para o acumulador. \\
+11 & \lstinline|INN|    & Entrada de dado (porta de I/O). \\
+12 & \lstinline|F_INN|  & Entrada em ponto flutuante (aplica I2F). \\
+13 & \lstinline|P_INN|  & PUSH seguido de INN. \\
+14 & \lstinline|PF_INN| & PUSH seguido de F\_INN. \\
+15 & \lstinline|OUT|    & Saída de dado (porta de I/O). \\
+16 & \lstinline|JMP|    & Salto incondicional. \\
+17 & \lstinline|JIZ|    & Salta se o acumulador for zero. \\
+18 & \lstinline|CAL|    & Chamada de subrotina (empilha retorno). \\
+19 & \lstinline|RET|    & Retorno de subrotina (desempilha). \\
 \bottomrule
 \end{longtable}
+
+Em \lstinline|LDI|, \lstinline|ILI|, \lstinline|STI| e \lstinline|ISI| o operando é a base
+do endereço. Com o nome de uma variável, a base é o endereço dela (acesso a array com
+índice em tempo de execução); com um número, a base é esse número cru: \lstinline|LDI 0|
+lê \lstinline|mem[acc]|, \lstinline|LDI 3| lê \lstinline|mem[acc + 3]| e \lstinline|STI 0|
+grava em \lstinline|mem[topo da pilha]|. As instruções \lstinline|LDA| e \lstinline|STA| das
+versões anteriores, que faziam exatamente \lstinline|LDI 0| e \lstinline|STI 0|, saíram do
+ISA na v5.5.
 
 \begin{nota}
 O mnemônico \lstinline|LEA| (\emph{load effective address}) não é um opcode próprio: no
 montador ele se expande para um \lstinline|LOD| de uma constante igual ao endereço de uma
-variável (\file{eval.c}, função \lstinline|instr_lea|). Isso permite passar o endereço-base
-de um array para uma subrotina, que então o desreferencia em tempo de execução com
-\lstinline|ADD| + \lstinline|LDA|/\lstinline|STA|.
+variável (\file{eval.c}, função \lstinline|instr_lea|), e por isso compartilha o opcode 1.
+Isso permite passar o endereço-base de um array para uma subrotina, que então o
+desreferencia em tempo de execução com \lstinline|ADD| + \lstinline|LDI 0|/\lstinline|STI 0|
+(ou \lstinline|LDI k|/\lstinline|STI k| para um deslocamento constante \lstinline|k|).
 \end{nota}
 
 \subsection{Operações aritméticas, lógicas e de comparação}
@@ -390,38 +455,52 @@ de um array para uma subrotina, que então o desreferencia em tempo de execuçã
 A tabela a seguir lista os opcodes de cálculo (variantes \lstinline|S_|, \lstinline|F_|,
 \lstinline|SF_|, \lstinline|P_| e \lstinline|_M| compartilham a unidade aritmética da base).
 A coluna \lstinline|ula_op| é o código que o decodificador entrega à ULA (de
-\file{instr\_dec.v}).
+\file{instr_dec.v}); quando há dois valores, o primeiro é o da forma sobre o acumulador e
+o segundo o das formas sobre a memória (\lstinline|_M| e \lstinline|P_..._M|) ou, nas
+subtrações, o da subtração no operando 2 (\lstinline|F_SU2|/\lstinline|SF_SU2|).
 
 \begin{longtable}{l l l l}
 \toprule
 \textbf{Op.} & \textbf{Mnemônico} & \textbf{ula\_op} & \textbf{Operação} \\
 \midrule
 \endhead
-19--22  & \lstinline|ADD|/\lstinline|S_ADD|/\lstinline|F_ADD|/\lstinline|SF_ADD| & 2 / 3 & Soma (inteira / float). \\
-23--26  & \lstinline|MLT| .. \lstinline|SF_MLT| & 4 / 5 & Multiplicação (inteira / float). \\
-27--30  & \lstinline|DIV| .. \lstinline|SF_DIV| & 6 / 7 & Divisão (inteira / float). \\
-31--32  & \lstinline|MOD|/\lstinline|S_MOD|     & 8     & Resto da divisão (inteiro). \\
-33--36  & \lstinline|SGN| .. \lstinline|SF_SGN| & 9 / 10& Copia o sinal de um operando ao outro. \\
-37--42  & \lstinline|NEG| .. \lstinline|PF_NEG_M|& 11--14& Negação (inteira / float). \\
-43--48  & \lstinline|ABS| .. \lstinline|PF_ABS_M|& 15--18& Valor absoluto (inteiro / float). \\
-49--54  & \lstinline|PST| .. \lstinline|PF_PST_M|& 19--22& Zera se negativo (\emph{positive set}). \\
-55--57  & \lstinline|NRM|/\lstinline|NRM_M|/\lstinline|P_NRM_M|& 23 / 24& Divisão por constante \lstinline|NUGAIN|. \\
-58--60  & \lstinline|I2F|/\lstinline|I2F_M|/\lstinline|P_I2F_M|& 25 / 26& Inteiro $\rightarrow$ float. \\
-61--63  & \lstinline|F2I|/\lstinline|F2I_M|/\lstinline|P_F2I_M|& 27 / 28& Float $\rightarrow$ inteiro. \\
-64--69  & \lstinline|AND| .. \lstinline|S_XOR|  & 29--31& Bit a bit: AND, OR, XOR. \\
-70--72  & \lstinline|INV|/\lstinline|INV_M|/\lstinline|P_INV_M|& 32 / 33& Inversão bit a bit (NOT). \\
-73--76  & \lstinline|LAN| .. \lstinline|S_LOR|  & 34 / 35& Lógico booleano AND/OR. \\
-77--79  & \lstinline|LIN|/\lstinline|LIN_M|/\lstinline|P_LIN_M|& 36 / 37& Inversão lógica (NOT booleano). \\
-80--83  & \lstinline|LES| .. \lstinline|SF_LES| & 38 / 39& Menor que (inteiro / float). \\
-84--87  & \lstinline|GRE| .. \lstinline|SF_GRE| & 40 / 41& Maior que (inteiro / float). \\
-88--89  & \lstinline|EQU|/\lstinline|S_EQU|     & 42    & Igualdade (inteiro e float). \\
-90--91  & \lstinline|SHL|/\lstinline|S_SHL|     & 43    & Deslocamento à esquerda. \\
-92--93  & \lstinline|SHR|/\lstinline|S_SHR|     & 44    & Deslocamento lógico à direita. \\
-94--95  & \lstinline|SRS|/\lstinline|S_SRS|     & 45    & Deslocamento aritmético à direita. \\
-97      & \lstinline|F_ROT|                     & 46    & Aproximação de raiz quadrada (potência de 2). \\
-98--101 & \lstinline|F_SU1| .. \lstinline|SF_SU2|& 47 / 48& Subtração em float (no operando 1 ou 2). \\
-104--105& \lstinline|F_SCL|/\lstinline|SF_SCL|  & 49    & Escala float por $2^{k}$. \\
-106--107& \lstinline|XPO|/\lstinline|XPO_M|     & 50 / 51& Expoente base-2 do float como inteiro. \\
+20--21  & \lstinline|ADD|/\lstinline|S_ADD|     & 2     & Soma inteira. \\
+22--23  & \lstinline|MLT|/\lstinline|S_MLT|     & 4     & Multiplicação inteira. \\
+24--25  & \lstinline|DIV|/\lstinline|S_DIV|     & 6     & Divisão inteira. \\
+26--27  & \lstinline|MOD|/\lstinline|S_MOD|     & 8     & Resto da divisão (inteiro). \\
+28--29  & \lstinline|SGN|/\lstinline|S_SGN|     & 9     & Copia o sinal de um operando ao outro (inteiro). \\
+30--31  & \lstinline|F_ADD|/\lstinline|SF_ADD|  & 3     & Soma em float. \\
+32--35  & \lstinline|F_SU1| .. \lstinline|SF_SU2|& 47 / 48& Subtração em float (no operando 1 ou 2). \\
+36--37  & \lstinline|F_MLT|/\lstinline|SF_MLT|  & 5     & Multiplicação em float. \\
+38--39  & \lstinline|F_DIV|/\lstinline|SF_DIV|  & 7     & Divisão em float. \\
+40--41  & \lstinline|F_SGN|/\lstinline|SF_SGN|  & 10    & Copia o sinal (float). \\
+42--43  & \lstinline|F_SCL|/\lstinline|SF_SCL|  & 49    & Escala float por $2^{k}$. \\
+44--46  & \lstinline|NEG|/\lstinline|NEG_M|/\lstinline|P_NEG_M|& 11 / 12& Negação inteira. \\
+47--49  & \lstinline|ABS|/\lstinline|ABS_M|/\lstinline|P_ABS_M|& 15 / 16& Valor absoluto inteiro. \\
+50--52  & \lstinline|PST|/\lstinline|PST_M|/\lstinline|P_PST_M|& 19 / 20& Zera se negativo (\emph{positive set}), inteiro. \\
+53--55  & \lstinline|NRM|/\lstinline|NRM_M|/\lstinline|P_NRM_M|& 23 / 24& Divisão por constante \lstinline|NUGAIN|. \\
+56--58  & \lstinline|INV|/\lstinline|INV_M|/\lstinline|P_INV_M|& 32 / 33& Inversão bit a bit (NOT). \\
+59--61  & \lstinline|LIN|/\lstinline|LIN_M|/\lstinline|P_LIN_M|& 36 / 37& Inversão lógica (NOT booleano). \\
+62--64  & \lstinline|F_NEG| .. \lstinline|PF_NEG_M|& 13 / 14& Negação em float. \\
+65--67  & \lstinline|F_ABS| .. \lstinline|PF_ABS_M|& 17 / 18& Valor absoluto em float. \\
+68--70  & \lstinline|F_PST| .. \lstinline|PF_PST_M|& 21 / 22& Zera se negativo, float. \\
+71      & \lstinline|F_ROT|                     & 46    & Aproximação de raiz quadrada (potência de 2). \\
+72--73  & \lstinline|XPO|/\lstinline|XPO_M|     & 50 / 51& Expoente base-2 do float como inteiro. \\
+74--76  & \lstinline|I2F|/\lstinline|I2F_M|/\lstinline|P_I2F_M|& 25 / 26& Inteiro $\rightarrow$ float. \\
+77--79  & \lstinline|F2I|/\lstinline|F2I_M|/\lstinline|P_F2I_M|& 27 / 28& Float $\rightarrow$ inteiro. \\
+80--81  & \lstinline|AND|/\lstinline|S_AND|     & 29    & AND bit a bit. \\
+82--83  & \lstinline|ORR|/\lstinline|S_ORR|     & 30    & OR bit a bit. \\
+84--85  & \lstinline|XOR|/\lstinline|S_XOR|     & 31    & XOR bit a bit. \\
+86--87  & \lstinline|LAN|/\lstinline|S_LAN|     & 34    & AND lógico (booleano). \\
+88--89  & \lstinline|LOR|/\lstinline|S_LOR|     & 35    & OR lógico (booleano). \\
+90--91  & \lstinline|LES|/\lstinline|S_LES|     & 38    & Menor que (inteiro). \\
+92--93  & \lstinline|GRE|/\lstinline|S_GRE|     & 40    & Maior que (inteiro). \\
+94--95  & \lstinline|EQU|/\lstinline|S_EQU|     & 42    & Igualdade (inteiro e float). \\
+96--97  & \lstinline|F_LES|/\lstinline|SF_LES|  & 39    & Menor que (float). \\
+98--99  & \lstinline|F_GRE|/\lstinline|SF_GRE|  & 41    & Maior que (float). \\
+100--101& \lstinline|SHL|/\lstinline|S_SHL|     & 43    & Deslocamento à esquerda. \\
+102--103& \lstinline|SHR|/\lstinline|S_SHR|     & 44    & Deslocamento lógico à direita. \\
+104--105& \lstinline|SRS|/\lstinline|S_SRS|     & 45    & Deslocamento aritmético à direita. \\
 \bottomrule
 \end{longtable}
 
@@ -437,7 +516,8 @@ caminho. A interface do módulo é simples:
 \begin{lstlisting}[language=Verilog]
 module ula
 #( parameter NUBITS = 32, parameter NBMANT = 23, parameter NBEXPO = 8,
-   parameter signed [NUBITS-1:0] NUGAIN = 64, /* ... flags por operacao ... */ )
+   parameter signed [NUBITS-1:0] NUGAIN = 128, parameter FROUND = 0,
+   /* ... flags por operacao ... */ )
 ( input [5:0] op,
   input  signed [NUBITS-1:0] in1, in2,
   output signed [NUBITS-1:0] out );
@@ -455,16 +535,31 @@ assign out = in1 + in2;   assign out = in1 * in2;
 assign out = in1 / in2;   assign out = in1 % in2;
 \end{lstlisting}
 
+A divisão tem um caso nomeado na v5.5: \lstinline|INT_MIN / -1|, o único quociente com sinal
+que não cabe em \lstinline|NUBITS| bits, devolve o próprio \lstinline|INT_MIN| (o resultado
+com \emph{wrap} que o Verilog define), para que Icarus, o simulador C++ e a síntese
+concordem:
+
+\begin{lstlisting}[language=Verilog]
+wire ovf = in1[NUBITS-1] & ~(|in1[NUBITS-2:0]) & (&in2);
+
+assign out = ovf ? in1 : in1 / in2;
+\end{lstlisting}
+
 A negação é \lstinline|-in|; o valor absoluto é \lstinline|(in[NUBITS-1]) ? -in : in|; o
 \emph{positive set} (\lstinline|PST|) zera valores negativos. A normalização (\lstinline|NRM|)
 divide por uma constante de hardware \lstinline|NUGAIN|:
 
 \begin{lstlisting}[language=Verilog]
-module ula_nrm #( parameter NUBITS = 32, parameter signed NUGAIN = 1 )
+module ula_nrm #( parameter NUBITS = 32, parameter signed [NUBITS-1:0] NUGAIN = 1 )
 ( input signed [NUBITS-1:0] in, output signed [NUBITS-1:0] out );
   assign out = in/NUGAIN;
 endmodule
 \end{lstlisting}
+
+O \lstinline|NUGAIN| precisa ser potência de dois, e o montador recusa outro valor: a divisão
+por uma constante qualquer infere um divisor, enquanto por potência de dois vira um
+deslocamento mais a correção de sinal da divisão truncada.
 
 \subsection{Operações lógicas, condicionais, comparações e deslocamentos}
 \label{sec:arq-ula-logic}
@@ -481,8 +576,31 @@ verdadeiro:
 assign out = {{(NUBITS-1){1'b0}}, (in1 < in2)};
 \end{lstlisting}
 
-Os deslocamentos são \lstinline|<<| (\lstinline|SHL|), \lstinline|>>| lógico (\lstinline|SHR|)
-e \lstinline|>>>| aritmético com sinal (\lstinline|SRS|).
+Os deslocamentos têm a semântica de \lstinline|<<| (\lstinline|SHL|), \lstinline|>>| lógico
+(\lstinline|SHR|) e \lstinline|>>>| aritmético com sinal (\lstinline|SRS|), mas desde a v5.5
+os três compartilham um único deslocador à direita, o submódulo \lstinline|ula_shift| (antes
+eram \lstinline|ula_shl|, \lstinline|ula_shr| e \lstinline|ula_srs|). Como só um
+deslocamento executa por ciclo, o \lstinline|SHL| é feito como deslocamento à direita da
+palavra com os bits invertidos, invertida de novo na saída (a inversão é só fiação), e o
+\lstinline|SRS| difere do \lstinline|SHR| apenas pelo bit que entra no topo, o de sinal em
+vez de zero:
+
+\begin{lstlisting}[language=Verilog]
+wire left  = (SHL != 0) & (((SHR | SRS) == 0) | (op == 6'd43));  // SHL: reverse in and out
+wire arith = (SRS != 0) & (((SHL | SHR) == 0) | (op == 6'd45));  // SRS: fill with the sign
+// ...
+wire        [NUBITS-1:0] x    = (left) ? in1_r : in1;
+wire                     fill = arith & in1[NUBITS-1];
+wire signed [NUBITS  :0] xe   = {fill, x};                    // one bit wider: the fill bit is its sign
+wire signed [NUBITS  :0] ye   = xe >>> in2;
+assign                   y    = ye[NUBITS-1:0];
+
+assign out = (left) ? y_r : y;
+\end{lstlisting}
+
+Quando o programa usa um só dos três, as seleções \lstinline|left| e \lstinline|arith| são
+constantes de parâmetro, os multiplexadores somem na síntese e resta o deslocador simples
+daquele opcode.
 
 \subsection{Ponto flutuante customizado}
 \label{sec:arq-ula-float}
@@ -505,17 +623,31 @@ o expoente para \lstinline|NBEXPO| e a mantissa para \lstinline|NBMANT| (com arr
 renormalização), e empacota no formato SAPHO.
 
 O hardware opera sobre esse formato. A \textbf{denormalização} (\lstinline|ula_denorm|)
-alinha os expoentes de dois operandos antes da soma/comparação, deslocando a mantissa de
-menor expoente:
+alinha os expoentes de dois operandos antes da soma e da subtração (só é instanciada com
+\lstinline|F_ADD|, \lstinline|F_SU1| ou \lstinline|F_SU2|), deslocando à direita a mantissa
+de menor expoente. As duas diferenças de expoente são calculadas em paralelo e a não
+negativa é o deslocamento; as saídas vêm na ordem maior/menor (\lstinline|e_out|,
+\lstinline|s_big|/\lstinline|s_small|, \lstinline|m_big|/\lstinline|m_small|):
 
 \begin{lstlisting}[language=Verilog]
-// equaliza expoentes: o menor expoente desloca para casar com o maior
-wire signed [EXP:0] eme    =  e1_in-e2_in;
-wire                ege    =  eme[EXP];
-wire        [EXP:0] shift2 = (ege) ? {EXP+1{1'b0}} : eme;
-wire        [EXP:0] shift1 = (ege) ? -eme          : {EXP+1{1'b0}};
-always @ (*) e_out = (ege) ? e2_in : e1_in; // expoente final = o maior
+wire signed [EXP:0] d12 = e1_in - e2_in;
+wire signed [EXP:0] d21 = e2_in - e1_in;
+
+wire         swap  = d12[EXP];                          // e1 < e2
+wire [EXP:0] shift = (swap) ? d21 : d12;                // |e1 - e2|
+
+assign e_out   = (swap) ? e2_in : e1_in;
+assign s_big   = (swap) ? s2_in : s1_in;
+assign s_small = (swap) ? s1_in : s2_in;
 \end{lstlisting}
+
+As comparações em float (\lstinline|F_LES|, \lstinline|F_GRE|) são servidas por um único
+submódulo, \lstinline|ula_fcmp| (que na v5.4 substituiu \lstinline|ula_fles| e
+\lstinline|ula_fgre|), e desde a v5.5 não passam mais pela denormalização: o
+\lstinline|ula_fcmp| compara as palavras cruas em ordem lexicográfica. Como a mantissa normalizada tem o bit líder explícito, a ordem das
+magnitudes é a ordem sem sinal de \lstinline|{expoente, mantissa}| depois de inverter o bit
+de sinal do expoente; mantissa zero vale zero qualquer que seja o expoente, e
+\lstinline|+0 == -0|. Um programa que só compara floats não constrói denormalizador.
 
 A \textbf{normalização} pós-operação (\lstinline|ula_norm|) desloca a mantissa à esquerda até
 que o bit mais significativo seja 1, ajustando o expoente. A multiplicação em float
@@ -616,29 +748,33 @@ e foi escrita para substituir o IP de FIFO de fabricantes de FPGA.
 \section{Endereçamento indireto: arrays, ponteiros e FFT}
 \label{sec:arq-indireto}
 
-O endereçamento indireto é tratado por \lstinline|mem_ctrl| e \lstinline|rel_addr|. Há dois
-modos:
+O endereçamento indireto é tratado por \lstinline|mem_ctrl| e \lstinline|rel_addr|, e só é
+sintetizado quando o programa usa \lstinline|LDI|, \lstinline|STI|, \lstinline|ILI| ou
+\lstinline|ISI|. Na v5.5 há um único modo: o endereço é sempre \textbf{base + índice}. A
+base é o campo operando da instrução; o índice é o acumulador na leitura
+(\lstinline|LDI|/\lstinline|ILI|) e o topo da pilha de dados na escrita
+(\lstinline|STI|/\lstinline|ISI|). Para FFT (\lstinline|ILI|/\lstinline|ISI|), o índice passa
+por \textbf{reversão de bits} (\lstinline|FFTSIZ| bits), implementada em \lstinline|rel_addr|
+quando \lstinline|USEFFT| está ligado.
 
-\begin{description}[leftmargin=2.2em]
-  \item[Indireto relativo] (\lstinline|LDI|/\lstinline|STI| e variantes \lstinline|ILI|/\lstinline|ISI|):
-    o endereço efetivo é a base (operando da instrução) somada a um deslocamento. Para FFT,
-    o deslocamento passa por \textbf{reversão de bits} (\lstinline|FFTSIZ| bits), implementada
-    em \lstinline|rel_addr| quando \lstinline|USEFFT| está ligado.
-  \item[Indireto \emph{base-less}] (\lstinline|LDA|/\lstinline|STA|): o endereço vem
-    diretamente do acumulador (leitura) ou do topo da pilha de dados (escrita), sem a base do
-    operando. Isso viabiliza ponteiros em tempo de execução e a passagem de arrays como
-    parâmetros de função.
-\end{description}
+O mesmo caminho cobre arrays e ponteiros. Com o nome de um array no operando, a base é o
+endereço dele e o índice é calculado em tempo de execução. Um ponteiro é desreferenciado com
+base crua 0 no operando (\lstinline|LDI 0| lê \lstinline|mem[acc]|, \lstinline|STI 0| grava
+em \lstinline|mem[topo]|) ou com a constante do deslocamento em que é lido
+(\lstinline|LDI 3| lê \lstinline|mem[acc + 3]|). É o que viabiliza ponteiros em tempo de
+execução e a passagem de arrays como parâmetros de função. Até a v5.4 esse papel era de
+duas instruções próprias, \lstinline|LDA| e \lstinline|STA|, que ignoravam a base e exigiam
+um multiplexador extra em \lstinline|mem_ctrl|; na v5.5 elas saíram, junto com as entradas
+\lstinline|lda|/\lstinline|sta| do \lstinline|mem_ctrl| e as saídas correspondentes do
+decodificador. O trecho de \file{core.v}:
 
 \begin{lstlisting}[language=Verilog]
-generate
-  if (LDA) begin : rd_addr assign mem_addr_rd = lda ? ula[MDATAW-1:0] : rel_rd; end
-  else     begin : rd_addr assign mem_addr_rd = rel_rd;                          end
-endgenerate
-generate
-  if (STA) begin : wr_addr assign mem_addr_wr = sta ? stk_ofst : rel_wr; end
-  else     begin : wr_addr assign mem_addr_wr = rel_wr;                  end
-endgenerate
+// the address is always base + index: the operand field plus the acc (read)
+// or plus the data-stack top (write). A pointer is dereferenced with a raw
+// base of 0 in the operand field (LDI 0 / STI 0), or of the constant offset
+// it is read at (LDI 3 = mem[acc + 3]).
+rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ISI)) ra_rd(ldi, fft, ula[MDATAW-1:0], base_addr, mem_addr_rd);
+rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ILI)) ra_wr(sti, fft, stk_ofst       , base_addr, mem_addr_wr);
 \end{lstlisting}
 
 A reversão de bits da FFT é feita invertendo a ordem dos \lstinline|FFTSIZ| bits menos

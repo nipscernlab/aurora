@@ -178,7 +178,7 @@ A tabela resume cada \emph{downloader}, sua origem e seu destino.
   & \emph{release} de \repo{aurora-toolchain}
   & \path{components/Packages/msys/} \\
 \addlinespace
-\texttt{download-yanc.js} \newline (\file{yanc-bin-v5.4.zip})
+\texttt{download-yanc.js} \newline (\file{yanc-bin-v5.5.zip})
   & \emph{release} de \repo{yanc}
   & \path{components/} (gera \path{bin/}, \path{HDL/}, \path{Header/}, \path{Macros/}) \\
 \addlinespace
@@ -242,7 +242,7 @@ publicado pelo \emph{pipeline} dedicado do \repo{aurora-toolchain}; o
 
 \subsubsection{Compiladores YANC}
 
-O \file{download-yanc.js} baixa \file{yanc-bin-v5.4.zip} do \repo{yanc} e o
+O \file{download-yanc.js} baixa \file{yanc-bin-v5.5.zip} do \repo{yanc} e o
 extrai em \path{components/} (de modo que \path{bin/cmmcomp.exe} etc.\ caiam em
 \path{components/bin/}). O \texttt{.zip} contém sete binários:
 \texttt{cmmcomp.exe}, \texttt{cppcomp.exe}, \texttt{asmcomp.exe},
@@ -757,7 +757,7 @@ O diagrama a seguir resume a cadeia, do código-fonte ao usuário final.
   |  npm run bootstrap                                            |
   |    |-- check-pinned-versions.js  (monaco 0.52.2; manifest IA) |
   |    |-- download-toolchain (aurora-msys-v1.zip) -> Packages/msys|
-  |    |-- download-yanc (yanc-bin-v5.4.zip)       -> components/  |
+  |    |-- download-yanc (yanc-bin-v5.5.zip)       -> components/  |
   |    |-- download-gtkwave-nipscern               -> Packages/   |
   |    |-- download-norse-font (dafont)            -> assets/fonts|
   |    |-- download-surfer / verible / clang-format / slang-server|

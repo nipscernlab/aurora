@@ -2031,9 +2031,18 @@ sai quando ela acabar.
       [js/ui/ai_assistant_manager.js](js/ui/ai_assistant_manager.js) tem 4022
       linhas numa classe só, com 128 métodos. Três grupos já saíram para
       `js/ai/` com teste próprio (texto dos chips, referência a arquivo,
-      citação do manual). Os próximos, na mesma medida, são anexos, fila de
-      mensagens e provedor/modelo, cerca de 590 linhas juntas. A rede por fora
-      é `tests/unit/aiTurnFlow.test.js`.
+      citação do manual). Em 26/09 saíram mais: o contexto do turno
+      (`contexto_do_turno.ts`), abrir referência e caminho citado
+      (`abrir_referencia.ts`), os anexos (`anexos_do_chat.ts`), o desenho da
+      fila e o aviso de assinatura (`fila_do_chat.ts`), a linha de estado da
+      conexão (`estado_do_provedor.ts`) e o aviso de link externo
+      (`link_externo.ts`); `chat_render`, `chat_attachments`, `ai_metadata` e
+      `provider_view` viraram `.ts`. O painel está em 3680 linhas. Testes de
+      caracterização por grupo: `aiAnexos`, `aiProvedor`, e `aiTurnFlow`
+      ampliado (envio e fila). O que sobra do popover (trocar provedor e
+      modelo, esforço, uso) depende do estado do painel e fica para quando o
+      painel todo converter. Defeito corrigido no caminho: o escape dos chips
+      e da fila não cobria aspas, e um nome com aspas fechava o atributo.
 - [ ] **O último `.d.ts` escrito à mão.**
       [js/tabs/tab_manager.d.ts](js/tabs/tab_manager.d.ts) repete à mão
       assinaturas que o próprio arquivo já descreve, e as duas cópias podem

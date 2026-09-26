@@ -741,3 +741,118 @@ describe('referencia a arquivo na resposta', () => {
     expect(electronAPI.fileExists).toHaveBeenCalledWith('C:/proj/src/top.v');
   });
 });
+
+// O envio e a fila, nos cantos que a rede acima nao percorria: sem provedor,
+// assinatura sem CLI ou sem login, enviar da fila agora (interrompendo a
+// resposta), cancelar da fila, e o canal vivo que recusa ou falha.
+describe('envio e fila: os cantos', () => {
+  it('sem provedor ou sem texto nem anexo, nao envia', async () => {
+    await abrirPainel();
+    painel.currentProvider = null;
+    await mandar('oi');
+    painel.currentProvider = 'anthropic';
+    await mandar('   ');
+    expect(api.startChat).not.toHaveBeenCalled();
+  });
+
+  it('assinatura sem CLI ou sem login avisa na conversa e nao envia; CLI baixavel com login segue', async () => {
+    await abrirPainel();
+    painel.currentProvider = 'claude-code';
+    api.getClaudeCodeStatus = vi.fn(async () => ({ status: null }));
+    await mandar('oi');
+    expect(bolhas().at(-1).texto).toContain('Claude Code not installed');
+    painel.subStatus['claude-code'] = { installed: true, authed: false };
+    await mandar('oi');
+    expect(bolhas().at(-1).texto).toContain('Claude Code is not signed in');
+    painel.subStatus['claude-code'] = { installed: false, downloadable: true, authed: true };
+    await mandar('oi');
+    expect(api.startChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('o id da conversa nova cai no relogio quando a ponte falha', async () => {
+    api.newConversationId = vi.fn(async () => { throw new Error('x'); });
+    await abrirPainel();
+    await mandar('primeira');
+    expect(painel.currentChatId).toMatch(/^c-\d+$/);
+  });
+
+  it('cancelar tira da fila; enviar agora interrompe a resposta e manda na hora', async () => {
+    await abrirPainel();
+    await mandar('primeira');
+    await mandar('segunda');
+    await mandar('terceira');
+    expect(painel.queueEl.querySelectorAll('.ai-queued-chip')).toHaveLength(2);
+    painel.queueEl.querySelector('.ai-queued-remove').click();
+    expect(painel._messageQueue.map((m) => m.text)).toEqual(['terceira']);
+    // O abort fecha o turno do lado de la; aqui, o pacote chega logo.
+    api.abortChat = vi.fn(async (sid) => { api.emitir({ sessionId: sid, type: 'aborted' }); return { ok: true }; });
+    painel.queueEl.querySelector('.ai-queued-now').click();
+    await vi.waitFor(() => expect(api.startChat).toHaveBeenCalledTimes(2));
+    // A resposta abortada nao deixou texto, e as duas mensagens seguidas do
+    // usuario vao juntas no envio (buildApiMessages junta papeis repetidos).
+    expect(api.chamadas.startChat[1].messages.at(-1).content).toBe('primeira\n\nterceira');
+  });
+
+  it('se a resposta nao fecha ao interromper, o painel fecha a forca e envia', async () => {
+    await abrirPainel();
+    await mandar('primeira');
+    await mandar('segunda');
+    api.abortChat = vi.fn(async () => { throw new Error('travado'); });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] });
+    const p = painel._enviarDaFilaAgora(0);
+    await vi.advanceTimersByTimeAsync(3100);
+    await p;
+    expect(api.startChat).toHaveBeenCalledTimes(2);
+  });
+
+  it('interromper sem sessao aberta nao espera nada; item que nao existe nao envia', async () => {
+    await abrirPainel();
+    painel.currentSessionId = null;
+    expect(await painel._interromperParaFalar()).toBe(true);
+    await painel._enviarDaFilaAgora(5);
+    expect(api.startChat).not.toHaveBeenCalled();
+  });
+
+  it('se o turno teima em nao fechar, a mensagem volta para o inicio da fila', async () => {
+    await abrirPainel();
+    await mandar('primeira');
+    await mandar('segunda');
+    vi.spyOn(painel, '_interromperParaFalar').mockResolvedValue(false);
+    await painel._enviarDaFilaAgora(0);
+    expect(painel._messageQueue.map((m) => m.text)).toEqual(['segunda']);
+    expect(api.startChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('canal vivo que recusa ou falha deixa a mensagem na fila deste lado; com anexo, nem tenta', async () => {
+    api.pushChatMessage = vi.fn(async () => ({ ok: true, data: { accepted: false } }));
+    await abrirPainel();
+    await mandar('primeira');
+    await mandar('recusada');
+    expect(painel._messageQueue.map((m) => m.text)).toEqual(['recusada']);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    api.pushChatMessage = vi.fn(async () => { throw new Error('ipc'); });
+    await mandar('falhou');
+    expect(painel._messageQueue.map((m) => m.text)).toEqual(['recusada', 'falhou']);
+    expect(await painel._tryPushLive('x', [{ id: 'a' }])).toBe(false);
+    expect(await painel._tryPushLive('', [])).toBe(false);
+  });
+
+  it('aceite sem texto so tira a ficha; fila com resposta rodando nao anda; sem a faixa, nao desenha', async () => {
+    await abrirPainel();
+    painel._liveQueue = ['a'];
+    painel._followUpTaken(undefined);
+    expect(painel._liveQueue).toEqual([]);
+    painel._isStreaming = true;
+    painel._messageQueue = [{ text: 'x', atts: [] }];
+    expect(painel._drainMessageQueue()).toBe(false);
+    painel.queueEl = null;
+    expect(() => painel._renderQueue()).not.toThrow();
+  });
+
+  it('item da fila so com anexo mostra quantos sao', async () => {
+    await abrirPainel();
+    painel._messageQueue = [{ text: '', atts: [{ id: 'a' }, { id: 'b' }] }];
+    painel._renderQueue();
+    expect(painel.queueEl.querySelector('.ai-queued-text').textContent).toBe('2 attachment(s)');
+  });
+});

@@ -25,7 +25,43 @@ const MAX_TERMINAL_ENTRIES = 5000;
 // grouped lines past this limit so one card can't grow without bound.
 const MAX_GROUPED_MESSAGES = 5000;
 
+import type { BarraDeProgresso, Progresso } from './barra_de_progresso.js';
+import type { Contagem } from './classificacao_do_terminal.js';
+
+/** O pill do tamanho do dump, com o span do texto pendurado nele. */
+interface PillDoDump extends HTMLDivElement { _text: HTMLElement }
+
+/** Os elementos que se atualizam no lugar, por terminal. */
+interface CartoesVivos { hwProgress?: BarraDeProgresso | null; dumpSize?: PillDoDump | null }
+
+/** Uma resposta de executavel. */
+interface SaidaDeExecutavel { stdout?: string | null; stderr?: string | null }
+
+type ArgsDoAppend = [string, string | SaidaDeExecutavel, string, { internal?: boolean }];
+
 class TerminalManager {
+    static clearButtonInitialized?: boolean;
+    static exportLogButtonInitialized?: boolean;
+    static terminalLogListenerInitialized?: boolean;
+    static terminalTabsInitialized?: boolean;
+    static autoScrollInitialized?: boolean;
+
+    terminals: Record<string, HTMLElement | null>;
+    messageCounts: Record<string, Contagem>;
+    updatableCards: Record<string, CartoesVivos | null>;
+    currentSessionCards: Record<string, Record<string, HTMLElement>>;
+    activeFilters: Set<string>;
+    verboseMode: boolean;
+    clearMode?: 'current' | 'all';
+    handleClearClick?: (event: MouseEvent) => Promise<void>;
+    handleClearContextMenu?: (event: MouseEvent) => void;
+    /** Enquanto um terminal esvaece para limpar, o que chega espera aqui. */
+    _clearingQueues?: Map<string, ArgsDoAppend[]>;
+    /** A ultima linha de cada terminal, para agrupar a repeticao imediata. */
+    _ultimaLinha?: Map<string, { text: string; type: string; el: HTMLElement; count: number }>;
+    _refreshPending?: Set<string>;
+    _countTimers?: Map<string, ReturnType<typeof setTimeout>>;
+
     constructor() {
         this.terminals = {
             tcmm: document.querySelector('#terminal-tcmm .terminal-body'),
@@ -120,22 +156,22 @@ class TerminalManager {
         if (!activeTab) return;
 
         const terminalId = activeTab.getAttribute('data-terminal');
-        const counts = this.messageCounts[terminalId] || {
+        const counts = this.messageCounts[terminalId as string] || {
             error: 0,
             warning: 0,
             success: 0,
             tips: 0
         };
 
-        const updateBadge = (type, count) => {
+        const updateBadge = (type: string, count: number) => {
             const buttonId = type === 'tips' ? 'filter-tip' : `filter-${type}`;
             const button = document.getElementById(buttonId);
 
             if (button) {
-                const badge = button.querySelector('.message-counter');
+                const badge = button.querySelector('.message-counter') as HTMLElement | null;
                 if (badge) {
-                    const oldCount = parseInt(badge.textContent, 10) || 0;
-                    badge.textContent = count;
+                    const oldCount = parseInt(badge.textContent as string, 10) || 0;
+                    badge.textContent = String(count);
                     badge.style.display = count > 0 ? 'flex' : 'none';
 
                     if (count > oldCount) {
@@ -154,14 +190,15 @@ class TerminalManager {
         updateBadge('tips', counts.tips);
     }
 
-    incrementMessageCount(terminalId, type) {
-        if (this.messageCounts[terminalId] && this.messageCounts[terminalId][type] !== undefined) {
-            this.messageCounts[terminalId][type]++;
+    incrementMessageCount(terminalId: string, type: string): void {
+        const contagem = this.messageCounts[terminalId] as unknown as Record<string, number> | undefined;
+        if (contagem && contagem[type] !== undefined) {
+            contagem[type]++;
             this.updateCounterDisplay();
         }
     }
 
-    resetMessageCounts(terminalId) {
+    resetMessageCounts(terminalId: string): void {
         if (this.messageCounts[terminalId]) {
             this.messageCounts[terminalId] = {
                 error: 0,
@@ -173,7 +210,7 @@ class TerminalManager {
         }
     }
 
-    recountMessages(terminalId) {
+    recountMessages(terminalId: string): void {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
         this.messageCounts[terminalId] = contarMensagens(terminal);
@@ -186,18 +223,18 @@ class TerminalManager {
     }
 
     setupVerboseToggle() {
-        const verboseToggle = document.getElementById('verbose-toggle');
+        const verboseToggle = document.getElementById('verbose-toggle') as HTMLInputElement | null;
         if (verboseToggle) {
             verboseToggle.checked = this.verboseMode;
             verboseToggle.addEventListener('change', (e) => {
-                this.verboseMode = e.target.checked;
+                this.verboseMode = (e.target as HTMLInputElement).checked;
                 this.saveVerboseMode();
                 this.applyFilterToAllTerminals();
             });
         }
     }
 
-    resetSessionCards(terminalId) {
+    resetSessionCards(terminalId: string): void {
         if (this.currentSessionCards[terminalId]) {
             this.currentSessionCards[terminalId] = {};
         }
@@ -219,7 +256,7 @@ class TerminalManager {
      * calls this once per line, so only the first line of a new terminal
      * actually moves the DOM).
      */
-    revealActiveOutputTerminal(terminalId) {
+    revealActiveOutputTerminal(terminalId: string): void {
         const tab = document.querySelector(`.terminal-tabs .tab[data-terminal="${terminalId}"]`);
         if (!tab || tab.classList.contains('active')) return;
         // Delegate to switchTerminal so the shared sliding indicator follows the
@@ -239,7 +276,7 @@ class TerminalManager {
      * Re-consultar torna a escrita resiliente a ordem de init e a qualquer
      * reconstrucao do painel.
      */
-    _resolveTerminal(terminalId) {
+    _resolveTerminal(terminalId: string): HTMLElement | null {
         let el = this.terminals[terminalId];
         if (!el || !el.isConnected) {
             el = document.querySelector(`#terminal-${terminalId} .terminal-body`);
@@ -248,7 +285,7 @@ class TerminalManager {
         return el || null;
     }
 
-    processExecutableOutput(terminalId, result) {
+    processExecutableOutput(terminalId: string, result: SaidaDeExecutavel): void {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal || (!result.stdout && !result.stderr)) {
             return;
@@ -286,7 +323,7 @@ class TerminalManager {
         this._scheduleTerminalRefresh(terminalId);
     }
 
-    processStreamedLine(terminalId, line) {
+    processStreamedLine(terminalId: string, line: string): void {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal || !line) return;
 
@@ -310,7 +347,7 @@ class TerminalManager {
         this._scheduleTerminalRefresh(terminalId);
     }
 
-    appendToTerminal(terminalId, content, type = 'info', options = {}) {
+    appendToTerminal(terminalId: string, content: string | SaidaDeExecutavel, type = 'info', options: { internal?: boolean } = {}): void {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
@@ -376,13 +413,13 @@ class TerminalManager {
     }
 
 
-    applyFilter(terminalId) {
+    applyFilter(terminalId: string): void {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
         aplicarFiltro(terminal, this.activeFilters, this.verboseMode);
     }
 
-    filterGtkWaveOutput(result) { return semRuidoDoGtkwave(result); }
+    filterGtkWaveOutput(result: SaidaDeExecutavel) { return semRuidoDoGtkwave(result); }
 
     setupTerminalLogListener() {
         // Module-level guard, every `new TerminalManager()` used to
@@ -397,7 +434,7 @@ class TerminalManager {
         // appendToTerminal routes by id, so one listener serving all
         // terminals is correct. Subsequent constructors no-op.
         if (TerminalManager.terminalLogListenerInitialized) return;
-        electronAPI.onTerminalLog((event, terminal, message, type = 'info') => {
+        electronAPI.onTerminalLog((_event, terminal, message, type = 'info') => {
             this.appendToTerminal(terminal, message, type);
         });
         TerminalManager.terminalLogListenerInitialized = true;
@@ -422,8 +459,8 @@ class TerminalManager {
                 const contents = document.querySelectorAll('.terminal-content');
                 contents.forEach(content => content.classList.add('hidden'));
 
-                const terminalId = tab.getAttribute('data-terminal');
-                const terminal = document.getElementById(`terminal-${terminalId}`);
+                const terminalId = tab.getAttribute('data-terminal') as string;
+                const terminal = document.getElementById(`terminal-${terminalId}`) as HTMLElement;
                 terminal.classList.remove('hidden');
 
                 this.updateCounterDisplay();
@@ -443,10 +480,10 @@ class TerminalManager {
         if (!errorBtn || !warningBtn || !infoBtn || !successBtn) return;
 
         const buttons = {
-            error: errorBtn.cloneNode(true),
-            warning: warningBtn.cloneNode(true),
-            tips: infoBtn.cloneNode(true),
-            success: successBtn.cloneNode(true)
+            error: errorBtn.cloneNode(true) as HTMLElement,
+            warning: warningBtn.cloneNode(true) as HTMLElement,
+            tips: infoBtn.cloneNode(true) as HTMLElement,
+            success: successBtn.cloneNode(true) as HTMLElement,
         };
 
         // Cloned nodes inherit the marker attribute but not the tooltip listeners. Clearing it lets tooltip.js bind listeners again.
@@ -454,10 +491,10 @@ class TerminalManager {
             button.removeAttribute('data-tooltip-initialized');
         });
 
-        errorBtn.parentNode.replaceChild(buttons.error, errorBtn);
-        warningBtn.parentNode.replaceChild(buttons.warning, warningBtn);
-        infoBtn.parentNode.replaceChild(buttons.tips, infoBtn);
-        successBtn.parentNode.replaceChild(buttons.success, successBtn);
+        (errorBtn.parentNode as Node).replaceChild(buttons.error, errorBtn);
+        (warningBtn.parentNode as Node).replaceChild(buttons.warning, warningBtn);
+        (infoBtn.parentNode as Node).replaceChild(buttons.tips, infoBtn);
+        (successBtn.parentNode as Node).replaceChild(buttons.success, successBtn);
 
         this.createCounterBadges();
 
@@ -467,7 +504,7 @@ class TerminalManager {
         buttons.success.addEventListener('click', () => this.toggleFilter('success', buttons.success));
     }
 
-    toggleFilter(filterType, clickedBtn) {
+    toggleFilter(filterType: string, clickedBtn: HTMLElement): void {
         if (this.activeFilters.has(filterType)) {
             this.activeFilters.delete(filterType);
             clickedBtn.classList.remove('active');
@@ -486,13 +523,13 @@ class TerminalManager {
             });
     }
 
-    detectMessageType(content) { return tipoDaMensagem(content); }
+    detectMessageType(content: string | SaidaDeExecutavel) { return tipoDaMensagem(content); }
 
-    makeLineNumbersClickable(text) {
+    makeLineNumbersClickable(text: string): string {
         return linhaComLinks(text);
     }
 
-    addToSessionCard(terminalId, text, type) {
+    addToSessionCard(terminalId: string, text: string, type: string): void {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
@@ -515,7 +552,7 @@ class TerminalManager {
         // detectMessageType AND surfaced through appendToTerminal.
     }
 
-   createGroupedCard(terminal, type, timestamp) {
+    createGroupedCard(terminal: HTMLElement, type: string, timestamp: string): HTMLElement {
         const logEntry = document.createElement('div');
         // Add 'animating-in'
         logEntry.classList.add('log-entry', type, 'animating-in');
@@ -540,7 +577,7 @@ class TerminalManager {
         return logEntry;
     }
 
-    addMessageToCard(card, text, type) {
+    addMessageToCard(card: Element, text: string, _type?: string): void {
         const messagesContainer = card.querySelector('.messages-container');
         if (!messagesContainer) return;
 
@@ -569,11 +606,11 @@ class TerminalManager {
 
     // Os links da saida (reconhecer, clicar, ir a linha) moram em
     // links_do_terminal.ts; ficam aqui os nomes que o resto da classe usa.
-    _attachLineLinkClicks(scopeEl) {
+    _attachLineLinkClicks(scopeEl: Element | null): void {
         ligarLinks(scopeEl, (linha, coluna) => this.goToLine(linha, coluna));
     }
 
-    goToLine(lineNumber, columnNumber = 1) {
+    goToLine(lineNumber: number, columnNumber = 1): void {
         irParaLinha(lineNumber, columnNumber);
     }
 
@@ -586,18 +623,20 @@ class TerminalManager {
      * alguma coisa?" numa simulacao longa. Um no' so, atualizado no lugar,
      * mesma mecanica da barra de progresso.
      */
-    renderDumpSize(terminalId, { name, path = '', bytes, done = false }) {
+    renderDumpSize(terminalId: string, { name, path = '', bytes, done = false }: { name: string; path?: string; bytes: number; done?: boolean }): void {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
-        this.updatableCards[terminalId] = this.updatableCards[terminalId] || {};
-        let el = this.updatableCards[terminalId].dumpSize;
+        const cards = this.updatableCards[terminalId] || {};
+        this.updatableCards[terminalId] = cards;
+        let el = cards.dumpSize;
         if (!el || !el.isConnected) {
-            el = document.createElement('div');
-            el.className = 'dump-size';
-            el.innerHTML = '<i class="ph ph-wave-sine" aria-hidden="true"></i><span class="dump-size-text"></span>';
-            el._text = el.querySelector('.dump-size-text');
-            terminal.appendChild(el);
-            this.updatableCards[terminalId].dumpSize = el;
+            const novo = document.createElement('div') as PillDoDump;
+            novo.className = 'dump-size';
+            novo.innerHTML = '<i class="ph ph-wave-sine" aria-hidden="true"></i><span class="dump-size-text"></span>';
+            novo._text = novo.querySelector('.dump-size-text') as HTMLElement;
+            terminal.appendChild(novo);
+            cards.dumpSize = novo;
+            el = novo;
         } else if (!done && terminal.lastElementChild !== el) {
             // Cola embaixo, como a barra: linhas novas nao a empurram pro meio.
             terminal.appendChild(el);
@@ -618,7 +657,7 @@ class TerminalManager {
         this.scrollToBottom(terminalId);
     }
 
-    createLogEntry(terminal, text, type, timestamp) {
+    createLogEntry(terminal: HTMLElement, text: string, type: string, timestamp: string): HTMLElement {
         // A mesma linha, repetida logo em seguida, vira um contador na linha
         // que ja esta na tela. E o caso do $fscanf com $fopen falhado: o vvp
         // imprime o MESMO erro a cada ciclo de clock, milhares de vezes, e o
@@ -701,7 +740,7 @@ class TerminalManager {
      * A barra do teste de hardware (barra_de_progresso.ts), no terminal pedido.
      * Uma por terminal, guardada em updatableCards.
      */
-    renderHardwareProgress(terminalId, p) {
+    renderHardwareProgress(terminalId: string, p: Progresso): void {
         // A cancel already tore the bar down (clearHardwareProgress). Stream
         // chunks buffered before the kill still land here afterwards, and each
         // one would rebuild the very bar the user just cancelled away. The flag
@@ -746,7 +785,7 @@ class TerminalManager {
     }
 
     /** Format a millisecond ETA as a compact `Ns` / `Mm Ss` string. */
-    _fmtEta(ms) { return formatarEta(ms); }
+    _fmtEta(ms: number): string { return formatarEta(ms); }
 
     /**
      * Log entry com um trecho clicavel (link de pasta). `message` e a string
@@ -755,12 +794,8 @@ class TerminalManager {
      * (standardTreeRenderer.revealFolder). Construido com textContent, sem
      * innerHTML, sem risco de injecao.
      *
-     * @param {string} terminalId
-     * @param {string} message
-     * @param {string} folderPath
-     * @param {string} [type='success']
      */
-    appendFolderLink(terminalId, message, folderPath, type = 'success') {
+    appendFolderLink(terminalId: string, message: string, folderPath: string, type: string = 'success') {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
@@ -829,15 +864,15 @@ class TerminalManager {
         // current-tab ↔ all-terminals.
         if (this.clearMode === undefined) this.clearMode = 'current';
 
-        clearButton.removeEventListener('click', this.handleClearClick);
-        clearButton.removeEventListener('contextmenu', this.handleClearContextMenu);
+        if (this.handleClearClick) clearButton.removeEventListener('click', this.handleClearClick);
+        if (this.handleClearContextMenu) clearButton.removeEventListener('contextmenu', this.handleClearContextMenu);
 
         this.handleClearClick = async (event) => {
             if (event.button !== 0) return;
             const activeTab = document.querySelector('.terminal-tabs .tab.active');
             const terminalId = activeTab?.getAttribute('data-terminal')
                 || Object.keys(this.terminals)[0];
-            const tr = (k, alt) => { const t = window.t ? window.t(k) : k; return t === k ? alt : t; };
+            const tr = (k: string, alt: string) => { const t = window.t ? window.t(k) : k; return t === k ? alt : t; };
             if (this.clearMode === 'all') {
                 await this.clearAllTerminals();
                 // A pilula em TODOS, e nao so no ativo: quem troca de aba logo
@@ -887,7 +922,7 @@ class TerminalManager {
     // Drop the oldest entries once a terminal body exceeds the cap. Keeps the
     // DOM (and therefore recount/filter/scroll cost) bounded no matter how long
     // a build runs. See MAX_TERMINAL_ENTRIES.
-    trimTerminal(terminal) {
+    trimTerminal(terminal: Element | null): void {
         if (!terminal) return;
         let excess = terminal.childElementCount - MAX_TERMINAL_ENTRIES;
         while (excess-- > 0 && terminal.firstElementChild) {
@@ -901,7 +936,7 @@ class TerminalManager {
     // line is O(n²) over the build and forced a reflow each time, the terminal
     // freeze on large builds. The line's DOM is appended immediately (output
     // stays live); only the expensive bookkeeping is batched.
-    _scheduleTerminalRefresh(terminalId) {
+    _scheduleTerminalRefresh(terminalId: string): void {
         const pending = this._refreshPending || (this._refreshPending = new Set());
         if (pending.has(terminalId)) return;
         pending.add(terminalId);
@@ -924,7 +959,7 @@ class TerminalManager {
     // timer always fires after the last append the end state is exact. A type
     // filter applied mid-stream lags new lines by <=120ms, an imperceptible
     // settle, not a correctness loss.
-    _scheduleCountRefresh(terminalId) {
+    _scheduleCountRefresh(terminalId: string): void {
         const timers = this._countTimers || (this._countTimers = new Map());
         if (timers.has(terminalId)) return;
         timers.set(terminalId, setTimeout(() => {
@@ -936,7 +971,7 @@ class TerminalManager {
         }, 120));
     }
 
-    scrollToBottom(terminalId) {
+    scrollToBottom(terminalId: string): void {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
         // Smooth, self-coalescing follow to the true bottom (see
@@ -947,7 +982,7 @@ class TerminalManager {
         smoothFollowToBottom(terminal);
     }
 
-async clearTerminal(terminalId) {
+    async clearTerminal(terminalId: string): Promise<void> {
         // O TCMD e um shell de verdade dentro de um xterm: limpar o DOM dele
         // mataria o terminal. Ele limpa como um shell limpa.
         if (terminalId === 'tcmd') { window.shellTerminal?.limpar?.(); return; }
@@ -964,7 +999,7 @@ async clearTerminal(terminalId) {
         // Anything appended during the animation would be wiped with the old
         // entries before anyone saw it (it happened once, to the ASM preamble),
         // so appends are parked and replayed after the wipe.
-        const parked = this._clearingQueues || (this._clearingQueues = new Map());
+        const parked = this._clearingQueues || (this._clearingQueues = new Map<string, ArgsDoAppend[]>());
         if (parked.has(terminalId)) return; // a clear is already in flight
         parked.set(terminalId, []);
         terminal.classList.add('clearing');
@@ -986,7 +1021,7 @@ async clearTerminal(terminalId) {
     }
 
     /** Ha saida no terminal, alem da boas-vindas? */
-    _temSaida(terminal) {
+    _temSaida(terminal: Element): boolean {
         return !!terminal.querySelector(':scope > :not(.terminal-welcome)');
     }
 
@@ -999,7 +1034,7 @@ async clearTerminal(terminalId) {
      * e nao o corpo do terminal: com o atributo no corpo, a troca de idioma
      * reescrevia o corpo inteiro e apagava as saidas.
      */
-    _porBoasVindas(terminal, terminalId) {
+    _porBoasVindas(terminal: Element, terminalId: string): void {
         if (terminal.querySelector(':scope > .terminal-welcome')) return;
         const chave = `terminalWelcome.${terminalId}`;
         const span = document.createElement('span');
@@ -1011,7 +1046,7 @@ async clearTerminal(terminalId) {
     }
 
     /** Transient confirmation pill, fired by the manual clear button only. */
-    _flashCleared(terminalId, message = 'Terminal cleared') {
+    _flashCleared(terminalId: string, message = 'Terminal cleared'): void {
         // A pilula mora no CONTEINER do terminal (#terminal-<id>), como uma
         // sobreposicao, e nao no corpo: o TCMD nao tem corpo, tem um xterm, e
         // era por isso que ele nunca ganhava a confirmacao.
@@ -1021,7 +1056,7 @@ async clearTerminal(terminalId) {
         const pill = document.createElement('div');
         pill.className = 'terminal-cleared-pill';
         pill.innerHTML = '<i class="ph ph-check-circle"></i><span></span>';
-        pill.querySelector('span').textContent = message;
+        (pill.querySelector('span') as HTMLElement).textContent = message;
         caixa.appendChild(pill);
         // Temporizador, e nao rAF: numa janela ao fundo o Electron segura o
         // frame e a pilula nascia e morria invisivel (medido no TCMD).
@@ -1047,7 +1082,7 @@ async clearTerminal(terminalId) {
      * fade would race against the first appendToTerminal of the new
      * run and erase its initial lines.
      */
-    clearTerminalImmediate(terminalId) {
+    clearTerminalImmediate(terminalId: string): void {
         if (terminalId === 'tcmd') { window.shellTerminal?.limpar?.(); return; }
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
@@ -1073,7 +1108,7 @@ async clearTerminal(terminalId) {
         Object.keys(this.terminals).forEach((id) => this.clearTerminalImmediate(id));
     }
 
-    changeClearIcon(clearButton) {
+    changeClearIcon(clearButton: HTMLElement): void {
         const icon = clearButton.querySelector('i');
         if (this.clearMode === 'current') {
             this.clearMode = 'all';
@@ -1086,11 +1121,11 @@ async clearTerminal(terminalId) {
         }
     }
 
-    formatOutput(text) {
+    formatOutput(text: string): string {
         return text
             .split('\n')
             .map(line => {
-                const indent = line.match(/^\s*/)[0].length;
+                const indent = (line.match(/^\s*/) as RegExpMatchArray)[0].length;
                 const indentSpaces = '&nbsp;'.repeat(indent);
                 return indentSpaces + line.trim();
             })

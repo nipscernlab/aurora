@@ -148,6 +148,8 @@ interface AuroraElectronAPI {
   cancelVvpProcess(): Promise<{ success?: boolean } | null>;
   onProcessorCreated?(cb: (data: unknown) => void): void;
   onDirectoryChanged(cb: (directoryPath: string, files: unknown) => void): void;
+  /** Mensagem do processo principal para um terminal (canal terminal-log). */
+  onTerminalLog(cb: (event: unknown, terminal: string, message: string, type?: string) => void): void;
   /** O dialogo nativo de salvar (main/ipc/files.js), com as opcoes do Electron. */
   showSaveDialog?(opts: Record<string, unknown>): Promise<{ canceled?: boolean; filePath?: string } | null | undefined>;
   /** O shell interativo da aba TCMD (main/ipc/shell.js): um PTY por id de sessao. */
@@ -251,6 +253,10 @@ declare global {
       limpar(): void;
       runCommand(command: unknown, opts?: { execute?: boolean; idleMs?: number; maxMs?: number }): Promise<unknown>;
     };
+    /** A arvore de pastas (js/tree/standard_tree_render.ts); o link de pasta do terminal a revela. */
+    standardTreeRenderer?: { revealFolder?(pasta: string): unknown };
+    /** Reabre o painel de terminais recolhido (js/ui). */
+    abrirTerminal?: () => void;
     /** A instancia do js/tree/git_decorations.ts, para os testes e o console. */
     gitDecorations?: unknown;
     /** Returns the active yanc message language ('pt' | 'en'). */

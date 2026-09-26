@@ -425,6 +425,7 @@ const OPERAND_KIND: Record<number, string> = {
   21: 'output_port',    // port number (OUT)
   22: 'memory_offset',  // variable + constant offset (LOD_V, ADD_V, ...)
   24: 'address_const',  // LEA — bare address constant
+  28: 'base_or_array',  // LDI/ILI/STI/ISI — array name, or a number as the raw base (LDI 0 = mem[acc])
 };
 
 // Classify a mnemonic into a coarse family used to group the ISA in
@@ -434,7 +435,6 @@ export function classifyMnemonic(mne: string): string {
   // Special / pseudo
   if (mne === 'NOP')   return 'special';
   if (mne === 'F_ROT') return 'special';
-  if (mne === 'LDA' || mne === 'STA') return 'indirect';
   if (mne === 'LEA')   return 'memory';
 
   // Control flow
@@ -510,7 +510,7 @@ export function parseAsmLexer(src: string | null): AsmOpcode[] | null {
   const opcodes: AsmOpcode[] = [];
 
   // Each rule looks like:
-  //   "LOD"   eval_opcode(  0,18, yytext,    "LOD"  ); // loads data from memory
+  //   "LOD"   eval_opcode(  1,18, yytext,    "LOD"  ); // loads data from memory
   // We capture: mnemonic, opcode number, operand kind, hdl name,
   // and the trailing single-line comment (everything after //).
   //

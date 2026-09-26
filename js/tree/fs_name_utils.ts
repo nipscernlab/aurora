@@ -130,7 +130,7 @@ export function nextCopyName(name: string, siblings: string[]) {
  * @param raiz raiz do projeto
  * @returns pasta de destino, ou '' quando não há destino possível
  */
-export function resolveDropTarget(sobre: { path: string; isDir: boolean; }|null, raiz: string): string {
+export function resolveDropTarget(sobre: { path: string; isDir: boolean; }|null, raiz: string | null): string {
     if (!sobre || !sobre.path) return raiz || '';
     return sobre.isDir ? sobre.path : parentDir(sobre.path);
 }

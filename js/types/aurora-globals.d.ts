@@ -32,7 +32,13 @@ interface AuroraElectronAPI {
   deleteFileOrDirectory(path: string): Promise<unknown>;
   copyFile(src: string, dest: string): Promise<void>;
   /** Entradas de uma pasta, com a marca de quem e diretorio. */
-  getFolderFiles(path: string): Promise<Array<{ path: string, isDirectory?: boolean }>>;
+  getFolderFiles(path: string): Promise<Array<{ name: string, path: string, isDirectory?: boolean }>>;
+  /** stat de um caminho (main/ipc/files.js). */
+  getFileStats(path: string): Promise<{ isDirectory?: boolean; isDir?: boolean; isFile?: boolean; size?: number; mtime?: number } | null>;
+  /** A area de espera do desfazer da arvore (main/ipc/tree_undo.js): guardar, devolver e mandar para a Lixeira. */
+  undoStage(path: string): Promise<{ success: boolean; token?: string; error?: string } | null>;
+  undoRestore(token: string, destino: string): Promise<{ success: boolean; error?: string } | null>;
+  undoDiscard(token: string): Promise<{ success: boolean; error?: string } | null>;
   listFilesInDirectory(dir: string): Promise<string[]>;
   renamePath(oldPath: string, newPath: string, opts?: { overwrite?: boolean }):
     Promise<{ success: boolean; code?: string; error?: string; path?: string }>;
@@ -199,7 +205,13 @@ declare global {
       activateTree?(): Promise<unknown>;
       refreshEditorFocusHighlight?(): unknown;
       missingFiles?: import('../project/arquivos_faltando.js').ArquivoFaltando[];
+      createNewCocotbFile?(): unknown;
+      createGitignore?(): unknown;
     };
+    /** O controlador das duas visoes da arvore (js/tree/file_tree_view_controller.ts); lido por window para nao fechar ciclo. */
+    fileTreeViewController?: { getActiveView?(): string };
+    /** As operacoes da visao de pastas (js/tree/standard_tree_crud.ts), para o roteador do botao direito. */
+    standardTreeCrud?: unknown;
     /** O inicializador do app (js/app/app_initializer.js): lembra o ultimo projeto. */
     appInitializer?: { saveCurrentProject?(spfPath: string): unknown };
     /** O gerenciador de projeto do renderer (js/project/project_manager.js). */

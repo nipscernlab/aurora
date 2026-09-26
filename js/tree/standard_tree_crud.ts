@@ -1,5 +1,5 @@
 /**
- * standard_tree_crud.js: VS Code-style CRUD for the Folders (standard) view.
+ * standard_tree_crud.ts: VS Code-style CRUD for the Folders (standard) view.
  *
  * Owns everything the user does TO entries of the folder tree (the renderer,
  * standard_tree_render.js: owns painting them):
@@ -73,8 +73,34 @@ import { MenuDaArvore } from './menu_da_arvore.js';
 import { montarEdicaoEmLinha } from './edicao_em_linha.js';
 import { SpfDaArvore } from './spf_da_arvore.js';
 import { abasAbertas, abasAfetadas, migrarAbas, remapearExpandidas } from './abas_da_arvore.js';
+import type { EntradaDeMenu } from './menu_da_arvore.js';
+import type { OpcoesDaEdicao } from './edicao_em_linha.js';
+import type { TreeOp } from './tree_history.js';
+
+/** Uma linha da arvore, ou um caminho tratado como uma. */
+interface Entrada { path: string; isDir: boolean; name: string }
+
+/** O que o dialogo da AURORA recebe (js/ui/dialog_manager.ts). */
+interface PedidoDeDialogo {
+    title: string;
+    message: string;
+    variant?: string;
+    buttons?: Array<{ label?: string; action: string; type?: string }>;
+}
 
 class StandardTreeCrud {
+    /** Seleção, na ordem em que foi feita. Vazia quando nada está marcado. */
+    selectedPaths: string[];
+    /** Âncora do Shift: o último clique SEM Shift. Ver tree_selection.js. */
+    _anchor: string | null;
+    /** Vários, porque a seleção é múltipla: um Ctrl+C de cinco arquivos cola os cinco. */
+    clipboard: { items: Entrada[]; cut: boolean } | null;
+    _inlineCleanup: (() => void) | null;
+    menu: MenuDaArvore;
+    spf: SpfDaArvore;
+    _spfRetirado: SpfDaArvore['retirado'];
+    history: TreeHistory;
+
     constructor() {
         /** Seleção, na ordem em que foi feita. Vazia quando nada está marcado. */
         this.selectedPaths = [];
@@ -129,7 +155,7 @@ class StandardTreeCrud {
         // Desfazer nao atravessa projeto: os caminhos guardados apontariam para
         // fora do que esta aberto. Trocar de projeto devolve a Lixeira o que
         // estava esperando e zera a pilha.
-        let projetoAtual = null;
+        let projetoAtual: string | null = null;
         ProjectStore.subscribe(() => {
             const novo = ProjectStore.getProjectPath();
             if (novo === projetoAtual) return;
@@ -165,14 +191,14 @@ class StandardTreeCrud {
         return r.includes('\\') ? '\\' : '/';
     }
 
-    _join(dir, name) {
+    _join(dir: string, name: string): string {
         // `name` may be nested ("a/b.txt"), normalize to native separators.
         const sep = this._sep();
         const cleanName = String(name).replace(/[\\/]+/g, sep);
         return dir.replace(/[\\/]+$/, '') + sep + cleanName;
     }
 
-    async _siblingNames(dir) {
+    async _siblingNames(dir: string): Promise<string[]> {
         try {
             const list = await electronAPI.getFolderFiles(dir);
             return Array.isArray(list) ? list.map((e) => e.name) : [];
@@ -180,9 +206,9 @@ class StandardTreeCrud {
     }
 
     /** A linha ainda existe na arvore? Senao, pergunta ao disco. */
-    async _ehPasta(caminho) {
+    async _ehPasta(caminho: string): Promise<boolean> {
         const row = this._rowFor(caminho);
-        if (row) return row.dataset.isDir === '1';
+        if (row) return (row as HTMLElement).dataset.isDir === '1';
         try {
             const st = await electronAPI.getFileStats(caminho);
             return !!(st?.isDirectory ?? st?.isDir);
@@ -200,7 +226,7 @@ class StandardTreeCrud {
 
     async refazer() { await this._passo('refazer'); }
 
-    async _passo(qual) {
+    async _passo(qual: 'desfazer' | 'refazer'): Promise<void> {
         const h = this.history;
         if (qual === 'desfazer' && !h.podeDesfazer()) {
             showCardNotification(tr('fileTree.crud.nothingToUndo', 'Nothing to undo.'), 'info', 1800);
@@ -229,23 +255,23 @@ class StandardTreeCrud {
 
     /** Open tabs equal to `path` (file) or under it (directory). */
     /** Open tabs equal to `path` (file) or under it (directory). */
-    _affectedTabs(path, isDir) { return abasAfetadas(path, isDir); }
+    _affectedTabs(path: string, isDir: boolean): string[] { return abasAfetadas(path, isDir); }
 
     // ------------------------------------------------------------ .spf
 
     // O .spf acompanha a arvore: spf_da_arvore.ts.
-    async _spfRenomeou(de, para) { await this.spf.renomeou(de, para); }
+    async _spfRenomeou(de: string, para: string): Promise<void> { await this.spf.renomeou(de, para); }
 
-    async _spfRemoveu(caminhos) { await this.spf.removeu(caminhos); }
+    async _spfRemoveu(caminhos: string[]): Promise<void> { await this.spf.removeu(caminhos); }
 
     /** O outro lado do Ctrl+Z: devolve ao `.spf` o que o apagar tirou. */
-    async _spfRepos(caminho) { await this.spf.repos(caminho); }
+    async _spfRepos(caminho: string): Promise<void> { await this.spf.repos(caminho); }
 
     /** O nome do processador cuja pasta e `caminho`, ou null (ver spf_da_arvore.ts). */
-    async _processadorEm(caminho) { return this.spf.processadorEm(caminho, this._root()); }
+    async _processadorEm(caminho: string): Promise<string | null> { return this.spf.processadorEm(caminho, this._root()); }
 
     /** Avisa e recusa quando o alvo é a pasta de um processador. */
-    async _barradoPorSerProcessador(caminho, acao) {
+    async _barradoPorSerProcessador(caminho: string, acao: string): Promise<boolean> {
         const nome = await this._processadorEm(caminho);
         if (!nome) return false;
         await this._dialog({
@@ -259,7 +285,7 @@ class StandardTreeCrud {
         return true;
     }
 
-    _dialog(opts) {
+    _dialog(opts: PedidoDeDialogo): Promise<unknown> {
         const dialog = window.AuroraUI?.dialog;
         if (typeof dialog === 'function') return dialog(opts);
         // Fallback: collapse to a confirm() on the LAST (primary) button.
@@ -282,7 +308,7 @@ class StandardTreeCrud {
         return this.selectedPaths.length ? this.selectedPaths[this.selectedPaths.length - 1] : null;
     }
 
-    set selectedPath(path) {
+    set selectedPath(path: string | null) {
         this.selectedPaths = path ? [path] : [];
         this._anchor = path || null;
     }
@@ -293,7 +319,7 @@ class StandardTreeCrud {
         if (!container) return [];
         return Array.from(container.querySelectorAll('.file-tree-item[data-path]'))
             .map((el) => el.getAttribute('data-path'))
-            .filter(Boolean);
+            .filter((p): p is string => Boolean(p));
     }
 
     /**
@@ -306,14 +332,14 @@ class StandardTreeCrud {
         return topMostPaths(this.selectedPaths);
     }
 
-    select(path) {
+    select(path: string | null): void {
         this.selectedPath = path;
         this._refreshDecorations();
     }
 
     /** Marca vários de uma vez (usado ao colar e ao desfazer em lote). */
-    selectMany(paths) {
-        this.selectedPaths = (paths || []).filter(Boolean);
+    selectMany(paths: Array<string | null | undefined> | null | undefined): void {
+        this.selectedPaths = (paths || []).filter((p): p is string => Boolean(p));
         this._anchor = this.selectedPaths[this.selectedPaths.length - 1] || null;
         this._refreshDecorations();
     }
@@ -344,14 +370,14 @@ class StandardTreeCrud {
     // ------------------------------------------------------------ wiring
 
     _wireContainer() {
-        const host = document.getElementById('file-tree');
+        const host = document.getElementById('file-tree') as (HTMLElement & { __crudWired?: boolean }) | null;
         if (!host || host.__crudWired) return;
         host.__crudWired = true;
         host.tabIndex = -1; // receive keydown after clicks
 
         host.addEventListener('click', (e) => {
             if (!this._isStandardView()) return;
-            const row = e.target.closest('.file-tree-item[data-path]');
+            const row = (e.target as Element).closest('.file-tree-item[data-path]');
             if (row) {
                 // Ctrl soma e tira, Shift pega o intervalo desde a âncora. A
                 // regra inteira mora em tree_selection.js, que é puro e tem
@@ -360,7 +386,7 @@ class StandardTreeCrud {
                     visible: this._visiblePaths(),
                     selected: this.selectedPaths,
                     anchor: this._anchor,
-                    path: row.getAttribute('data-path'),
+                    path: row.getAttribute('data-path') as string,
                     ctrl: e.ctrlKey || e.metaKey,
                     shift: e.shiftKey,
                 });
@@ -417,53 +443,55 @@ class StandardTreeCrud {
      * nome, aba aberta, buffer sujo e pasta arrastada para dentro de si mesma.
      * Reimplementar mover seria repetir essas quatro decisões e errar uma.
      */
-    _wireDragAndDrop(host) {
+    _wireDragAndDrop(host: HTMLElement): void {
         /** Linha sob o cursor no momento, para limpar o realce depois. */
-        let realce = null;
-        const realcar = (el) => {
+        let realce: Element | null = null;
+        const realcar = (el: Element | null) => {
             if (realce === el) return;
             realce?.classList.remove('drop-target');
             realce = el;
             realce?.classList.add('drop-target');
         };
 
-        host.addEventListener('dragstart', (e) => {
+        host.addEventListener('dragstart', (e: DragEvent) => {
             if (!this._isStandardView()) return;
-            const row = e.target.closest?.('.file-tree-item[data-path]');
+            const row = (e.target as Element).closest?.('.file-tree-item[data-path]');
             if (!row) return;
             const entry = this._entryFromRow(row);
             // Arrastar uma linha que já está na seleção arrasta a seleção
             // inteira; arrastar uma de fora troca a seleção por ela, que é o
             // que o gesto quer dizer.
             const naSelecao = this.selectedPaths.some(
-                (p) => normSlash(p).toLowerCase() === normSlash(entry.path).toLowerCase(),
+                (p: string) => normSlash(p).toLowerCase() === normSlash(entry.path).toLowerCase(),
             );
             if (!naSelecao) this.select(entry.path);
             const arrastados = this._actionPaths();
             // Marcador próprio: sem ele, qualquer arrasto de fora (uma imagem
             // do navegador, texto selecionado) cairia como se fosse da árvore.
-            e.dataTransfer.setData('application/x-aurora-tree-path', JSON.stringify(arrastados));
-            e.dataTransfer.effectAllowed = 'copyMove';
+            const dt = e.dataTransfer as DataTransfer;
+            dt.setData('application/x-aurora-tree-path', JSON.stringify(arrastados));
+            dt.effectAllowed = 'copyMove';
         });
 
-        host.addEventListener('dragover', (e) => {
+        host.addEventListener('dragover', (e: DragEvent) => {
             if (!this._isStandardView()) return;
-            if (!e.dataTransfer.types.includes('application/x-aurora-tree-path')) return;
+            const dt = e.dataTransfer as DataTransfer;
+            if (!dt.types.includes('application/x-aurora-tree-path')) return;
             e.preventDefault();
-            e.dataTransfer.dropEffect = (e.ctrlKey || e.metaKey) ? 'copy' : 'move';
+            dt.dropEffect = (e.ctrlKey || e.metaKey) ? 'copy' : 'move';
             // Soltar sobre um arquivo significa soltar na pasta dele, que é o
             // que o usuário quer dizer ao mirar num item qualquer da pasta.
-            const row = e.target.closest?.('.file-tree-item[data-path]');
+            const row = (e.target as Element).closest?.('.file-tree-item[data-path]') as HTMLElement | null;
             realcar(row?.dataset.isDir === '1' ? row : null);
         });
 
-        host.addEventListener('dragleave', (e) => {
-            if (!host.contains(e.relatedTarget)) realcar(null);
+        host.addEventListener('dragleave', (e: DragEvent) => {
+            if (!host.contains(e.relatedTarget as Node | null)) realcar(null);
         });
 
-        host.addEventListener('drop', async (e) => {
+        host.addEventListener('drop', async (e: DragEvent) => {
             if (!this._isStandardView()) return;
-            const carga = e.dataTransfer.getData('application/x-aurora-tree-path');
+            const carga = (e.dataTransfer as DataTransfer).getData('application/x-aurora-tree-path');
             realcar(null);
             if (!carga) return;
             e.preventDefault();
@@ -471,7 +499,7 @@ class StandardTreeCrud {
             // A carga é uma lista desde que arrastar passou a levar a seleção
             // inteira; um caminho solto ainda é aceito, porque é o que uma
             // versão anterior colocava aí.
-            let origens;
+            let origens: string[];
             try {
                 const lido = JSON.parse(carga);
                 origens = Array.isArray(lido) ? lido : [String(lido)];
@@ -479,9 +507,9 @@ class StandardTreeCrud {
             origens = origens.filter(Boolean);
             if (!origens.length) return;
 
-            const row = e.target.closest?.('.file-tree-item[data-path]');
+            const row = (e.target as Element).closest?.('.file-tree-item[data-path]') as HTMLElement | null;
             const alvo = resolveDropTarget(
-                row ? { path: row.getAttribute('data-path'), isDir: row.dataset.isDir === '1' } : null,
+                row ? { path: row.getAttribute('data-path') as string, isDir: row.dataset.isDir === '1' } : null,
                 this._root(),
             );
             if (!alvo) return;
@@ -497,11 +525,11 @@ class StandardTreeCrud {
      * O clipboard do usuário é preservado: arrastar um arquivo não pode comer
      * um Ctrl+X que estava pendente.
      */
-    async dropOnto(origem, alvo, { copy = false } = {}) {
-        const origens = (Array.isArray(origem) ? origem : [origem]).filter(Boolean);
-        const items = [];
+    async dropOnto(origem: string | Array<string | null | undefined>, alvo: string, { copy = false }: { copy?: boolean } = {}): Promise<void> {
+        const origens = (Array.isArray(origem) ? origem : [origem]).filter((p): p is string => Boolean(p));
+        const items: Entrada[] = [];
         for (const p of origens) {
-            const row = this._rowFor(p);
+            const row = this._rowFor(p) as HTMLElement | null;
             const ehPasta = row ? row.dataset.isDir === '1' : false;
             // Soltar onde já está não é operação nenhuma, e sem esta guarda
             // viraria um "colar" que renomeia o arquivo para "nome copy".
@@ -522,16 +550,16 @@ class StandardTreeCrud {
         }
     }
 
-    _entryFromRow(row) {
-        const path = row.getAttribute('data-path');
+    _entryFromRow(row: Element): Entrada {
+        const path = row.getAttribute('data-path') as string;
         return {
             path,
-            isDir: row.dataset.isDir === '1',
+            isDir: (row as HTMLElement).dataset.isDir === '1',
             name: baseName(path),
         };
     }
 
-    _rowFor(path) {
+    _rowFor(path: string | null | undefined): Element | null {
         const container = this._container();
         if (!container || !path) return null;
         return container.querySelector(`.file-tree-item[data-path="${CSS.escape(path)}"]`);
@@ -549,19 +577,19 @@ class StandardTreeCrud {
     // -------------------------------------------------------- context menu
 
     /** Entry point, routed from project_tree_actions.handleTreeContextMenu. */
-    showMenu(event) {
+    showMenu(event: { target: EventTarget | null; pageX: number; pageY: number }): void {
         const root = this._root();
         if (!root) return;
         this._closeMenu();
 
-        const row = event.target.closest('.file-tree-item[data-path]');
+        const row = (event.target as Element).closest('.file-tree-item[data-path]');
         const entry = row ? this._entryFromRow(row) : null;
         if (entry) {
             // Clique direito DENTRO da seleção mantém a seleção: é o gesto de
             // "faça isto com tudo que marquei". Fora dela, troca, porque foi
             // outra linha que a pessoa mirou.
             const dentro = this.selectedPaths.some(
-                (p) => normSlash(p).toLowerCase() === normSlash(entry.path).toLowerCase(),
+                (p: string) => normSlash(p).toLowerCase() === normSlash(entry.path).toLowerCase(),
             );
             if (!dentro) this.select(entry.path);
             else this._refreshDecorations();
@@ -571,8 +599,8 @@ class StandardTreeCrud {
         this._renderMenu(items, event.pageX, event.pageY);
     }
 
-    _rowMenuItems(entry) {
-        const items = [];
+    _rowMenuItems(entry: Entrada): EntradaDeMenu[] {
+        const items: EntradaDeMenu[] = [];
         // Com vários marcados, cortar, copiar e apagar valem para todos, e o
         // rótulo diz isso: um "Delete" seco depois de marcar cinco arquivos
         // esconde exatamente a informação que decide o clique.
@@ -619,7 +647,7 @@ class StandardTreeCrud {
         return items;
     }
 
-    _emptyAreaMenuItems(root) {
+    _emptyAreaMenuItems(root: string): EntradaDeMenu[] {
         return [
             { icon: 'ph-file-plus', label: tr('fileTree.crud.newFile', 'New File...'), run: () => this.startCreate(root, 'file') },
             { icon: 'ph-folder-plus', label: tr('fileTree.crud.newFolder', 'New Folder...'), run: () => this.startCreate(root, 'folder') },
@@ -641,23 +669,23 @@ class StandardTreeCrud {
     }
 
     // O card do menu: menu_da_arvore.ts.
-    _renderMenu(items, x, y) { this.menu.abrir(items, x, y); }
+    _renderMenu(items: EntradaDeMenu[], x: number, y: number): void { this.menu.abrir(items, x, y); }
 
     _closeMenu() { this.menu.fechar(); }
 
     // ------------------------------------------------- open terminal / paths
 
-    openTerminalHere(dirPath) {
+    openTerminalHere(dirPath: string): void {
         if (!dirPath) return;
         switchTerminal('terminal-tcmd');
         window.shellTerminal?.openAt?.(dirPath);
     }
 
-    async _copyText(text) {
+    async _copyText(text: string): Promise<void> {
         try { await navigator.clipboard.writeText(text); } catch (_) { /* denied */ }
     }
 
-    _copyRelPath(path) {
+    _copyRelPath(path: string): Promise<void> {
         const root = this._root() || '';
         let rel = path;
         if (normSlash(path).toLowerCase().startsWith(normSlash(root).toLowerCase() + '/')) {
@@ -676,7 +704,7 @@ class StandardTreeCrud {
      * O campo de criar ou renomear (edicao_em_linha.ts). Um de cada vez: abrir
      * um fecha o anterior.
      */
-    _mountInline(opts) {
+    _mountInline(opts: OpcoesDaEdicao): HTMLInputElement {
         this._cancelInline();
         const { input, fechar } = montarEdicaoEmLinha({
             ...opts,
@@ -687,7 +715,7 @@ class StandardTreeCrud {
     }
 
     /** Inline "New File" / "New Folder" at the top of `dir`. */
-    async startCreate(dir, kind) {
+    async startCreate(dir: string, kind: 'file' | 'folder'): Promise<void> {
         const container = this._container();
         if (!container || !dir) return;
 
@@ -695,16 +723,16 @@ class StandardTreeCrud {
         // has a child box to live in (root mounts at the container top).
         const root = this._root();
         const isRoot = normSlash(dir).toLowerCase() === normSlash(root || '').toLowerCase();
-        let mountEl = container;
+        let mountEl: Element = container;
         let depth = 0;
         if (!isRoot) {
             if (!standardTreeRenderer.isExpanded(dir)) {
                 standardTreeRenderer._expanded.add(dir);
                 await standardTreeRenderer.render();
             }
-            const row = this._rowFor(dir);
+            const row = this._rowFor(dir) as HTMLElement | null;
             const childBox = row?.querySelector(':scope > .folder-content');
-            if (!childBox) return;
+            if (!row || !childBox) return;
             mountEl = childBox;
             depth = (parseInt(row.style.getPropertyValue('--depth'), 10) || 0) + 1;
         }
@@ -717,8 +745,8 @@ class StandardTreeCrud {
             depth,
             kind,
             initial: '',
-            validate: (v) => validateEntryName(v, { siblings, allowSeparators: true }),
-            commit: async (name) => {
+            validate: (v: string) => validateEntryName(v, { siblings, allowSeparators: true }),
+            commit: async (name: string) => {
                 const target = this._join(dir, name);
                 if (await electronAPI.fileExists(target)) {
                     showCardNotification(VALIDATION_MSGS.exists(), 'warning', 3000);
@@ -753,7 +781,7 @@ class StandardTreeCrud {
                     );
                 } catch (err) {
                     showCardNotification(
-                        tr('fileTree.crud.errCreate', 'Could not create: {error}', { error: err?.message || err }),
+                        tr('fileTree.crud.errCreate', 'Could not create: {error}', { error: (err as { message?: string } | null)?.message || err }),
                         'error', 4000,
                     );
                 }
@@ -762,8 +790,8 @@ class StandardTreeCrud {
     }
 
     /** Inline rename on the entry's own row (F2 / context menu). */
-    async startRename(path) {
-        const row = this._rowFor(path);
+    async startRename(path: string): Promise<void> {
+        const row = this._rowFor(path) as HTMLElement | null;
         if (!row) return;
         const entry = this._entryFromRow(row);
         if (entry.isDir && await this._barradoPorSerProcessador(
@@ -776,27 +804,27 @@ class StandardTreeCrud {
         row.classList.add('hidden-during-rename');
 
         const dot = entry.isDir ? -1 : entry.name.lastIndexOf('.');
-        const selectRange = dot > 0 ? [0, dot] : [0, entry.name.length];
+        const selectRange: [number, number] = dot > 0 ? [0, dot] : [0, entry.name.length];
 
         this._mountInline({
-            mountEl: row.parentNode,
+            mountEl: row.parentNode as Element,
             before: row,
             depth,
             kind: entry.isDir ? 'folder' : 'file',
             initial: entry.name,
             selectRange,
-            validate: (v) => validateEntryName(v, {
+            validate: (v: string) => validateEntryName(v, {
                 siblings, allowSeparators: false, originalName: entry.name,
             }),
             onClose: () => row.classList.remove('hidden-during-rename'),
-            commit: async (newName) => {
+            commit: async (newName: string) => {
                 if (newName === entry.name) return;
                 await this._performRename(entry, this._join(dir, newName));
             },
         });
     }
 
-    async _performRename(entry, newPath) {
+    async _performRename(entry: Entrada, newPath: string): Promise<void> {
         const affected = this._affectedTabs(entry.path, entry.isDir);
         const dirty = affected.filter((p) => TabManager.unsavedChanges?.has?.(p));
 
@@ -848,7 +876,7 @@ class StandardTreeCrud {
         await this._spfRenomeou(entry.path, newPath);
         this.history.registrar(Op.move(entry.path, newPath));
         if (this.clipboard?.items?.some(
-            (i) => normSlash(i.path).toLowerCase() === normSlash(entry.path).toLowerCase(),
+            (i: Entrada) => normSlash(i.path).toLowerCase() === normSlash(entry.path).toLowerCase(),
         )) {
             this.clipboard = null; // stale — the source moved
         }
@@ -858,14 +886,14 @@ class StandardTreeCrud {
 
     /** Close-and-reopen every affected tab at its new path (saved first by callers). */
     /** Close-and-reopen every affected tab at its new path (saved first by callers). */
-    async _migrateOpenTabs(oldBase, newBase, affected) { await migrarAbas(oldBase, newBase, affected); }
+    async _migrateOpenTabs(oldBase: string, newBase: string, affected: string[]): Promise<void> { await migrarAbas(oldBase, newBase, affected); }
 
-    _remapExpanded(oldBase, newBase) { remapearExpandidas(oldBase, newBase); }
+    _remapExpanded(oldBase: string, newBase: string): void { remapearExpandidas(oldBase, newBase); }
 
     // --------------------------------------------------------------- delete
 
     /** Um alvo só. Mantido porque é o que a maioria dos chamadores quer dizer. */
-    async deleteEntry(path, opts = {}) {
+    async deleteEntry(path: string, opts: { permanent?: boolean } = {}): Promise<void> {
         return this.deleteEntries([path], opts);
     }
 
@@ -874,13 +902,12 @@ class StandardTreeCrud {
      * selecionou cinco arquivos e apertou Delete fez um gesto, e desfazer tem
      * que devolver os cinco de uma vez.
      *
-     * @param {string[]} paths
      */
-    async deleteEntries(paths, { permanent = false } = {}) {
-        const alvos = topMostPaths((paths || []).filter(Boolean));
+    async deleteEntries(paths: Array<string | null | undefined> | null | undefined, { permanent = false }: { permanent?: boolean } = {}): Promise<void> {
+        const alvos = topMostPaths((paths || []).filter((p): p is string => Boolean(p)));
         if (!alvos.length) return;
 
-        const entries = alvos.map((p) => {
+        const entries: Entrada[] = alvos.map((p: string) => {
             const row = this._rowFor(p);
             return row ? this._entryFromRow(row) : { path: p, isDir: false, name: baseName(p) };
         });
@@ -893,7 +920,7 @@ class StandardTreeCrud {
         const dirtyCount = affected.filter((p) => TabManager.unsavedChanges?.has?.(p)).length;
 
         const entry = entries[0];
-        let message;
+        let message: string;
         if (entries.length > 1) {
             message = tr('fileTree.crud.deleteManyMsg',
                 'Delete these {count} items and everything inside them?', { count: entries.length });
@@ -940,8 +967,8 @@ class StandardTreeCrud {
             await TabManager.closeTab(p);
         }
 
-        const apagados = [];
-        const ops = [];
+        const apagados: string[] = [];
+        const ops: TreeOp[] = [];
         for (const alvo of entries) {
             const r = await this._deleteOne(alvo, permanent);
             if (r.cancelado) break;
@@ -966,12 +993,12 @@ class StandardTreeCrud {
                 }
             }
         }
-        const sumiu = (p) => apagados.some(
+        const sumiu = (p: string) => apagados.some(
             (a) => normSlash(p).toLowerCase() === normSlash(a).toLowerCase() || isUnder(p, a),
         );
         this.selectedPaths = this.selectedPaths.filter((p) => !sumiu(p));
         if (this._anchor && sumiu(this._anchor)) this._anchor = null;
-        if (this.clipboard?.items?.some((i) => sumiu(i.path))) this.clipboard = null;
+        if (this.clipboard?.items?.some((i: Entrada) => sumiu(i.path))) this.clipboard = null;
 
         await standardTreeRenderer.render();
         showCardNotification(
@@ -990,16 +1017,15 @@ class StandardTreeCrud {
      * decide entre a área de espera (que o Ctrl+Z alcança) e o apagar
      * definitivo, e o que fazer quando a espera não está disponível.
      *
-     * @returns {Promise<{ ok?: boolean, op?: object, cancelado?: boolean }>}
      */
-    async _deleteOne(entry, permanent) {
+    async _deleteOne(entry: Entrada, permanent: boolean): Promise<{ ok?: boolean; op?: TreeOp | null; cancelado?: boolean }> {
         let ok = false;
-        let op = null;
+        let op: TreeOp | null = null;
         if (permanent) {
             try { await electronAPI.deleteFileOrDirectory(entry.path); ok = true; }
             catch (err) {
                 showCardNotification(
-                    tr('fileTree.crud.errDelete', 'Could not delete: {error}', { error: err?.message || err }),
+                    tr('fileTree.crud.errDelete', 'Could not delete: {error}', { error: (err as { message?: string } | null)?.message || err }),
                     'error', 4000,
                 );
             }
@@ -1028,7 +1054,7 @@ class StandardTreeCrud {
                     try { await electronAPI.deleteFileOrDirectory(entry.path); ok = true; }
                     catch (err) {
                         showCardNotification(
-                            tr('fileTree.crud.errDelete', 'Could not delete: {error}', { error: err?.message || err }),
+                            tr('fileTree.crud.errDelete', 'Could not delete: {error}', { error: (err as { message?: string } | null)?.message || err }),
                             'error', 4000,
                         );
                     }
@@ -1045,10 +1071,10 @@ class StandardTreeCrud {
 
     // ----------------------------------------------------------- cut / paste
 
-    /** @param {string|string[]} paths um caminho ou a seleção inteira */
-    copy(paths, cut) {
-        const lista = (Array.isArray(paths) ? paths : [paths]).filter(Boolean);
-        const items = lista.map((path) => {
+    /** @param paths um caminho ou a seleção inteira */
+    copy(paths: string | Array<string | null | undefined>, cut?: boolean): void {
+        const lista = (Array.isArray(paths) ? paths : [paths]).filter((p): p is string => Boolean(p));
+        const items: Entrada[] = lista.map((path) => {
             const row = this._rowFor(path);
             return row ? this._entryFromRow(row) : { path, isDir: false, name: baseName(path) };
         });
@@ -1068,7 +1094,7 @@ class StandardTreeCrud {
      * Tudo o que aconteceu entra na pilha como UM grupo: desfazer um colar de
      * cinco arquivos tem que desfazer os cinco.
      */
-    async paste(targetDir) {
+    async paste(targetDir: string | null): Promise<void> {
         const clip = this.clipboard;
         const root = this._root();
         if (!clip?.items?.length || !targetDir || !root) return;
@@ -1077,8 +1103,8 @@ class StandardTreeCrud {
         // segundo precisa enxergar o nome que acabou de nascer, ou os dois
         // disputariam o mesmo nome e o segundo sobrescreveria o primeiro.
         const siblings = await this._siblingNames(targetDir);
-        const ops = [];
-        const destinos = [];
+        const ops: TreeOp[] = [];
+        const destinos: string[] = [];
         let sumiram = 0;
 
         for (const item of clip.items) {
@@ -1108,9 +1134,8 @@ class StandardTreeCrud {
     /**
      * Um item do clipboard para dentro de `targetDir`.
      *
-     * @returns {Promise<{ dest?: string, op?: object, cancelado?: boolean, sumiu?: boolean }>}
      */
-    async _pasteOne(item, targetDir, cut, siblings) {
+    async _pasteOne(item: Entrada, targetDir: string, cut: boolean, siblings: string[]): Promise<{ dest?: string; op?: TreeOp | null; cancelado?: boolean; sumiu?: boolean }> {
         if (!(await electronAPI.fileExists(item.path))) return { sumiu: true };
 
         // Uma pasta não entra dentro de si mesma nem da própria subárvore.
@@ -1122,7 +1147,7 @@ class StandardTreeCrud {
             return {};
         }
 
-        const conflict = siblings.some((s) => s.toLowerCase() === item.name.toLowerCase());
+        const conflict = siblings.some((s: string) => s.toLowerCase() === item.name.toLowerCase());
         const sameDir = normSlash(parentDir(item.path)).toLowerCase() === normSlash(targetDir).toLowerCase();
 
         let destName = item.name;
@@ -1135,7 +1160,7 @@ class StandardTreeCrud {
             } else if (cut && sameDir) {
                 return {}; // moving onto itself, no-op
             } else {
-                const buttons = [
+                const buttons: NonNullable<PedidoDeDialogo['buttons']> = [
                     { label: tr('dialog.common.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
                 ];
                 if (!cut) {

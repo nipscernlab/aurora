@@ -41,7 +41,7 @@ const LIMITE = 30;
 /** Um caminho virou outro. */
 export interface OpMove { kind: 'move'; de: string; para: string }
 /** Um caminho passou a existir (`presente`) ou deixou de existir; `token` e onde ele espera. */
-export interface OpExistence { kind: 'existence'; caminho: string; presente: boolean; token: string | null }
+export interface OpExistence { kind: 'existence'; caminho: string; presente: boolean; token: string | null | undefined }
 /** Varias operacoes de um gesto so. */
 export interface OpGrupo { kind: 'grupo'; ops: TreeOp[] }
 export type TreeOp = OpMove | OpExistence | OpGrupo;
@@ -49,9 +49,9 @@ export type TreeOp = OpMove | OpExistence | OpGrupo;
 /** Os executores que o dono da pilha passa: a pilha nao toca no disco. */
 export interface TreeExec {
     mover: (de: string, para: string) => Promise<boolean>;
-    guardar: (caminho: string) => Promise<string | null>;
+    guardar: (caminho: string) => Promise<string | null | undefined>;
     restaurar: (token: string, caminho: string) => Promise<boolean>;
-    descartar: (token: string) => Promise<void>;
+    descartar: (token: string) => Promise<unknown>;
 }
 
 type Resultado = { ok: true; op: TreeOp; foco?: string } | { ok: false; erro?: string };
@@ -207,7 +207,7 @@ export const Op = {
     /** Passou a existir: criar, copiar e colar. */
     criado: (caminho: string): OpExistence => ({ kind: 'existence', caminho, presente: true, token: null }),
     /** Deixou de existir, e `token` é onde está esperando. */
-    removido: (caminho: string, token: string | null): OpExistence => ({ kind: 'existence', caminho, presente: false, token }),
+    removido: (caminho: string, token: string | null | undefined): OpExistence => ({ kind: 'existence', caminho, presente: false, token }),
     /**
      * Um gesto só que produziu várias operações (seleção múltipla). Um grupo
      * de um vira a própria operação, para a pilha não ganhar uma camada que

@@ -256,3 +256,12 @@ describe('grupo: um gesto so, com varios arquivos', () => {
         expect(log.descartados.sort()).toEqual(['t1', 't2']);
     });
 });
+
+describe('TreeHistory, operacao que nao conhece', () => {
+    it('recusa com o nome do tipo, e a operacao continua para desfazer', async () => {
+        const h = new TreeHistory(fakeExec().exec);
+        h.registrar({ kind: 'teleporte' });
+        expect(await h.desfazer()).toEqual({ ok: false, erro: 'operacao desconhecida: teleporte' });
+        expect(h.podeDesfazer()).toBe(true);
+    });
+});

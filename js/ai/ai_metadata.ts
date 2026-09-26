@@ -1,11 +1,40 @@
-// ai_metadata.js: Aurora Intelligence provider/model/permission metadata +
+// ai_metadata.ts: Aurora Intelligence provider/model/permission metadata +
 // pure formatters (extracted from ai_assistant_manager.js, A2 god-file
 // decomposition). Static config tables (PROVIDER_META, SUB_META, model/effort
 // lists, permission modes, token-window sizes) and stateless helpers
 // (isSubProvider, shortModelName, formatTokens, untilTime, usageRowHTML,
 // readPermissionMode, relativeTime). No instance state, no DOM.
 
-export const PROVIDER_META = {
+/** O que o painel mostra de cada provedor. */
+export interface MetaDoProvedor { label: string; icon: string; subscription?: boolean; tagline?: string }
+
+/** Um modelo ou nivel de esforco escolhivel. */
+export interface Opcao { id: string; label: string }
+
+/** O que o painel sabe de cada assinatura (CLI de assinatura). */
+export interface MetaDaAssinatura {
+  models: Opcao[];
+  hasEffort: boolean;
+  statusApi: string;
+  usageApi: string;
+  modelStoreKey: string;
+  cliName: string;
+  notInstalled: string;
+  installHint: string;
+  loginCmd: string;
+}
+
+/** Um provedor na lista do popover. */
+export interface EntradaDeProvedor { name: string; model?: string; defaultModel?: string }
+
+/** O relatorio de uso de uma assinatura, como a CLI o manda. */
+export interface RelatorioDeUso {
+  plan?: string;
+  session?: { tokens?: number; costUsd?: number };
+  windows?: Array<{ rateLimitType: string; utilization?: number; status?: string; resetsAt?: number | string }>;
+}
+
+export const PROVIDER_META: Record<string, MetaDoProvedor> = {
   // Subscription-backed: runs through the Claude Code / Claude Agent SDK,
   // billed against the user's Pro/MAX plan, no per-token API key.
   'claude-code': {
@@ -88,7 +117,7 @@ export const CHATGPT_MODELS = [
 // Per-subscription-provider specifics. The panel's subscription UI
 // (status row, usage bars, model presets) is driven entirely off this
 // table so Claude Code and ChatGPT share one code path.
-export const SUB_META = {
+export const SUB_META: Record<string, MetaDaAssinatura> = {
   'claude-code': {
     models: CLAUDE_CODE_MODELS,
     hasEffort: true,
@@ -116,8 +145,8 @@ export const SUB_META = {
 };
 
 /** True when `name` is a subscription-backed CLI provider. */
-export function isSubProvider(name) {
-  return !!SUB_META[name];
+export function isSubProvider(name: string | null | undefined): boolean {
+  return !!SUB_META[name as string];
 }
 
 // Anti-freeze watchdog: if a streaming turn goes this long with NO chat event
@@ -140,7 +169,7 @@ export const STREAM_STALL_MS = 180000;
 export const STREAM_STALL_HARD_MS = 12 * 60 * 1000;
 
 /** Strip vendor prefixes / date suffixes so a model id fits on the chip. */
-export function shortModelName(model) {
+export function shortModelName(model: string | null | undefined): string {
   if (!model) return '';
   return String(model)
     .replace(/^(claude-|gpt-|gemini-|models\/|deepseek-)/i, '')
@@ -149,7 +178,7 @@ export function shortModelName(model) {
 }
 
 /** Compact a token count: 1234 → "1.2k", 12 → "12". */
-export function formatTokens(n) {
+export function formatTokens(n: unknown): string {
   const v = Number(n) || 0;
   if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
   if (v >= 1_000)     return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'k';
@@ -160,7 +189,7 @@ export function formatTokens(n) {
 // The Claude Agent SDK emits five_hour + seven_day (and per-model
 // seven_day_opus / seven_day_sonnet on some plans); `weekly` is kept for any
 // older payload shape.
-export const WINDOW_META = {
+export const WINDOW_META: Record<string, { label: string; icon: string }> = {
   five_hour:        { label: '5-hour window',      icon: 'ph-hourglass-medium' },
   seven_day:        { label: 'This week',          icon: 'ph-calendar-dots'    },
   seven_day_opus:   { label: 'This week · Opus',   icon: 'ph-calendar-dots'    },
@@ -170,11 +199,10 @@ export const WINDOW_META = {
 
 /**
  * Compact "in 2h 14m" / "in 3d" countdown from a unix-seconds timestamp.
- * @param {number} unixSeconds
- * @param {number} [agora] instante de referencia; existe para o teste nao
+ * @param [agora] instante de referencia; existe para o teste nao
  *        depender do relogio da maquina.
  */
-export function untilTime(unixSeconds, agora = Date.now()) {
+export function untilTime(unixSeconds: number, agora: number = Date.now()) {
   const ms = Number(unixSeconds) * 1000 - agora;
   if (!Number.isFinite(ms) || ms <= 0) return 'now';
   const m = Math.round(ms / 60000);
@@ -192,10 +220,10 @@ export function untilTime(unixSeconds, agora = Date.now()) {
  * Nome desconhecido sobe para maiuscula em vez de sumir: e melhor mostrar
  * algo estranho que esconder o plano de quem paga por ele.
  */
-export function formatPlanLabel(raw) {
+export function formatPlanLabel(raw: string | null | undefined): string {
   if (!raw) return '';
   const v = String(raw).toLowerCase().trim();
-  const conhecidos = {
+  const conhecidos: Record<string, string> = {
     pro: 'PRO',
     max: 'MAX',
     plus: 'PLUS',
@@ -226,13 +254,11 @@ export function formatPlanLabel(raw) {
  * Sem janela de limite reportada, sobra a linha da sessao, que e o unico
  * numero que todo provedor sabe dar.
  *
- * @param {object} u relatorio de uso do provedor
- * @param {object} [opcoes]
- * @param {number} [opcoes.agora] instante de referencia, para o teste
- * @returns {Array<{label: string, icon: string, valText: string, sev: string, pct: number}>}
+ * @param u relatorio de uso do provedor
+ * @param [opcoes.agora] instante de referencia, para o teste
  */
-export function usageRows(u, { agora = Date.now() } = {}) {
-  const linhas = [];
+export function usageRows(u: RelatorioDeUso | null | undefined, { agora = Date.now() }: { agora?: number; } = {}): Array<{ label: string; icon: string; valText: string; sev: string; pct: number; }> {
+  const linhas: Array<{ label: string; icon: string; valText: string; sev: string; pct: number }> = [];
 
   // Sessao: o numero do proprio CLI, sem piso sintetico, para o contador
   // nunca divergir do que o provedor cobrou.
@@ -278,7 +304,7 @@ export function usageRows(u, { agora = Date.now() } = {}) {
  * bar. `state` colours the fill (ok / mid / high / count); `pct` is the
  * fill width (0–100).
  */
-export function usageRowHTML(label, icon, valText, state, pct) {
+export function usageRowHTML(label: string, icon: string, valText: string, state: string, pct: number): string {
   return `
     <div class="ai-usage" data-state="${state}">
       <div class="ai-usage-top">
@@ -316,7 +342,7 @@ export function readPermissionMode() {
 }
 
 /** Compact "2 min ago" / "3 d ago" / locale date stamp. */
-export function relativeTime(ts) {
+export function relativeTime(ts: number | string | null | undefined): string {
   if (!ts) return '';
   const diff = Date.now() - Number(ts);
   if (diff < 60_000)      return 'just now';

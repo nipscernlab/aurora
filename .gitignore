@@ -215,6 +215,8 @@ js/terminal/terminal_excerpt.js
 js/terminal/tab_orientation.js
 js/ai/chat_attachments.js
 js/ai/chat_render.js
+js/ai/ai_metadata.js
+js/ai/provider_view.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

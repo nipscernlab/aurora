@@ -184,6 +184,7 @@ js/tree/file_tree_manager.js
 js/project/close_project.js
 js/project/delete_project.js
 js/ui/bug_report.js
+js/ai/system_prompt.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

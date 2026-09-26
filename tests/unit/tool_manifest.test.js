@@ -163,7 +163,7 @@ describe('TOOL_MANIFEST', () => {
     // inventar chamadas que vao falhar.
     it('the system prompt never names a tool that does not exist', () => {
         const prompt = readFileSync(
-            new URL('../../js/ai/system_prompt.js', import.meta.url), 'utf8');
+            new URL('../../js/ai/system_prompt.ts', import.meta.url), 'utf8');
         const nomes = new Set(TOOL_MANIFEST.map((d) => d.name));
         const verbo = /^(get|set|list|read|write|create|delete|open|run|compile|add|remove|rename|import|select|ask|save|close|insert|replace|move|reopen|backup|toggle|search|format|remember|forget|clear|stage|unstage|commit|discard|fetch|pull|push|stash|switch)_/;
         const candidatos = [...new Set(

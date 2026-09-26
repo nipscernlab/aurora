@@ -1,4 +1,4 @@
-// system_prompt.js: Aurora Intelligence system prompt (extracted from
+// system_prompt.ts: Aurora Intelligence system prompt (extracted from
 // ai_assistant_manager.js: A2 god-file decomposition). A single immutable
 // string constant concatenated to the per-project context before each turn.
 

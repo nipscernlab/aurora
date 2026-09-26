@@ -2108,11 +2108,15 @@ A cadeia, nesta ordem:
       deixou de existir. Em 26/09 sairam mais tres leituras de
       `window.currentProjectPath`: o `shell_terminal` (que virou `.ts`), os
       links do `terminal_module` (que sairam para `links_do_terminal.ts`) e o
-      `standard_tree_crud` (dividido e convertido, abaixo). Faltam 3
-      (`git grep -c "window\.currentProjectPath" -- js`): `ai_assistant_manager`
-      (2) e `renderer.js` (1). Quando a última sair, o store deixa de espelhar
-      em `window`. A catraca de globais está em 39, e o renderer não tem ciclo
-      de import.
+      `standard_tree_crud` (dividido e convertido, abaixo). No mesmo dia o
+      painel de IA deixou de ler de `window`: o contexto do turno e a abertura
+      de referência a arquivo saíram do `ai_assistant_manager` para
+      `js/ai/contexto_do_turno.ts` e `js/ai/abrir_referencia.ts`, lendo do
+      store. Falta 1 (`git grep -c "window\.currentProjectPath" -- js`): a do
+      boot no `renderer.js`. Quando ela sair, o store deixa de espelhar em
+      `window`. `window.ProjectStore` também deixou de ser lido fora do store,
+      e a catraca de globais desceu para 38. O renderer não tem ciclo de
+      import.
 
       **O `renderer.js` fica por último, e por quê.** Ele é a raiz do grafo:
       importa uns 30 módulos, e boa parte ainda é `.js` sem tipos. Um `.ts`

@@ -1,4 +1,4 @@
-// chat_render.js: Aurora Intelligence chat text rendering (extracted from
+// chat_render.ts: Aurora Intelligence chat text rendering (extracted from
 // ai_assistant_manager.js: A2 god-file decomposition). The full text→HTML
 // pipeline, all pure/DOM-only (no instance state, no electronAPI/TabManager):
 //   • zero-dep syntax highlighter for fenced code blocks,
@@ -31,11 +31,12 @@ const _HKW = new Set([
 //         4=string  5=number  6=fn-call-ident  7=ident  8=any-other-char
 const _HRE = /(\/\/[^\n]*)|(\/\*[\s\S]*?\*\/)|(#[^\n]*)|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(0x[0-9a-fA-F]+|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|([a-zA-Z_$][\w$]*(?=\s*\())|([a-zA-Z_$][\w$]*)|([^\w]|\s)/g;
 
-function _hesc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _hesc(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function _highlightCode(text) {
+function _highlightCode(text: string): string {
   _HRE.lastIndex = 0;
-  let out = '', m;
+  let out = '';
+  let m: RegExpExecArray | null;
   while ((m = _HRE.exec(text)) !== null) {
     if (m[1] || m[2] || m[3]) out += `<span class="hl-c">${_hesc(m[0])}</span>`;
     else if (m[4])             out += `<span class="hl-s">${_hesc(m[4])}</span>`;
@@ -48,10 +49,10 @@ function _highlightCode(text) {
 }
 
 /** Apply syntax highlighting to all unhighlighted code blocks in `containerEl`. */
-export function highlightCodeBlocks(containerEl) {
+export function highlightCodeBlocks(containerEl: Element | null | undefined): void {
   if (!containerEl) return;
-  containerEl.querySelectorAll('.ai-code-block code:not([data-hl])').forEach(el => {
-    el.innerHTML = _highlightCode(el.textContent);
+  containerEl.querySelectorAll<HTMLElement>('.ai-code-block code:not([data-hl])').forEach(el => {
+    el.innerHTML = _highlightCode(el.textContent as string);
     el.dataset.hl = '1';
   });
 }
@@ -60,7 +61,7 @@ export function highlightCodeBlocks(containerEl) {
  *  Markdown rendering (small, dependency-free)
  * ========================================================== */
 
-export function escapeHtml(s) {
+export function escapeHtml(s: unknown): string {
   return String(s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -83,7 +84,7 @@ const MATH_SENTINEL_CLOSE = '';
 
 // LaTeX → Unicode maps used by _renderMath(). Pragmatic subset that
 // covers the bulk of what AI assistants emit; the rest passes through.
-const _GREEK_MAP = {
+const _GREEK_MAP: Record<string, string> = {
   alpha:'α', beta:'β', gamma:'γ', delta:'δ', epsilon:'ε', zeta:'ζ',
   eta:'η', theta:'θ', iota:'ι', kappa:'κ', lambda:'λ', mu:'μ', nu:'ν',
   xi:'ξ', omicron:'ο', pi:'π', rho:'ρ', sigma:'σ', tau:'τ', upsilon:'υ',
@@ -93,7 +94,7 @@ const _GREEK_MAP = {
   Xi:'Ξ', Omicron:'Ο', Pi:'Π', Rho:'Ρ', Sigma:'Σ', Tau:'Τ', Upsilon:'Υ',
   Phi:'Φ', Chi:'Χ', Psi:'Ψ', Omega:'Ω',
 };
-const _OP_MAP = {
+const _OP_MAP: Record<string, string> = {
   cdot:'·', times:'×', div:'÷', pm:'±', mp:'∓', leq:'≤', geq:'≥',
   neq:'≠', approx:'≈', equiv:'≡', sim:'∼', propto:'∝', infty:'∞',
   partial:'∂', nabla:'∇', sum:'∑', prod:'∏', int:'∫', oint:'∮',
@@ -111,7 +112,7 @@ const _OP_MAP = {
  * pulling in a 300kB MathJax/KaTeX bundle. Anything unrecognised falls
  * through as styled text so the user still reads something.
  */
-function _renderMath(src, display) {
+function _renderMath(src: string, display: boolean): string {
   const raw = String(src || '');
 
   // Prefer KaTeX when it's loaded (index.html bundles it locally): a real
@@ -144,7 +145,7 @@ function _renderMath(src, display) {
   // ordinary text. Strip the macro, keep the content, and do this BEFORE the
   // super/sub pass so a `^{\text{miss}}` no longer leaves nested braces that made
   // the script render literally (the reported bug). Twice handles one nest level.
-  const _stripTextMacros = (str) => str.replace(
+  const _stripTextMacros = (str: string) => str.replace(
     /\\(?:text|mathrm|mathbf|mathit|mathsf|mathtt|mathbb|mathcal|operatorname)\s*\{([^{}]*)\}/g,
     '$1');
   s = _stripTextMacros(_stripTextMacros(s));
@@ -174,11 +175,11 @@ function _renderMath(src, display) {
     : `<span class="ai-math">${s}</span>`;
 }
 
-function renderInline(s) {
+function renderInline(s: string): string {
   // 1. Stash inline code first so bold/italic/math regexes never run
   //    inside it (`a*b*c` inside a backtick must stay literal).
-  const codes = [];
-  s = s.replace(/`([^`\n]+)`/g, (_, c) => {
+  const codes: string[] = [];
+  s = s.replace(/`([^`\n]+)`/g, (_, c: string) => {
     codes.push(c);
     return `${CODE_SENTINEL_OPEN}${codes.length - 1}${CODE_SENTINEL_CLOSE}`;
   });
@@ -186,24 +187,24 @@ function renderInline(s) {
   // 2. Stash math: $$…$$ display first, then $…$ inline. Stashing keeps
   //    escapeHtml() from mangling the LaTeX source. Inline math has to
   //    sidestep plain "$10" / "R$ 5" by requiring at least one math token.
-  const maths = [];
+  const maths: Array<{ expr: string; display: boolean }> = [];
   // ChatGPT-style delimiters \[ … \] (display) and \( … \) (inline). Many models
   // emit these instead of $…$; without handling them the literal `\(x^2\)` was
   // shown verbatim. Unambiguous, so no math-token gate, and stashed before
   // escapeHtml (like the $ handlers) so the LaTeX source survives.
-  s = s.replace(/\\\[([\s\S]+?)\\\]/g, (_, expr) => {
+  s = s.replace(/\\\[([\s\S]+?)\\\]/g, (_, expr: string) => {
     maths.push({ expr, display: true });
     return `${MATH_SENTINEL_OPEN}${maths.length - 1}${MATH_SENTINEL_CLOSE}`;
   });
-  s = s.replace(/\\\(([\s\S]+?)\\\)/g, (_, expr) => {
+  s = s.replace(/\\\(([\s\S]+?)\\\)/g, (_, expr: string) => {
     maths.push({ expr, display: false });
     return `${MATH_SENTINEL_OPEN}${maths.length - 1}${MATH_SENTINEL_CLOSE}`;
   });
-  s = s.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
+  s = s.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr: string) => {
     maths.push({ expr, display: true });
     return `${MATH_SENTINEL_OPEN}${maths.length - 1}${MATH_SENTINEL_CLOSE}`;
   });
-  s = s.replace(/(^|[^$\w])\$([^$\n]+?)\$(?!\d)/g, (m, lead, expr) => {
+  s = s.replace(/(^|[^$\w])\$([^$\n]+?)\$(?!\d)/g, (m, lead: string, expr: string) => {
     if (!/[\\^_={}]/.test(expr)) return m;
     maths.push({ expr, display: false });
     return `${lead}${MATH_SENTINEL_OPEN}${maths.length - 1}${MATH_SENTINEL_CLOSE}`;
@@ -216,7 +217,7 @@ function renderInline(s) {
   s = s.replace(/~~([^\n~]+?)~~/g, '<del>$1</del>');
   // ==highlight== → soft <mark> so the model can underline a term.
   s = s.replace(/==([^\n=]+?)==/g, '<mark>$1</mark>');
-  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, url) => {
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text: string, url: string) => {
     if (/^https?:\/\//i.test(url)) {
       return `<a href="#" class="ai-link" data-href="${escapeHtml(url)}">${text}</a>`;
     }
@@ -229,16 +230,16 @@ function renderInline(s) {
   // an attribute (data-href=") or right after a tag's '>' (the visible text of
   // a link just built above), so we never nest or break an existing anchor.
   s = s.replace(/(?<!["'=>])(https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]])/g,
-    (url) => `<a href="#" class="ai-link" data-href="${url}">${url}</a>`);
+    (url: string) => `<a href="#" class="ai-link" data-href="${url}">${url}</a>`);
 
   // Bare absolute filesystem paths (C:\… or \\server\…) → clickable. The string
   // is already escaped, and paths don't contain & < > " so the escaped form
   // equals the raw path. Backtick-wrapped paths are handled in the code restore.
   s = s.replace(/(^|[\s(>])((?:[A-Za-z]:\\|\\\\)[^\s<>"]*[^\s<>".,;:)\]])/g,
-    (_m, lead, p) => `${lead}<span class="ai-path" data-path="${p}" title="Open">${p}</span>`);
+    (_m, lead: string, p: string) => `${lead}<span class="ai-path" data-path="${p}" title="Open">${p}</span>`);
 
   const codeRe = new RegExp(`${CODE_SENTINEL_OPEN}(\\d+)${CODE_SENTINEL_CLOSE}`, 'g');
-  s = s.replace(codeRe, (_, i) => {
+  s = s.replace(codeRe, (_, i: string) => {
     const c = codes[+i];
     // A backtick span that is purely an absolute path is clickable too.
     if (/^(?:[A-Za-z]:\\|\\\\)[^\s<>"]+$/.test(c.trim())) {
@@ -248,7 +249,7 @@ function renderInline(s) {
     return `<code>${escapeHtml(c)}</code>`;
   });
   const mathRe = new RegExp(`${MATH_SENTINEL_OPEN}(\\d+)${MATH_SENTINEL_CLOSE}`, 'g');
-  s = s.replace(mathRe, (_, i) => {
+  s = s.replace(mathRe, (_, i: string) => {
     const m = maths[+i];
     return _renderMath(m.expr, m.display);
   });
@@ -277,7 +278,7 @@ const AI_TEXT_OPENABLE = new Set([
   'log', 'conf', 'config', 'env', 'lst', 'rpt', 'out', 'err', 'diff', 'patch',
   'do', 'ucf', 'lds', 'map', 'make', 'in', 'toml', 'properties', 'gitignore',
 ]);
-export function aiPathIsText(p) {
+export function aiPathIsText(p: unknown): boolean {
   const m = String(p).match(/\.([A-Za-z0-9]{1,12})$/);
   return m ? AI_TEXT_OPENABLE.has(m[1].toLowerCase()) : false;
 }
@@ -300,7 +301,7 @@ const AI_FILE_SKIP_TAGS = new Set(['PRE', 'A', 'SCRIPT', 'STYLE', 'BUTTON']);
 
 /** Split `path/file.ext:42` into { file, line }. A trailing `:<digits>` is the
  *  line number; a `C:\` drive colon (not followed by digits) is left alone. */
-function splitFileRef(token) {
+function splitFileRef(token: string): { file: string; line: number | null } {
   const m = /:(\d+)$/.exec(token);
   return m
     ? { file: token.slice(0, m.index), line: parseInt(m[1], 10) }
@@ -310,7 +311,7 @@ function splitFileRef(token) {
 /** True when `token` is a clickable file reference. A path- or `:line`-bearing
  *  token passes with ANY extension; a bare basename must carry a known
  *  extension so ordinary prose isn't linkified. */
-function isFileRefToken(token) {
+function isFileRefToken(token: string): boolean {
   if (!AI_FILE_TOKEN_RE.test(token)) return false;
   const { file, line } = splitFileRef(token);
   if (/[\\/]/.test(file) || line != null) return true;
@@ -319,7 +320,7 @@ function isFileRefToken(token) {
 }
 
 /** Build the clickable `.ai-file-ref` span for a file-reference `token`. */
-function makeFileRefSpan(token) {
+function makeFileRefSpan(token: string): HTMLSpanElement {
   const { file, line } = splitFileRef(token);
   const span = document.createElement('span');
   span.className = 'ai-file-ref';
@@ -338,14 +339,14 @@ function makeFileRefSpan(token) {
  * Runs on the FINAL (committed / static) message DOM, never per streaming
  * frame; fenced snippets (`pre`), links and existing refs are left untouched.
  */
-export function linkifyFileRefs(root) {
+export function linkifyFileRefs(root: Element | null | undefined): void {
   if (!root) return;
 
   // Pass 1, inline `code` spans like `my_proc.cmm:25` (skip fenced blocks
   // and any code carrying child markup, e.g. syntax-highlighted snippets).
   root.querySelectorAll('code').forEach((codeEl) => {
     if (codeEl.closest('pre') || codeEl.querySelector('*')) return;
-    const token = codeEl.textContent;
+    const token = codeEl.textContent as string;
     if (!isFileRefToken(token)) return;
     codeEl.replaceWith(makeFileRefSpan(token));
   });
@@ -354,23 +355,25 @@ export function linkifyFileRefs(root) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       for (let p = node.parentNode; p && p !== root; p = p.parentNode) {
+        const el = p as Element;
         if (p.nodeType === 1 &&
-            (AI_FILE_SKIP_TAGS.has(p.tagName) || p.tagName === 'CODE' ||
-             p.classList.contains('ai-file-ref'))) {
+            (AI_FILE_SKIP_TAGS.has(el.tagName) || el.tagName === 'CODE' ||
+             el.classList.contains('ai-file-ref'))) {
           return NodeFilter.FILTER_REJECT;
         }
       }
       AI_FILE_SCAN_RE.lastIndex = 0;
-      return AI_FILE_SCAN_RE.test(node.nodeValue)
+      return AI_FILE_SCAN_RE.test(node.nodeValue as string)
         ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     },
   });
-  const targets = [];
+  const targets: Node[] = [];
   for (let n = walker.nextNode(); n; n = walker.nextNode()) targets.push(n);
   for (const textNode of targets) {
-    const text = textNode.nodeValue;
+    const text = textNode.nodeValue as string;
     const frag = document.createDocumentFragment();
-    let last = 0, m;
+    let last = 0;
+    let m: RegExpExecArray | null;
     AI_FILE_SCAN_RE.lastIndex = 0;
     while ((m = AI_FILE_SCAN_RE.exec(text))) {
       const token = m[0];
@@ -381,17 +384,17 @@ export function linkifyFileRefs(root) {
     }
     if (last === 0) continue;                 // nothing survived the filter
     if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
-    textNode.parentNode.replaceChild(frag, textNode);
+    (textNode.parentNode as Node).replaceChild(frag, textNode);
   }
 }
 
 /** Parse a single GFM-style table row. Strips the leading/trailing pipe. */
-function _splitTableRow(line) {
+function _splitTableRow(line: string): string[] {
   let s = line.trim();
   if (s.startsWith('|')) s = s.slice(1);
   if (s.endsWith('|'))   s = s.slice(0, -1);
   // Pipes inside backticks shouldn't split the row.
-  const cells = [];
+  const cells: string[] = [];
   let cur = '', inCode = false;
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
@@ -403,19 +406,24 @@ function _splitTableRow(line) {
   return cells;
 }
 
-export function renderMarkdown(md) {
+const ICONES_DE_AVISO: Record<string, string> = {
+  note: 'ph-info', tip: 'ph-lightbulb',
+  warn: 'ph-warning', danger: 'ph-x-octagon',
+};
+
+export function renderMarkdown(md: unknown): string {
   const lines = String(md || '').replace(/\r\n?/g, '\n').split('\n');
-  const out = [];
+  const out: string[] = [];
   let inCode = false;
   let codeLang = '';
-  let codeLines = [];
+  let codeLines: string[] = [];
   // Lists are tracked as a stack so nested lists work. Each entry:
   // { type: 'ul' | 'ol', indent: leading-space count }.
-  const listStack = [];
-  let paraLines = [];
+  const listStack: Array<{ type: 'ul' | 'ol'; indent: number }> = [];
+  let paraLines: string[] = [];
   // Blockquote / callout state. callout: { tag: 'note'|'tip'|'warn'|'danger', title }
-  let quoteLines = [];
-  let quoteCallout = null;
+  let quoteLines: string[] = [];
+  let quoteCallout: { tag: string; title: string } | null = null;
 
   const flushPara = () => {
     if (paraLines.length) {
@@ -423,9 +431,9 @@ export function renderMarkdown(md) {
       paraLines = [];
     }
   };
-  const closeListsTo = (indent) => {
+  const closeListsTo = (indent: number) => {
     while (listStack.length && listStack[listStack.length - 1].indent >= indent) {
-      out.push(`</${listStack.pop().type}>`);
+      out.push(`</${(listStack.pop() as { type: string }).type}>`);
     }
   };
   const closeAllLists = () => closeListsTo(-1);
@@ -437,10 +445,7 @@ export function renderMarkdown(md) {
       const { tag, title } = quoteCallout;
       out.push(
         `<div class="ai-callout ai-callout-${tag}">` +
-        `<div class="ai-callout-head"><i class="ph ${({
-          note: 'ph-info', tip: 'ph-lightbulb',
-          warn: 'ph-warning', danger: 'ph-x-octagon',
-        })[tag] || 'ph-info'}"></i><span>${escapeHtml(title || tag.toUpperCase())}</span></div>` +
+        `<div class="ai-callout-head"><i class="ph ${(ICONES_DE_AVISO)[tag] || 'ph-info'}"></i><span>${escapeHtml(title || tag.toUpperCase())}</span></div>` +
         `<div class="ai-callout-body">${inner}</div></div>`,
       );
     } else {
@@ -550,20 +555,20 @@ export function renderMarkdown(md) {
     const olMatch = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
     if (ulMatch || olMatch) {
       flushPara();
-      const indent = (ulMatch ? ulMatch[1] : olMatch[1]).length;
+      const indent = (ulMatch ? ulMatch[1] : (olMatch as RegExpMatchArray)[1]).length;
       const type = ulMatch ? 'ul' : 'ol';
-      const text = ulMatch ? ulMatch[2] : olMatch[3];
+      const text = ulMatch ? ulMatch[2] : (olMatch as RegExpMatchArray)[3];
 
       // Close lists deeper than current indent.
       while (listStack.length && listStack[listStack.length - 1].indent > indent) {
-        out.push(`</${listStack.pop().type}>`);
+        out.push(`</${(listStack.pop() as { type: string }).type}>`);
       }
-      const top = listStack[listStack.length - 1];
+      const top: { type: 'ul' | 'ol'; indent: number } | undefined = listStack[listStack.length - 1];
       if (!top || top.indent < indent) {
         listStack.push({ type, indent });
         out.push(`<${type}>`);
       } else if (top.indent === indent && top.type !== type) {
-        out.push(`</${listStack.pop().type}>`);
+        out.push(`</${(listStack.pop() as { type: string }).type}>`);
         listStack.push({ type, indent });
         out.push(`<${type}>`);
       }

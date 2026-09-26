@@ -275,6 +275,8 @@ declare global {
     gotosrc?: (...args: unknown[]) => void;
     /** O digitaljs traz o jQuery junto, e a pagina do PRISM o usa por ele. */
     jQuery?: unknown;
+    /** O KaTeX, quando o index.html o carrega; o painel de IA renderiza a matematica com ele. */
+    katex?: { renderToString(src: string, opcoes: Record<string, unknown>): string };
     /** O Monaco, carregado pelo loader da AMD antes dos modulos do editor. */
     monaco?: any;
     /** Owned by processor_list.ts. */

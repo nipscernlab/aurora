@@ -2173,13 +2173,19 @@ A cadeia, nesta ordem:
         `createSurferLayout` e o `formatFile` conferiam `.success` num
         envelope que só tem `.ok`, e paravam no meio. Falta dividir o que
         sobrou (`editor`, `terminal`, `compile`, `ui`, `ai`, `settings`).
-      - [~] `terminal_module` (26/09): de 1767 para 1532 linhas. Saíram os
-        links da saída das ferramentas (`links_do_terminal.ts`: reconhecer,
-        ligar o clique, levar o editor à linha), com o `error_locations`
-        convertido antes porque o módulo novo o importa. Teste de
-        caracterização em `linksDoTerminal`. Falta dividir o resto
-        (contadores, filtros, cartões agrupados, barra de progresso,
-        exportar log, limpar) e converter.
+      - [x] `terminal_module` (26/09): de 1767 linhas `.js` para cerca de
+        1100 `.ts`, com cinco módulos fora: `links_do_terminal.ts`
+        (reconhecer, ligar o clique, levar o editor à linha),
+        `barra_de_progresso.ts` (a barra do teste de hardware),
+        `exportar_log.ts`, `classificacao_do_terminal.ts` (tipo, contagem e
+        filtro das linhas) e `texto_do_terminal.ts`. Testes de caracterização
+        em `linksDoTerminal` e `terminalManager` (59 casos, todas as linhas).
+        A pasta `js/terminal` ficou sem `.js`: `terminal`, `aurora-terminal`,
+        `progress_line`, `problems_panel`, `terminal_excerpt`,
+        `tab_orientation` e `error_locations` viraram `.ts`, e o
+        `terminal.d.ts` escrito à mão saiu. Achado e registrado no teste: o
+        stdout e o stderr de um executável são juntados sem quebra de linha,
+        então a última linha de um gruda na primeira do outro.
       - [x] `standard_tree_crud` (26/09): de 1486 linhas `.js` para cerca de
         1200 `.ts`, com cinco módulos fora: `menu_da_arvore.ts` (o card do
         botão direito), `edicao_em_linha.ts` (o campo de criar e renomear),

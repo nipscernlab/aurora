@@ -142,6 +142,16 @@ interface AuroraElectronAPI {
   cancelVvpProcess(): Promise<{ success?: boolean } | null>;
   onProcessorCreated?(cb: (data: unknown) => void): void;
   onDirectoryChanged(cb: (directoryPath: string, files: unknown) => void): void;
+  /** O shell interativo da aba TCMD (main/ipc/shell.js): um PTY por id de sessao. */
+  shellStart(opts: { id: string; cwd?: string; cols?: number; rows?: number }):
+    Promise<{ ok: boolean; error?: string } | null | undefined>;
+  shellInput(id: string, data: string): Promise<unknown>;
+  shellResize?(id: string, cols: number, rows: number): Promise<unknown>;
+  shellKill(id: string): Promise<unknown>;
+  /** O PTY mandou texto; devolve quem desliga o ouvinte. */
+  onShellData(cb: (payload: { id: string; data: string }) => void): () => void;
+  /** O shell terminou; devolve quem desliga o ouvinte. */
+  onShellExit(cb: (payload: { id: string; code?: number | null }) => void): () => void;
 }
 
 /** Subset do window.gitAPI do preload (main/ipc/git.ts) que os .ts ja usam. */
@@ -214,7 +224,13 @@ declare global {
       events?: { emit?(nome: string, dados: unknown): void };
     };
     /** O TabManager exposto em window (renderer.js); o PRISM em aba abre por ele. */
-    TabManager?: { openPrismTab?(resultado: unknown): unknown };
+    TabManager?: { openPrismTab?(resultado: unknown): unknown; addTab?(filePath: string, content: string): unknown };
+    /** O terminal da aba TCMD (js/terminal/shell_terminal.ts), para a arvore e a API. */
+    shellTerminal?: {
+      openAt(dirPath: string): Promise<void>;
+      limpar(): void;
+      runCommand(command: unknown, opts?: { execute?: boolean; idleMs?: number; maxMs?: number }): Promise<unknown>;
+    };
     /** A instancia do js/tree/git_decorations.ts, para os testes e o console. */
     gitDecorations?: unknown;
     /** Returns the active yanc message language ('pt' | 'en'). */

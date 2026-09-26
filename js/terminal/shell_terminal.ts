@@ -1,4 +1,4 @@
-// shell_terminal.js: the TCMD tab's real terminal (xterm.js + a PTY).
+// shell_terminal.ts: the TCMD tab's real terminal (xterm.js + a PTY).
 //
 // The main process (main/ipc/shell.js) owns a pseudo-terminal; xterm renders it
 // and forwards keystrokes. Because it's a true PTY, we get inline editing, the
@@ -8,6 +8,7 @@
 // first time the TCMD tab is opened.
 
 import { Terminal } from '@xterm/xterm';
+import type { ILink } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
@@ -22,7 +23,7 @@ const WIN_PATH_RE = /(?:[A-Za-z]:\\|\\\\)[^\s"'<>|)}\]]+/g;
 // Strip ANSI escape sequences (colours/cursor moves, window-title OSC) from
 // captured PTY output so the AI's run_in_terminal tool gets plain, readable text.
 // Keeps \t \n \r; drops other C0 control bytes.
-function stripAnsi(s) {
+function stripAnsi(s: string): string {
   /* eslint-disable no-control-regex -- stripping ANSI/control bytes needs them */
   return String(s)
     .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, '')   // OSC (e.g. window title) … BEL/ST
@@ -32,7 +33,25 @@ function stripAnsi(s) {
 }
 const TEXT_EXT_RE = /\.(v|sv|svh|vh|cmm|asm|c|h|cpp|py|txt|md|json|jsonc|log|csv|sdc|tcl|vhd|vhdl|xdc|ys|do|f|mk|cfg|ini|yml|yaml)$/i;
 
+interface RunCommandResult {
+  ok: boolean;
+  executed?: boolean;
+  complete?: boolean;
+  command?: string;
+  output?: string;
+  error?: string;
+}
+
 class ShellTerminal {
+  panel: HTMLElement | null;
+  mount: HTMLElement | null;
+  tab: HTMLElement | null;
+  term: Terminal | null;
+  fit: FitAddon | null;
+  _ro: ResizeObserver | null;
+  _startPromise: Promise<boolean> | null;
+  _unsub: Array<() => void>;
+
   constructor() {
     this.panel = document.getElementById('terminal-tcmd');
     this.mount = this.panel?.querySelector('.tcmd-xterm') || null;
@@ -54,7 +73,7 @@ class ShellTerminal {
   // Pull a few brand colours from CSS so the terminal matches the theme.
   _theme() {
     const css = getComputedStyle(document.documentElement);
-    const v = (n, f) => (css.getPropertyValue(n).trim() || f);
+    const v = (n: string, f: string) => (css.getPropertyValue(n).trim() || f);
     return {
       background: v('--bg', '#0A0D14'),
       foreground: v('--text', '#E8ECF3'),
@@ -72,7 +91,10 @@ class ShellTerminal {
     if (this.term) return;
     const mono = getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim()
       || 'Consolas, "Cascadia Mono", monospace';
-    this.term = new Terminal({
+    // O painel pode faltar so numa pagina sem a aba TCMD; ai o xterm recusa
+    // montar, como antes da conversao.
+    const mount = this.mount as HTMLElement;
+    const term = new Terminal({
       fontFamily: mono,
       fontSize: 13,
       lineHeight: 1.2,
@@ -81,30 +103,31 @@ class ShellTerminal {
       theme: this._theme(),
       allowProposedApi: true,
     });
+    this.term = term;
     this.fit = new FitAddon();
-    this.term.loadAddon(this.fit);
+    term.loadAddon(this.fit);
     // http(s) URLs → open in the default browser.
-    this.term.loadAddon(new WebLinksAddon((_e, uri) => electronAPI.openExternal?.(uri)));
-    this.term.open(this.mount);
-    this._registerFileLinks();
-    this._wireClipboard();
+    term.loadAddon(new WebLinksAddon((_e, uri) => electronAPI.openExternal?.(uri)));
+    term.open(mount);
+    this._registerFileLinks(term);
+    this._wireClipboard(term, mount);
 
     // Keystrokes → PTY (xterm handles inline editing; the PTY gives real Tab
     // completion, history, Ctrl+C, etc.).
-    this.term.onData((d) => this._send(d));
-    this.term.onResize(({ cols, rows }) => electronAPI.shellResize?.(SESSION_ID, cols, rows));
+    term.onData((d) => this._send(d));
+    term.onResize(({ cols, rows }) => electronAPI.shellResize?.(SESSION_ID, cols, rows));
 
     // Keep the PTY grid matched to the panel size.
     this._ro = new ResizeObserver(() => this._fit());
-    this._ro.observe(this.mount);
+    this._ro.observe(mount);
 
     // Stream from the PTY.
     this._unsub.push(electronAPI.onShellData(({ id, data }) => {
-      if (id === SESSION_ID) this.term.write(data);
+      if (id === SESSION_ID) term.write(data);
     }));
     this._unsub.push(electronAPI.onShellExit(({ id, code }) => {
       if (id !== SESSION_ID) return;
-      this.term.write(`\r\n\x1b[33m[processo encerrado (código ${code ?? 0})] — reabra a aba para um novo shell.\x1b[0m\r\n`);
+      term.write(`\r\n\x1b[33m[processo encerrado (código ${code ?? 0})] — reabra a aba para um novo shell.\x1b[0m\r\n`);
       this._startPromise = null;   // next activation restarts a fresh shell
     }));
   }
@@ -139,14 +162,14 @@ class ShellTerminal {
         return true;
       } catch (err) {
         this._startPromise = null;
-        this.term?.write(`\x1b[31m[erro ao iniciar o shell] ${err?.message || err}\x1b[0m\r\n`);
+        this.term?.write(`\x1b[31m[erro ao iniciar o shell] ${(err as { message?: string } | null)?.message || err}\x1b[0m\r\n`);
         return false;
       }
     })();
     return this._startPromise;
   }
 
-  async _send(data) {
+  async _send(data: string) {
     const ok = await this._ensureStarted();
     if (ok) electronAPI.shellInput(SESSION_ID, data);
   }
@@ -159,7 +182,7 @@ class ShellTerminal {
    * the path are escaped PowerShell-style by doubling them.
    * The caller is responsible for making the TCMD tab visible (switchTerminal).
    */
-  async openAt(dirPath) {
+  async openAt(dirPath: string) {
     if (!dirPath) return;
     this._ensureTerm();
     requestAnimationFrame(() => { this._fit(); this.term?.focus(); });
@@ -179,11 +202,8 @@ class ShellTerminal {
    * or interactive command can never block the AI turn). The caller switches the
    * TCMD tab into view (this module deliberately doesn't import switchTerminal).
    *
-   * @param {string} command
-   * @param {{execute?: boolean, idleMs?: number, maxMs?: number}} [opts]
-   * @returns {Promise<{ok:boolean, executed?:boolean, command?:string, output?:string, error?:string}>}
    */
-  async runCommand(command, { execute = true, idleMs = 500, maxMs = 15000 } = {}) {
+  async runCommand(command: unknown, { execute = true, idleMs = 500, maxMs = 15000 }: { execute?: boolean; idleMs?: number; maxMs?: number; } = {}): Promise<RunCommandResult> {
     const cmd = String(command ?? '');
     if (!cmd.trim()) return { ok: false, error: 'empty command' };
     this._ensureTerm();
@@ -198,17 +218,17 @@ class ShellTerminal {
       return { ok: true, executed: false, command: cmd };
     }
 
-    return await new Promise((resolve) => {
-      const chunks = [];
-      let idle = null;
-      let hard = null;
-      let unsub = null;
+    return await new Promise<RunCommandResult>((resolve) => {
+      const chunks: string[] = [];
+      let idle: ReturnType<typeof setTimeout> | null = null;
+      let hard: ReturnType<typeof setTimeout> | null = null;
+      let unsub: (() => void) | null = null;
       // `complete` tells the caller WHICH timer ended the capture. Idle means
       // the shell went quiet, so the command most likely finished; the hard
       // cap means it was still talking, so the output is a prefix and the
       // command may still be running. Before this flag both looked identical
       // (`ok: true`), and the AI took a truncated build log for a finished one.
-      const finish = (complete) => {
+      const finish = (complete: boolean) => {
         if (idle) clearTimeout(idle);
         if (hard) clearTimeout(hard);
         try { unsub?.(); } catch (_) { /* already gone */ }
@@ -227,7 +247,7 @@ class ShellTerminal {
 
   // ---- copy / paste ---------------------------------------------------------
 
-  _wireClipboard() {
+  _wireClipboard(term: Terminal, mount: HTMLElement) {
     // Ctrl+C copies the selection if there is one; otherwise ^C reaches the
     // shell as an interrupt. Ctrl+V pastes. Right-click: copy-or-paste.
     //
@@ -236,21 +256,21 @@ class ShellTerminal {
     // native paste event still fires on xterm's hidden textarea and xterm
     // forwards the clipboard to the PTY via onData, so Ctrl+V pasted TWICE
     // (and Ctrl+C ran the native copy in parallel with ours).
-    this.term.attachCustomKeyEventHandler((e) => {
+    term.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true;
       const ctrl = e.ctrlKey && !e.altKey;
       if (ctrl && (e.key === 'c' || e.key === 'C')) {
-        const sel = this.term.getSelection();
+        const sel = term.getSelection();
         if (sel) { e.preventDefault(); navigator.clipboard?.writeText(sel); return false; }
         return true;
       }
       if (ctrl && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); this._paste(); return false; }
       return true;
     });
-    this.mount.addEventListener('contextmenu', (e) => {
+    mount.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      const sel = this.term.getSelection();
-      if (sel) { navigator.clipboard?.writeText(sel); this.term.clearSelection(); }
+      const sel = term.getSelection();
+      if (sel) { navigator.clipboard?.writeText(sel); term.clearSelection(); }
       else this._paste();
     });
   }
@@ -264,11 +284,11 @@ class ShellTerminal {
 
   // ---- clickable file paths -------------------------------------------------
 
-  _registerFileLinks() {
-    this.term.registerLinkProvider({
+  _registerFileLinks(term: Terminal) {
+    term.registerLinkProvider({
       provideLinks: (lineNo, cb) => {
-        const text = this.term.buffer.active.getLine(lineNo - 1)?.translateToString(true) || '';
-        const links = [];
+        const text = term.buffer.active.getLine(lineNo - 1)?.translateToString(true) || '';
+        const links: ILink[] = [];
         let m;
         WIN_PATH_RE.lastIndex = 0;
         while ((m = WIN_PATH_RE.exec(text)) !== null) {
@@ -286,7 +306,7 @@ class ShellTerminal {
     });
   }
 
-  async _openPath(p) {
+  async _openPath(p: string) {
     try {
       const exists = await electronAPI.fileExists?.(p);
       if (!exists) return;
@@ -322,7 +342,7 @@ class ShellTerminal {
   }
 }
 
-let instance = null;
+let instance: ShellTerminal | null = null;
 function initShellTerminal() {
   if (instance) return instance;
   const boot = () => {

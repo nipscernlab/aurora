@@ -224,6 +224,33 @@ The script prints keyword, directive and message counts along with the yanc
 commit it read. Commit the regenerated JSON so CI never has to reach yanc
 directly.
 
+## Testing a local yanc build
+
+The YANC compilers, HDL, headers and macros come from a pinned yanc release:
+[`components/Scripts/download-yanc.js`](components/Scripts/download-yanc.js)
+downloads the zip named by `YANC_TAG`, and `components/bin/.yanc-version`
+records which one is installed. To try a yanc change before it is released,
+build and deploy it from the yanc checkout, which must sit next to this
+repository (`<parent>\yanc` and `<parent>\Aurora`):
+
+```bat
+set PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%
+..\yanc\Scripts\aurora.bat
+```
+
+Adjust the MSYS2 path to your install. The script builds with the same
+`make stage` recipe as a release, replaces `components/bin`, `HDL`, `Macros`
+and `Header` together (an HDL and an asmcomp from different yanc versions do
+not work together), and writes the pinned `YANC_TAG` into
+`components/bin/.yanc-version`, so the next `npm start` keeps the local build
+instead of downloading the release over it. Nothing it writes is tracked by
+git.
+
+To go back to the release, run
+`node components/Scripts/download-yanc.js --force`. After `YANC_TAG` is bumped,
+the next `npm start` downloads the new release once; run `aurora.bat` again to
+test a local build on top of it.
+
 ## Releasing
 
 Every push to `main` keeps a release pull request open, aggregating the

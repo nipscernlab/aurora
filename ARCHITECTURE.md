@@ -57,7 +57,7 @@ estado transversal tem exatamente um dono.
 
 | Conceito | Dono | Como os outros leem |
 |---|---|---|
-| Projeto atual (caminho e spf) | [`ProjectStore`](js/project/project_store.js) | `getProjectPath()` e `getSpfPath()`; o caminho do projeto ainda é espelhado em `window.currentProjectPath` para as leituras legadas que sobram |
+| Projeto atual (caminho e spf) | [`ProjectStore`](js/project/project_store.ts) | `getProjectPath()` e `getSpfPath()`; o caminho do projeto ainda é espelhado em `window.currentProjectPath` para as leituras legadas que sobram |
 | Abas abertas | `TabManager.tabs` ([tab_manager.js](js/tabs/tab_manager.js)) | `TabManager.tabs.get(filePath)` |
 | Instâncias do Monaco | `EditorManager.editors` ([monaco_editor.js](js/editor/monaco_editor.js)) | `EditorManager.getEditorForFile(filePath)` |
 | Modelos de texto compartilhados | `SharedModelRegistry` ([shared_models.js](js/editor/shared_models.js)) | `SharedModelRegistry.getModel(filePath)` |
@@ -66,7 +66,7 @@ estado transversal tem exatamente um dono.
 
 Se você se pegar cacheando um desses em `this.*`, está recriando o bug. Leia do
 dono. E o dono precisa expor `reset()` ou `clearProject()` explícito, em vez de
-deixar código externo mutar campos; o [close_project.js](js/project/close_project.js)
+deixar código externo mutar campos; o [close_project.ts](js/project/close_project.ts)
 é o padrão.
 
 ## 3. Recursos com escritor único
@@ -94,13 +94,13 @@ acrescente sobrevivem ao ciclo. Se você adicionar um escritor novo do lado do
 renderer, use `update()` e não escreva o arquivo direto.
 
 O segundo escritor é o CRUD da visão Pastas
-([standard_tree_crud.js](js/tree/standard_tree_crud.js)), desde 23/08/2026. Ele
+([standard_tree_crud.ts](js/tree/standard_tree_crud.ts)), desde 23/08/2026. Ele
 escreve por um motivo estreito e só esse: quando a árvore renomeia, move ou
 apaga um arquivo que o `.spf` referencia, a referência tem que acompanhar no
 mesmo gesto, senão ela aponta para um caminho que não existe e o usuário só
 descobre dois passos depois, quando o arquivo some da visão Verilog ou a
 compilação reclama de um nome que ele acabou de mudar. As regras de reescrita
-são puras e vivem em [spf_paths.js](js/project/spf_paths.js); o CRUD só chama
+são puras e vivem em [spf_paths.ts](js/project/spf_paths.ts); o CRUD só chama
 `SpfStore.update` com elas. Ele não classifica arquivo nem decide topo, que
 continua sendo do `ProjectTreeManager`. O processo principal
 também escreve o `.spf` em eventos de ciclo de vida, e a corrida teórica com o
@@ -200,7 +200,7 @@ subsistema passou por uma cadeia de cinco bugs antes de assentar num desenho de
 duas camadas que impede a classe inteira. A primeira camada são subárvores de DOM
 fisicamente separadas, de modo que os desenhadores literalmente não podem colidir,
 e o CSS mostra só a ativa a partir de um atributo. A segunda é um controlador
-único, o [fileTreeViewController](js/tree/file_tree_view_controller.js), dono do
+único, o [fileTreeViewController](js/tree/file_tree_view_controller.ts), dono do
 ouvinte do botão de alternância, do nome da visão ativa e dos dados de hierarquia.
 
 O desenhador da visão Verilog é um reconciliador por chave, que compara

@@ -44,6 +44,9 @@ There is no `npm run lint` script. Lint with `npx eslint .`, which is what CI
 runs, and fix warnings in the files you touched rather than reformatting
 unrelated code in the same change.
 
+New to the code? Start with [CODEMAP.md](CODEMAP.md): where things live and
+the rules the code does not make obvious.
+
 If you touch a renderer module that takes part in the editor or the compilation
 flow, read [ARCHITECTURE.md](ARCHITECTURE.md) first. It lists contracts that break
 silently, and its final section is a checklist worth walking through before you

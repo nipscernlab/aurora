@@ -302,7 +302,10 @@ always reveals the real file. The log rolls over around 5 MB and defaults to the
 
 ## Documentation
 
-[ARCHITECTURE.md](ARCHITECTURE.md) covers the state contracts the renderer
+[CODEMAP.md](CODEMAP.md) is the map for a first week in the code: the three
+Electron processes and the bridge between them, which of `x.ts` and `x.js` to
+edit, the globals on `window`, the downloaded toolchain, and where each feature
+starts. [ARCHITECTURE.md](ARCHITECTURE.md) covers the state contracts the renderer
 depends on but does not enforce, each one learned from something breaking
 subtly. [TODO.md](TODO.md) is the single implementation guide and the honest
 backlog of what has not been done yet.

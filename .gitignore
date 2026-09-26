@@ -188,6 +188,10 @@ js/ai/system_prompt.js
 js/terminal/shell_terminal.js
 js/terminal/error_locations.js
 js/terminal/links_do_terminal.js
+js/tree/tree_history.js
+js/tree/fs_name_utils.js
+js/tree/tree_selection.js
+js/project/spf_paths.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

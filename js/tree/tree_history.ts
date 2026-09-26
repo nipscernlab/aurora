@@ -1,5 +1,5 @@
 /**
- * tree_history.js: a pilha de desfazer e refazer da árvore de arquivos.
+ * tree_history.ts: a pilha de desfazer e refazer da árvore de arquivos.
  *
  * Ctrl+Z e Ctrl+Shift+Z valem para o que a árvore fez com os arquivos: criar,
  * renomear, mover, copiar e deletar. Só isso: o Ctrl+Z do editor continua sendo
@@ -38,31 +38,46 @@
 
 const LIMITE = 30;
 
+/** Um caminho virou outro. */
+export interface OpMove { kind: 'move'; de: string; para: string }
+/** Um caminho passou a existir (`presente`) ou deixou de existir; `token` e onde ele espera. */
+export interface OpExistence { kind: 'existence'; caminho: string; presente: boolean; token: string | null }
+/** Varias operacoes de um gesto so. */
+export interface OpGrupo { kind: 'grupo'; ops: TreeOp[] }
+export type TreeOp = OpMove | OpExistence | OpGrupo;
+
+/** Os executores que o dono da pilha passa: a pilha nao toca no disco. */
+export interface TreeExec {
+    mover: (de: string, para: string) => Promise<boolean>;
+    guardar: (caminho: string) => Promise<string | null>;
+    restaurar: (token: string, caminho: string) => Promise<boolean>;
+    descartar: (token: string) => Promise<void>;
+}
+
+type Resultado = { ok: true; op: TreeOp; foco?: string } | { ok: false; erro?: string };
+
 /**
  * A pilha, sem nenhum acesso a disco: quem executa é o dono (o CRUD da árvore),
  * que passa os executores em `aplicar`. Assim isto é testável sozinho.
  */
 export class TreeHistory {
-    /**
-     * @param {{
-     *   mover: (de: string, para: string) => Promise<boolean>,
-     *   guardar: (caminho: string) => Promise<string|null>,
-     *   restaurar: (token: string, caminho: string) => Promise<boolean>,
-     *   descartar: (token: string) => Promise<void>,
-     * }} exec
-     */
-    constructor(exec) {
+    exec: TreeExec;
+    /** Operações já aplicadas, da mais antiga para a mais nova. */
+    feito: TreeOp[];
+    /** Operações desfeitas, prontas para refazer. */
+    desfeito: TreeOp[];
+    /** Enquanto desfazemos, o CRUD não deve gravar a operação inversa. */
+    aplicando: boolean;
+
+    constructor(exec: TreeExec) {
         this.exec = exec;
-        /** @type {Array<object>} operações já aplicadas, da mais antiga para a mais nova */
         this.feito = [];
-        /** @type {Array<object>} operações desfeitas, prontas para refazer */
         this.desfeito = [];
-        /** Enquanto desfazemos, o CRUD não deve gravar a operação inversa. */
         this.aplicando = false;
     }
 
     /** Grava uma operação recém-concluída. Refazer deixa de fazer sentido. */
-    registrar(op) {
+    registrar(op: TreeOp): void {
         if (this.aplicando) return;
         this.feito.push(op);
         // O ramo de refazer morre a cada ação nova, como em qualquer editor.
@@ -72,12 +87,12 @@ export class TreeHistory {
     }
 
     /** Uma operação saiu do alcance: o que ela segurava na espera vai embora. */
-    _soltar(op) {
+    _soltar(op: TreeOp | undefined): void {
         if (op?.kind === 'grupo') {
             for (const membro of op.ops || []) this._soltar(membro);
             return;
         }
-        if (op?.token) this.exec.descartar(op.token).catch(() => { /* best-effort */ });
+        if (op?.kind === 'existence' && op.token) this.exec.descartar(op.token).catch(() => { /* best-effort */ });
     }
 
     podeDesfazer() { return this.feito.length > 0; }
@@ -85,10 +100,9 @@ export class TreeHistory {
 
     /**
      * Desfaz a última operação.
-     * @returns {Promise<{ok: boolean, foco?: string, erro?: string}>}
      *   `foco` é o caminho que a árvore deve selecionar depois.
      */
-    async desfazer() {
+    async desfazer(): Promise<{ ok: boolean; foco?: string; erro?: string; }> {
         const op = this.feito.pop();
         if (!op) return { ok: false };
         const r = await this._executar(op, true);
@@ -98,7 +112,7 @@ export class TreeHistory {
     }
 
     /** Refaz a última operação desfeita. */
-    async refazer() {
+    async refazer(): Promise<{ ok: boolean; foco?: string; erro?: string; }> {
         const op = this.desfeito.pop();
         if (!op) return { ok: false };
         const r = await this._executar(op, false);
@@ -111,7 +125,7 @@ export class TreeHistory {
      * Aplica uma operação numa direção. Devolve a operação atualizada, porque
      * um `existence` troca de token a cada volta.
      */
-    async _executar(op, desfazendo) {
+    async _executar(op: TreeOp, desfazendo: boolean): Promise<Resultado> {
         this.aplicando = true;
         try {
             if (op.kind === 'grupo') {
@@ -119,8 +133,8 @@ export class TreeHistory {
                 // depois moveu um arquivo para dentro dela, desfazer tem que
                 // tirar o arquivo antes de a pasta sumir.
                 const membros = desfazendo ? [...(op.ops || [])].reverse() : [...(op.ops || [])];
-                const feitos = [];
-                let foco;
+                const feitos: TreeOp[] = [];
+                let foco: string | undefined;
                 for (const membro of membros) {
                     const r = await this._executarUm(membro, desfazendo);
                     // Melhor esforço, e por isso o grupo é reescrito com o que
@@ -144,7 +158,7 @@ export class TreeHistory {
     }
 
     /** Uma operação das duas formas básicas, sem tocar em `aplicando`. */
-    async _executarUm(op, desfazendo) {
+    async _executarUm(op: TreeOp, desfazendo: boolean): Promise<Resultado> {
         if (op.kind === 'move') {
             const de = desfazendo ? op.para : op.de;
             const para = desfazendo ? op.de : op.para;
@@ -171,7 +185,7 @@ export class TreeHistory {
             return { ok: true, op: { ...op, token }, foco: op.caminho };
         }
 
-        return { ok: false, erro: `operacao desconhecida: ${op.kind}` };
+        return { ok: false, erro: `operacao desconhecida: ${(op as { kind?: unknown }).kind}` };
     }
 
     /**
@@ -189,18 +203,18 @@ export class TreeHistory {
 /** Fábricas das duas formas, para o CRUD não montar o objeto na mão. */
 export const Op = {
     /** Um caminho virou outro: renomear, mover, arrastar, recortar e colar. */
-    move: (de, para) => ({ kind: 'move', de, para }),
+    move: (de: string, para: string): OpMove => ({ kind: 'move', de, para }),
     /** Passou a existir: criar, copiar e colar. */
-    criado: (caminho) => ({ kind: 'existence', caminho, presente: true, token: null }),
+    criado: (caminho: string): OpExistence => ({ kind: 'existence', caminho, presente: true, token: null }),
     /** Deixou de existir, e `token` é onde está esperando. */
-    removido: (caminho, token) => ({ kind: 'existence', caminho, presente: false, token }),
+    removido: (caminho: string, token: string | null): OpExistence => ({ kind: 'existence', caminho, presente: false, token }),
     /**
      * Um gesto só que produziu várias operações (seleção múltipla). Um grupo
      * de um vira a própria operação, para a pilha não ganhar uma camada que
      * não diz nada.
      */
-    grupo: (ops) => {
-        const lista = (ops || []).filter(Boolean);
+    grupo: (ops: Array<TreeOp | null | undefined> | null | undefined): TreeOp => {
+        const lista = (ops || []).filter((o): o is TreeOp => Boolean(o));
         return lista.length === 1 ? lista[0] : { kind: 'grupo', ops: lista };
     },
 };

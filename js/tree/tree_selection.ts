@@ -1,5 +1,5 @@
 /**
- * tree_selection.js: o que um clique faz com a seleção da árvore.
+ * tree_selection.ts: o que um clique faz com a seleção da árvore.
  *
  * Antes havia um caminho selecionado e só. Com Ctrl e Shift são vários, e a
  * regra de qual clique produz qual conjunto é onde este tipo de código
@@ -24,23 +24,21 @@
  */
 
 /** Comparação de caminho tolerante a barra e a maiúscula (Windows). */
-function chave(p) {
+function chave(p: unknown): string {
     return String(p || '').replace(/\\/g, '/').toLowerCase();
 }
 
 /**
  * O conjunto selecionado depois de um clique.
  *
- * @param {object} entrada
- * @param {string[]} entrada.visible caminhos das linhas visíveis, na ordem da tela
- * @param {string[]} entrada.selected seleção atual
- * @param {string|null} entrada.anchor âncora atual (último clique sem Shift)
- * @param {string} entrada.path caminho clicado
- * @param {boolean} [entrada.ctrl] Ctrl (ou Cmd) pressionado
- * @param {boolean} [entrada.shift] Shift pressionado
- * @returns {{ selected: string[], anchor: string|null }}
+ * @param entrada.visible caminhos das linhas visíveis, na ordem da tela
+ * @param entrada.selected seleção atual
+ * @param entrada.anchor âncora atual (último clique sem Shift)
+ * @param entrada.path caminho clicado
+ * @param [entrada.ctrl] Ctrl (ou Cmd) pressionado
+ * @param [entrada.shift] Shift pressionado
  */
-export function nextSelection({ visible, selected, anchor, path, ctrl = false, shift = false }) {
+export function nextSelection({ visible, selected, anchor, path, ctrl = false, shift = false }: { visible: string[]; selected: string[]; anchor: string|null; path: string; ctrl?: boolean; shift?: boolean; }): { selected: string[]; anchor: string|null; } {
     const lista = Array.isArray(visible) ? visible : [];
     const atual = Array.isArray(selected) ? selected : [];
 
@@ -88,11 +86,9 @@ export function nextSelection({ visible, selected, anchor, path, ctrl = false, s
  * Chamado depois de cada desenho. Sem isto, um caminho apagado continuaria na
  * seleção e a próxima operação em lote tentaria mexer nele.
  *
- * @param {string[]} selected
- * @param {string[]} visible caminhos que existem agora
- * @returns {string[]}
+ * @param visible caminhos que existem agora
  */
-export function pruneSelection(selected, visible) {
+export function pruneSelection(selected: string[], visible: string[]): string[] {
     const vivos = new Set((visible || []).map(chave));
     return (selected || []).filter((p) => vivos.has(chave(p)));
 }
@@ -103,10 +99,8 @@ export function pruneSelection(selected, visible) {
  * dois seria mexer duas vezes no mesmo arquivo: a segunda falharia, porque
  * depois da primeira ele não está mais lá.
  *
- * @param {string[]} paths
- * @returns {string[]}
  */
-export function topMostPaths(paths) {
+export function topMostPaths(paths: string[]): string[] {
     const lista = (paths || []).filter(Boolean);
     return lista.filter((p) => {
         const filho = chave(p);

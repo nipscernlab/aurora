@@ -1,5 +1,5 @@
 /**
- * spf_paths.js: o que acontece com o `.spf` quando a árvore mexe num arquivo.
+ * spf_paths.ts: o que acontece com o `.spf` quando a árvore mexe num arquivo.
  *
  * O `.spf` guarda caminhos em quatro lugares: `topLevelFile` e `testbenchFile`
  * (o topo de síntese e o topo de simulação) e as listas `synthesizableFiles` e
@@ -26,12 +26,12 @@
  */
 
 /** Caminho comparável: barras iguais, sem barra final, minúsculo. */
-function chave(p) {
+function chave(p: unknown): string {
     return String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
 }
 
 /** `caminho` é o próprio `base` ou está dentro dele. */
-function souOuDentro(caminho, base) {
+function souOuDentro(caminho: unknown, base: unknown): boolean {
     const c = chave(caminho);
     const b = chave(base);
     return !!b && !!c && (c === b || c.startsWith(b + '/'));
@@ -41,7 +41,7 @@ function souOuDentro(caminho, base) {
  * `caminho` reescrito para o novo lugar, preservando o separador do destino.
  * Só o prefixo `de` muda; o resto do caminho vem inteiro.
  */
-function reescrever(caminho, de, para) {
+function reescrever(caminho: unknown, de: string, para: string): string {
     const c = String(caminho || '');
     const resto = c.slice(String(de).length);
     return para + resto.replace(/[\\/]/g, para.includes('\\') ? '\\' : '/');
@@ -53,19 +53,19 @@ const CAMPOS_TOPO = ['topLevelFile', 'testbenchFile'];
 const CAMPOS_LISTA = ['synthesizableFiles', 'testbenchFiles'];
 
 /** Último segmento, para manter o `name` das listas coerente com o `path`. */
-function nomeDe(p) {
+function nomeDe(p: unknown): string {
     return String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').split('/').pop() || '';
 }
 
 /**
  * Um caminho virou outro: renomear, mover, arrastar, recortar e colar.
  *
- * @param {Record<string, any>} structure a `structure` do `.spf`, mutada
- * @param {string} de caminho antigo (arquivo ou pasta)
- * @param {string} para caminho novo
- * @returns {number} quantas referências foram reescritas
+ * @param structure a `structure` do `.spf`, mutada
+ * @param de caminho antigo (arquivo ou pasta)
+ * @param para caminho novo
+ * @returns quantas referências foram reescritas
  */
-export function renomearNoSpf(structure, de, para) {
+export function renomearNoSpf(structure: Record<string,any>, de: string, para: string): number {
     if (!structure || !de || !para) return 0;
     let mudou = 0;
 
@@ -103,16 +103,15 @@ export function renomearNoSpf(structure, de, para) {
  * um arquivo qualquer, sem a marca de topo de síntese que tinha antes. O
  * usuário não veria erro nenhum, só o botão Verilog deixando de achar o topo.
  *
- * @param {Record<string, any>} structure a `structure` do `.spf`, mutada
- * @param {string[]} caminhos arquivos ou pastas apagados
- * @returns {{ total: number, topo: Record<string, string>, listas: Record<string, any[]> }}
+ * @param structure a `structure` do `.spf`, mutada
+ * @param caminhos arquivos ou pastas apagados
  *   o que sair daqui volta em `reporNoSpf`
  */
-export function removerDoSpf(structure, caminhos) {
+export function removerDoSpf(structure: Record<string,any>, caminhos: string[]): { total: number; topo: Record<string,string>; listas: Record<string,any[]>; } {
     const alvos = (Array.isArray(caminhos) ? caminhos : [caminhos]).filter(Boolean);
-    const retirado = { total: 0, topo: {}, listas: {} };
+    const retirado: { total: number; topo: Record<string, string>; listas: Record<string, any[]> } = { total: 0, topo: {}, listas: {} };
     if (!structure || !alvos.length) return retirado;
-    const atingido = (p) => alvos.some((alvo) => souOuDentro(p, alvo));
+    const atingido = (p: string) => alvos.some((alvo) => souOuDentro(p, alvo));
 
     for (const campo of CAMPOS_TOPO) {
         const atual = structure[campo];
@@ -129,7 +128,7 @@ export function removerDoSpf(structure, caminhos) {
     for (const campo of CAMPOS_LISTA) {
         const lista = Array.isArray(structure[campo]) ? structure[campo] : null;
         if (!lista) continue;
-        const saiu = [];
+        const saiu: any[] = [];
         const restante = lista.filter((entrada) => {
             const fora = entrada && typeof entrada.path === 'string' && atingido(entrada.path);
             if (fora) { saiu.push(entrada); retirado.total++; }
@@ -151,11 +150,9 @@ export function removerDoSpf(structure, caminhos) {
  * entre o apagar e o desfazer, a escolha dele é mais recente que a nossa
  * anotação e ganha.
  *
- * @param {Record<string, any>} structure
- * @param {{ topo?: Record<string, string>, listas?: Record<string, any[]> }} retirado
- * @returns {number} quantas referências voltaram
+ * @returns quantas referências voltaram
  */
-export function reporNoSpf(structure, retirado) {
+export function reporNoSpf(structure: Record<string,any>, retirado: { topo?: Record<string,string>; listas?: Record<string,any[]>; }): number {
     if (!structure || !retirado) return 0;
     let voltou = 0;
 
@@ -188,12 +185,10 @@ export function reporNoSpf(structure, retirado) {
  * o primeiro deixa o projeto num estado que não compila e não avisa. Quem faz
  * os cinco é o `renameProcessor`.
  *
- * @param {Record<string, any>} structure
- * @param {string} raiz pasta do projeto
- * @param {string} caminho pasta candidata
- * @returns {string|null}
+ * @param raiz pasta do projeto
+ * @param caminho pasta candidata
  */
-export function processadorEm(structure, raiz, caminho) {
+export function processadorEm(structure: Record<string,any>, raiz: string, caminho: string): string|null {
     const lista = Array.isArray(structure?.processors) ? structure.processors : [];
     const alvo = chave(caminho);
     for (const proc of lista) {

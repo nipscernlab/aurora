@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
     isSubProvider, formatTokens, shortModelName,
     readPermissionMode, PERMISSION_MODES,
-    usageRows, formatPlanLabel, untilTime,
+    usageRows, formatPlanLabel, untilTime, relativeTime,
 } from '../../js/ai/ai_metadata.js';
 
 describe('isSubProvider', () => {
@@ -160,4 +160,26 @@ describe('usageRows', () => {
         expect(usageRows({ windows: null }, { agora: AGORA })).toHaveLength(1);
         expect(usageRows({ windows: 'nada' }, { agora: AGORA })).toHaveLength(1);
     });
+});
+
+describe('relativeTime', () => {
+  it('agora, minutos, horas, dias e, depois de uma semana, a data', () => {
+    const agora = Date.now();
+    expect(relativeTime(0)).toBe('');
+    expect(relativeTime(agora - 10_000)).toBe('just now');
+    expect(relativeTime(agora - 5 * 60_000)).toBe('5 min ago');
+    expect(relativeTime(agora - 3 * 3_600_000)).toBe('3 h ago');
+    expect(relativeTime(agora - 2 * 86_400_000)).toBe('2 d ago');
+    expect(relativeTime(agora - 30 * 86_400_000)).toBe(new Date(agora - 30 * 86_400_000).toLocaleDateString());
+  });
+
+  it('data que nao formata vira vazio', () => {
+    const orig = Date.prototype.toLocaleDateString;
+    Date.prototype.toLocaleDateString = () => { throw new Error('x'); };
+    try {
+      expect(relativeTime(1)).toBe('');
+    } finally {
+      Date.prototype.toLocaleDateString = orig;
+    }
+  });
 });

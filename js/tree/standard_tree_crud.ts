@@ -180,7 +180,7 @@ class StandardTreeCrud {
     // ------------------------------------------------------------------ util
 
     _container() { return treeView.getContainer('standard'); }
-    _root() { return window.currentProjectPath || null; }
+    _root(): string | null { return ProjectStore.getProjectPath() || null; }
     _isStandardView() {
         return (window.fileTreeViewController?.getActiveView?.() ?? '') === 'standard';
     }

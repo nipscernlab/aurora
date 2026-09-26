@@ -143,6 +143,11 @@ describe('utilitarios', () => {
         expect(crud._sep()).toBe('/');
     });
 
+    it('a raiz vem do ProjectStore, nao de uma global sobrescrita', () => {
+        window.currentProjectPath = 'D:\\outra-janela';
+        expect(crud._root()).toBe(R);
+    });
+
     it('nomes da pasta: a lista da ponte, ou vazia quando ela falha ou nao responde lista', async () => {
         api.getFolderFiles.mockResolvedValueOnce([{ name: 'a.v' }, { name: 'b' }]);
         expect(await crud._siblingNames(R)).toEqual(['a.v', 'b']);

@@ -1,12 +1,8 @@
 import { electronAPI } from '../app/electron_api.js';
 import '../components/aurora-terminal.js';
-import { TabManager } from '../tabs/tab_manager.js';
-import { EditorManager } from '../editor/monaco_editor.js';
 import { showCardNotification } from '../ui/notification.js';
 import { switchTerminal, smoothFollowToBottom } from './terminal.js';
-import { comLinks, problemasNaLinha } from './error_locations.js';
-import { problemStore } from './problem_store.js';
-import { abrirAjudaDe, AJUDAS } from '../ui/help_link.js';
+import { linhaComLinks, ligarLinks, irParaLinha } from './links_do_terminal.js';
 
 // Hard cap on retained `.log-entry` nodes per terminal body. A streaming
 // compile (Verilator/iverilog dumping thousands of lines) appends one node
@@ -628,73 +624,7 @@ class TerminalManager {
     }
 
     makeLineNumbersClickable(text) {
-
-        // Ajuda contextual. Quem escreve a linha marca o capitulo com
-        // `[[ajuda:chave]]` no fim, e a chave e resolvida na tabela unica de
-        // js/ui/help_link.js. O marcador sai do texto AQUI, antes de qualquer
-        // escape ou reconhecimento de link, entao ele nunca chega a tela.
-        let chaveDeAjuda = null;
-        text = String(text).replace(/\s*\[\[ajuda:([A-Za-z]+)\]\]\s*$/, (_, k) => {
-            chaveDeAjuda = k;
-            return '';
-        });
-
-        // O reconhecimento mora em js/terminal/error_locations.js, POR
-        // FERRAMENTA, porque cada uma imprime de um jeito e as diferencas nao
-        // sao cosmeticas: o Icarus nao da coluna, o Verilator da e ainda mistura
-        // as barras do caminho, o yanc nao diz o arquivo, e o cocotb usa o
-        // formato do Python. Ali tambem estao as duas armadilhas do Windows, a
-        // letra de unidade e o espaco no caminho, e os testes usam a saida real
-        // das ferramentas.
-        //
-        // O texto que NAO e link passa a ser escapado aqui, o que antes nao
-        // acontecia: a saida ia crua para o innerHTML, e ela vem de arquivo do
-        // usuario, que pode ter qualquer coisa no nome.
-        // A MESMA linha que vira link vira tambem marcador no editor. O
-        // reconhecimento e um so (error_locations.js); o que muda e o destino.
-        // Sem isto o erro existia apenas como texto aqui: quem fechasse o
-        // terminal o perdia de vista, e erro em arquivo nao aberto era
-        // invisivel do comeco ao fim.
-        try {
-            problemStore.registrarLinha(text, {
-                cmmPadrao: window.compilationManager?.lastCompiledCmmPath
-                    || window._latestCompilationModule?.lastCompiledCmmPath
-                    || null,
-                problemasNaLinha,
-            });
-        } catch (e) {
-            // Marcador e ganho, nao requisito: se algo aqui falhar, a linha do
-            // terminal tem de sair do mesmo jeito.
-            console.warn('[problemas] nao consegui registrar a linha:', e);
-        }
-
-        let out = comLinks(text, {
-            titulo: (loc) => (loc.arquivo
-                ? `Abrir ${loc.arquivo}:${loc.linha}${loc.coluna ? ':' + loc.coluna : ''}`
-                : `Abrir a linha ${loc.linha}`),
-        });
-
-        // Componente ausente: a mensagem sozinha manda a pessoa navegar ate
-        // Configuracoes; um clique vale mais que a instrucao. O marcador cobre
-        // as duas linguas e as duas formas da frase (a do portao de execucao e
-        // a dos erros de toolchain).
-        const FALTA_COMPONENTE =
-            /não está instalad[ao] nesta máquina|not installed on this machine|Configurações, Componentes|Settings, Components/i;
-        if (FALTA_COMPONENTE.test(text)) {
-            const rotulo = (window.t && window.t('terminal.openComponents') !== 'terminal.openComponents')
-                ? window.t('terminal.openComponents') : 'Abrir Componentes';
-            out += ` <span class="componente-link" role="button" tabindex="0">${rotulo}</span>`;
-        }
-
-        // O capitulo do manual, na mesma pilula do "Abrir Componentes": um
-        // erro que a documentacao ja explica vale mais com um clique do que
-        // com a instrucao de ir procurar.
-        if (chaveDeAjuda && AJUDAS[chaveDeAjuda]) {
-            const manual = (window.t && window.t('terminal.openManual') !== 'terminal.openManual')
-                ? window.t('terminal.openManual') : 'Abrir o manual';
-            out += ` <span class="manual-link" role="button" tabindex="0" data-ajuda="${chaveDeAjuda}">${manual}</span>`;
-        }
-        return out;
+        return linhaComLinks(text);
     }
 
     addToSessionCard(terminalId, text, type) {
@@ -772,179 +702,14 @@ class TerminalManager {
         }
     }
 
-    /**
-     * Wire up line-link clicks inside `scopeEl` so Monaco jumps to the
-     * referenced line. Two flavours of link are supported:
-     *   - data-file present (`<file>:<line>:` C-toolchain diagnostics
-     *     from iverilog/yosys/gcc): open the file in data-file directly,
-     *     resolving relative paths against the project root.
-     *   - data-file absent (`linha N` / `line N` yanc-style): open the
-     *     last .cmm the compilation manager compiled, with a DOM-scrape
-     *     fallback over recent `cmmcomp.exe` invocations.
-     *
-     * Previously this lived inline in addMessageToCard and was a no-op
-     * for entries that went through createLogEntry (the createLogEntry
-     * path referenced `this.handleLineClick`, which was never defined:
-     * so any line-link inside a `plain`/`raw` card silently did nothing).
-     * That hit English compiler output particularly hard: `detectMessageType`
-     * only recognised Portuguese markers (`Erro`, `Atenção`, `Sucesso`) plus
-     * a few uppercase forms, so English diagnostics like "syntax error on
-     * line 5" got classified `plain`, routed through createLogEntry, and
-     * the user clicked the link and nothing happened. Centralising the
-     * handler fixes both paths in one place.
-     */
+    // Os links da saida (reconhecer, clicar, ir a linha) moram em
+    // links_do_terminal.ts; ficam aqui os nomes que o resto da classe usa.
     _attachLineLinkClicks(scopeEl) {
-        if (!scopeEl) return;
-        // O link de componente ausente abre direto o painel de Componentes.
-        scopeEl.querySelectorAll('.componente-link').forEach((link) => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                window.auroraAbrirConfiguracoes?.('componentes');
-            });
-        });
-        scopeEl.querySelectorAll('.manual-link').forEach((link) => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                abrirAjudaDe(link.getAttribute('data-ajuda'));
-            });
-        });
-        const lineLinks = scopeEl.querySelectorAll('.line-link');
-        if (lineLinks.length === 0) return;
-        lineLinks.forEach(link => {
-            link.addEventListener('click', async (e) => {
-                e.preventDefault();
-                const lineNumber = parseInt(link.getAttribute('data-line'));
-                // A coluna so existe onde a ferramenta a imprime (Verilator,
-                // slang, gcc). Sem ela o cursor pousa no comeco da linha, que e
-                // o comportamento de sempre.
-                const columnNumber = parseInt(link.getAttribute('data-col')) || 1;
-                const explicitFile = link.getAttribute('data-file');
-                console.log(`Clicked on line ${lineNumber}${explicitFile ? ` (file: ${explicitFile})` : ''}`);
-
-                try {
-                    let filePath = null;
-
-                    if (explicitFile) {
-                        // C-toolchain diagnostic (iverilog / yosys / gcc):
-                        // the path travels in data-file. Absolute paths go
-                        // through as-is; relative paths resolve against the
-                        // open project root.
-                        const root = window.currentProjectPath || '';
-                        const isAbs = /^[A-Za-z]:[\\/]/.test(explicitFile) || explicitFile.startsWith('\\\\');
-                        filePath = isAbs ? explicitFile :
-                            (root ? `${root}\\${explicitFile.replace(/^[\\/]+/, '')}` : explicitFile);
-                    } else {
-                        // Aurora/yanc "linha N", cmmCompilation caches the
-                        // .cmm it just ran against. Works regardless of
-                        // verbose mode because it doesn't touch the DOM.
-                        filePath =
-                            window.compilationManager?.lastCompiledCmmPath ||
-                            window._latestCompilationModule?.lastCompiledCmmPath ||
-                            null;
-
-                        if (!filePath) {
-                            const terminalContent = scopeEl.closest('.terminal-content');
-                            if (terminalContent) {
-                                const logEntries = terminalContent.querySelectorAll('.log-entry');
-
-                                for (const entry of Array.from(logEntries).reverse()) {
-                                    const entryText = entry.textContent || '';
-
-                                    // cmmcomp.exe agora usa named flags do yanc v4:
-                                    //   ... -i "<file.cmm>" -n "<name>" -p "<projectPath>" -m ... -t ...
-                                    // Precisamos do -i (nome do .cmm) e -p (proc-dir,
-                                    // que e <projectPath>/<processorName>) pra montar
-                                    // o caminho ate o Software/.
-                                    if (/cmmcomp\.exe\b/.test(entryText)) {
-                                        const iMatch = entryText.match(/-i\s+"([^"]+\.cmm)"/);
-                                        const pMatch = entryText.match(/-p\s+"([^"]+)"/);
-                                        if (iMatch && pMatch) {
-                                            filePath = await electronAPI.joinPath(pMatch[1], 'Software', iMatch[1]);
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (!filePath) {
-                        console.log('Could not determine file path for line link');
-                        return;
-                    }
-
-                    const fileExists = await electronAPI.fileExists(filePath);
-                    if (!fileExists) {
-                        console.log(`File does not exist: ${filePath}`);
-                        return;
-                    }
-
-                    const isFileOpen = TabManager.tabs.has(filePath);
-
-                    if (!isFileOpen) {
-                        const content = await electronAPI.readFile(filePath, {
-                            encoding: 'utf8'
-                        });
-                        TabManager.addTab(filePath, content);
-                    } else {
-                        TabManager.activateTab(filePath);
-                    }
-
-                    setTimeout(() => {
-                        this.goToLine(lineNumber, columnNumber);
-                    }, 100);
-
-                } catch (error) {
-                    console.error('Error opening file and navigating to line:', error);
-                }
-            });
-        });
+        ligarLinks(scopeEl, (linha, coluna) => this.goToLine(linha, coluna));
     }
 
-    /**
-     * Leva o editor ativo ate a linha, e ate a coluna quando a ferramenta
-     * disse qual e.
-     *
-     * A selecao continua sendo a LINHA inteira, mesmo com coluna: quem clicou
-     * num erro quer ver o trecho, e destacar um caractere so deixa a origem do
-     * erro tao dificil de achar quanto estava no terminal. A coluna vai para o
-     * CURSOR, que e onde ela ajuda, porque e dali que a edicao comeca.
-     */
     goToLine(lineNumber, columnNumber = 1) {
-        const activeEditor = EditorManager.activeEditor;
-        if (!activeEditor) {
-            console.warn('No active editor found');
-            return;
-        }
-
-        const model = activeEditor.getModel();
-        if (!model) {
-            console.warn('No model found in active editor');
-            return;
-        }
-
-        const totalLines = model.getLineCount();
-        const targetLine = Math.max(1, Math.min(lineNumber, totalLines));
-        // A coluna vem de outra ferramenta e pode passar do fim da linha (uma
-        // aba conta como um caractere para o compilador e como varios para o
-        // editor); o Monaco reclama de posicao invalida em vez de corrigir.
-        const maxColumn = model.getLineMaxColumn(targetLine);
-        const targetColumn = Math.max(1, Math.min(columnNumber || 1, maxColumn));
-
-        activeEditor.setPosition({
-            lineNumber: targetLine,
-            column: targetColumn,
-        });
-
-        activeEditor.revealLineInCenter(targetLine);
-        activeEditor.focus();
-
-        activeEditor.setSelection({
-            startLineNumber: targetLine,
-            startColumn: 1,
-            endLineNumber: targetLine,
-            endColumn: maxColumn
-        });
+        irParaLinha(lineNumber, columnNumber);
     }
 
 /**

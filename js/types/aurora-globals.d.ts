@@ -217,7 +217,11 @@ declare global {
     globalTerminalManager?: AuroraTerminalManager;
     initializeGlobalTerminalManager?: () => AuroraTerminalManager | null;
     /** O ultimo CompilationModule criado; o fluxo acha o terminal por ele em ultimo caso. */
-    _latestCompilationModule?: { terminalManager?: AuroraTerminalManager };
+    _latestCompilationModule?: { terminalManager?: AuroraTerminalManager; lastCompiledCmmPath?: string | null };
+    /** O gerenciador de compilacao (js/compilation/compilation_module.js): lembra o ultimo .cmm compilado. */
+    compilationManager?: { lastCompiledCmmPath?: string | null };
+    /** Abre as Configuracoes numa aba (js/ui/settings); o terminal chama com 'componentes'. */
+    auroraAbrirConfiguracoes?: (aba: string) => unknown;
     /** O pedaco da API da AURORA que a barra e o Cancelar usam (js/api/aurora_api.js). */
     AuroraAPI?: {
       compile: { compileStep(step: string): unknown; compileAll(): unknown; cancel(): unknown };

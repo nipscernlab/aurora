@@ -110,13 +110,23 @@ export const RECONHECEDORES = [
  * Todas as referencias a codigo numa linha de texto, da esquerda para a
  * direita, sem sobreposicao.
  *
- * @param {string} texto uma linha da saida da ferramenta
+ * @param texto uma linha da saida da ferramenta
  * @returns {Array<{inicio:number, fim:number, texto:string, arquivo:string|null,
  *                  linha:number, coluna:number|null, ferramenta:string}>}
  */
-export function localizacoesNaLinha(texto) {
+export interface Localizacao {
+  inicio: number;
+  fim: number;
+  texto: string;
+  arquivo: string | null;
+  linha: number;
+  coluna: number | null;
+  ferramenta: string;
+}
+
+export function localizacoesNaLinha(texto: string): Localizacao[] {
   if (!texto || typeof texto !== 'string') return [];
-  const achados = [];
+  const achados: Localizacao[] = [];
 
   for (const r of RECONHECEDORES) {
     r.re.lastIndex = 0;
@@ -142,7 +152,7 @@ export function localizacoesNaLinha(texto) {
       const posCauda = texto.indexOf(cauda, inicioAlvo + (r.campos.arquivo ? alvo.length : 0));
       const fim = posCauda >= 0 ? posCauda + cauda.length : m.index + m[0].length;
 
-      const item = {
+      const item: Localizacao = {
         // Com arquivo, o link comeca no caminho; sem arquivo (yanc), comeca na
         // palavra "linha", e nao no "Erro" que veio antes dela.
         inicio: r.campos.arquivo ? inicioAlvo : posDaPalavra(texto, m),
@@ -151,6 +161,7 @@ export function localizacoesNaLinha(texto) {
         linha,
         coluna,
         ferramenta: r.ferramenta,
+        texto: '',
       };
       if (item.inicio < 0 || item.fim <= item.inicio) continue;
       // Sem sobreposicao: o primeiro reconhecedor que cobriu aquele trecho
@@ -176,7 +187,7 @@ export function localizacoesNaLinha(texto) {
    que vale e a marca da ferramenta, no lugar onde ela a imprime. */
 
 /** A palavra de severidade de cada ferramenta, no formato que ela usa. */
-const SEVERIDADE = [
+const SEVERIDADE: Array<[RegExp, 'erro' | 'aviso']> = [
   // Verilator, antes do resto: `%Warning-WIDTH:` tem "Warning" com sufixo.
   [/^\s*%Warning/i, 'aviso'],
   [/^\s*%Error/i, 'erro'],
@@ -195,10 +206,8 @@ const SEVERIDADE = [
  * o que era erro esconde o que trava a compilacao. O primeiro engano se ve e se
  * corrige, o segundo nao.
  *
- * @param {string} texto
- * @returns {'erro'|'aviso'}
  */
-export function severidadeDaLinha(texto) {
+export function severidadeDaLinha(texto: string): 'erro'|'aviso' {
   const t = String(texto || '');
   for (const [re, nivel] of SEVERIDADE) if (re.test(t)) return nivel;
   return 'erro';
@@ -212,10 +221,8 @@ export function severidadeDaLinha(texto) {
  * que so tinha o local fica com o texto inteiro, porque marcador sem mensagem
  * nao explica nada.
  *
- * @param {string} texto
- * @param {{inicio:number, fim:number}} loc
  */
-export function mensagemDoProblema(texto, loc) {
+export function mensagemDoProblema(texto: string, loc: { inicio: number; fim: number; }) {
   const t = String(texto || '');
   // So o que vem DEPOIS do local, nunca o de antes costurado com o de depois.
   // Costurar parecia preservar mais texto e produzia frase quebrada:
@@ -239,10 +246,8 @@ export function mensagemDoProblema(texto, loc) {
  * causa do yanc, que diz a linha e nao diz o arquivo. Sem ele, a mensagem do
  * compilador de C± continua sendo so texto no terminal.
  *
- * @param {string} texto
- * @param {{ cmmPadrao?: string|null }} [opcoes]
  */
-export function problemasNaLinha(texto, { cmmPadrao = null } = {}) {
+export function problemasNaLinha(texto: string, { cmmPadrao = null }: { cmmPadrao?: string|null; } = {}) {
   const severidade = severidadeDaLinha(texto);
   const saida = [];
   for (const loc of localizacoesNaLinha(texto)) {
@@ -261,12 +266,12 @@ export function problemasNaLinha(texto, { cmmPadrao = null } = {}) {
 }
 
 /** Onde comeca o "linha N" dentro do casamento do yanc. */
-function posDaPalavra(texto, m) {
+function posDaPalavra(texto: string, m: RegExpExecArray): number {
   const dentro = /(?:linha|line)\s+\d+/i.exec(m[0]);
   return dentro ? m.index + dentro.index : m.index;
 }
 
-const escapar = (s) => String(s)
+const escapar = (s: unknown) => String(s)
   .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
   .replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -284,7 +289,7 @@ const escapar = (s) => String(s)
  * precisa: `data-line`, `data-col` quando a ferramenta deu, e `data-file`
  * quando ela disse qual e.
  */
-export function comLinks(texto, { titulo } = {}) {
+export function comLinks(texto: string, { titulo }: { titulo?: (loc: Localizacao) => string } = {}): string {
   const partes = [];
   let pos = 0;
   for (const loc of localizacoesNaLinha(texto)) {

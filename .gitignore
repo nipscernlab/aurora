@@ -186,6 +186,7 @@ js/project/delete_project.js
 js/ui/bug_report.js
 js/ai/system_prompt.js
 js/terminal/shell_terminal.js
+js/terminal/error_locations.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

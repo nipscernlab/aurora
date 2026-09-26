@@ -38,6 +38,7 @@ import {
 import { abrirReferencia } from '../ai/abrir_referencia.js';
 import { adicionarArquivos, abrirImagem, desenharAnexos, desenharAnexosNaBolha, escaparHtml } from '../ai/anexos_do_chat.js';
 import { lerContextoDoTurno } from '../ai/contexto_do_turno.js';
+import { avisoDeAssinatura, desenharFila } from '../ai/fila_do_chat.js';
 import {
     citacaoDeResultado,
     citacaoJaEsta,
@@ -1629,18 +1630,10 @@ class AIAssistantManager {
     if (isSubProvider(this.currentProvider)) {
       const sm = SUB_META[this.currentProvider];
       if (!this.subStatus[this.currentProvider]) await this.refreshSubStatus();
-      const s = this.subStatus[this.currentProvider];
-      // B12: a downloadable-but-not-yet-installed CLI is fine to start, the
-      // turn fetches it on first use (with progress). The only hard blockers
-      // are "no CLI available at all" and "not signed in".
-      const willFetch = !!(s && !s.installed && s.downloadable && s.authed);
-      if (!this.isSubReady() && !willFetch) {
-        const signedOut = !!(s && (s.installed || s.downloadable) && !s.authed);
-        this.appendBubble('assistant', signedOut
-          ? `**${sm.cliName} is not signed in.** Run \`${sm.loginCmd}\` in a ` +
-            'terminal, then open the model menu and click re-check.'
-          : `**${sm.notInstalled}.** ${sm.installHint}, then open the model ` +
-            'menu and click re-check.', false);
+      // B12: a CLI baixavel com login serve (js/ai/fila_do_chat.ts).
+      const aviso = avisoDeAssinatura(this.subStatus[this.currentProvider], sm);
+      if (aviso) {
+        this.appendBubble('assistant', aviso, false);
         return;
       }
     }
@@ -1846,33 +1839,9 @@ class AIAssistantManager {
    */
   _renderQueue() {
     if (!this.queueEl) return;
-    const vivas = this._liveQueue || [];
-    const q = this._messageQueue || [];
-    this.queueEl.hidden = vivas.length === 0 && q.length === 0;
-    const fichasVivas = vivas.map((texto) => (
-      `<span class="ai-queued-chip ai-queued-live" title="${this._escAtt(tr('ai.queue.live'))}">` +
-      `<i class="ph ph-hourglass-medium" aria-hidden="true"></i>` +
-      `<span class="ai-queued-text">${this._escAtt(String(texto).slice(0, 80))}</span></span>`
-    )).join('');
-    this.queueEl.innerHTML = fichasVivas + q.map((m, i) => {
-      const preview = (m.text || (m.atts && m.atts.length ? `${m.atts.length} attachment(s)` : '')).slice(0, 80);
-      const agora = tr('ai.queue.sendNow');
-      return `<span class="ai-queued-chip" title="${this._escAtt(tr('ai.queue.waiting'))}">` +
-        `<i class="ph ph-clock" aria-hidden="true"></i>` +
-        `<span class="ai-queued-text">${this._escAtt(preview)}</span>` +
-        `<button class="ai-queued-now" data-i="${i}" type="button" title="${this._escAtt(agora)}" aria-label="${this._escAtt(agora)}">` +
-        `<i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>` +
-        `<button class="ai-queued-remove" data-i="${i}" type="button" aria-label="${this._escAtt(tr('ai.queue.cancel'))}">` +
-        `<i class="ph ph-x" aria-hidden="true"></i></button></span>`;
-    }).join('');
-    this.queueEl.querySelectorAll('.ai-queued-remove').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this._messageQueue.splice(parseInt(btn.dataset.i, 10), 1);
-        this._renderQueue();
-      });
-    });
-    this.queueEl.querySelectorAll('.ai-queued-now').forEach((btn) => {
-      btn.addEventListener('click', () => this._enviarDaFilaAgora(parseInt(btn.dataset.i, 10)));
+    desenharFila(this.queueEl, this._liveQueue || [], this._messageQueue || [], {
+      aoCancelar: (i) => { this._messageQueue.splice(i, 1); this._renderQueue(); },
+      aoEnviarAgora: (i) => this._enviarDaFilaAgora(i),
     });
   }
 

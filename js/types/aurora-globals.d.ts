@@ -46,6 +46,8 @@ interface AuroraElectronAPI {
   copyAnyPath(src: string, dest: string, opts?: { overwrite?: boolean }):
     Promise<{ success: boolean; code?: string; error?: string; path?: string }>;
   getComponentsPath(): Promise<string>;
+  /** O projeto desta janela no main (main/ipc/project.js), a reserva quando o ProjectStore ainda esta vazio. */
+  getCurrentProject(): Promise<{ projectOpen?: boolean; spfPath?: string | null; projectPath?: string | null }>;
   /**
    * A saida ao vivo do executor de specs (main/compile/executor.js); devolve
    * quem desliga o ouvinte. Opcional porque fora do Electron nao ha fluxo.
@@ -244,7 +246,9 @@ declare global {
       verilogFiles?: import('../ai/file_ref.js').ArquivoDaArvore[];
     };
     /** O controlador das duas visoes da arvore (js/tree/file_tree_view_controller.ts); lido por window para nao fechar ciclo. */
-    fileTreeViewController?: { getActiveView?(): string; getHierarchyData?(): unknown };
+    fileTreeViewController?: { getActiveView?(): string; getHierarchyData?(): unknown; setHierarchyData?(dados: unknown): void };
+    /** O ouvinte do destaque da vista hierarquica ja foi ligado (compilation_module.ts). */
+    __hierarchyFocusWired?: boolean;
     /** As subarvores da arvore de arquivos (js/tree/tree_view.ts). */
     treeView?: { getContainer?(nome: string): HTMLElement | null };
     /** As operacoes da visao de pastas (js/tree/standard_tree_crud.ts), para o roteador do botao direito. */

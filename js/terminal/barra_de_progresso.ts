@@ -39,9 +39,10 @@ export interface BarraDeProgresso extends HTMLDivElement {
 /** O que o teste de hardware informa a cada atualizacao. */
 export interface Progresso {
   pct?: number;
-  cyc?: number;
-  total?: number;
-  reads?: number;
+  // null quando a linha de progresso nao traz o numero (so um percentual).
+  cyc?: number | null;
+  total?: number | null;
+  reads?: number | null;
   label?: string;
   done?: boolean;
 }

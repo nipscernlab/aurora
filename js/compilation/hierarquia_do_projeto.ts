@@ -27,7 +27,7 @@ export interface DepsDaHierarquia {
     terminalManager: Pick<TerminalManager, 'appendToTerminal'>;
     projectConfig?: {
         topLevelFile?: string;
-        synthesizableFiles?: { path: string }[];
+        synthesizableFiles?: { path?: string }[];
     } | null;
 }
 

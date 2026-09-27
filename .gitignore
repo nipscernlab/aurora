@@ -244,6 +244,7 @@ js/compilation/wave_signal_validator.js
 js/compilation/cocotb_runner_source.js
 js/wave/fopen_paths.js
 js/compilation/hierarchy_view.js
+js/compilation/compilation_module.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

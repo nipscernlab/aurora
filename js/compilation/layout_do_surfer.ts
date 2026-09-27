@@ -30,7 +30,7 @@ type Mapeamento = { name: string; content: string };
 export interface ContextoDoLayout {
     projectPath: string;
     componentsPath: string | null;
-    projectConfig?: Parameters<typeof parseProjectSources>[0]['projectConfig'] & { testbenchFile?: string | null };
+    projectConfig?: (NonNullable<Parameters<typeof parseProjectSources>[0]['projectConfig']> & { testbenchFile?: string | null }) | null;
     terminalManager: Pick<TerminalManager, 'appendToTerminal'>;
     /** A selecao que o passo Wave acabou de validar, quando houve uma. */
     _validatedWaveSelection?: string[] | null;

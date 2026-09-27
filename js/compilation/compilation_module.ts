@@ -1,23 +1,25 @@
 /**
- * compilation_module.js: toolchain orchestrator (renderer side).
+ * compilation_module.ts: toolchain orchestrator (renderer side).
  *
  * Expoe a classe CompilationModule, que e o "backend" dos botoes
- * disparados em compilation_flow.js. Cada metodo publico corresponde
- * a uma etapa da pipeline:
+ * disparados em compilation_flow.ts. A instancia guarda o estado de uma
+ * compilacao (a configuracao lida, o terminal, a selecao de sinais validada)
+ * e cada passo mora num modulo proprio que a recebe como contexto:
  *
  *   loadConfig()            le o .spf em this.projectConfig
- *   ensureDirectories(name) cria components/Temp/<name>
- *   cmmCompilation(proc)    cmmcomp.exe -> Software/<proc>.asm + cmm_log.txt
+ *   ensureDirectories(name) cria a Temp do projeto e Temp/<name>
+ *   cmmCompilation(proc)    processor_compiler.ts
  *   asmCompilation(proc, ...)
- *                           appcomp + asmcomp -> Hardware/<proc>.v +
- *                           pc_<proc>_mem.txt + Simulation/<proc>_tb.v
- *   verilogSyntaxCheck()    iverilog -tnull (Verilog/PRISM/ASM) +
- *                           generateProjectHierarchy via Yosys.
- *   waveBuildVvp()          iverilog -o <sim>.vvp (Wave) com testbench
- *                           instrumentado + signal selection resolvida.
- *   runGtkWave()            8-fase pipeline _wave*, pre-compila vvp,
- *                           roda vvp, abre gtkwave (ver §9 de
- *                           ARCHITECTURE.md)
+ *   verilogSyntaxCheck()    checagem_de_sintaxe.ts, e a hierarquia pelo
+ *                           Yosys (hierarquia_do_projeto.ts)
+ *   runGtkWave()            o botao Wave: o simulador (icarus_da_onda.ts,
+ *                           verilator_da_onda.ts, cocotb_da_onda.ts), o dump
+ *                           (arquivos_da_simulacao.ts, cabecalho_do_dump.ts),
+ *                           o layout (layout_do_gtkwave.ts,
+ *                           layout_do_surfer.ts) e o visualizador
+ *                           (abrir_onda.ts). Ver §9 de ARCHITECTURE.md.
+ *   runFastSim()            verilator_da_onda.ts
+ *   verilatorProcessorRun() teste_de_hardware.ts
  *
  * Decisoes de design (post-2026-05):
  *
@@ -36,16 +38,14 @@
  *      pra resolver a biblioteca SAPHO (processor.v, ula.v,
  *      myFIFO.v, etc) sem o usuario precisar listar.
  *
- *   4. runGtkWave esta dividido em 8 fases _wave*. Cada fase tem
- *      JSDoc com inputs/returns/throws/side-effects. Mudancas de
- *      comportamento da wave-flow pertencem dentro de uma fase. Ver
- *      ARCHITECTURE.md §9 pro racional.
+ *   4. runGtkWave so ordena as fases; o comportamento de cada uma mora
+ *      no modulo dela. Ver ARCHITECTURE.md §9 pro racional.
  */
 import { electronAPI } from '../app/electron_api.js';
 import { comAjuda } from '../ui/help_link.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
-import { SpfStore } from '../project/spf_store.js';
+import { SpfStore, type SpfStructure } from '../project/spf_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { projectTempDir } from '../project/project_temp.js';
 import { getSimulator } from '../wave/simulator_preference.js';
@@ -53,7 +53,10 @@ import { getViewer } from '../wave/viewer_preference.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { foiCancelada } from './cancelamento.js';
 import { gerarHierarquiaDoProjeto } from './hierarquia_do_projeto.js';
-import { lancarGtkwave, lancarSurfer, abrirOndaExterna as abrirOndaExternaNoVisualizador } from './abrir_onda.js';
+import {
+    lancarGtkwave, lancarSurfer, abrirOndaExterna as abrirOndaExternaNoVisualizador,
+    type FerramentasDaOnda, type OpcoesDoSurfer,
+} from './abrir_onda.js';
 import { resolverLayoutDoSurfer } from './layout_do_surfer.js';
 import { resolverLayoutDoGtkwave } from './layout_do_gtkwave.js';
 import { rodarTesteDeHardware } from './teste_de_hardware.js';
@@ -64,6 +67,9 @@ import { construirEConferirVvp, simularNoIcarus } from './icarus_da_onda.js';
 import { acharDumpDaSimulacao, exigirDumpNovo } from './arquivos_da_simulacao.js';
 import { extrairCabecalhoDoFst } from './cabecalho_do_dump.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
+import type { NoDaHierarquia } from './hierarchy_parser.js';
+import type { SinalDoMonitor } from '../wave/prism_wave_layout.js';
+import type { EntradaDeProcessador } from './processor_source.js';
 import { resolveWaveToolchain, resolveVerilatorTools } from './wave_toolchain.js';
 import { validateWaveSelection } from './wave_signal_validator.js';
 import {
@@ -74,7 +80,16 @@ import {
 } from './compilation_helpers.js';
 
 // i18n shim, falls back to the key path if i18n didn't boot yet.
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
+
+/** A forma que os validadores devolvem: os caminhos, sem o resto do .spf. */
+export interface FormaDaConfiguracao {
+    topLevelFile: string | null;
+    testbenchFile: string | null;
+    synthesizableFiles: string[];
+}
+
+type ArquivoDoSpf = { path: string; name?: string; isTopLevel?: boolean };
 
 /**
  * O usuario ja mandou parar?
@@ -92,9 +107,27 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
 const canceladoPeloUsuario = foiCancelada;
 
 class CompilationModule {
-    constructor(projectPath) {
-        this.projectPath = projectPath;
-        this.projectConfig = null;
+    projectPath: string;
+    /** O .spf lido por loadConfig; null ate la, ou quando ele nao se le. */
+    projectConfig: SpfStructure | null = null;
+    terminalManager: TerminalManager;
+    /** A arvore de modulos da ultima checagem (o renderHierarchicalTree le daqui). */
+    hierarchyData: NoDaHierarquia | null = null;
+    componentsPath: string | null = null;
+    _componentsPathPronto: Promise<string> | null = null;
+    /** O fonte que o ultimo front end compilou; o clique em "linha N" do terminal abre ele. */
+    lastCompiledCmmPath: string | null = null;
+    /** A selecao de sinais que o Wave usou; os layouts automaticos leem daqui. */
+    _validatedWaveSelection?: string[] | null;
+    /** Os tradutores que o layout do Surfer gerou, para a aba levar. */
+    _surferTabMappings?: Array<{ name: string; content: string }>;
+    /** O aviso de testbench sem fim sai uma vez por compilacao. */
+    _avisouSemFinish?: boolean;
+
+    constructor(projectPath: string | null) {
+        // Sem projeto so fora do fluxo normal (a onda avulsa pela API); os
+        // passos que precisam dele caem na Temp dos componentes.
+        this.projectPath = projectPath as string;
         // Reuse the single global TerminalManager. CompilationModule is
         // reconstructed on every compile, and a fresh TerminalManager per
         // instance fragmented the shared terminal state (messageCounts,
@@ -104,11 +137,8 @@ class CompilationModule {
         // leak-free. initializeGlobalTerminalManager() is a lazy singleton;
         // fall back to a local instance only outside the renderer.
         this.terminalManager = (typeof window !== 'undefined' && window.initializeGlobalTerminalManager)
-            ? window.initializeGlobalTerminalManager()
+            ? window.initializeGlobalTerminalManager() as unknown as TerminalManager
             : new TerminalManager();
-        this.hierarchyData = null;
-        this.componentsPath = null;
-        this._componentsPathPronto = null;
         // Dispara agora e e esperado nas entradas publicas (ver o metodo).
         this.initializeComponentsPath();
 
@@ -147,7 +177,7 @@ class CompilationModule {
      * Guardar a promessa e o que torna barato esperar: quem chama de novo nao
      * dispara outro IPC, so pega a resposta que ja esta a caminho.
      */
-    async initializeComponentsPath() {
+    async initializeComponentsPath(): Promise<string> {
         if (this.componentsPath) return this.componentsPath;
         if (!this._componentsPathPronto) {
             this._componentsPathPronto = electronAPI.getComponentsPath().then((caminho) => {
@@ -164,7 +194,7 @@ class CompilationModule {
  * mora em hierarquia_do_projeto.ts; aqui fica onde a arvore e guardada (o
  * renderHierarchicalTree le dela) e a entrega ao controlador da arvore.
  */
-async generateProjectHierarchy() {
+async generateProjectHierarchy(): Promise<boolean> {
     return gerarHierarquiaDoProjeto(this._instanceDeps(), (arvore) => {
         this.hierarchyData = arvore;
         window.fileTreeViewController?.setHierarchyData?.(arvore);
@@ -173,11 +203,11 @@ async generateProjectHierarchy() {
 
     // Thin delegator, the DOM render lives in hierarchy_view.js (A2 #2). Kept
     // as a method because file_tree_view_controller.js calls it on the instance.
-    renderHierarchicalTree() {
+    renderHierarchicalTree(): void {
         renderHierarchy(this.hierarchyData);
     }
 
-async loadConfig() {
+async loadConfig(): Promise<void> {
     try {
         // O projeto e o DESTA janela, lido do ProjectStore, que e o que a
         // interface mostra. O main so entra como reserva quando o store ainda
@@ -186,7 +216,7 @@ async loadConfig() {
         // da outra: a resposta dele e por janela, mas com reserva no ultimo
         // projeto aberto em qualquer lugar, e nessa reserva o `.spf` alheio
         // chegava aqui sem erro nenhum.
-        let spfPath = ProjectStore.getSpfPath();
+        let spfPath: string | null | undefined = ProjectStore.getSpfPath();
         let currentProjectPath = ProjectStore.getProjectPath() || this.projectPath;
         if (!spfPath) {
             const projectInfo = await electronAPI.getCurrentProject();
@@ -215,7 +245,7 @@ async loadConfig() {
     }
 }
 
-    async ensureDirectories(name) {
+    async ensureDirectories(name: string): Promise<string> {
         try {
             // Havia aqui um `mkdir(joinPath('components'))`: o canal join-path
             // resolve 'components' contra o diretorio de instalacao, que e o
@@ -235,7 +265,7 @@ async loadConfig() {
         }
     }
 
-    async cmmCompilation(processor) {
+    async cmmCompilation(processor: EntradaDeProcessador): Promise<string> {
         return cmmCompilation(
             this._instanceDeps(), processor,
             (p) => { this.lastCompiledCmmPath = p; },
@@ -244,14 +274,14 @@ async loadConfig() {
 
     // O front end C++ (cpppp + cppcomp), irmao do cmmCompilation: mesmo seam
     // do lastCompiledCmmPath, que aponta para o .cpp da pessoa.
-    async cppCompilation(processor) {
+    async cppCompilation(processor: EntradaDeProcessador): Promise<string> {
         return cppCompilation(
             this._instanceDeps(), processor,
             (p) => { this.lastCompiledCmmPath = p; },
         );
     }
 
-    async asmCompilation(processor, preamble = null) {
+    async asmCompilation(processor: EntradaDeProcessador, preamble: string | null = null): Promise<void> {
         return asmCompilation(this._instanceDeps(), processor, preamble);
     }
 
@@ -266,18 +296,18 @@ async loadConfig() {
  * validateForWave, loadConfigUnsafe). Cada validator decide quais
  * campos sao obrigatorios.
  */
-_buildConfigShape() {
+_buildConfigShape(): FormaDaConfiguracao | null {
     if (!this.projectConfig) return null;
 
-    const synth = this.projectConfig.synthesizableFiles || [];
+    const synth = (this.projectConfig.synthesizableFiles || []) as ArquivoDoSpf[];
     const topEntry = this._pickSingleTop(synth, 'synthesizable');
 
     // A MESMA funcao que decide se o botao de onda acende
     // (compilation_helpers.escolherTestbench). Enquanto eram duas regras, um
     // projeto com o testbench so na forma de lista tinha o botao apagado e a
     // compilacao funcionando.
-    const foundTb = escolherTestbench(this.projectConfig, (marcadas) => {
-        const nome = (f) => f.name || f.path?.split(/[\\/]/).pop() || '?';
+    const foundTb = escolherTestbench(this.projectConfig as Parameters<typeof escolherTestbench>[0], (marcadas) => {
+        const nome = (f: { name?: string; path?: string }) => f.name || f.path?.split(/[\\/]/).pop() || '?';
         this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.multipleTops', {
             count: marcadas.length,
             category: 'testbench',
@@ -301,14 +331,14 @@ _buildConfigShape() {
  *
  * Throws com mensagem amigavel em cada falha.
  */
-validateForVerilog() {
+validateForVerilog(): FormaDaConfiguracao {
     if (!this.projectConfig) {
         throw new Error('Project configuration not loaded');
     }
     if (!this.projectConfig.synthesizableFiles || this.projectConfig.synthesizableFiles.length === 0) {
         throw new Error(tr('error.config.noSynth'));
     }
-    const shape = this._buildConfigShape();
+    const shape = this._buildConfigShape() as FormaDaConfiguracao;
     if (!shape.topLevelFile) {
         throw comAjuda(new Error(tr('error.config.noTopLevel')), 'semTopLevelHelp');
     }
@@ -323,11 +353,11 @@ validateForVerilog() {
  *
  * Throws so se projectConfig ausente ou sem testbench.
  */
-validateForWave() {
+validateForWave(): FormaDaConfiguracao {
     if (!this.projectConfig) {
         throw new Error('Project configuration not loaded');
     }
-    const shape = this._buildConfigShape();
+    const shape = this._buildConfigShape() as FormaDaConfiguracao;
     if (!shape.testbenchFile) {
         throw new Error(tr('error.config.noTestbench'));
     }
@@ -342,11 +372,11 @@ validateForWave() {
  *
  * Throws so se projectConfig nao foi carregado.
  */
-loadConfigUnsafe() {
+loadConfigUnsafe(): FormaDaConfiguracao {
     if (!this.projectConfig) {
         throw new Error('Project configuration not loaded');
     }
-    return this._buildConfigShape();
+    return this._buildConfigShape() as FormaDaConfiguracao;
 }
 
 /**
@@ -361,12 +391,11 @@ loadConfigUnsafe() {
  * "I marked counter.v as top but the build keeps using oldcounter.v"
  * mysteries. Surface the conflict in tveri instead.
  *
- * @param {Array<{path:string, name?:string, isTopLevel?:boolean}>} files
- * @param {'synthesizable'|'testbench'} category , used in the warning text
- * @returns {object|undefined}  The picked file (first match), or undefined
+ * @param category , used in the warning text
+ * @returns  The picked file (first match), or undefined
  *      if none has isTopLevel.
  */
-_pickSingleTop(files, category) {
+_pickSingleTop(files: ArquivoDoSpf[], category: 'synthesizable' | 'testbench'): ArquivoDoSpf | undefined {
     const tops = (files || []).filter((f) => f && f.isTopLevel === true);
     if (tops.length <= 1) return tops[0];
     const picked = tops[0];
@@ -379,16 +408,6 @@ _pickSingleTop(files, category) {
 }
 
 /**
- * Read a VCD from disk, hand its scopes/signals + the user's picker
- * selection to the gtkw_writer module to build a save-file string,
- * and write the result. Returns true on a non-empty write, false if
- * there was nothing worth saving.
- *
- * The pure VCD walking lives in js/wave/vcd_parser.js and the .gtkw
- * formatting in js/wave/gtkw_writer.js, both unit-tested. This
- * method is the IO glue.
- */
-/**
  * Bag de estado de instancia passado aos helpers extraidos
  * (wave_signal_validator.js e processor_compiler.js), eles tocam
  * WaveStore (projectPath), terminal, config e componentsPath sem
@@ -399,7 +418,8 @@ _instanceDeps() {
         projectPath: this.projectPath,
         terminalManager: this.terminalManager,
         projectConfig: this.projectConfig,
-        componentsPath: this.componentsPath,
+        // Resolvido: toda entrada publica espera o initializeComponentsPath antes.
+        componentsPath: this.componentsPath as string,
     };
 }
 
@@ -408,7 +428,9 @@ _instanceDeps() {
  * metodo da instancia porque js/wave/wave_config_manager.js chama
  * compiler._validateWaveSelection direto, API publica de fato.
  */
-async _validateWaveSelection(rawSelected, filePaths, simTopModule, tbKey = null) {
+async _validateWaveSelection(
+    rawSelected: string[] | null | undefined, filePaths: string[], simTopModule: string, tbKey: string | null = null,
+): Promise<string[]> {
     return validateWaveSelection(this._instanceDeps(), rawSelected, filePaths, simTopModule, tbKey);
 }
 
@@ -416,36 +438,30 @@ async _validateWaveSelection(rawSelected, filePaths, simTopModule, tbKey = null)
  * A porta da Wave Configuration (checagem_de_sintaxe.ts). O
  * wave_config_manager chama por aqui. Nunca lanca.
  */
-async syntaxCheck() {
+async syntaxCheck(): Promise<{ success: boolean; message?: string }> {
     return checarParaAWaveConfig(this);
 }
 
 /**
  * O botao Verilog (checagem_de_sintaxe.ts). O compilation_flow chama por aqui.
  */
-async verilogSyntaxCheck() {
+async verilogSyntaxCheck(): Promise<void> {
     return checarVerilog(this);
 }
 
 /**
- * Wave button entrypoint. Orquestra o pipeline completo de .v sources
- * ate uma janela GTKWave rodando. Cada fase e um metodo privado com
- * contrato proprio; o orquestrador e curto pra deixar a *ordem das
- * fases* como unica coisa que um futuro leitor tem que entender aqui.
+ * Wave button entrypoint. Orquestra o pipeline completo das fontes ate o
+ * visualizador aberto. Cada fase mora no seu modulo; o orquestrador e curto
+ * pra deixar a *ordem das fases* como unica coisa que um futuro leitor tem
+ * que entender aqui:
  *
- * Memory file staging (pc_*_mem.txt gerados pelo cmmcomp) acontece
- * dentro de _waveRunVvpSimulation, no-op natural em projetos sem
- * processador (nao ha subdir com .txt pra copiar).
- *
- * Pipeline (read top-to-bottom):
- *
- *   resolveWaveToolchain(componentsPath) → { tempBaseDir, gtkwaveBin, vvpBin, ... }
- *   _waveDeriveSimTopModule(config)  → testbench module name
- *   _waveBuildAndVerifyVvp()         → tempBaseDir/${simTop}.vvp on disk
- *   _waveRunVvpSimulation()          → tempBaseDir/<some>.vcd on disk
- *   _waveResolveVcdFile()            → absolute path to that .vcd
- *   _waveResolveGtkwSaveFile()       → .gtkw absolute path or null
- *   _waveLaunchGtkwave()             → GTKWave process, monitored
+ *   resolveWaveToolchain       os binarios e a Temp do projeto
+ *   _waveDeriveSimTopModule    o topo da simulacao (o modulo do testbench)
+ *   o simulador                cocotb, Verilator ou Icarus, que grava o dump
+ *   acharDumpDaSimulacao       o dump na pasta onde a simulacao rodou
+ *   exigirDumpNovo             o dump e desta corrida
+ *   extrairCabecalhoDoFst      o cabecalho de texto, para o seletor e o layout
+ *   o layout e o visualizador  GTKWave ou Surfer
  *
  * If you need to change behaviour, change the phase that owns the
  * concern. The orchestrator only changes when you add / remove a
@@ -454,7 +470,7 @@ async verilogSyntaxCheck() {
  * See ARCHITECTURE.md §9 for the broader rationale (why the dump is the
  * ground truth, how the dump/gtkw sources interact, etc.).
  */
-async runGtkWave() {
+async runGtkWave(): Promise<void> {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.bannerSim'), 'info');
 
     try {
@@ -487,14 +503,14 @@ async runGtkWave() {
         // testbench que vivia aqui.
         const config = this.validateForWave();
 
-        const tools = await resolveWaveToolchain(this.componentsPath, this.projectPath);
-        let simTopModule = this._waveDeriveSimTopModule(config);
-        let vcdFile = null;
+        const tools = await resolveWaveToolchain(this.componentsPath as string, this.projectPath);
+        let simTopModule = this._waveDeriveSimTopModule(config) as string;
+        let vcdFile: string | null = null;
         // Ancora do teste de frescor la embaixo: qualquer dump legitimo desta
         // corrida tem mtime depois deste instante (folga em dumpEstaFresco).
         const inicioDaSimulacao = Date.now();
 
-        if (isPythonFile(config.testbenchFile)) {
+        if (isPythonFile(config.testbenchFile as string)) {
             const cocotbCtx = await validarCocotb(config);
             simTopModule = cocotbCtx.hdlTopModule;
             anunciarCocotb(this.terminalManager, config, cocotbCtx);
@@ -513,7 +529,7 @@ async runGtkWave() {
                 // no ultimo step do pipeline ('asm'/Assembly). Marca 'verilator'
                 // aqui pra a barra refletir a etapa real durante build + sim.
                 statusUpdater.startCompilation('verilator');
-                const vTools = await resolveVerilatorTools(this.componentsPath);
+                const vTools = await resolveVerilatorTools(this.componentsPath as string);
                 const fullTools = { ...tools, ...vTools };
                 const { exePath } = await construirNoVerilator(this, simTopModule, tools.tempBaseDir, config, fullTools);
                 simDir = await simularNoVerilator(this, simTopModule, fullTools, exePath);
@@ -534,7 +550,7 @@ async runGtkWave() {
         // isto, um escritor que falhe sem exit code, ou um $dumpfile custom
         // adotado pelo resolver, abre a onda da rodada ANTERIOR como se fosse
         // nova, que foi exatamente o sintoma do laboratorio.
-        await exigirDumpNovo(vcdFile, inicioDaSimulacao);
+        await exigirDumpNovo(vcdFile as string, inicioDaSimulacao);
         // Unified header capture, ONE extraction for all four wave paths
         // (iverilog, Verilator, cocotb+iverilog, cocotb+Verilator). Replaces the
         // old per-flow two-pass: the non-cocotb flows used to run a throwaway
@@ -544,22 +560,23 @@ async runGtkWave() {
         // is pulled straight from that FST. fst2vcd magic-detects the FST
         // regardless of the file extension; for a genuine text VCD it reports no
         // FST and we skip, the VCD is its own header source, parsed downstream.
-        const headerVcd = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
-        await extrairCabecalhoDoFst(this.terminalManager, vcdFile, headerVcd, tools.fst2vcdBin, tools.tempBaseDir);
+        const headerVcd = (vcdFile as string).replace(/\.(fst|vcd)$/i, '.header.vcd');
+        await extrairCabecalhoDoFst(this.terminalManager, vcdFile as string, headerVcd, tools.fst2vcdBin, tools.tempBaseDir);
         // Branch on the user's viewer choice. Default 'gtkwave' → the existing
         // path is untouched for current users; 'surfer' opens Surfer with its
         // own active layout (.surf.ron/.sucl), and no .gtkw is generated for it.
         if (getViewer() === 'surfer') {
-            const surferLayout = await this._waveResolveSurferSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
-            await this._waveLaunchSurfer(vcdFile, surferLayout, tools);
+            const surferLayout = await this._waveResolveSurferSaveFile(simTopModule, vcdFile as string, tools.tempBaseDir);
+            await this._waveLaunchSurfer(vcdFile as string, surferLayout, tools);
         } else {
-            const gtkwSaveFile = await resolverLayoutDoGtkwave(this, simTopModule, vcdFile, tools.tempBaseDir);
-            await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
+            const gtkwSaveFile = await resolverLayoutDoGtkwave(this, simTopModule, vcdFile as string, tools.tempBaseDir);
+            await this._waveLaunchGtkwave(vcdFile as string, gtkwSaveFile, tools);
         }
     } catch (error) {
+        const erro = error as Error & { jaNoTerminal?: boolean };
         if (!canceladoPeloUsuario()) {
-            this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
-            error.jaNoTerminal = true;
+            this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: erro.message }), 'error');
+            erro.jaNoTerminal = true;
         }
         console.error(error);
         throw error;
@@ -583,13 +600,13 @@ async runGtkWave() {
  * with no testbench" flow (which the wave button rejects upstream
  * anyway, but the helper stays general).
  */
-_waveDeriveSimTopModule(config) {
+_waveDeriveSimTopModule(config: Pick<FormaDaConfiguracao, 'testbenchFile' | 'topLevelFile'>): string {
     if (config.testbenchFile) {
         return moduleStemFromPath(config.testbenchFile);
     }
     // Fallback inalcancavel pelo Wave (runGtkWave ja exige testbench),
     // mas o helper fica geral: se um dia for chamado sem tb, exige top.
-    if (!config.topLevelFile) return null;
+    if (!config.topLevelFile) return null as unknown as string;
     return moduleStemFromPath(config.topLevelFile);
 }
 
@@ -597,7 +614,7 @@ _waveDeriveSimTopModule(config) {
  * O botao Fast Sim (verilator_da_onda.ts). O compilation_flow e a AuroraAPI
  * chamam por aqui.
  */
-async runFastSim() {
+async runFastSim(): Promise<void> {
     return rodarFastSim(this);
 }
 
@@ -605,12 +622,12 @@ async runFastSim() {
  * O botao de teste de hardware: o processador ativo no Verilator, saida no
  * THTEST (teste_de_hardware.ts). O compilation_flow chama por aqui.
  */
-async verilatorProcessorRun() {
+async verilatorProcessorRun(): Promise<void> {
     return rodarTesteDeHardware(this);
 }
 
 /** Abre o GTKWave (abrir_onda.ts). */
-async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
+async _waveLaunchGtkwave(vcdFile: string, gtkwSaveFile: string | null, tools: FerramentasDaOnda): Promise<void> {
     return lancarGtkwave(this, vcdFile, gtkwSaveFile, tools);
 }
 
@@ -618,7 +635,9 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
  * Abre o Surfer, na aba ou na janela (abrir_onda.ts). Metodo da instancia
  * porque o wave_ns (openWaveform da API) chama por aqui.
  */
-async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools, opts = {}) {
+async _waveLaunchSurfer(
+    vcdFile: string, surferLayoutFile: string | null, tools: FerramentasDaOnda, opts: OpcoesDoSurfer = {},
+): Promise<void> {
     return lancarSurfer(this, vcdFile, surferLayoutFile, tools, opts);
 }
 
@@ -626,7 +645,7 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools, opts = {}) {
  * Abre a onda do PRISM (abrir_onda.ts). Metodo da instancia porque o
  * project_manager chama por aqui.
  */
-async abrirOndaExterna(vcdFile, rotulo, sinais = []) {
+async abrirOndaExterna(vcdFile: string, rotulo: string, sinais: SinalDoMonitor[] = []): Promise<void> {
     return abrirOndaExternaNoVisualizador(this, vcdFile, rotulo, sinais);
 }
 
@@ -635,18 +654,11 @@ async abrirOndaExterna(vcdFile, rotulo, sinais = []) {
  * ficam na instancia porque a aba do Surfer os leva, e a abertura acontece
  * depois, noutro metodo.
  */
-async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
+async _waveResolveSurferSaveFile(simTopModule: string, vcdFile: string, tempBaseDir: string): Promise<string | null> {
     const { caminho, mapeamentos } = await resolverLayoutDoSurfer(this, simTopModule, vcdFile, tempBaseDir);
     this._surferTabMappings = mapeamentos;
     return caminho;
 }
-
-    // (Removed the dead pre-PRISM hierarchy view, switchToStandardView,
-    // generateHierarchyWithYosys, cleanModuleName, switchToHierarchicalView,
-    // updateToggleButton, getModuleNumber. Zero callers (confirmed by an
-    // adversarial pass); the live hierarchy is generateProjectHierarchy() +
-    // FileTreeViewController, and cleanModuleName lives in main/ipc/prism.js.)
-
 
 }
 

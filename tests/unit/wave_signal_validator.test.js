@@ -183,6 +183,39 @@ describe('resolveWaveSelection (precedencia de fonte)', () => {
     });
 });
 
+describe('o aviso de .gtkw velho tambem sai como notificacao', () => {
+    it('com a notificacao da janela disponivel, o mesmo texto vai para ela', async () => {
+        const deps = makeDeps();
+        const notificar = [];
+        window.showNotification = (...a) => notificar.push(a);
+        window.electronAPI._files.set(SYNTH, COUNTER_V);
+        window.electronAPI._files.set(TB, TB_V);
+        const GTKW = '/proj/velho.gtkw';
+        window.electronAPI._files.set(GTKW, 'tb_counter.clk\ntb_counter.a\ntb_counter.b\n');
+        await WaveStore.ensureRegistered('/proj', 'tb_counter', { tbPath: TB, tbModule: 'tb_counter' });
+        await WaveStore.update('/proj', 'tb_counter', (cfg) => { cfg.gtkwFiles = [{ path: GTKW, isActive: true }]; });
+
+        await resolveWaveSelection(deps, { config: { testbenchFile: TB }, simTopModule: 'tb_counter', filePaths: [SYNTH, TB] });
+
+        const aviso = termCalls.find((c) => c.level === 'warning');
+        expect(aviso.msg).toBe('terminal.wave.gtkwStaleSignalMany');
+        expect(notificar).toEqual([['terminal.wave.gtkwStaleSignalMany', 'warning', 6000, 'Wave Selection']]);
+    });
+
+    it('.gtkw ativo que nao se le: avisa e cai para a proxima fonte', async () => {
+        const deps = makeDeps();
+        window.electronAPI._files.set(SYNTH, COUNTER_V);
+        window.electronAPI._files.set(TB, TB_V);
+        await WaveStore.ensureRegistered('/proj', 'tb_counter', { tbPath: TB, tbModule: 'tb_counter' });
+        await WaveStore.update('/proj', 'tb_counter', (cfg) => { cfg.gtkwFiles = [{ path: '/proj/sumiu.gtkw', isActive: true }]; });
+
+        const d = await resolveWaveSelection(deps, { config: { testbenchFile: TB }, simTopModule: 'tb_counter', filePaths: [SYNTH, TB] });
+
+        expect(termCalls).toContainEqual({ term: 'twave', msg: 'terminal.wave.gtkwReadError', level: 'warning' });
+        expect(d.source).not.toBe('gtkw');
+    });
+});
+
 describe('resolveCocotbWaveSelection (retorna a selecao — nao muta campo)', () => {
     it('retorna [] quando nao ha sinais salvos', async () => {
         const deps = makeDeps();
@@ -230,6 +263,23 @@ describe('parseProjectSources', () => {
         const modules = await parseProjectSources(deps);
         expect(modules.has('core')).toBe(true);      // veio do HDL, nao do .spf
         expect(modules.has('core_tb')).toBe(false);  // *_tb excluido
+    });
+
+    it('le tambem a lista testbenchFiles do .spf', async () => {
+        const deps = makeDeps({ projectConfig: { testbenchFiles: [{ path: TB }, null] } });
+        window.electronAPI._files.set(TB, TB_V);
+        const modules = await parseProjectSources(deps);
+        expect(modules.has('tb_counter')).toBe(true);
+    });
+
+    // A leitura das fontes e cortesia para o layout: qualquer falha vira uma
+    // dica no TWAVE e null, e a onda abre sem a decoracao SAPHO.
+    it('falha no meio vira dica e null', async () => {
+        const deps = makeDeps({
+            projectConfig: { get synthesizableFiles() { throw new Error('spf quebrado'); } },
+        });
+        expect(await parseProjectSources(deps)).toBeNull();
+        expect(termCalls).toEqual([{ term: 'twave', msg: 'terminal.wave.parseSourcesNote', level: 'tips' }]);
     });
 });
 

@@ -223,6 +223,7 @@ js/ai/chat_render.js
 js/ai/ai_metadata.js
 js/ai/provider_view.js
 js/compilation/hierarchy_parser.js
+js/compilation/hierarquia_do_projeto.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

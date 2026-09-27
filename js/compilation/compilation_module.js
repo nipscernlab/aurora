@@ -72,8 +72,7 @@ import { extractFopenReads } from '../wave/fopen_paths.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
-import { parseYosysHierarchy } from './hierarchy_parser.js';
-import { resumirHierarquiaYosys } from './verilog_stats.js';
+import { gerarHierarquiaDoProjeto } from './hierarquia_do_projeto.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
 import { resolveWaveToolchain, findWaveCandidateInDir, resolveVerilatorTools } from './wave_toolchain.js';
 import {
@@ -90,7 +89,6 @@ import {
   buildVerilatorBuildSpec, buildVerilatorRunSpec,
   buildVerilatorJsonSpec, buildVerilatorTbBuildSpec, buildVerilatorTbRunSpec,
   buildFst2VcdSpec, buildGtkwaveSpec,
-  buildYosysHierarchySpec,
 } from './builders/index.js';
 import {
   parseVerilatorPorts,
@@ -176,10 +174,6 @@ class CompilationModule {
             ? window.initializeGlobalTerminalManager()
             : new TerminalManager();
         this.hierarchyData = null;
-        this.isHierarchicalView = false;
-        this.gtkwaveProcess = null;
-        this.hierarchyGenerated = false;
-        this._hierarchyGenerationInProgress = false;
         this.componentsPath = null;
         this._componentsPathPronto = null;
         // Dispara agora e e esperado nas entradas publicas (ver o metodo).
@@ -320,147 +314,17 @@ class CompilationModule {
     }
 
 
-    async monitorGtkwaveProcess() {
-        if (!this.gtkwaveProcess) return;
-
-        const checkInterval = setInterval(async () => {
-            try {
-                const isRunning = await electronAPI.isProcessRunning(this.gtkwaveProcess);
-
-                if (!isRunning) {
-                    clearInterval(checkInterval);
-
-                    if (this.isHierarchicalView) {
-                        this.terminalManager.appendToTerminal('twave',
-                            tr('terminal.wave.gtkwaveClosed'), 'info');
-
-                        setTimeout(() => {
-                            this.isHierarchicalView = false;
-                            window.fileTreeViewController?.showFileMode?.();
-                        }, 500);
-                    }
-
-                    this.gtkwaveProcess = null;
-                    this.hierarchyGenerated = false;
-                }
-            } catch (error) {
-                clearInterval(checkInterval);
-                console.error('Error monitoring GTKWave process:', error);
-            }
-        }, 2000);
-    }
-
+/**
+ * A hierarquia de modulos pelo Yosys, depois da checagem de sintaxe. A geracao
+ * mora em hierarquia_do_projeto.ts; aqui fica onde a arvore e guardada (o
+ * renderHierarchicalTree le dela) e a entrega ao controlador da arvore.
+ */
 async generateProjectHierarchy() {
-    // Hierarchy generation runs whenever there's at least one synthesizable
-    // file, Yosys can build a hierarchy from any user .v. The yosys
-    // script below handles the no-files case implicitly (empty
-    // read_verilog → yosys errors out, caught by the surrounding
-    // try/catch).
-        try {
-            if (!this.projectConfig) throw new Error("Project configuration not loaded");
-
-            const topLevelFilePath = this.projectConfig.topLevelFile;
-            if (!topLevelFilePath) throw new Error("'topLevelFile' not found in .spf");
-
-            const designTopModule = moduleStemFromPath(topLevelFilePath);
-            const yosysPath = await electronAPI.joinPath(this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
-            const tempBaseDir = await projectTempDir(this.projectPath);
-
-            // components/HDL/ tem a biblioteca SAPHO (myFIFO, processor,
-            // core, ula, addr_dec, instr_dec, etc), modulos referenciados
-            // pelo design do usuario mas nao listados em
-            // synthesizableFiles. Sem incluir esses .v no read_verilog,
-            // o yosys faz blackbox automatico mas nao cria entry em
-            // modules[], entao parseYosysHierarchy os trata como
-            // primitivos e eles somem da arvore (`hierarchy -libdir`
-            // existe na doc mas nao funciona nessa versao bundled).
-            //
-            // `hierarchy -top` remove modulos nao alcancaveis depois,
-            // entao incluir HDL/* todo nao polui o JSON final.
-            const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
-            let hdlReadCmds = '';
-            try {
-                const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
-                if (Array.isArray(hdlEntries)) {
-                    const hdlVerilogPaths = await Promise.all(
-                        hdlEntries
-                            .filter((n) => typeof n === 'string' && n.endsWith('.v') && !n.includes('_tb'))
-                            .map((n) => electronAPI.joinPath(hdlPath, n)),
-                    );
-                    hdlReadCmds = hdlVerilogPaths
-                        .map((p) => `read_verilog -sv "${p}"`)
-                        .join('\n');
-                }
-            } catch (_e) {
-                this.terminalManager.appendToTerminal(
-                    'tveri',
-                    tr('terminal.veri.hdlListWarn', { path: hdlPath }),
-                    'warning',
-                );
-            }
-
-            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.hierarchyGen'));
-
-            const synthesizableFiles = this.projectConfig.synthesizableFiles || [];
-            const yosysScript = `
-                ${hdlReadCmds}
-                ${synthesizableFiles.map(file => `read_verilog -sv "${file.path}"`).join('\n')}
-                hierarchy -top ${designTopModule}
-                proc
-                write_json "${tempBaseDir}\\project_hierarchy.json"
-            `;
-
-            const scriptPath = await electronAPI.joinPath(tempBaseDir, 'project_hierarchy_gen.ys');
-            await electronAPI.writeFile(scriptPath, yosysScript);
-
-            const hierSpec = buildYosysHierarchySpec({
-                yosysPath,
-                scriptPath,
-                cwd: tempBaseDir,
-            });
-            const result = await runSpec(hierSpec, { consumeEphemeral: true });
-
-            if (result.code !== 0) throw new Error(tr('error.compilation.yosysProjectFailed'));
-
-            const jsonPath = await electronAPI.joinPath(tempBaseDir, 'project_hierarchy.json');
-            const hierarchyJson = JSON.parse(await electronAPI.readFile(jsonPath, {
-                encoding: 'utf8'
-            }));
-
-            this.hierarchyData = parseYosysHierarchy(hierarchyJson, designTopModule);
-            window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
-            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.hierarchySuccess'), 'success');
-
-            // O que a elaboracao do Yosys encontrou, lido do mesmo JSON que
-            // acabou de montar a arvore: modulos alcancados a partir do top,
-            // instancias, portas do top e celulas por familia. Numero da
-            // compilacao, nao de leitura de texto.
-            try {
-                const r = resumirHierarquiaYosys(hierarchyJson, designTopModule);
-                if (r.encontrouTop) {
-                    const familias = Object.entries(r.families)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([f, n]) => `${n} ${tr(`terminal.veri.families.${f}`)}`)
-                        .join(', ');
-                    this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.designStats', {
-                        top: r.top,
-                        modules: r.modules,
-                        moduleList: r.moduleNames.join(', '),
-                        instances: r.instances,
-                        ports: r.topPorts.total,
-                        inputs: r.topPorts.inputs,
-                        outputs: r.topPorts.outputs,
-                        cells: r.cells,
-                        families: familias || '-',
-                    }), 'tips');
-                }
-            } catch (_e) { /* resumo de cortesia; a hierarquia ja esta na arvore */ }
-            return true;
-        } catch (error) {
-            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.hierarchyError', { message: error.message }), 'warning');
-            return false;
-        }
-    }
+    return gerarHierarquiaDoProjeto(this._instanceDeps(), (arvore) => {
+        this.hierarchyData = arvore;
+        window.fileTreeViewController?.setHierarchyData?.(arvore);
+    });
+}
 
     // Thin delegator, the DOM render lives in hierarchy_view.js (A2 #2). Kept
     // as a method because file_tree_view_controller.js calls it on the instance.
@@ -3226,8 +3090,7 @@ async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
  * Inputs:  vcdFile (absolute), gtkwSaveFile (absolute or null), tools
  * Returns: void
  * Throws:  if launchGtkwaveOnly reports failure
- * Side-effects: spawns gtkwave.exe, stores PID on this.gtkwaveProcess,
- *               starts the lifecycle monitor.
+ * Side-effects: spawns gtkwave.exe. O main acompanha o processo e o fecha com a IDE.
  */
 async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launching'), 'info');
@@ -3258,9 +3121,7 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
     if (!gtkwaveResult.success) {
         throw new Error(tr('error.compilation.gtkwaveFailed', { message: gtkwaveResult.message }));
     }
-    this.gtkwaveProcess = gtkwaveResult.gtkwavePid;
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launched'), 'success');
-    this.monitorGtkwaveProcess();
 }
 
 /**

@@ -229,6 +229,7 @@ js/compilation/layout_do_surfer.js
 js/compilation/teste_de_hardware.js
 js/wave/surfer_tab_preference.js
 js/wave/prism_wave_layout.js
+js/compilation/dump_guard.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

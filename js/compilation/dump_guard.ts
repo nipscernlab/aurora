@@ -1,5 +1,5 @@
 /**
- * dump_guard.js: as regras puras da blindagem do dump de simulação.
+ * dump_guard.ts: as regras puras da blindagem do dump de simulação.
  *
  * O problema que isto resolve (relato do laboratório, 25/08/2026): em máquina
  * travada por antivírus/política de administrador, o simulador não consegue
@@ -33,7 +33,7 @@
  */
 
 /** Nomes de dump que os fluxos vvp/Verilator produzem para um sim-top. */
-export function nomesDeDumpEsperados(simTopModule) {
+export function nomesDeDumpEsperados(simTopModule: string): string[] {
   return [`${simTopModule}.fst`, `${simTopModule}.vcd`];
 }
 
@@ -53,7 +53,7 @@ export const NOMES_DE_DUMP_COCOTB = ['dump.fst', 'dump.vcd'];
  * simulador e a checagem de escrita pré-simulação; um stat quebrado não pode
  * derrubar uma onda boa.
  */
-export function dumpEstaFresco(mtimeMs, inicioMs, folgaMs = 2000) {
+export function dumpEstaFresco(mtimeMs: unknown, inicioMs: unknown, folgaMs = 2000): boolean {
   if (!Number.isFinite(mtimeMs) || !Number.isFinite(inicioMs)) return true;
-  return mtimeMs >= inicioMs - folgaMs;
+  return (mtimeMs as number) >= (inicioMs as number) - folgaMs;
 }

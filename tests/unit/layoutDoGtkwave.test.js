@@ -40,10 +40,11 @@ import { WaveStore } from '../../js/wave/wave_state_store.js';
 import { buildAuroraGtkw, detectProcessors } from '../../js/wave/gtkw_proc_writer.js';
 import { parseProjectSources } from '../../js/compilation/wave_signal_validator.js';
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
+import { resolverLayoutDoGtkwave, conferirGtkwDoUsuario } from '../../js/compilation/layout_do_gtkwave.js';
 
 const chamar = {
-    resolver: (mod, ...a) => mod._waveResolveGtkwSaveFile(...a),
-    conferir: (mod, ...a) => mod._waveValidateUserGtkwAgainstVcd(...a),
+    resolver: (mod, ...a) => resolverLayoutDoGtkwave(mod, ...a),
+    conferir: (mod, ...a) => conferirGtkwDoUsuario(mod.terminalManager, ...a),
 };
 
 const PROJ = 'C:/proj';

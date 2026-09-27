@@ -17,6 +17,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import type { TerminalManager } from './processor_compiler.js';
 import { runSpecStreamed } from './spec_runner.js';
+import { parseProjectSources } from './wave_signal_validator.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { detectProcessors, resolveScopeModules } from '../wave/gtkw_proc_writer.js';
 import { buildSurferLayout } from '../wave/surfer_layout_writer.js';
@@ -24,17 +25,15 @@ import { hasComplexSignals, ComplexVcdScanner, buildComplexMapping } from '../wa
 import { WaveStore } from '../wave/wave_state_store.js';
 
 type Mapeamento = { name: string; content: string };
-type ModulosDoProjeto = Parameters<typeof buildSurferLayout>[0]['modules'];
 
 /** O que a resolucao le do CompilationModule. */
 export interface ContextoDoLayout {
     projectPath: string;
     componentsPath: string | null;
-    projectConfig?: { testbenchFile?: string } | null;
+    projectConfig?: Parameters<typeof parseProjectSources>[0]['projectConfig'] & { testbenchFile?: string | null };
     terminalManager: Pick<TerminalManager, 'appendToTerminal'>;
     /** A selecao que o passo Wave acabou de validar, quando houve uma. */
     _validatedWaveSelection?: string[] | null;
-    _parseProjectSources(): Promise<ModulosDoProjeto>;
 }
 
 /**
@@ -162,7 +161,7 @@ export async function resolverLayoutDoSurfer(
     try {
         const vcdContent = await electronAPI.readFile(parseSource, { encoding: 'utf8' });
         const scopes = parseVcdHeaderFromContent(vcdContent);
-        const modules = await ctx._parseProjectSources();
+        const modules = await parseProjectSources(ctx);
 
         const scopeModules = modules ? resolveScopeModules(scopes, modules) : null;
         const { tradByProcType, maisNovo } = await lerTradutores(tempBaseDir, detectProcessors(scopes, scopeModules));

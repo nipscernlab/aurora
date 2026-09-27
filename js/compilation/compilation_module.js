@@ -45,17 +45,13 @@ import { electronAPI } from '../app/electron_api.js';
 import { comAjuda } from '../ui/help_link.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
-import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { nomesDeDumpEsperados } from './dump_guard.js';
 import { SpfStore } from '../project/spf_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { projectTempDir } from '../project/project_temp.js';
-import { extractSignalRefs } from '../wave/gtkw_writer.js';
-import { buildAuroraGtkw, detectProcessors } from '../wave/gtkw_proc_writer.js';
 import {
   instrumentTestbenchSource,
 } from '../wave/testbench_instrumenter.js';
-import { WaveStore } from '../wave/wave_state_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { extractFopenReads } from '../wave/fopen_paths.js';
@@ -64,6 +60,7 @@ import { runSpec, runSpecStreamed } from './spec_runner.js';
 import { gerarHierarquiaDoProjeto } from './hierarquia_do_projeto.js';
 import { lancarGtkwave, lancarSurfer, abrirOndaExterna as abrirOndaExternaNoVisualizador } from './abrir_onda.js';
 import { resolverLayoutDoSurfer } from './layout_do_surfer.js';
+import { resolverLayoutDoGtkwave } from './layout_do_gtkwave.js';
 import { rodarTesteDeHardware } from './teste_de_hardware.js';
 import { construirNoVerilator, simularNoVerilator, rodarFastSim } from './verilator_da_onda.js';
 import { validarCocotb, anunciarCocotb, rodarCocotb } from './cocotb_da_onda.js';
@@ -74,7 +71,7 @@ import {
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
 import { resolveWaveToolchain, resolveVerilatorTools } from './wave_toolchain.js';
 import {
-  validateWaveSelection, resolveWaveSelection, parseProjectSources,
+  validateWaveSelection, resolveWaveSelection,
 } from './wave_signal_validator.js';
 import {
   cmmCompilation, cppCompilation, asmCompilation, stageProcessorMemoryFiles,
@@ -1088,7 +1085,7 @@ async runGtkWave() {
             const surferLayout = await this._waveResolveSurferSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
             await this._waveLaunchSurfer(vcdFile, surferLayout, tools);
         } else {
-            const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
+            const gtkwSaveFile = await resolverLayoutDoGtkwave(this, simTopModule, vcdFile, tools.tempBaseDir);
             await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
         }
     } catch (error) {
@@ -1410,234 +1407,6 @@ async verilatorProcessorRun() {
  */
 async _stageProcessorMemoryFiles(tempBaseDir, destDir = tempBaseDir) {
     return stageProcessorMemoryFiles(this._instanceDeps(), tempBaseDir, destDir);
-}
-
-/**
- * Decide o .gtkw save-file que o GTKWave vai abrir. Duas sources, em
- * ordem de prioridade:
- *
- *   1. User-curated .gtkw (`gtkwFiles[].isActive === true`, marcado
- *      pelo dropdown do gtkw picker na toolbar). Cross-check contra
- *      o VCD pra avisar de paths stale. Retorna o path do usuario
- *      intocado.
- *   2. Auto-gerado pelo `buildAuroraGtkw`: secao "Top-level" com tudo
- *      que nao pertence a processador + uma secao SAPHO completa
- *      (cores/aliases/grupos) por processador detectado. Filtrado por
- *      `_validatedWaveSelection` (cache do Wave Config picker) quando
- *      ha selecao.
- *
- * Se ambas falharem (VCD invalido, etc.), retorna null e GTKWave abre
- * sem save-file.
- *
- * Inputs:  simTopModule, vcdFile, simDir
- * Returns: path absoluto pro .gtkw, ou null
- * Throws:  nunca (validation hiccups viram warnings)
- * Side-effects: pode escrever ${simDir}/${simTopModule}.gtkw;
- *               loga em twave.
- *
- * Ver ARCHITECTURE.md §9 pro racional de precedencia.
- */
-async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
-    // Source 1: user-curated .gtkw, entrada com `isActive: true` na
-    // lista per-testbench do WaveStore. Cada testbench tem sua propria
-    // lista (gtkwFiles isolados por tb), entao a resolucao aqui depende
-    // do `testbenchFile` corrente.
-    const tbKey = (this.projectConfig.testbenchFile || '')
-        .split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
-    if (tbKey) {
-        const state = await WaveStore.get(this.projectPath, tbKey);
-        const files = state?.gtkwFiles;
-        if (Array.isArray(files) && files.length > 0) {
-            const gtkwFile = files.find((f) => f && f.isActive === true);
-            if (gtkwFile) {
-                const userGtkw = gtkwFile.path;
-                this.terminalManager.appendToTerminal('twave',
-                    tr('terminal.wave.usingGtkwFile', { name: userGtkw.split(/[\\/]/).pop() }), 'info');
-                await this._waveValidateUserGtkwAgainstVcd(userGtkw, vcdFile);
-                return userGtkw;
-            }
-        }
-    }
-
-    // Source 2: auto-gerado. buildAuroraGtkw cobre o caso geral:
-    // top-level flat + secoes por processador SAPHO detectado.
-    const autoGtkw = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.gtkw`);
-    // Preferencia: a selecao ja validada (escrita por _validateWaveSelection
-    // durante o passo de instrumentacao). Senao, le do WaveStore, caso
-    // onde o auto-gtkw e chamado sem o pipeline de instrumentacao
-    // (defensivo; o flow normal sempre seta _validatedWaveSelection).
-    let selected;
-    if (Array.isArray(this._validatedWaveSelection)) {
-        selected = this._validatedWaveSelection;
-    } else if (tbKey) {
-        const tbState = await WaveStore.get(this.projectPath, tbKey);
-        selected = Array.isArray(tbState?.waveSignals) ? tbState.waveSignals : [];
-    } else {
-        selected = [];
-    }
-    // For the auto-gtkw we need to PARSE scopes from a text VCD.
-    // vvp -fst (pass 2) overwrites the $dumpfile target with FST
-    // binary even when the path ends in .vcd, so the pass-1 header
-    // is stashed to a `.header.vcd` sibling by _waveRunVvpSimulation.
-    // Prefer that header file when it exists.
-    let parseSource = vcdFile;
-    const headerSibling = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
-    if (await electronAPI.fileExists(headerSibling)) {
-        parseSource = headerSibling;
-    } else if (vcdFile.toLowerCase().endsWith('.fst')) {
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.autoGtkwError', { message: 'no parseable header (.header.vcd missing); GTKWave opens .fst without auto-gtkw' }),
-            'tips');
-        return null;
-    }
-    try {
-        const vcdContent = await electronAPI.readFile(parseSource, { encoding: 'utf8' });
-        const scopes = parseVcdHeaderFromContent(vcdContent);
-        const binDir = await electronAPI.joinPath(this.componentsPath, 'bin');
-
-        // Last-line-of-defense pra picker selection: avisa o usuario
-        // sobre sinais selecionados que nao chegaram no VCD (testbench
-        // dumpou subset, signal renomeado entre compile e wave, etc).
-        // Aurora ainda escreve o .gtkw, gtkwave so mostra os que tem.
-        if (selected.length > 0) {
-            const inVcd = new Set();
-            for (const sc of scopes) {
-                for (const sig of sc.signals) inVcd.add(`${sc.path}.${sig.name}`);
-            }
-            const dropped = selected.filter((s) => !inVcd.has(s));
-            if (dropped.length > 0) {
-                // Sob Verilator os sinais internos de monitoramento do
-                // processador (stack/ULA, dentro do `.core`) ficam fenced fora
-                // do trace, entao sinais selecionados que vivem ali nao chegam
-                // no VCD. Isso e ESPERADO (limitacao conhecida do Verilator,
-                // nao um erro): em vez de listar cada sinal omitido, mostra uma
-                // info amigavel por processador afetado. Os demais dropped
-                // (renomeados, dump parcial, ...) seguem com o aviso generico.
-                const procs = getSimulator() === 'verilator' ? detectProcessors(scopes) : [];
-                const affectedProcs = new Map(); // nome do proc -> true (preserva ordem)
-                const others = [];
-                for (const s of dropped) {
-                    const proc = /\.core\./.test(s)
-                        && procs.find((p) => s.startsWith(`${p.instancePath}.`));
-                    if (proc) {
-                        affectedProcs.set(proc.procType || proc.instanceName, true);
-                    } else {
-                        others.push(s);
-                    }
-                }
-                for (const procName of affectedProcs.keys()) {
-                    this.terminalManager.appendToTerminal('twave',
-                        tr('terminal.wave.verilatorNoProcSignals', { proc: procName }), 'tips');
-                }
-                if (others.length > 0) {
-                    const preview = others.slice(0, 5).map((s) => `"${s}"`).join(', ');
-                    const more = others.length > 5 ? ` (+${others.length - 5} more)` : '';
-                    const msg = others.length === 1
-                        ? tr('terminal.wave.staleVcdSignalOne', { preview })
-                        : tr('terminal.wave.staleVcdSignalMany', { count: others.length, preview, more });
-                    this.terminalManager.appendToTerminal('twave', msg, 'warning');
-                }
-            }
-        }
-
-        // Parseia o source verilog (synthesizableFiles + testbenchFiles)
-        // pra extrair declaracoes (signed → format dos barramentos;
-        // instances → resolve scope.path → moduleType pra ter o
-        // procType correto = nome da pasta Temp/<procType>/ onde
-        // cmmcomp escreveu trad files). Best-effort: falha vira null
-        // (cai nas heuristicas baseadas em nome de scope).
-        const modules = await this._parseProjectSources();
-
-        const result = buildAuroraGtkw({
-            vcdPath: vcdFile,
-            gtkwPath: autoGtkw,
-            scopes,
-            tbModule: simTopModule,
-            tempBaseDir,
-            binDir,
-            selectedSignals: selected.length > 0 ? selected : null,
-            modules,
-        });
-        if (!result.content) return null;
-
-        await electronAPI.writeFile(autoGtkw, result.content);
-        const procPart = result.processorCount > 0
-            ? `${result.processorCount} processor${result.processorCount === 1 ? '' : 's'}`
-            : 'flat layout';
-        const selPart = selected.length > 0
-            ? `, ${selected.length} signal${selected.length === 1 ? '' : 's'} from picker`
-            : '';
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.autoGtkwLayout', { detail: `${procPart}${selPart}` }), 'info');
-        return autoGtkw;
-    } catch (err) {
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.autoGtkwError', { message: err.message }), 'warning');
-        return null;
-    }
-}
-
-/**
- * Delega pra parseProjectSources (wave_signal_validator.js): le/parseia os
- * .v do projeto (+ HDL SAPHO) e devolve o `modules` map (ou null). Usado
- * pelos geradores de auto-gtkw/auto-surfer.
- */
-async _parseProjectSources() {
-    return parseProjectSources(this._instanceDeps());
-}
-
-/**
- * Cross-check a user-curated .gtkw against the VCD: every dotted path
- * the layout references must exist in the parsed scopes, otherwise
- * GTKWave shows an empty trace with no warning. Best-effort:
- * parse hiccups produce a single twave warning but don't block.
- *
- * Inputs:  gtkwPath (absolute), vcdPath (absolute)
- * Returns: void
- * Throws:  never
- * Side-effects: logs to twave (per-signal note when stale references found)
- */
-async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
-    // Two-pass dump stashes the parseable header in `.header.vcd`
-    // (because vvp -fst overwrites the original .vcd with FST binary).
-    // Prefer that for the cross-check; skip silently if it isn't
-    // available, GTKWave shows empty traces for stale signals,
-    // same behaviour as before the hook existed.
-    let parseSource = vcdPath;
-    if (vcdPath) {
-        const headerSibling = vcdPath.replace(/\.(fst|vcd)$/i, '.header.vcd');
-        if (await electronAPI.fileExists(headerSibling)) {
-            parseSource = headerSibling;
-        } else if (vcdPath.toLowerCase().endsWith('.fst')) {
-            return;
-        }
-    }
-    try {
-        const gtkwContent = await electronAPI.readFile(gtkwPath, { encoding: 'utf8' });
-        const referenced = extractSignalRefs(gtkwContent);
-        if (referenced.length === 0) return;
-        const vcdContent = await electronAPI.readFile(parseSource, { encoding: 'utf8' });
-        const scopes = parseVcdHeaderFromContent(vcdContent);
-        const inVcd = new Set();
-        for (const scope of scopes) {
-            for (const sig of scope.signals) {
-                inVcd.add(`${scope.path}.${sig.name}`);
-            }
-        }
-        const missing = referenced.filter((s) => !inVcd.has(s));
-        if (missing.length === 0) return;
-        const preview = missing.slice(0, 5).map((s) => `"${s}"`).join(', ');
-        const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
-        const fileName = gtkwPath.split(/[\\/]/).pop();
-        const msg = missing.length === 1
-            ? tr('terminal.wave.gtkwStaleVcdOne', { preview, file: fileName })
-            : tr('terminal.wave.gtkwStaleVcdMany', { count: missing.length, file: fileName, preview, more });
-        this.terminalManager.appendToTerminal('twave', msg, 'warning');
-    } catch (refErr) {
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.gtkwPreValidateFailed', { file: gtkwPath.split(/[\\/]/).pop(), message: refErr.message }),
-            'warning');
-    }
 }
 
 /** Abre o GTKWave (abrir_onda.ts). */

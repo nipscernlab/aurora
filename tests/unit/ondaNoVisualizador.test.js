@@ -53,6 +53,11 @@ vi.mock('../../js/wave/surfer_layout_writer.js', async (original) => ({
     ...(await original()),
     buildSurferLayout: vi.fn(),
 }));
+// As fontes Verilog do projeto tem teste proprio (wave_signal_validator).
+vi.mock('../../js/compilation/wave_signal_validator.js', async (original) => ({
+    ...(await original()),
+    parseProjectSources: vi.fn(async () => null),
+}));
 vi.mock('../../js/wave/gtkw_proc_writer.js', async (original) => ({
     ...(await original()),
     detectProcessors: vi.fn(() => []),
@@ -64,6 +69,7 @@ import { TabManager } from '../../js/tabs/tab_manager.js';
 import { WaveStore } from '../../js/wave/wave_state_store.js';
 import { buildSurferLayout } from '../../js/wave/surfer_layout_writer.js';
 import { detectProcessors, resolveScopeModules } from '../../js/wave/gtkw_proc_writer.js';
+import { parseProjectSources } from '../../js/compilation/wave_signal_validator.js';
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
 import { abrirAbaDoSurfer } from '../../js/compilation/abrir_onda.js';
 import { mapeamentoDosComplexos } from '../../js/compilation/layout_do_surfer.js';
@@ -476,7 +482,7 @@ describe('_waveResolveSurferSaveFile', () => {
         buildSurferLayout.mockReturnValue({ content: 'ESTADO', processorCount: 2, mappings: MAPAS });
         const mod = await novoModulo();
         const modulos = new Map([['filtro', {}]]);
-        mod._parseProjectSources = vi.fn(async () => modulos);
+        parseProjectSources.mockResolvedValueOnce(modulos);
         mod._validatedWaveSelection = ['filtro_tb.clk', 'filtro_tb.a', 'filtro_tb.b'];
 
         expect(await mod._waveResolveSurferSaveFile(TOP, FST, TEMP)).toBe(TEMP + '/filtro_tb.surf.ron');
@@ -507,7 +513,6 @@ describe('_waveResolveSurferSaveFile', () => {
         WaveStore.get.mockResolvedValue({ waveSignals: ['filtro_tb.clk'] });
         buildSurferLayout.mockReturnValue({ content: 'E', processorCount: 1, mappings: [] });
         const mod = await novoModulo();
-        mod._parseProjectSources = vi.fn(async () => null);
 
         await mod._waveResolveSurferSaveFile(TOP, FST, TEMP);
 
@@ -520,7 +525,6 @@ describe('_waveResolveSurferSaveFile', () => {
     it('sem testbench, sem selecao: layout plano e sem aviso de tradutor', async () => {
         api._escrever(HEADER, CABECALHO.replace('comp_me3_z', 'z'));
         const mod = await novoModulo({});
-        mod._parseProjectSources = vi.fn(async () => null);
 
         await mod._waveResolveSurferSaveFile(TOP, FST, TEMP);
 
@@ -533,7 +537,6 @@ describe('_waveResolveSurferSaveFile', () => {
         api.writeSurferMappings.mockResolvedValueOnce({ failed: [{ name: 'a' }] });
         buildSurferLayout.mockReturnValue({ content: 'E', processorCount: 0, mappings: [{ name: 'a' }] });
         const mod = await novoModulo();
-        mod._parseProjectSources = vi.fn(async () => null);
 
         expect(await mod._waveResolveSurferSaveFile(TOP, FST, TEMP)).toBe(TEMP + '/filtro_tb.surf.ron');
         expect(msgs()).toContain('Surfer: 1 mapping translator(s) nao escritos — esses tracks abrem em decimal cru.');
@@ -545,7 +548,6 @@ describe('_waveResolveSurferSaveFile', () => {
         api._arquivos.delete(HEADER);
         api._escrever(VCD, CABECALHO);
         const mod = await novoModulo();
-        mod._parseProjectSources = vi.fn(async () => null);
 
         await mod._waveResolveSurferSaveFile(TOP, VCD, TEMP);
         expect(api.readFile).toHaveBeenCalledWith(VCD, { encoding: 'utf8' });
@@ -561,14 +563,13 @@ describe('_waveResolveSurferSaveFile', () => {
     it('construtor sem conteudo: sem layout e sem gravar', async () => {
         buildSurferLayout.mockReturnValue({ content: null, processorCount: 0, mappings: [] });
         const mod = await novoModulo();
-        mod._parseProjectSources = vi.fn(async () => null);
         expect(await mod._waveResolveSurferSaveFile(TOP, FST, TEMP)).toBeNull();
         expect(api._arquivos.has(TEMP + '/filtro_tb.surf.ron')).toBe(false);
     });
 
     it('falha no meio vira aviso e null', async () => {
         const mod = await novoModulo();
-        mod._parseProjectSources = vi.fn(async () => { throw new Error('parser'); });
+        parseProjectSources.mockRejectedValueOnce(new Error('parser'));
         expect(await mod._waveResolveSurferSaveFile(TOP, FST, TEMP)).toBeNull();
         expect(ultima()).toEqual({ term: 'twave', msg: 'Surfer auto-layout failed (parser) — opening raw VCD.', level: 'tips' });
     });
@@ -582,7 +583,6 @@ describe('_waveResolveSurferSaveFile', () => {
             return stats(p);
         });
         const mod = await novoModulo();
-        mod._parseProjectSources = vi.fn(async () => null);
         expect(await mod._waveResolveSurferSaveFile(TOP, FST, TEMP)).toBe(TEMP + '/filtro_tb.surf.ron');
 
         // Agora o tradutor tem stat, mas o dump nao.
@@ -603,7 +603,6 @@ describe('_waveResolveSurferSaveFile', () => {
             return { code: 0 };
         });
         const mod = await novoModulo();
-        mod._parseProjectSources = vi.fn(async () => null);
 
         await mod._waveResolveSurferSaveFile(TOP, FST, TEMP);
 

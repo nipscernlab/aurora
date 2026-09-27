@@ -1,5 +1,5 @@
 /**
- * surfer_tab_preference.js: o Surfer abre numa aba do editor ou em janela?
+ * surfer_tab_preference.ts: o Surfer abre numa aba do editor ou em janela?
  *
  * Default: true (aba). O visualizador dentro do editor mantem o fluxo
  * compilar→olhar a onda→voltar ao codigo sem trocar de janela, entao ele e o
@@ -23,7 +23,7 @@ const STORAGE_KEY = 'aurora.surferInTab';
  * true = abrir o Surfer numa aba do editor (default); false = janela nativa.
  * Nunca lanca, chamado no hot path (cada clique no Wave).
  */
-export function getSurferInTab() {
+export function getSurferInTab(): boolean {
     try {
         if (typeof localStorage === 'undefined') return true;
         return localStorage.getItem(STORAGE_KEY) !== 'false';
@@ -33,7 +33,7 @@ export function getSurferInTab() {
 }
 
 /** Persiste a escolha (coage pra boolean). Idempotente, nunca lanca. */
-export function setSurferInTab(value) {
+export function setSurferInTab(value: unknown): void {
     const normalized = value === true;
     try {
         if (typeof localStorage !== 'undefined') {

@@ -1,5 +1,5 @@
 /**
- * prism_wave_layout.js: o layout da onda da simulacao do PRISM.
+ * prism_wave_layout.ts: o layout da onda da simulacao do PRISM.
  *
  * O monitor do PRISM grava um .vcd com os sinais que a pessoa escolheu, e o
  * visualizador o abria vazio: a lista de variaveis a esquerda e nenhuma onda
@@ -21,58 +21,74 @@
  * Modulo puro: entra a lista de sinais, saem dois textos. Nao grava nada.
  */
 
-import { buildSurferState } from './surfer_layout_writer.js';
+import { buildSurferState, type SurferColor, type SurferItem } from './surfer_layout_writer.js';
 import { buildCustomGtkw } from './gtkw_custom.js';
 
+type Papel = 'clock' | 'input' | 'output' | 'internal';
+
 /** Os papeis, na ordem em que os grupos aparecem, com o titulo do divisor. */
-const PAPEIS = Object.freeze([
+const PAPEIS: ReadonlyArray<readonly [Papel, string]> = Object.freeze([
   ['clock', 'Clock'],
   ['input', 'Inputs'],
   ['output', 'Outputs'],
   ['internal', 'Internal'],
-]);
+] as const);
 
 /** A cor de cada papel no Surfer; o relogio fica na cor padrao, mais baixo. */
-const COR_SURFER = Object.freeze({ clock: null, input: 'Yellow', output: 'Green', internal: 'Orange' });
+const COR_SURFER: Readonly<Record<Papel, SurferColor | null>> =
+  Object.freeze({ clock: null, input: 'Yellow', output: 'Green', internal: 'Orange' });
 
 /** A base do monitor no nome do tradutor do Surfer. */
-const FORMATO_SURFER = Object.freeze({ hex: 'Hexadecimal', dec: 'Unsigned', bin: 'Binary', oct: 'Octal' });
+const FORMATO_SURFER: Readonly<Record<string, string>> =
+  Object.freeze({ hex: 'Hexadecimal', dec: 'Unsigned', bin: 'Binary', oct: 'Octal' });
 
 /** A base do monitor na radix do .gtkw; o GTKWave da casa nao tem octal. */
-const RADIX_GTKW = Object.freeze({ hex: 'hex', dec: 'dec', bin: 'bin', oct: 'hex' });
+const RADIX_GTKW: Readonly<Record<string, string>> = Object.freeze({ hex: 'hex', dec: 'dec', bin: 'bin', oct: 'hex' });
 
-/**
- * @typedef {object} SinalDoMonitor
- * @property {string} nome
- * @property {string[]} [caminho]  submodulos ate o sinal, do topo para dentro
- * @property {number} [bits]
- * @property {string} [base]       hex | dec | bin | oct (so vale para barramento)
- * @property {string} [papel]      clock | input | output | internal
- */
+/** Um sinal como o monitor do PRISM o descreve. */
+export interface SinalDoMonitor {
+  nome: string;
+  /** submodulos ate o sinal, do topo para dentro */
+  caminho?: string[];
+  bits?: number;
+  /** hex | dec | bin | oct (so vale para barramento) */
+  base?: string;
+  /** clock | input | output | internal */
+  papel?: string;
+}
+
+interface SinalNormalizado {
+  nome: string;
+  bits: number;
+  caminho: string[];
+  base: string;
+  papel: Papel;
+}
+
+const ehPapel = (p: unknown): p is Papel => PAPEIS.some(([papel]) => papel === p);
 
 /**
  * Normaliza um sinal como veio do monitor; devolve null se nao tem nome.
- * @param {any} s
  */
-function normalizar(s) {
+function normalizar(s: Partial<SinalDoMonitor> | null | undefined): SinalNormalizado | null {
   const nome = s && typeof s.nome === 'string' ? s.nome.trim() : '';
-  if (!nome) return null;
+  if (!s || !nome) return null;
   const bits = Math.max(1, Math.floor(Number(s.bits) || 1));
   const caminho = Array.isArray(s.caminho) ? s.caminho.map((c) => String(c)).filter(Boolean) : [];
   const base = String(s.base || (bits > 1 ? 'hex' : 'bin')).toLowerCase();
-  const papel = PAPEIS.some(([p]) => p === s.papel) ? s.papel : 'internal';
+  const papel = ehPapel(s.papel) ? s.papel : 'internal';
   return { nome, bits, caminho, base, papel };
 }
 
 /**
  * Monta os dois layouts a partir dos sinais do monitor.
- *
- * @param {{ modulo: string, vcdPath: string, sinais: SinalDoMonitor[] }} entrada
- * @returns {{ surfer: string|null, gtkw: string|null, quantidade: number }}
  */
-export function montarLayoutDaOndaDoPrism({ modulo, vcdPath, sinais } = {}) {
+export function montarLayoutDaOndaDoPrism(
+  { modulo, vcdPath, sinais }: { modulo?: string; vcdPath?: string; sinais?: SinalDoMonitor[] } = {},
+): { surfer: string | null; gtkw: string | null; quantidade: number } {
   const raiz = String(modulo || '').trim();
-  const lista = (Array.isArray(sinais) ? sinais : []).map(normalizar).filter(Boolean);
+  const lista = (Array.isArray(sinais) ? sinais : []).map(normalizar)
+    .filter((s): s is SinalNormalizado => s !== null);
   if (!raiz || !lista.length) return { surfer: null, gtkw: null, quantidade: 0 };
 
   // Um grupo por papel, na ordem dos papeis; dentro do grupo, a ordem do
@@ -82,8 +98,8 @@ export function montarLayoutDaOndaDoPrism({ modulo, vcdPath, sinais } = {}) {
     .filter((g) => g.sinais.length);
   const comDivisores = grupos.length > 1;
 
-  const itens = [];
-  const gtkwSinais = [];
+  const itens: SurferItem[] = [];
+  const gtkwSinais: { path: string; radix: string; group?: string }[] = [];
   for (const g of grupos) {
     if (comDivisores) itens.push({ kind: 'divider', name: g.titulo });
     for (const s of g.sinais) {
@@ -100,7 +116,8 @@ export function montarLayoutDaOndaDoPrism({ modulo, vcdPath, sinais } = {}) {
       gtkwSinais.push({
         path: `${[raiz, ...s.caminho, s.nome].join('.')}${s.bits > 1 ? `[${s.bits - 1}:0]` : ''}`,
         radix: s.bits > 1 ? (RADIX_GTKW[s.base] || 'hex') : 'bin',
-        group: comDivisores ? g.titulo : null,
+        // Sem divisores, sem grupo: o buildCustomGtkw le a falta como null.
+        ...(comDivisores ? { group: g.titulo } : {}),
       });
     }
   }

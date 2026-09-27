@@ -232,12 +232,15 @@ js/compilation/arquivos_da_simulacao.js
 js/compilation/verilator_da_onda.js
 js/compilation/cocotb_da_onda.js
 js/compilation/layout_do_gtkwave.js
+js/compilation/preparo_da_onda.js
+js/compilation/icarus_da_onda.js
 js/wave/surfer_tab_preference.js
 js/wave/prism_wave_layout.js
 js/compilation/dump_guard.js
 js/wave/verilator_trace_rules.js
 js/compilation/wave_signal_validator.js
 js/compilation/cocotb_runner_source.js
+js/wave/fopen_paths.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

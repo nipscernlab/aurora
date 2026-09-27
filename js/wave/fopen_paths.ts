@@ -1,5 +1,5 @@
 /**
- * fopen_paths.js: os arquivos que um testbench abre com `$fopen`, quando dá
+ * fopen_paths.ts: os arquivos que um testbench abre com `$fopen`, quando dá
  * para saber antes de simular.
  *
  * O caso que motivou isto: um testbench com
@@ -26,12 +26,12 @@
  * chamador, que tem o IPC.
  */
 
-/** Um `$fopen` cujo caminho resolvemos. */
-// {@link extractFopenReads} devolve { path: string, mode: string }.
+/** Um `$fopen` de leitura cujo caminho resolvemos. */
+export interface FopenDeLeitura { path: string; mode: string }
 
 /** As `define de texto do fonte: NOME -> literal, sem as aspas. */
-function definesDeTexto(src) {
-    const out = new Map();
+function definesDeTexto(src: string): Map<string, string> {
+    const out = new Map<string, string>();
     const re = /`define\s+([A-Za-z_][\w$]*)\s+"((?:[^"\\]|\\.)*)"/g;
     let m;
     while ((m = re.exec(src)) !== null) {
@@ -48,16 +48,16 @@ function definesDeTexto(src) {
  *   `NOME                       define de texto
  *   {`NOME, "/x", "y"}          concatenação de literais e defines
  */
-function resolverArgumento(arg, defines) {
+function resolverArgumento(arg: string, defines: Map<string, string>): string | null {
     const s = String(arg || '').trim();
     if (!s) return null;
 
-    const umTermo = (termo) => {
+    const umTermo = (termo: string): string | null => {
         const t = termo.trim();
         const lit = /^"((?:[^"\\]|\\.)*)"$/.exec(t);
         if (lit) return lit[1];
         const def = /^`([A-Za-z_][\w$]*)$/.exec(t);
-        if (def) return defines.has(def[1]) ? defines.get(def[1]) : null;
+        if (def) return defines.has(def[1]) ? defines.get(def[1]) as string : null;
         return null;
     };
 
@@ -79,16 +79,15 @@ function resolverArgumento(arg, defines) {
  * `$fopen` com um argumento só fica de fora: naquela forma o Verilog abre
  * para escrita (canal MCD), e escrita cria o arquivo.
  *
- * @param {string} source fonte Verilog do testbench (com comentários ou sem)
- * @returns {Array<{ path: string, mode: string }>}
+ * @param source fonte Verilog do testbench (com comentários ou sem)
  */
-export function extractFopenReads(source) {
+export function extractFopenReads(source: string): FopenDeLeitura[] {
     const src = String(source || '')
         // Comentários fora, senão um $fopen comentado gera aviso fantasma.
         .replace(/\/\*[\s\S]*?\*\//g, ' ')
         .replace(/\/\/[^\n]*/g, ' ');
     const defines = definesDeTexto(src);
-    const out = [];
+    const out: FopenDeLeitura[] = [];
 
     const re = /\$fopen\s*\(/g;
     let m;
@@ -105,7 +104,7 @@ export function extractFopenReads(source) {
         const dentro = src.slice(m.index + m[0].length, fim);
 
         // Divide no primeiro nível: {a,b} conta como um argumento só.
-        const args = [];
+        const args: string[] = [];
         let atual = '';
         let chaves = 0;
         for (const c of dentro) {

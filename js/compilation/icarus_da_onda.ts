@@ -14,15 +14,13 @@ import { buildIverilogBuildSpec, buildVvpRunSpec } from './builders/index.js';
 import { foiCancelada } from './cancelamento.js';
 import * as CommandSpec from './command_spec.js';
 import type { CommandSpec as SpecDeComando } from './command_spec.js';
+import { moduleStemFromPath } from './compilation_helpers.js';
 import { nomesDeDumpEsperados } from './dump_guard.js';
 import { copiarDadosDoTestbench, exigirDumpGravavel } from './arquivos_da_simulacao.js';
 import { consumirProgresso, avisarSeNaBateria, vigiarTamanhoDoDump, type TerminalDaSimulacao } from './durante_a_simulacao.js';
-import {
-    anunciarFonteDaSelecao, arquivosDaBibliotecaHdl, instrumentarTestbench, type ContextoDoPreparo,
-} from './preparo_da_onda.js';
+import { prepararWave, type ContextoDoPreparo } from './preparo_da_onda.js';
 import { stageProcessorMemoryFiles, type TerminalManager } from './processor_compiler.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
-import { resolveWaveSelection } from './wave_signal_validator.js';
 import { projectTempDir } from '../project/project_temp.js';
 
 const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
@@ -98,8 +96,8 @@ export async function rodarIverilog(
 }
 
 /**
- * O build do .vvp do botao Wave: resolve a selecao, instrumenta o testbench e
- * compila tudo com -o Temp/<tb>.vvp. Nao regenera a hierarquia, que e tarefa
+ * O build do .vvp do botao Wave: o preparo comum (prepararWave) e o iverilog
+ * com -o Temp/<tb>.vvp. Nao regenera a hierarquia, que e tarefa
  * do botao Verilog.
  *
  * @throws o erro da etapa, ja escrito no TVERI (`jaNoTerminal`), a nao ser que
@@ -125,36 +123,14 @@ export async function construirNoIcarus(ctx: ContextoDoIcarus): Promise<void> {
 
         const { tempBaseDir, iveriCompPath, hdlPath } = await ferramentasDoIcarus(ctx);
 
-        const simTopModule = (testbenchFile.split(/[\\/]/).pop() as string).replace(/\.v$/i, '');
+        // O mesmo topo que o resto do Wave usa: o nome do arquivo sem a
+        // extensao, qualquer que seja ela (.v, .sv).
+        const simTopModule = moduleStemFromPath(testbenchFile);
         const outputFile = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
 
-        const fileSet = new Set(config.synthesizableFiles);
-
-        // As fontes da validacao da selecao: sintetizaveis + testbench + a
-        // biblioteca HDL, para selecoes de pilha, ULA e SAPHO nao cairem como velhas.
-        const filePaths = new Set(config.synthesizableFiles);
-        filePaths.add(testbenchFile);
-        for (const p of await arquivosDaBibliotecaHdl(hdlPath)) filePaths.add(p);
-
-        const decision = await resolveWaveSelection(ctx, {
-            config: config as ConfigDoIcarus & { testbenchFile: string },
-            simTopModule,
-            filePaths: [...filePaths],
-        });
-
-        const { path: tbPath, reason } = await instrumentarTestbench(
-            ctx, testbenchFile, simTopModule, tempBaseDir,
-            decision.signalsToDump, decision.overrideUserDumpvars, decision.monitorScopes || [],
-        );
-        fileSet.add(tbPath);
-
-        // Quando o testbench manda no dump, a selecao do .gtkw automatico fica
-        // vazia e ele mostra o dump inteiro.
-        ctx._validatedWaveSelection = reason === 'user-defined' ? [] : decision.signalsToDump;
-        anunciarFonteDaSelecao(terminal, decision);
-        if (reason === 'override-user') {
-            terminal.appendToTerminal('twave', tr('terminal.wave.overrideUserDumpvars'), 'tips');
-        }
+        // O preparo comum a todo simulador: a selecao, o testbench
+        // instrumentado e a conferencia dos $fopen de leitura.
+        const { fileSet, instrumentedTbPath: tbPath } = await prepararWave(ctx, config, simTopModule, tempBaseDir);
         if (tbPath !== testbenchFile) {
             terminal.appendToTerminal('tveri',
                 tr('terminal.veri.autoInstrTb', { name: tbPath.split(/[\\/]/).pop() }), 'info');

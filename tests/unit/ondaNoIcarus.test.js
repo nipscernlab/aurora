@@ -397,6 +397,29 @@ describe('o build do .vvp', () => {
         expect(statusUpdater.compilationError).toHaveBeenCalled();
     });
 
+    // A conferencia dos $fopen nasceu para o caso do vvp (commit d6e6a399), mas
+    // foi posta no preparo que so o Verilator usava: no Icarus, o simulador
+    // padrao, ela nunca rodava.
+    it('o Icarus tambem confere os $fopen de leitura antes de simular', async () => {
+        api._arquivos.set(TB, 'module filtro_tb; integer f; initial begin f = $fopen("C:/antiga/entrada.txt", "r"); #9 $finish; end endmodule');
+        const mod = await novoModulo();
+        ligarIcarus();
+        await chamar.construir(mod);
+        expect(visiveis()).toContainEqual(['twave', 'terminal.wave.fopenMissing {"path":"C:/antiga/entrada.txt"}', 'warning']);
+    });
+
+    // O topo da simulacao sai do nome do arquivo sem a extensao, qualquer que
+    // seja ela, como no resto do Wave; com `.replace(/\.v$/)` um testbench .sv
+    // virava `-s filtro_tb.sv` e o .vvp saia com um nome que o Wave nao procura.
+    it('testbench SystemVerilog: o topo e o .vvp tem o nome do modulo', async () => {
+        const SV = PROJ + '/Simulation/filtro_tb.sv';
+        api._arquivos.set(SV, TB_SIMPLES);
+        const mod = await novoModulo({ ...CONFIG_SPF, testbenchFile: SV });
+        const passos = ligarIcarus();
+        await chamar.construirEConferir(mod, TOP, TEMP);
+        expect(passos[0].args).toEqual(expect.arrayContaining(['-s', TOP, '-o', VVP]));
+    });
+
     it('construir e conferir: o .vvp tem de estar onde o Wave espera', async () => {
         const mod = await novoModulo();
         ligarIcarus();

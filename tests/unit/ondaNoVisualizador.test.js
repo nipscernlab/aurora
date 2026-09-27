@@ -282,6 +282,17 @@ describe('abrirAbaDoSurfer', () => {
         });
     });
 
+    // A aba e a janela decidem igual: so a extensao .sucl e arquivo de
+    // comandos. O ponto sem escape fazia a aba tratar `layout_sucl` como
+    // comandos, enquanto a janela o abria como estado.
+    it('nome que so termina em "sucl", sem a extensao, vai como estado', async () => {
+        const mod = await novoModulo();
+        await abrirAbaDoSurfer(mod, FST, TEMP + '/layout_sucl', TOOLS);
+        expect(api.surferTabServe.mock.calls[0][0]).toMatchObject({
+            suclFile: null, stateFile: TEMP + '/layout_sucl',
+        });
+    });
+
     it.each([
         ['semEstado (a onda do PRISM)', { testbenchFile: TB }, { semEstado: true }],
         ['sem testbench no .spf', {}, {}],

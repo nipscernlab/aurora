@@ -204,7 +204,7 @@ export async function abrirAbaDoSurfer(
         return false;
     }
 
-    const isSucl = !!surferLayoutFile && /.sucl$/i.test(surferLayoutFile);
+    const isSucl = !!surferLayoutFile && /\.sucl$/i.test(surferLayoutFile);
 
     // Um id estavel por onda: recompilar reusa a aba e o main troca o servidor.
     const tabId = 'wave:' + vcdFile;

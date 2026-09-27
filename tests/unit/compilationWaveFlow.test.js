@@ -317,6 +317,42 @@ describe('runGtkWave, Icarus com GTKWave', () => {
     });
 });
 
+describe('runGtkWave, Verilator com GTKWave', () => {
+    it('constroi e simula no Verilator e abre a mesma onda', async () => {
+        localStorage.setItem('aurora.waveSimulator', 'verilator');
+        const MINGW = `${COMP}/Packages/msys/mingw64/bin`;
+        api._escrever(`${MINGW}/verilator`, '#!perl');
+        api._escrever(`${MINGW}/perl.exe`, 'MZ');
+        const mod = await novoModulo(CONFIG_PADRAO);
+        const passos = ligarExecutor(api);
+        const executar = runSpecStreamed.getMockImplementation();
+        const verilator = async (spec) => {
+            if (spec.step === 'verilator-build') {
+                passos.push({ step: spec.step, bin: spec.binary, args: spec.args });
+                api._escrever(`${TEMP}/obj_dir_${SIM_TOP}/V${SIM_TOP}.exe`, 'MZ');
+                return { code: 0 };
+            }
+            if (spec.step === 'verilator-run') {
+                passos.push({ step: spec.step, bin: spec.binary, args: spec.args });
+                api._escrever(DUMP, 'FST');
+                return { code: 0 };
+            }
+            return executar(spec);
+        };
+        runSpec.mockImplementation(verilator);
+        runSpecStreamed.mockImplementation(verilator);
+
+        await mod.runGtkWave();
+
+        expect(passos.map((p) => p.step)).toEqual(['verilator-build', 'verilator-run', 'fst2vcd']);
+        expect(msgs()).toContain('terminal.wave.verilatorSimulator');
+        expect(passos[1].bin).toBe(`${TEMP}/obj_dir_${SIM_TOP}/V${SIM_TOP}.exe`);
+        expect(api.launchGtkwaveOnly).toHaveBeenCalledTimes(1);
+        expect(api.launchGtkwaveOnly.mock.calls[0][0].args).toContain(DUMP);
+        expect(houveErro()).toBe(false);
+    });
+});
+
 describe('a saida do vvp no TWAVE', () => {
     it('o ruido some, o contador vira barra e o descritor invalido e explicado uma vez', async () => {
         const mod = await novoModulo(CONFIG_PADRAO);

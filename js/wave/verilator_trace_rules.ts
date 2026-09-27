@@ -1,5 +1,5 @@
 /**
- * verilator_trace_rules.js: o que o usuario pediu para gravar vira regras de
+ * verilator_trace_rules.ts: o que o usuario pediu para gravar vira regras de
  * escopo no .vlt do Verilator, para que o pedido limite o TAMANHO do dump e
  * nao so o layout.
  *
@@ -44,22 +44,22 @@
  * do .vlt. Sem IO.
  */
 
+interface Sinal { name: string }
+
+/** Um escopo da arvore de signal_parser.buildHierarchyTree. */
+export interface EscopoDaArvore { scopePath: string; signals?: Sinal[]; children: EscopoDaArvore[] }
+
 /**
- * @typedef {{ name: string }} Sinal
- * @typedef {{ scopePath: string, signals?: Sinal[], children: Node[] }} Node
- * @typedef {{ signals?: string[], scopes?: string[], subtrees?: string[] }} Pedido
- *   signals: caminhos `escopo.sinal`, ligam o escopo; scopes: escopos ligados
- *   sozinhos; subtrees: escopos ligados com tudo abaixo.
+ * signals: caminhos `escopo.sinal`, ligam o escopo; scopes: escopos ligados
+ * sozinhos; subtrees: escopos ligados com tudo abaixo.
  */
+interface Pedido { signals?: string[]; scopes?: string[]; subtrees?: string[] }
 
 /**
  * Resolve o pedido num conjunto de escopos ligados, com a raiz sempre dentro.
- * @param {Node | null | undefined} tree
- * @param {Pedido} pedido
- * @returns {Set<string>}
  */
-function escoposLigados(tree, pedido) {
-    const ligados = new Set();
+function escoposLigados(tree: EscopoDaArvore|null|undefined, pedido: Pedido): Set<string> {
+    const ligados = new Set<string>();
     if (!tree) return ligados;
     ligados.add(tree.scopePath);
     for (const s of pedido.signals || []) {
@@ -68,8 +68,8 @@ function escoposLigados(tree, pedido) {
         if (corte > 0) ligados.add(s.slice(0, corte));
     }
     for (const s of pedido.scopes || []) if (typeof s === 'string') ligados.add(s);
-    const subarvores = new Set((pedido.subtrees || []).filter((s) => typeof s === 'string'));
-    const visitar = (/** @type {Node} */ no, /** @type {boolean} */ dentro) => {
+    const subarvores = new Set((pedido.subtrees || []).filter((s): s is string => typeof s === 'string'));
+    const visitar = (no: EscopoDaArvore, dentro: boolean) => {
         const agora = dentro || subarvores.has(no.scopePath);
         if (agora) ligados.add(no.scopePath);
         for (const filho of no.children || []) visitar(filho, agora);
@@ -80,18 +80,16 @@ function escoposLigados(tree, pedido) {
 
 /**
  * As linhas do .vlt para um pedido. Vazio quando nao ha o que cortar.
- * @param {Node | null | undefined} tree raiz da hierarquia
- * @param {Pedido | string[]} pedido um array e tratado como `signals`
- * @returns {string[]}
+ * @param tree raiz da hierarquia
+ * @param pedido um array e tratado como `signals`
  */
-export function verilatorTraceRules(tree, pedido) {
+export function verilatorTraceRules(tree: EscopoDaArvore|null|undefined, pedido: Pedido|string[]): string[] {
     const p = Array.isArray(pedido) ? { signals: pedido } : (pedido || {});
     const vazio = !(p.signals || []).length && !(p.scopes || []).length && !(p.subtrees || []).length;
     if (!tree || vazio) return [];
     const ligados = escoposLigados(tree, p);
-    /** @type {string[]} */
-    const regras = [];
-    const visitar = (/** @type {Node} */ no, /** @type {boolean} */ paiLigado) => {
+    const regras: string[] = [];
+    const visitar = (no: EscopoDaArvore, paiLigado: boolean) => {
         const ligado = ligados.has(no.scopePath);
         if (ligado !== paiLigado) {
             regras.push(`tracing_${ligado ? 'on' : 'off'} -scope "${no.scopePath}"`);
@@ -105,10 +103,8 @@ export function verilatorTraceRules(tree, pedido) {
 /**
  * O padrao da AURORA sem selecao: `$dumpvars(1, tb)`, so o escopo do
  * testbench. Sob Verilator isso e desligar cada filho da raiz.
- * @param {Node | null | undefined} tree
- * @returns {string[]}
  */
-export function defaultScopeRules(tree) {
+export function defaultScopeRules(tree: EscopoDaArvore|null|undefined): string[] {
     if (!tree) return [];
     return (tree.children || []).map((filho) => `tracing_off -scope "${filho.scopePath}"`);
 }
@@ -116,12 +112,10 @@ export function defaultScopeRules(tree) {
 /**
  * Le as chamadas `$dumpvars(...)` de um fonte Verilog (comentarios ja
  * descontados pelo chamador ou nao; a regex ignora o que nao parece chamada).
- * @param {string} src
- * @returns {{ calls: Array<{ level: number, refs: string[] }>, bare: boolean }}
  *   bare: houve um `$dumpvars` sem argumentos, que significa tudo.
  */
-export function parseDumpvarsCalls(src) {
-    const calls = [];
+export function parseDumpvarsCalls(src: string): { calls: Array<{ level: number; refs: string[]; }>; bare: boolean; } {
+    const calls: Array<{ level: number; refs: string[] }> = [];
     let bare = false;
     const re = /\$dumpvars\s*(?:\(\s*([^)]*)\))?\s*;/g;
     let m;
@@ -141,24 +135,21 @@ export function parseDumpvarsCalls(src) {
 /**
  * Regras a partir dos `$dumpvars` do proprio testbench. Desiste (devolve [])
  * quando uma chamada pede tudo ou cita algo que a arvore nao conhece.
- * @param {Node | null | undefined} tree
- * @param {string} src fonte do testbench
- * @returns {string[]}
+ * @param src fonte do testbench
  */
-export function rulesFromDumpvars(tree, src) {
+export function rulesFromDumpvars(tree: EscopoDaArvore|null|undefined, src: string): string[] {
     if (!tree) return [];
     const { calls, bare } = parseDumpvarsCalls(src);
     if (bare || !calls.length) return [];
-    const escopos = new Map();
-    const sinais = new Set();
-    const indexar = (/** @type {Node} */ no) => {
+    const escopos = new Map<string, EscopoDaArvore>();
+    const sinais = new Set<string>();
+    const indexar = (no: EscopoDaArvore) => {
         escopos.set(no.scopePath, no);
         for (const s of no.signals || []) sinais.add(`${no.scopePath}.${s.name}`);
         for (const filho of no.children || []) indexar(filho);
     };
     indexar(tree);
-    /** @type {Pedido} */
-    const pedido = { signals: [], scopes: [], subtrees: [] };
+    const pedido: Required<Pedido> = { signals: [], scopes: [], subtrees: [] };
     for (const { level, refs } of calls) {
         for (const ref of refs) {
             if (escopos.has(ref)) {
@@ -178,21 +169,19 @@ export function rulesFromDumpvars(tree, src) {
 
 /**
  * Quantos escopos ficam ligados e desligados, para a linha do terminal.
- * @param {Node | null | undefined} tree
- * @param {string[]} regras as linhas que serao escritas
- * @returns {{ ligados: number, desligados: number }}
+ * @param regras as linhas que serao escritas
  */
-export function contarEscopos(tree, regras) {
+export function contarEscopos(tree: EscopoDaArvore|null|undefined, regras: string[]): { ligados: number; desligados: number; } {
     if (!tree) return { ligados: 0, desligados: 0 };
-    const estado = new Map();
+    const estado = new Map<string, boolean>();
     for (const r of regras || []) {
         const m = /^tracing_(on|off) -scope "(.+)"$/.exec(r);
         if (m) estado.set(m[2], m[1] === 'on');
     }
     let on = 0;
     let off = 0;
-    const visitar = (/** @type {Node} */ no, /** @type {boolean} */ herdado) => {
-        const ligado = estado.has(no.scopePath) ? estado.get(no.scopePath) : herdado;
+    const visitar = (no: EscopoDaArvore, herdado: boolean) => {
+        const ligado = estado.has(no.scopePath) ? estado.get(no.scopePath) as boolean : herdado;
         if (ligado) on++; else off++;
         for (const filho of no.children || []) visitar(filho, ligado);
     };

@@ -48,10 +48,12 @@ import {
     verilatorTraceRules, rulesFromDumpvars, defaultScopeRules,
 } from '../../js/wave/verilator_trace_rules.js';
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
+import { construirNoVerilator, simularNoVerilator } from '../../js/compilation/verilator_da_onda.js';
+import { pedirCancelamento, iniciarRodada } from '../../js/compilation/cancelamento.js';
 
 const chamar = {
-    buildDaOnda: (mod, ...a) => mod._waveBuildVerilator(...a),
-    simulacao: (mod, ...a) => mod._waveRunVerilatorSimulation(...a),
+    buildDaOnda: (mod, ...a) => construirNoVerilator(mod, ...a),
+    simulacao: (mod, ...a) => simularNoVerilator(mod, ...a),
     fastSim: (mod) => mod.runFastSim(),
 };
 
@@ -175,7 +177,7 @@ beforeEach(() => {
 afterEach(() => {
     delete window.electronAPI;
     delete window._latestCompilationModule;
-    delete window.isCompilationCanceled;
+    iniciarRodada();
     vi.clearAllMocks();
 });
 
@@ -433,7 +435,7 @@ describe('Fast Sim', () => {
     });
 
     it('cancelado pelo usuario: sobe sem carimbar erro no terminal', async () => {
-        window.isCompilationCanceled = () => true;
+        pedirCancelamento();
         const mod = await novoModulo();
         ligarVerilator({ buildCode: 1 });
         const erro = await chamar.fastSim(mod).catch((e) => e);

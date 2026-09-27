@@ -27,4 +27,6 @@ export const TabManager: {
   unsavedChanges?: Set<string>;
   /** Grava uma aba; `false` quando a gravacao nao aconteceu. */
   saveFile(filePath: string): Promise<boolean | void>;
+  /** Abre (ou recarrega) a aba do Surfer com a pagina que o servidor local serve. */
+  openSurferWave(wavePath: string, pageUrl: string, tabId: string): unknown;
 };

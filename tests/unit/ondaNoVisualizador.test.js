@@ -65,6 +65,8 @@ import { WaveStore } from '../../js/wave/wave_state_store.js';
 import { buildSurferLayout } from '../../js/wave/surfer_layout_writer.js';
 import { detectProcessors, resolveScopeModules } from '../../js/wave/gtkw_proc_writer.js';
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
+import { abrirAbaDoSurfer } from '../../js/compilation/abrir_onda.js';
+import { mapeamentoDosComplexos } from '../../js/compilation/layout_do_surfer.js';
 
 const PROJ = 'C:/proj';
 const COMP = 'C:/comp';
@@ -253,12 +255,12 @@ describe('_waveLaunchSurfer', () => {
     });
 });
 
-describe('_waveOpenSurferTab', () => {
+describe('abrirAbaDoSurfer', () => {
     it('serve a onda com o estado a salvar por testbench e abre a aba', async () => {
         const mod = await novoModulo();
         mod._surferTabMappings = [{ name: 'm', content: 'c' }];
 
-        expect(await mod._waveOpenSurferTab(FST, TEMP + '/x.surf.ron', TOOLS)).toBe(true);
+        expect(await abrirAbaDoSurfer(mod, FST, TEMP + '/x.surf.ron', TOOLS)).toBe(true);
 
         expect(api.surferTabServe).toHaveBeenCalledWith({
             surferBin: TOOLS.surferBin,
@@ -274,7 +276,7 @@ describe('_waveOpenSurferTab', () => {
 
     it('arquivo de comandos vai como sucl, e sem mapeamentos vai lista vazia', async () => {
         const mod = await novoModulo();
-        await mod._waveOpenSurferTab(FST, TEMP + '/x.sucl', TOOLS);
+        await abrirAbaDoSurfer(mod, FST, TEMP + '/x.sucl', TOOLS);
         expect(api.surferTabServe.mock.calls[0][0]).toMatchObject({
             suclFile: TEMP + '/x.sucl', stateFile: null, mappings: [],
         });
@@ -286,14 +288,14 @@ describe('_waveOpenSurferTab', () => {
         ['sem configuracao carregada', null, {}],
     ])('%s: nao ha onde salvar o estado', async (_nome, config, opts) => {
         const mod = await novoModulo(config);
-        await mod._waveOpenSurferTab(FST, null, TOOLS, opts);
+        await abrirAbaDoSurfer(mod, FST, null, TOOLS, opts);
         expect(api.surferTabServe.mock.calls[0][0].stateSavePath).toBeNull();
     });
 
     it('sem o pacote web, avisa e devolve false', async () => {
         api.surferTabAvailable.mockResolvedValueOnce(false);
         const mod = await novoModulo();
-        expect(await mod._waveOpenSurferTab(FST, null, TOOLS)).toBe(false);
+        expect(await abrirAbaDoSurfer(mod, FST, null, TOOLS)).toBe(false);
         expect(msgs()).toEqual(['terminal.wave.surferTabNoBundle']);
         expect(api.surferTabServe).not.toHaveBeenCalled();
     });
@@ -301,7 +303,7 @@ describe('_waveOpenSurferTab', () => {
     it('servidor que nao sobe: avisa com o motivo e devolve false', async () => {
         api.surferTabServe.mockResolvedValueOnce({ success: false, message: 'porta' });
         const mod = await novoModulo();
-        expect(await mod._waveOpenSurferTab(FST, null, TOOLS)).toBe(false);
+        expect(await abrirAbaDoSurfer(mod, FST, null, TOOLS)).toBe(false);
         expect(ultima().msg).toBe('Surfer tab unavailable (porta) — opening the window instead.');
         expect(TabManager.openSurferWave).not.toHaveBeenCalled();
     });
@@ -309,7 +311,7 @@ describe('_waveOpenSurferTab', () => {
     it('resposta vazia do servidor conta como falha sem motivo', async () => {
         api.surferTabServe.mockResolvedValueOnce(undefined);
         const mod = await novoModulo();
-        expect(await mod._waveOpenSurferTab(FST, null, TOOLS)).toBe(false);
+        expect(await abrirAbaDoSurfer(mod, FST, null, TOOLS)).toBe(false);
         expect(ultima().msg).toBe('Surfer tab unavailable (unknown) — opening the window instead.');
     });
 });
@@ -317,7 +319,7 @@ describe('_waveOpenSurferTab', () => {
 describe('o "salvar" de dentro da aba do Surfer', () => {
     async function abrirAba() {
         const mod = await novoModulo();
-        await mod._waveOpenSurferTab(FST, null, TOOLS);
+        await abrirAbaDoSurfer(mod, FST, null, TOOLS);
         return mod;
     }
     const SALVO = PROJ + '/.aurora/testbench/filtro_tb.tab.surf.ron';
@@ -601,7 +603,7 @@ describe('_waveResolveSurferSaveFile', () => {
     });
 });
 
-describe('_buildSurferComplexMapping', () => {
+describe('mapeamentoDosComplexos', () => {
     beforeEach(() => {
         api._escrever(COMP2GTKW, 'MZ');
         api._escrever(FST2VCD, 'MZ');
@@ -623,7 +625,7 @@ describe('_buildSurferComplexMapping', () => {
         fluxo('#0\nb1 "\n#1\nb0001 "\nb1111 "\n');
         const mod = await novoModulo();
 
-        const mapa = await mod._buildSurferComplexMapping(FST, TOP, TEMP, 'ns');
+        const mapa = await mapeamentoDosComplexos(mod, FST, TOP, TEMP, 'ns');
 
         expect(api.decodeComplex).toHaveBeenCalledWith({ exePath: COMP2GTKW, values: ['0001', '1111'] });
         expect(mapa).toEqual({ name: `aurora_cpx_ns_${TOP}`, content: `Name = aurora_cpx_ns_${TOP}\n0b0001 z0001\n0b1111 z1111\n` });
@@ -635,7 +637,7 @@ describe('_buildSurferComplexMapping', () => {
     it('um valor so, no singular; nome sem namespace e limpo de caracteres', async () => {
         fluxo('#0\nb0001 "\n');
         const mod = await novoModulo();
-        const mapa = await mod._buildSurferComplexMapping(FST, 'tb-x', TEMP);
+        const mapa = await mapeamentoDosComplexos(mod, FST, 'tb-x', TEMP);
         expect(mapa.name).toBe('aurora_cpx__tb_x');
         expect(ultima().msg).toBe('Surfer complex decode: 1 valor.');
     });
@@ -647,7 +649,7 @@ describe('_buildSurferComplexMapping', () => {
         api.decodeComplex.mockImplementation(async ({ values }) => ({ success: true, decoded: values.map(() => 'v') }));
         const mod = await novoModulo();
 
-        await mod._buildSurferComplexMapping(FST, TOP, TEMP, 'ns');
+        await mapeamentoDosComplexos(mod, FST, TOP, TEMP, 'ns');
 
         expect(api.killCurrentSpecProcess).toHaveBeenCalledTimes(1);
         expect(ultima().msg).toMatch(/ valores \(limitado\)\.$/);
@@ -659,7 +661,7 @@ describe('_buildSurferComplexMapping', () => {
             throw new Error('morto');
         });
         const mod = await novoModulo();
-        const mapa = await mod._buildSurferComplexMapping(FST, TOP, TEMP, 'ns');
+        const mapa = await mapeamentoDosComplexos(mod, FST, TOP, TEMP, 'ns');
         expect(mapa.content).toContain('0b0011 z0011');
     });
 
@@ -672,7 +674,7 @@ describe('_buildSurferComplexMapping', () => {
     ])('%s: null', async (_nome, preparar, aviso) => {
         preparar();
         const mod = await novoModulo();
-        expect(await mod._buildSurferComplexMapping(FST, TOP, TEMP, 'ns')).toBeNull();
+        expect(await mapeamentoDosComplexos(mod, FST, TOP, TEMP, 'ns')).toBeNull();
         expect(runSpecStreamed).not.toHaveBeenCalled();
         expect(msgs()).toEqual(aviso ? [aviso] : []);
     });
@@ -687,7 +689,7 @@ describe('_buildSurferComplexMapping', () => {
         fluxo(corpo);
         if (resposta !== undefined) api.decodeComplex.mockResolvedValueOnce(resposta);
         const mod = await novoModulo();
-        expect(await mod._buildSurferComplexMapping(FST, TOP, TEMP, 'ns')).toBeNull();
+        expect(await mapeamentoDosComplexos(mod, FST, TOP, TEMP, 'ns')).toBeNull();
         expect(msgs()).toEqual([]);
     });
 
@@ -695,7 +697,7 @@ describe('_buildSurferComplexMapping', () => {
         fluxo('#0\nb1 "\n');
         api.decodeComplex.mockRejectedValueOnce(new Error('pipe'));
         const mod = await novoModulo();
-        expect(await mod._buildSurferComplexMapping(FST, TOP, TEMP, 'ns')).toBeNull();
+        expect(await mapeamentoDosComplexos(mod, FST, TOP, TEMP, 'ns')).toBeNull();
         expect(ultima()).toEqual({ term: 'twave', msg: 'Surfer complex decode skipped (pipe) — complexos em Binary.', level: 'tips' });
     });
 });

@@ -47,6 +47,33 @@ interface AuroraElectronAPI {
     Promise<{ success: boolean; code?: string; error?: string; path?: string }>;
   getComponentsPath(): Promise<string>;
   /**
+   * A saida ao vivo do executor de specs (main/compile/executor.js); devolve
+   * quem desliga o ouvinte. Opcional porque fora do Electron nao ha fluxo.
+   */
+  onExecSpecStream?(cb: (payload: { type?: string; data?: string } | null | undefined) => void): () => void;
+  /** Mata o filho que o executor de specs deixou parqueado (so ele, nao por nome). */
+  killCurrentSpecProcess?(): Promise<unknown>;
+  /** Os visualizadores de onda (main/ipc/compile.js). */
+  launchGtkwaveOnly(opts: { gtkwaveBin: string; args: string[]; workingDir: string }):
+    Promise<{ success: boolean; gtkwavePid?: number; message?: string }>;
+  launchSurfer(opts: { surferBin: string; args: string[]; workingDir: string; multiWindow: boolean }):
+    Promise<{ success: boolean; surferPid?: number; message?: string }>;
+  /** Os tradutores de valor do Surfer, gravados na pasta global de mapeamentos. */
+  writeSurferMappings(mappings: Array<{ name: string; content: string }>):
+    Promise<{ success?: boolean; written?: unknown[]; failed?: unknown[] } | null | undefined>;
+  /** Decodifica padroes de bits de complexos pelo comp2gtkw. */
+  decodeComplex(payload: { exePath: string; values: string[] }):
+    Promise<{ success?: boolean; decoded?: unknown } | null | undefined>;
+  /** O Surfer numa aba do editor (main/ipc/surfer_tab.js). */
+  surferTabAvailable?(): Promise<boolean>;
+  surferTabServe(opts: {
+    surferBin: string; waveFile: string; tabId: string;
+    suclFile: string | null; stateFile: string | null;
+    mappings: Array<{ name: string; content: string }>; stateSavePath: string | null;
+  }): Promise<{ success?: boolean; pageUrl?: string; message?: string } | null | undefined>;
+  /** O "salvar" de dentro da aba gravou o estado no projeto. */
+  onSurferTabStateSaved?(cb: (dados: { tabId: string; path: string }) => void): void;
+  /**
    * Manda um comando para a pagina do PRISM (a simulacao logica interativa).
    * Este e o lado de QUEM PEDE, o renderer principal; os dois abaixo sao o
    * lado de quem executa, a propria pagina do PRISM (preload_prism.js).

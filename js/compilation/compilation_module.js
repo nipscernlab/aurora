@@ -43,7 +43,6 @@
  */
 import { electronAPI } from '../app/electron_api.js';
 import { comAjuda } from '../ui/help_link.js';
-import { applyResolved } from './command_overrides.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { lerProgresso } from '../terminal/progress_line.js';
@@ -53,18 +52,13 @@ import { SpfStore } from '../project/spf_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { projectTempDir } from '../project/project_temp.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
-import { buildAuroraGtkw, detectProcessors, resolveScopeModules } from '../wave/gtkw_proc_writer.js';
-import { buildSurferLayout } from '../wave/surfer_layout_writer.js';
-import { montarLayoutDaOndaDoPrism } from '../wave/prism_wave_layout.js';
-import { hasComplexSignals, ComplexVcdScanner, buildComplexMapping } from '../wave/complex_decode.js';
+import { buildAuroraGtkw, detectProcessors } from '../wave/gtkw_proc_writer.js';
 import {
   instrumentTestbenchSource, commentOutDumpCalls,
 } from '../wave/testbench_instrumenter.js';
 import { WaveStore } from '../wave/wave_state_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
-import { getViewer, getSurferMode } from '../wave/viewer_preference.js';
-import { getSurferMultiWindow } from '../wave/surfer_window_preference.js';
-import { getSurferInTab } from '../wave/surfer_tab_preference.js';
+import { getViewer } from '../wave/viewer_preference.js';
 import {
     verilatorTraceRules, defaultScopeRules, rulesFromDumpvars, contarEscopos,
 } from '../wave/verilator_trace_rules.js';
@@ -73,6 +67,8 @@ import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
 import { gerarHierarquiaDoProjeto } from './hierarquia_do_projeto.js';
+import { lancarGtkwave, lancarSurfer, abrirOndaExterna as abrirOndaExternaNoVisualizador } from './abrir_onda.js';
+import { resolverLayoutDoSurfer } from './layout_do_surfer.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
 import { resolveWaveToolchain, findWaveCandidateInDir, resolveVerilatorTools } from './wave_toolchain.js';
 import {
@@ -88,7 +84,7 @@ import {
   buildCocotbRunSpec,
   buildVerilatorBuildSpec, buildVerilatorRunSpec,
   buildVerilatorJsonSpec, buildVerilatorTbBuildSpec, buildVerilatorTbRunSpec,
-  buildFst2VcdSpec, buildGtkwaveSpec,
+  buildFst2VcdSpec,
 } from './builders/index.js';
 import {
   parseVerilatorPorts,
@@ -101,43 +97,6 @@ import {
   isVerilogLikeFile, assertPythonModuleName, safeNamePart, escolherTestbench,
 } from './compilation_helpers.js';
 import { COCOTB_RUNNER_SOURCE, COCOTB_TESTS_FAILED } from './cocotb_runner_source.js';
-
-// ─── Estado salvo dentro da aba do Surfer ───────────────────────────────────
-// tabId → { projectPath, tbKey, name }. Preenchido a cada abertura de aba;
-// quando o main avisa que um POST de estado foi gravado, este ouvinte registra
-// o arquivo no WaveStore como o layout ATIVO daquele testbench, e o próximo
-// Wave já abre com ele.
-//
-// O ouvinte é único e mora no import do módulo, e não numa instância: a aba do
-// Surfer sobrevive a recompilações (o tabId é estável por onda), então um
-// ouvinte por instância acumularia um por compilação e o mesmo salvamento
-// seria registrado várias vezes.
-const surferTabSaveCtx = new Map();
-if (typeof window !== 'undefined' && electronAPI.onSurferTabStateSaved) {
-    electronAPI.onSurferTabStateSaved(async ({ tabId, path: savedPath }) => {
-        const ctx = surferTabSaveCtx.get(tabId);
-        if (!ctx) return;
-        try {
-            await WaveStore.update(ctx.projectPath, ctx.tbKey, (cfg) => {
-                const files = Array.isArray(cfg.surferFiles) ? cfg.surferFiles : [];
-                let entry = files.find((f) => f?.path === savedPath);
-                if (!entry) {
-                    entry = { name: ctx.name, path: savedPath, isActive: false };
-                    files.push(entry);
-                }
-                for (const f of files) f.isActive = (f === entry);
-                cfg.surferFiles = files;
-            });
-            window._latestCompilationModule?.terminalManager?.appendToTerminal(
-                'twave', tr('terminal.wave.surferTabStateSaved'), 'success');
-        } catch (e) {
-            // O arquivo ESTA salvo; o que falhou foi anotá-lo no projeto. Dizer
-            // as duas coisas evita a pessoa salvar de novo achando que perdeu.
-            window._latestCompilationModule?.terminalManager?.appendToTerminal(
-                'twave', `Estado salvo em ${savedPath}, mas o registro no projeto falhou: ${e?.message || e}`, 'error');
-        }
-    });
-}
 
 // i18n shim, falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -3077,502 +3036,37 @@ async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
     }
 }
 
-/**
- * Build the GTKWave command line and launch the process.
- *
- * gtkwave-nipscern fork (components/Packages/gtkwave-nipscern/):
- *   - `--dark`, Aurora's dark theme parity (signal panel + GTK chrome).
- *   - `--zoom-fit`, initial zoom-fit.
- *   - `--left-justify`, alinha nomes de sinais a esquerda.
- *   - `-a <gtkw>`, save-file (so quando aplicavel). SST ja vem removido
- *     da fork, entao --rcvar 'hide_sst on' nao e mais necessario.
- *
- * Inputs:  vcdFile (absolute), gtkwSaveFile (absolute or null), tools
- * Returns: void
- * Throws:  if launchGtkwaveOnly reports failure
- * Side-effects: spawns gtkwave.exe. O main acompanha o processo e o fecha com a IDE.
- */
+/** Abre o GTKWave (abrir_onda.ts). */
 async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launching'), 'info');
-
-    // gtkwave usa spawn detached (monitorado via launch-gtkwave-only)
-    // em vez do executor padrao. Mesmo assim, passamos pelo runSpec-
-    // -equivalente pra que overrides da AI funcionem: aplicamos override
-    // a um base spec e renderizamos a linha de comando, o IPC velho
-    // espera string. Override no spec de gtkwave fica em ../command_overrides.
-    const baseSpec = buildGtkwaveSpec({
-        gtkwaveBin: tools.gtkwaveBin,
-        vcdFile,
-        gtkwSaveFile: gtkwSaveFile || undefined,
-        cwd: tools.tempBaseDir,
-    });
-    const resolved = await applyResolved(baseSpec, { consumeEphemeral: true });
-    const finalSpec = resolved.appliedSpec;
-    // Pass the resolved spec's binary + tokenized args straight through.
-    // Rendering to a string and re-parsing dropped the quotes around a
-    // space-free gtkwave path, so the old IPC rejected it as "Invalid
-    // GTKWave command format". The args array is already exactly what
-    // spawn needs (e.g. '--script=PATH' stays one token).
-    const gtkwaveResult = await electronAPI.launchGtkwaveOnly({
-        gtkwaveBin: finalSpec.binary,
-        args: finalSpec.args,
-        workingDir: tools.tempBaseDir,
-    });
-    if (!gtkwaveResult.success) {
-        throw new Error(tr('error.compilation.gtkwaveFailed', { message: gtkwaveResult.message }));
-    }
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launched'), 'success');
+    return lancarGtkwave(this, vcdFile, gtkwSaveFile, tools);
 }
 
 /**
- * Launch the Surfer viewer (opt-in alternative to GTKWave).
- *
- * Surfer (https://surfer-project.org/) is a Rust/egui waveform viewer that
- * reads the same VCD/FST. Aurora treats it as an optional standalone
- * surfer-aurora.exe under components/Packages/surfer/ (the NIPS-CERN fork
- * build, gitlab.com/nips-cern/surfer-aurora). It opens as an external
- * window on the VCD, loading the active Surfer layout when one is set: a
- * .surf.ron saved state (via -s) or a .sucl command file (via -c). If the
- * binary is absent (the default, it isn't bundled yet) the launch reports a
- * clean not-found and we degrade to GTKWave, so the Wave button always
- * produces a viewer. The spawned process is tracked, torn down with the IDE.
- * (Auto-generating a curated .sucl from the picker selection is a follow-up;
- * the curated layout today is a user/AI-supplied .surf.ron/.sucl.)
- *
- * Inputs:  vcdFile (absolute), surferLayoutFile (.surf.ron/.sucl or null), tools
- * Returns: void
- * Side-effects: spawns surfer-aurora.exe (stored on this.surferProcess), or calls
- *               _waveLaunchGtkwave as a fallback.
+ * Abre o Surfer, na aba ou na janela (abrir_onda.ts). Metodo da instancia
+ * porque o wave_ns (openWaveform da API) chama por aqui.
  */
 async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools, opts = {}) {
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.surferLaunching'), 'info');
-
-    // Preferencia "Surfer em aba" (default): a onda abre dentro do editor, via
-    // servidor headless + cliente WASM (main/ipc/surfer_tab.js). Se qualquer
-    // ponta faltar (bundle web nao instalado, servidor nao sobe), cai para a
-    // janela nativa logo abaixo, que e o caminho de sempre — o botao Wave
-    // nunca fica sem resposta.
-    if (getSurferInTab()) {
-        const opened = await this._waveOpenSurferTab(vcdFile, surferLayoutFile, tools, opts);
-        if (opened) return;
-    }
-    // Load the active layout after the positional VCD: .surf.ron (saved
-    // state) via -s, .sucl (command file) via -c. The CLI VCD takes
-    // precedence over any path embedded in a state file, so a registered
-    // .surf.ron stays portable across re-runs (items re-bind by name).
-    const args = [vcdFile];
-    if (surferLayoutFile) {
-        const flag = /\.sucl$/i.test(surferLayoutFile) ? '-c' : '-s';
-        args.push(flag, surferLayoutFile);
-    }
-    const result = await electronAPI.launchSurfer({
-        surferBin: tools.surferBin,
-        args,
-        workingDir: tools.tempBaseDir,
-        // Preferencia do usuario (modal Wave Config): true = manter varias janelas
-        // abertas (comparar simulacoes); false (default) = uma janela so (o main
-        // fecha a anterior antes de abrir a nova).
-        multiWindow: getSurferMultiWindow(),
-    });
-    if (!result.success) {
-        this.terminalManager.appendToTerminal(
-            'twave',
-            `Surfer unavailable (${result.message}) — opening GTKWave instead. ` +
-            'Drop surfer-aurora.exe in components/Packages/surfer/ to use Surfer.',
-            'tips',
-        );
-        await this._waveLaunchGtkwave(vcdFile, null, tools);
-        return;
-    }
-    this.surferProcess = result.surferPid;
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.surferLaunched'), 'success');
+    return lancarSurfer(this, vcdFile, surferLayoutFile, tools, opts);
 }
 
 /**
- * Abre no visualizador de ondas um .vcd que NAO veio do passo Wave: hoje, o
- * que a simulacao do PRISM grava com os sinais do monitor. A partir do arquivo
- * pronto o caminho e o mesmo do botao Wave (GTKWave ou Surfer, aba ou janela,
- * conforme a preferencia). O layout e o do proprio monitor: os sinais que
- * estavam nele, na base em que ele os mostrava, agrupados por papel, escrito
- * ao lado do .vcd no formato de cada visualizador (js/wave/prism_wave_layout).
- * Nao ha testbench por tras, e por isso a aba do Surfer abre sem o "salvar
- * estado" do testbench: um estado salvo daqui nao e o do testbench e nao
- * pode tomar o lugar dele.
- *
- * Inputs: vcdFile (absoluto), rotulo (o modulo simulado), sinais (o retrato
- *         do monitor: nome, caminho, bits, base, papel)
- * Returns: Promise<void>. Nunca lanca: o erro vai para o terminal Wave.
+ * Abre a onda do PRISM (abrir_onda.ts). Metodo da instancia porque o
+ * project_manager chama por aqui.
  */
 async abrirOndaExterna(vcdFile, rotulo, sinais = []) {
-    try {
-        await this.initializeComponentsPath();
-        const tools = await resolveWaveToolchain(this.componentsPath, this.projectPath);
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.prismWave', { module: rotulo || basenameOfPath(vcdFile) }), 'info');
-        const layout = await this._layoutDaOndaDoPrism(vcdFile, rotulo, sinais);
-        if (getViewer() === 'surfer') {
-            await this._waveLaunchSurfer(vcdFile, layout.surfer, tools, { semEstado: true });
-        } else {
-            await this._waveLaunchGtkwave(vcdFile, layout.gtkw, tools);
-        }
-    } catch (error) {
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.common.error', { message: error?.message || String(error) }), 'error');
-    }
+    return abrirOndaExternaNoVisualizador(this, vcdFile, rotulo, sinais);
 }
 
 /**
- * Grava ao lado do .vcd o layout da onda do PRISM nos dois formatos, e devolve
- * os caminhos. Nunca lanca: sem layout a onda abre crua, com o motivo no
- * terminal, que e o que era ate aqui.
- *
- * Inputs: vcdFile (absoluto), modulo, sinais (ver abrirOndaExterna)
- * Returns: Promise<{ surfer: string|null, gtkw: string|null }>
- */
-async _layoutDaOndaDoPrism(vcdFile, modulo, sinais) {
-    const saida = { surfer: null, gtkw: null };
-    let layout;
-    try {
-        layout = montarLayoutDaOndaDoPrism({ modulo, vcdPath: vcdFile, sinais });
-    } catch (e) {
-        this.terminalManager.appendToTerminal('twave',
-            `PRISM: could not build the wave layout (${e?.message || e}); opening the raw wave.`, 'tips');
-        return saida;
-    }
-    if (!layout.quantidade) return saida;
-    const semExtensao = vcdFile.replace(/\.vcd$/i, '');
-    const gravar = async (caminho, conteudo, chave) => {
-        if (!conteudo) return;
-        try {
-            await electronAPI.writeFile(caminho, conteudo);
-            saida[chave] = caminho;
-        } catch (e) {
-            this.terminalManager.appendToTerminal('twave',
-                `PRISM: could not write ${basenameOfPath(caminho)} (${e?.message || e}); opening the raw wave.`, 'tips');
-        }
-    };
-    await gravar(`${semExtensao}.surf.ron`, layout.surfer, 'surfer');
-    await gravar(`${semExtensao}.gtkw`, layout.gtkw, 'gtkw');
-    return saida;
-}
-
-/**
- * Open the wave as an editor tab (Surfer WASM client + local headless server).
- *
- * Returns true when the tab is up; false means "use the native window path",
- * with the reason already printed to the terminal. Layouts ride in whole:
- * a .sucl command file via startup_commands, and a .surf.ron saved state via
- * load_state_from_url — the command our fork added to the WASM client for
- * exactly this, so the curated layout (sections, colors, formats, analog)
- * loads in the tab the same as in the native window.
- *
- * Inputs: vcdFile (absolute), surferLayoutFile (.surf.ron/.sucl or null), tools
- * Returns: Promise<boolean>
- */
-async _waveOpenSurferTab(vcdFile, surferLayoutFile, tools, opts = {}) {
-    // A escolha das Configuracoes vem antes da disponibilidade: quem pediu a
-    // janela nativa recebe a janela nativa, mesmo com o bundle web presente.
-    if (getSurferMode() === 'window') {
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.surferWindowByChoice'), 'tips');
-        return false;
-    }
-    const available = await electronAPI.surferTabAvailable?.();
-    if (!available) {
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.surferTabNoBundle'), 'tips');
-        return false;
-    }
-
-    const isSucl = surferLayoutFile && /.sucl$/i.test(surferLayoutFile);
-
-    // Um id estavel por onda: recompilar reusa a aba e o main troca o servidor.
-    const tabId = 'wave:' + vcdFile;
-
-    // Onde o "salvar" de dentro da aba grava: um arquivo fixo por testbench em
-    // testbench/, o mesmo diretório do estado do Wave Config. Salvar de novo
-    // sobrescreve, que é o que se espera de um salvar.
-    //
-    // A onda pode nao vir do passo Wave: a da simulacao do PRISM chega aqui
-    // sem que nenhuma compilacao tenha rodado nesta sessao, e ai
-    // `projectConfig` ainda e nulo. Sem testbench nao ha estado a salvar, que
-    // e o mesmo caso do `semEstado` logo abaixo.
-    const tbKey = (this.projectConfig?.testbenchFile || '')
-        .split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
-    let stateSavePath = null;
-    if (tbKey && this.projectPath && !opts.semEstado) {
-        const stateName = `${tbKey}.tab.surf.ron`;
-        // A MESMA pasta do estado de onda, pela constante e nao pelo literal.
-        // Eram dois lugares dizendo 'testbench' de forma independente, e mover
-        // um sem o outro deixaria o layout do Surfer gravado numa pasta e o
-        // caminho dele registrado apontando para outra.
-        stateSavePath = await electronAPI.joinPath(
-            this.projectPath, WaveStore.STATE_DIRNAME, stateName,
-        );
-        surferTabSaveCtx.set(tabId, { projectPath: this.projectPath, tbKey, name: stateName });
-    }
-
-    const result = await electronAPI.surferTabServe({
-        surferBin: tools.surferBin,
-        waveFile: vcdFile,
-        tabId,
-        suclFile: isSucl ? surferLayoutFile : null,
-        stateFile: !isSucl ? surferLayoutFile : null,
-        mappings: this._surferTabMappings || [],
-        stateSavePath,
-    });
-    if (!result?.success) {
-        this.terminalManager.appendToTerminal('twave',
-            `Surfer tab unavailable (${result?.message || 'unknown'}) — opening the window instead.`,
-            'tips');
-        return false;
-    }
-
-    TabManager.openSurferWave(vcdFile, result.pageUrl, tabId);
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.surferTabOpened'), 'success');
-    return true;
-}
-
-/**
- * Resolve which Surfer layout file the Surfer viewer should load.
- *   Source 1 (user-curated): the surferFiles[] entry marked isActive in the
- *     WaveStore (a .surf.ron saved state or a .sucl command file).
- *   Source 2 (auto): when no user file is active, auto-generate a curated
- *     .surf.ron via buildSurferLayout, the declarative mirror of the .gtkw,
- *     reusing the SAME picker selection + processor detection as GTKWave
- *     (sections, colors, formats, analog, aliases). The Assembly/source-line
- *     value→text decode (trad_*.txt mapping translators) + complex decode are
- *     a tracked follow-up; those signals show raw values for now.
- * Returns null only when neither yields a layout → Surfer opens the raw VCD.
- *
- * Inputs: simTopModule, vcdFile, tempBaseDir.  Returns: path | null.  Throws: never.
+ * O layout que o Surfer carrega (layout_do_surfer.ts). Os tradutores gerados
+ * ficam na instancia porque a aba do Surfer os leva, e a abertura acontece
+ * depois, noutro metodo.
  */
 async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
-    const tbKey = (this.projectConfig.testbenchFile || '')
-        .split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
-
-    // Layout do usuario nao passa pela geracao, entao nao ha mappings novos; o
-    // fluxo da aba le este campo e nao pode herdar os da simulacao anterior.
-    this._surferTabMappings = [];
-
-    // Source 1: user-curated .surf.ron/.sucl (active entry).
-    if (tbKey) {
-        const state = await WaveStore.get(this.projectPath, tbKey);
-        const files = state?.surferFiles;
-        if (Array.isArray(files) && files.length > 0) {
-            const active = files.find((f) => f && f.isActive === true);
-            if (active && active.path) {
-                this.terminalManager.appendToTerminal('twave',
-                    `Surfer layout: ${active.path.split(/[\\/]/).pop()}`, 'info');
-                return active.path;
-            }
-        }
-    }
-
-    // Source 2: auto-generated curated .surf.ron (declarative mirror of the
-    // auto-.gtkw, same selection + processor sections/colors/formats/analog).
-    const autoSurfer = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.surf.ron`);
-    let selected;
-    if (Array.isArray(this._validatedWaveSelection)) {
-        selected = this._validatedWaveSelection;
-    } else if (tbKey) {
-        const tbState = await WaveStore.get(this.projectPath, tbKey);
-        selected = Array.isArray(tbState?.waveSignals) ? tbState.waveSignals : [];
-    } else {
-        selected = [];
-    }
-    // Parse scopes from the text header (.header.vcd sibling preferred; the
-    // FST binary isn't text-parseable). Same guard as the auto-.gtkw path.
-    let parseSource = vcdFile;
-    const headerSibling = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
-    if (await electronAPI.fileExists(headerSibling)) {
-        parseSource = headerSibling;
-    } else if (vcdFile.toLowerCase().endsWith('.fst')) {
-        return null; // no parseable header → Surfer opens the raw VCD
-    }
-    try {
-        const vcdContent = await electronAPI.readFile(parseSource, { encoding: 'utf8' });
-        const scopes = parseVcdHeaderFromContent(vcdContent);
-        const modules = await this._parseProjectSources();
-
-        // Read the YANC trad files (Assembly opcode + source-line decode) per
-        // processor type so buildSurferLayout can wire them as Surfer "mapping
-        // translators". Same Temp/<procType>/ layout the GTKWave path resolves;
-        // a missing file just leaves that track in raw decimal (never fatal).
-        const scopeModules = modules ? resolveScopeModules(scopes, modules) : null;
-        const tradByProcType = {};
-        let newestTradMtime = 0; // p/ check de staleness (trad mais novo que o dump)
-        for (const p of detectProcessors(scopes, scopeModules)) {
-            if (!p || !p.procType || tradByProcType[p.procType]) continue;
-            const procDir = await electronAPI.joinPath(tempBaseDir, p.procType);
-            const opPath = await electronAPI.joinPath(procDir, 'trad_opcode.txt');
-            const cmPath = await electronAPI.joinPath(procDir, 'trad_cmm.txt');
-            const opExists = await electronAPI.fileExists(opPath);
-            const cmExists = await electronAPI.fileExists(cmPath);
-            tradByProcType[p.procType] = {
-                opcode: opExists ? await electronAPI.readFile(opPath) : null,
-                cmm: cmExists ? await electronAPI.readFile(cmPath) : null,
-            };
-            for (const present of [opExists ? opPath : null, cmExists ? cmPath : null]) {
-                if (!present) continue;
-                try { const st = await electronAPI.getFileStats(present); if (st && st.mtime > newestTradMtime) newestTradMtime = st.mtime; } catch { /* sem stat -> ignora */ }
-            }
-        }
-
-        // Anti-staleness: se os tradutores sao MAIS NOVOS que o dump, o usuario
-        // recompilou o .cmm sem re-simular -> o decode casaria o dump VELHO com a
-        // tabela NOVA = lixo crivel (pior que decimal cru). Margem de 2s cobre a
-        // ordem normal compile->simulate (trad fica levemente mais velho que o FST).
-        if (newestTradMtime > 0) {
-            try {
-                const fstStat = await electronAPI.getFileStats(vcdFile);
-                if (fstStat && newestTradMtime > fstStat.mtime + 2000) {
-                    this.terminalManager.appendToTerminal('twave',
-                        'Surfer: os tradutores Assembly/C+- sao mais novos que o dump — recompilou sem re-simular? O decode pode estar desatualizado; re-simule para alinhar.', 'tips');
-                }
-            } catch { /* sem stat do FST -> pula o check */ }
-        }
-
-        // Tag curto e estavel do projeto (FNV-1a do projectPath) pra NAMESPACING
-        // dos mappings no dir GLOBAL flat do Surfer (%APPDATA%/.../mappings): dois
-        // projetos abertos com o mesmo tb top nao se sobrescrevem mais.
-        const nsTag = (() => {
-            const s = String(this.projectPath || '');
-            let h = 0x811c9dc5;
-            for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
-            return (h >>> 0).toString(16).padStart(8, '0');
-        })();
-
-        // Complex numbers (comp_me3_/comp_arr_me3_): Surfer has no external
-        // process filter like GTKWave's, so pre-decode the distinct complex
-        // values from the dump via comp2gtkw.exe and bake a mapping. Gated:
-        // projects without complex signals pay nothing (no fst2vcd full stream).
-        const complexMapping = hasComplexSignals(scopes)
-            ? await this._buildSurferComplexMapping(vcdFile, simTopModule, tempBaseDir, nsTag)
-            : null;
-
-        const { content, processorCount, mappings } = buildSurferLayout({
-            vcdPath: vcdFile,
-            scopes,
-            tbModule: simTopModule,
-            selectedSignals: selected.length > 0 ? selected : null,
-            modules,
-            tradByProcType,
-            mappingNamespace: `${nsTag}_${simTopModule}`,
-            complexMapping,
-        });
-        if (!content) return null;
-        // O fluxo da aba (WASM) nao le o config/mappings do disco: os decode
-        // maps vao por HTTP local via load_mapping_translator_from_url (comando
-        // nosso no fork). Guardados aqui porque este metodo so devolve o path.
-        this._surferTabMappings = Array.isArray(mappings) ? mappings : [];
-        await electronAPI.writeFile(autoSurfer, content);
-        // Surfer scans its global config/mappings dir at startup; write the
-        // decode maps now (before launch) so valr2/linetabs render decoded.
-        if (Array.isArray(mappings) && mappings.length > 0) {
-            const wr = await electronAPI.writeSurferMappings(mappings);
-            // Visibilidade: se algum mapping nao foi escrito (permissao/IO), avisa:
-            // esses tracks abrem em decimal cru em vez de falhar mudo.
-            if (wr && Array.isArray(wr.failed) && wr.failed.length > 0) {
-                this.terminalManager.appendToTerminal('twave',
-                    `Surfer: ${wr.failed.length} mapping translator(s) nao escritos — esses tracks abrem em decimal cru.`, 'tips');
-            }
-        }
-        const procPart = processorCount > 0
-            ? `${processorCount} processor${processorCount === 1 ? '' : 's'}`
-            : 'flat layout';
-        const selPart = selected.length > 0
-            ? `, ${selected.length} signal${selected.length === 1 ? '' : 's'} from picker`
-            : '';
-        const decodePart = (Array.isArray(mappings) && mappings.length > 0)
-            ? `, ${mappings.length} decode map${mappings.length === 1 ? '' : 's'}`
-            : '';
-        this.terminalManager.appendToTerminal('twave',
-            `Surfer layout auto-generated (${procPart}${selPart}${decodePart}).`, 'info');
-        return autoSurfer;
-    } catch (err) {
-        this.terminalManager.appendToTerminal('twave',
-            `Surfer auto-layout failed (${err.message}) — opening raw VCD.`, 'tips');
-        return null;
-    }
+    const { caminho, mapeamentos } = await resolverLayoutDoSurfer(this, simTopModule, vcdFile, tempBaseDir);
+    this._surferTabMappings = mapeamentos;
+    return caminho;
 }
-
-/**
- * Pre-pass de decode dos numeros complexos pro Surfer (comp_me3_/comp_arr_me3_).
- * O Surfer nao tem o process-filter externo do GTKWave, entao: stream do
- * fst2vcd sobre o FST → coleta os valores DISTINTOS dos sinais complexos →
- * decode canonico via comp2gtkw.exe → mapping translator compartilhado
- * (bitpattern → "re imi"). Best-effort: qualquer falha retorna null e os
- * complexos abrem em Binary cru. So e' chamado quando ha complexos no header
- * (gate em _waveResolveSurferSaveFile), entao projetos sem complexo nao pagam o
- * stream do corpo do FST.
- */
-async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir, nsTag = '') {
-    try {
-        if (typeof electronAPI.onExecSpecStream !== 'function') return null;
-        const fst2vcdBin = await electronAPI.joinPath(
-            this.componentsPath, 'Packages', 'gtkwave-nipscern', 'fst2vcd.exe');
-        const comp2gtkwExe = await electronAPI.joinPath(this.componentsPath, 'bin', 'comp2gtkw.exe');
-        // Pre-check: sem o decoder (comp2gtkw) ou o streamer (fst2vcd) nao adianta
-        // varrer o FST inteiro, avisa UMA vez no terminal e cai pro fallback
-        // (complexos em Binary cru) em vez de degradar SILENCIOSAMENTE. Esse era o
-        // gap: o usuario abria o Surfer, via binario cru e nao sabia o porque.
-        if (!await electronAPI.fileExists(comp2gtkwExe)) {
-            this.terminalManager.appendToTerminal('twave',
-                'Surfer: comp2gtkw.exe nao encontrado em components/bin/ — numeros complexos abrem em Binary cru.', 'tips');
-            return null;
-        }
-        if (!await electronAPI.fileExists(fst2vcdBin)) {
-            this.terminalManager.appendToTerminal('twave',
-                'Surfer: fst2vcd.exe nao encontrado — decode de complexos pulado (Binary cru).', 'tips');
-            return null;
-        }
-        const scanner = new ComplexVcdScanner();
-        let killed = false;
-        const unsubscribe = electronAPI.onExecSpecStream((payload) => {
-            if (!payload || payload.type !== 'stdout' || !payload.data) return;
-            scanner.feed(payload.data);
-            // Cap atingido → para o fst2vcd cedo (kill ALVO do filho parqueado,
-            // nao o sweep por-nome que mataria o viewer deste mesmo fluxo).
-            if (!killed && scanner.wasCapped() && typeof electronAPI.killCurrentSpecProcess === 'function') {
-                killed = true;
-                electronAPI.killCurrentSpecProcess();
-            }
-        });
-        try {
-            await runSpecStreamed({
-                step: 'fst2vcd',
-                binary: fst2vcdBin,
-                args: ['-f', fstPath],
-                cwd: tempBaseDir,
-                label: 'fst2vcd (complex decode — valores distintos)',
-            }, { consumeEphemeral: true });
-        } catch { /* best-effort — pode ter coletado antes do throw */ }
-        finally { unsubscribe(); }
-        scanner.end();
-
-        const values = scanner.distinctValues();
-        if (values.length === 0) return null;
-        const res = await electronAPI.decodeComplex({ exePath: comp2gtkwExe, values });
-        if (!res || !res.success || !Array.isArray(res.decoded)) return null;
-        const decodedByValue = new Map();
-        const n = Math.min(values.length, res.decoded.length);
-        for (let i = 0; i < n; i++) decodedByValue.set(values[i], res.decoded[i]);
-        const name = `aurora_cpx_${nsTag}_${simTopModule}`.replace(/[^A-Za-z0-9_]/g, '_');
-        const mapping = buildComplexMapping(name, decodedByValue);
-        if (mapping) {
-            this.terminalManager.appendToTerminal('twave',
-                `Surfer complex decode: ${decodedByValue.size} valor${decodedByValue.size === 1 ? '' : 'es'}${scanner.wasCapped() ? ' (limitado)' : ''}.`, 'info');
-        }
-        return mapping;
-    } catch (err) {
-        this.terminalManager.appendToTerminal('twave',
-            `Surfer complex decode skipped (${err.message}) — complexos em Binary.`, 'tips');
-        return null;
-    }
-}
-
-
-
 
     // (Removed the dead pre-PRISM hierarchy view, switchToStandardView,
     // generateHierarchyWithYosys, cleanModuleName, switchToHierarchicalView,

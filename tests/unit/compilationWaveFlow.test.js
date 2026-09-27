@@ -353,6 +353,52 @@ describe('runGtkWave, Verilator com GTKWave', () => {
     });
 });
 
+describe('runGtkWave, testbench Python pelo cocotb', () => {
+    const PY = PROJ + '/Simulation/test_media.py';
+    const MINGW = `${COMP}/Packages/msys/mingw64/bin`;
+
+    async function prepararCocotb(py) {
+        api._escrever(PY, py);
+        for (const bin of ['verilator', 'perl.exe', 'python.exe']) api._escrever(`${MINGW}/${bin}`, 'MZ');
+        api.getPythonStatus.mockResolvedValue({ ok: true, hasCocotb: true });
+        const mod = await novoModulo({
+            synthesizableFiles: [{ path: TOP, name: 'mediamovel.v', isTopLevel: true }],
+            testbenchFile: PY,
+        });
+        const passos = ligarExecutor(api);
+        const executar = runSpecStreamed.getMockImplementation();
+        runSpecStreamed.mockImplementation(async (spec) => {
+            if (spec.step === 'cocotb-run') {
+                passos.push({ step: spec.step, env: spec.env });
+                api._escrever(`${TEMP}/cocotb_test_media/dump.fst`, 'FST');
+                return { code: 0 };
+            }
+            return executar(spec);
+        });
+        return { mod, passos };
+    }
+
+    it('com a diretiva: roda o cocotb, adota o dump e abre a onda', async () => {
+        const { mod, passos } = await prepararCocotb('# aurora-toplevel: mediamovel\n');
+
+        await mod.runGtkWave();
+
+        expect(passos.map((p) => p.step)).toEqual(['cocotb-run', 'fst2vcd']);
+        expect(passos[0].env.AURORA_COCOTB_TOP).toBe('mediamovel');
+        expect(terminal.calls.find((c) => c.msg === 'terminal.wave.cocotbToplevelDirective').level).toBe('tips');
+        expect(msgs()).toContain('terminal.wave.cocotbSimulator');
+        expect(api.launchGtkwaveOnly).toHaveBeenCalledTimes(1);
+        expect(api.launchGtkwaveOnly.mock.calls[0][0].args).toContain(`${TEMP}/mediamovel.fst`);
+        expect(houveErro()).toBe(false);
+    });
+
+    it('sem a diretiva, avisa que usou o topo do .spf', async () => {
+        const { mod } = await prepararCocotb('import cocotb\n');
+        await mod.runGtkWave();
+        expect(terminal.calls.find((c) => c.msg === 'terminal.wave.cocotbToplevelFallback').level).toBe('warning');
+    });
+});
+
 describe('a saida do vvp no TWAVE', () => {
     it('o ruido some, o contador vira barra e o descritor invalido e explicado uma vez', async () => {
         const mod = await novoModulo(CONFIG_PADRAO);

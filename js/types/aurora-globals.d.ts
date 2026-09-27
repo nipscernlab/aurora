@@ -254,7 +254,7 @@ declare global {
     /** A lista de recentes da tela inicial (js/project/recent_projects.js). */
     recentProjectsManager?: { removeProject?(spfPath: string): unknown; addProject?(spfPath: string): unknown };
     /** O aviso no canto (js/ui/notification.js). */
-    showNotification?: (mensagem: string, tipo?: string, duracaoMs?: number) => unknown;
+    showNotification?: (mensagem: string, tipo?: string, duracaoMs?: number, titulo?: string) => unknown;
     /** O seletor de .gtkw (js/wave/gtkw_picker.js); a barra so pede para re-sincronizar. */
     gtkwPickerManager?: { refresh?: () => unknown };
     /** De js/compilation/botoes_da_barra.ts, so para o E2E que as chama de dentro da pagina. */

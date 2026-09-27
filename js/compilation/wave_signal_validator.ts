@@ -1,4 +1,4 @@
-// wave_signal_validator.js: wave-selection resolution for the wave/sim flow.
+// wave_signal_validator.ts: wave-selection resolution for the wave/sim flow.
 //
 // Extracted from compilation_module.js (A2 god-file decomposition #4). These
 // functions decide WHICH signals end up in the $dumpvars / .gtkw / .surf layout:
@@ -25,7 +25,9 @@
 // migrating these globals belongs to A3, not this extraction.
 
 import { electronAPI } from '../app/electron_api.js';
-import { parseVerilogModules, buildHierarchyTree, deriveMonitorScopes } from '../wave/signal_parser.js';
+import {
+    parseVerilogModules, buildHierarchyTree, deriveMonitorScopes, type HierarchyNode,
+} from '../wave/signal_parser.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { WaveStore } from '../wave/wave_state_store.js';
@@ -34,7 +36,28 @@ import { hasUserDumpCalls } from '../wave/testbench_instrumenter.js';
 import { moduleStemFromPath, isVerilogLikeFile } from './compilation_helpers.js';
 
 // i18n shim, falls back to the key path if i18n didn't boot yet.
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
+
+/** O `e?.message` de sempre, para um erro que o TypeScript ve como unknown. */
+const mensagemDe = (e: unknown): string => (e as { message?: string } | null)?.message as string;
+
+type Terminal = { appendToTerminal(id: string, texto: string, tipo?: string): void };
+
+/** A sacola que CompilationModule._instanceDeps() monta, no que estas funcoes leem. */
+export interface DepsDaSelecao {
+    projectPath: string;
+    terminalManager: Terminal;
+}
+
+/** O que o preparo do Wave recebe: de onde vem o $dumpvars e o que vai nele. */
+export interface DecisaoDaOnda {
+    signalsToDump: string[];
+    overrideUserDumpvars: boolean;
+    source: 'gtkw' | 'wc' | 'tb' | 'default';
+    tbKey: string;
+    monitorScopes?: ReturnType<typeof deriveMonitorScopes>;
+    hierarchyTree: HierarchyNode | null;
+}
 
 /**
  * Filter the user's saved Wave Configuration selection against the
@@ -52,17 +75,14 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
  * raw selection, better to let iverilog produce a real error than
  * to silently strip the user's choice on a transient parse hiccup.
  *
- * @param {{ projectPath: string, terminalManager: object }} deps
  */
 /**
  * Le e parseia `filePaths` e monta a arvore de hierarquia enraizada em
  * `topModule`; null quando o topo nao esta nos fontes. E a mesma arvore que
  * o validador usa, exposta para quem precisa dela sem a validacao (o fluxo
  * cocotb sob Verilator, que a traduz em regras de escopo).
- * @param {string[]} filePaths
- * @param {string} topModule
  */
-export async function buildHierarchyFromFiles(filePaths, topModule) {
+export async function buildHierarchyFromFiles(filePaths: string[], topModule: string): Promise<HierarchyNode | null> {
     const fileContents = await Promise.all(
         filePaths.map(async (path) => ({
             path,
@@ -75,7 +95,10 @@ export async function buildHierarchyFromFiles(filePaths, topModule) {
         : null;
 }
 
-export async function validateWaveSelection(deps, rawSelected, filePaths, simTopModule, tbKey = null) {
+export async function validateWaveSelection(
+    deps: DepsDaSelecao, rawSelected: string[] | null | undefined, filePaths: string[],
+    simTopModule: string, tbKey: string | null = null,
+): Promise<string[]> {
     if (!Array.isArray(rawSelected) || rawSelected.length === 0) return [];
     try {
         const tree = await buildHierarchyFromFiles(filePaths, simTopModule);
@@ -115,7 +138,7 @@ export async function validateWaveSelection(deps, rawSelected, filePaths, simTop
         return valid;
     } catch (err) {
         deps.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.preValidateFailed', { message: err.message }),
+            tr('terminal.wave.preValidateFailed', { message: mensagemDe(err) }),
             'warning');
         return rawSelected;
     }
@@ -143,19 +166,14 @@ export async function validateWaveSelection(deps, rawSelected, filePaths, simTop
  * Side effects: registra o tb no WaveStore na 1a visita (snapshot
  * de hadOriginalDumpvars pra usar nas visitas futuras).
  *
- * @param {{ projectPath: string, terminalManager: object }} deps
- * @param {object} input
- * @param {object} input.config        .spf structure (precisa testbenchFile)
- * @param {string} input.simTopModule  nome do module top da simulacao
- * @param {string[]} input.filePaths   .v files pra parsear (synth + tb + HDL)
- * @returns {Promise<{
- *   signalsToDump: string[],
- *   overrideUserDumpvars: boolean,
- *   source: 'gtkw'|'wc'|'tb'|'default',
- *   tbKey: string,
- * }>}
+ * @param input.config        .spf structure (precisa testbenchFile)
+ * @param input.simTopModule  nome do module top da simulacao
+ * @param input.filePaths   .v files pra parsear (synth + tb + HDL)
  */
-export async function resolveWaveSelection(deps, { config, simTopModule, filePaths }) {
+export async function resolveWaveSelection(
+    deps: DepsDaSelecao,
+    { config, simTopModule, filePaths }: { config: { testbenchFile: string }; simTopModule: string; filePaths: string[] },
+): Promise<DecisaoDaOnda> {
     const tbKey = moduleStemFromPath(config.testbenchFile);
 
     // 1a visita: snapshot do estado original do testbench. Idempotente
@@ -184,7 +202,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
 
     // Parse de source on-demand, so se precisarmos validar um conjunto
     // de signals (vem do .gtkw ou do WC).
-    let cachedTree = null;
+    let cachedTree: HierarchyNode | null = null;
     // Monitores do processador (pilhas + erro da ULA): dumpados SEMPRE que a
     // AURORA controla o $dumpvars, independente da selecao do picker — sao a
     // telemetria de saude do processador e os grupos Stack/ULA do layout
@@ -194,7 +212,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
     // caminho atravessa um escopo de generate (o da pilha de instrucao) nao
     // elabora, e emiti-lo quebraria a build em vez de faltar um traco.
     const monitorScopes = async () => deriveMonitorScopes(await buildTree(), { simulator: getSimulator() });
-    const buildTree = async () => {
+    const buildTree = async (): Promise<HierarchyNode | null> => {
         if (cachedTree !== null) return cachedTree;
         const contents = await Promise.all(
             filePaths.map(async (p) => ({
@@ -211,15 +229,16 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
 
     // (d) .gtkw ativo vence, varredura do arquivo dita o $dumpvars.
     const activeGtkw = (state.gtkwFiles || []).find((f) => f && f.isActive === true);
-    if (activeGtkw && activeGtkw.path) {
+    const gtkwPath = activeGtkw?.path as string | undefined;
+    if (activeGtkw && gtkwPath) {
         try {
-            const gtkwContent = await electronAPI.readFile(activeGtkw.path, { encoding: 'utf8' });
+            const gtkwContent = await electronAPI.readFile(gtkwPath, { encoding: 'utf8' });
             const refs = extractSignalRefs(gtkwContent);
             if (refs.length > 0) {
                 const tree = await buildTree();
                 const { valid, dropped } = validateSelection(refs, tree);
                 if (dropped.length > 0) {
-                    const gtkwName = activeGtkw.path.split(/[\\/]/).pop();
+                    const gtkwName = gtkwPath.split(/[\\/]/).pop();
                     const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
                     const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
                     const msg = dropped.length === 1
@@ -244,7 +263,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
             }
         } catch (err) {
             deps.terminalManager.appendToTerminal('twave',
-                tr('terminal.wave.gtkwReadError', { file: activeGtkw.path.split(/[\\/]/).pop(), message: err.message }),
+                tr('terminal.wave.gtkwReadError', { file: gtkwPath.split(/[\\/]/).pop(), message: mensagemDe(err) }),
                 'warning');
         }
     }
@@ -302,9 +321,13 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
  * delegador em CompilationModule e quem persiste o campo (o ciclo de vida
  * do cache fica todo na classe).
  *
- * @param {{ projectPath: string, terminalManager: object }} deps
  */
-export async function resolveCocotbWaveSelection(deps, ctx, config, sources) {
+export async function resolveCocotbWaveSelection(
+    deps: DepsDaSelecao,
+    ctx: { tbKey: string; testbenchFile: string; testModule: string; hdlTopModule: string },
+    _config: unknown,
+    sources: string[],
+): Promise<string[]> {
     await WaveStore.ensureRegistered(deps.projectPath, ctx.tbKey, {
         tbPath: ctx.testbenchFile,
         tbModule: ctx.testModule,
@@ -337,15 +360,22 @@ export async function resolveCocotbWaveSelection(deps, ctx, config, sources) {
  * Best-effort: erros de I/O ou parse viram `null`, e buildAuroraGtkw
  * cai nas heuristicas baseadas em nome de scope.
  *
- * @param {{ projectConfig: object, componentsPath: string, terminalManager: object }} deps
  */
-export async function parseProjectSources(deps) {
+export async function parseProjectSources(deps: {
+    projectConfig?: {
+        synthesizableFiles?: Array<{ path?: string } | null>;
+        testbenchFile?: string | null;
+        testbenchFiles?: Array<{ path?: string } | null>;
+    } | null;
+    componentsPath: string | null;
+    terminalManager: Terminal;
+}) {
     try {
         const synthFiles = (deps.projectConfig?.synthesizableFiles ?? [])
-            .map((f) => f && f.path).filter(Boolean);
+            .map((f) => f && f.path).filter((p): p is string => !!p);
         const tbFile = deps.projectConfig?.testbenchFile;
         const tbFiles = (deps.projectConfig?.testbenchFiles ?? [])
-            .map((f) => f && f.path).filter(Boolean);
+            .map((f) => f && f.path).filter((p): p is string => !!p);
         const paths = new Set(
             [...synthFiles, ...(tbFile ? [tbFile] : []), ...tbFiles]
                 .filter((p) => p && isVerilogLikeFile(p)),
@@ -357,7 +387,7 @@ export async function parseProjectSources(deps) {
         // <inst>.core.sp.pointeri ficam com moduleType=null e nao
         // recebem decoracao SAPHO no .gtkw.
         try {
-            const hdlPath = await electronAPI.joinPath(deps.componentsPath, 'HDL');
+            const hdlPath = await electronAPI.joinPath(deps.componentsPath as string, 'HDL');
             const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
             if (Array.isArray(hdlEntries)) {
                 for (const name of hdlEntries) {
@@ -383,7 +413,7 @@ export async function parseProjectSources(deps) {
         return modules;
     } catch (err) {
         deps.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.parseSourcesNote', { message: err.message }),
+            tr('terminal.wave.parseSourcesNote', { message: mensagemDe(err) }),
             'tips');
         return null;
     }

@@ -234,6 +234,7 @@ js/wave/surfer_tab_preference.js
 js/wave/prism_wave_layout.js
 js/compilation/dump_guard.js
 js/wave/verilator_trace_rules.js
+js/compilation/wave_signal_validator.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

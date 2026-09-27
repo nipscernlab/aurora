@@ -303,6 +303,8 @@ export async function abrirOndaExterna(
         ctx.terminalManager.appendToTerminal('twave',
             tr('terminal.wave.prismWave', { module: rotulo || basenameOfPath(vcdFile) }), 'info');
         const layout = await layoutDaOndaDoPrism(ctx, vcdFile, rotulo, sinais);
+        // Os tradutores guardados sao do layout do ultimo Wave; o do PRISM nao usa nenhum.
+        ctx._surferTabMappings = [];
         if (getViewer() === 'surfer') {
             await lancarSurfer(ctx, vcdFile, layout.surfer, tools, { semEstado: true });
         } else {

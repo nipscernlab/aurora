@@ -411,6 +411,16 @@ describe('abrirOndaExterna (a onda do PRISM)', () => {
         });
     });
 
+    // Os tradutores sao do layout do Wave; a onda do PRISM tem layout proprio e
+    // nao pode levar os da ultima corrida.
+    it('a aba do PRISM nao leva os tradutores da ultima corrida do Wave', async () => {
+        localStorage.setItem('aurora.waveViewer', 'surfer');
+        const mod = await novoModulo();
+        mod._surferTabMappings = [{ name: 'trad_opcode', content: 'x' }];
+        await mod.abrirOndaExterna(VCD, 'soma', SINAIS);
+        expect(api.surferTabServe.mock.calls[0][0].mappings).toEqual([]);
+    });
+
     it('sem sinais, abre a onda crua', async () => {
         const mod = await novoModulo();
         await mod.abrirOndaExterna(VCD, 'soma');

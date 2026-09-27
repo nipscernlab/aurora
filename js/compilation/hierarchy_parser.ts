@@ -1,13 +1,11 @@
-// @ts-check
 /**
- * hierarchy_parser.js: pure parsing of Yosys `write_json` output into AURORA's
+ * hierarchy_parser.ts: pure parsing of Yosys `write_json` output into AURORA's
  * in-memory module-hierarchy tree.
  *
  * Extracted from compilation_module.js (A2 god-file decomposition). These
  * functions are PURE, no DOM, no `window`, no instance state, so the data
  * model can be unit-tested in isolation and the god-file shrinks. The DOM
- * renderer that consumes the tree stays separate (in compilation_module.js for
- * now; a later extraction moves it to hierarchy_view.js).
+ * renderer that consumes the tree is hierarchy_view.js.
  *
  * Tree shape returned by parseYosysHierarchy:
  *   { name, filePath, lineNumber,
@@ -32,10 +30,8 @@ const PRIMITIVE_PATTERNS = [
 /**
  * Strip Yosys' mangled identifier down to the user-facing module/instance name,
  * and pull out an embedded source-file path if present.
- * @param {string} yosysName
- * @returns {{ cleanName: string, filePath: string|null }}
  */
-function parseYosysIdentifier(yosysName) {
+function parseYosysIdentifier(yosysName: string): { cleanName: string; filePath: string|null; } {
   let cleanName = yosysName;
   let filePath = null;
   const pathRegex = /([a-zA-Z]:\\[^:]+\.v)|(\/[^:]+\.v)/;
@@ -57,28 +53,49 @@ function parseYosysIdentifier(yosysName) {
 
 /**
  * Parse a Yosys `src` attribute ("path.v:line.col-line.col") into file + line.
- * @param {string} sourceAttr
- * @returns {{ filePath: string, lineNumber: number }|null}
  */
-function extractFileInfoFromSource(sourceAttr) {
+function extractFileInfoFromSource(sourceAttr: string): { filePath: string; lineNumber: number; }|null {
   if (!sourceAttr) return null;
   const match = sourceAttr.match(/^(.+\.v):(\d+)\.\d+(?:-\d+\.\d+)?$/);
   if (!match) return null;
   return { filePath: match[1], lineNumber: parseInt(match[2], 10) };
 }
 
+/** Um modulo do `write_json` do Yosys, so com o que o parser le. */
+interface ModuloDoYosys {
+  attributes?: { src?: string };
+  cells?: Record<string, { type: string }>;
+}
+
+interface InstanciaDaHierarquia {
+  instanceName: string;
+  type: 'instance';
+  moduleDefinition: NoDaHierarquia;
+}
+
+/** Um modulo do projeto na arvore. Duas instancias do mesmo modulo apontam para o mesmo no. */
+export interface NoDaHierarquia {
+  name: string;
+  filePath: string | null;
+  lineNumber: number | null;
+  children: InstanciaDaHierarquia[];
+}
+
 /**
  * Build the design's module hierarchy from Yosys `write_json` output.
- * @param {{ modules?: Record<string, any> }} jsonData
- * @param {string} topLevelModule  the design's top module (clean name)
- * @returns {{ name:string, filePath:string|null, lineNumber:number|null, children:any[] }}
+ *
+ * Devolve null quando o proprio topo parece primitivo (sem `src` e sem
+ * celulas), o mesmo que o `.js` devolvia sem declarar.
+ * @param topLevelModule  the design's top module (clean name)
  */
-function parseYosysHierarchy(jsonData, topLevelModule) {
+function parseYosysHierarchy(
+  jsonData: { modules?: Record<string, ModuloDoYosys> } | null | undefined,
+  topLevelModule: string,
+): NoDaHierarquia | null {
   const modules = (jsonData && jsonData.modules) || {};
-  const memo = new Map();
+  const memo = new Map<string, NoDaHierarquia>();
 
-  /** @param {string} moduleName */
-  const isPrimitive = (moduleName) => {
+  const isPrimitive = (moduleName: string) => {
     const cleanName = parseYosysIdentifier(moduleName).cleanName;
     if (PRIMITIVE_PATTERNS.some((pattern) => pattern.test(cleanName))) return true;
     if (!modules[moduleName]) return true;
@@ -90,16 +107,16 @@ function parseYosysHierarchy(jsonData, topLevelModule) {
     return false;
   };
 
-  /** @param {string} moduleName */
-  const buildDefinitionTree = (moduleName) => {
-    if (memo.has(moduleName)) return memo.get(moduleName);
+  const buildDefinitionTree = (moduleName: string): NoDaHierarquia | null => {
+    const visto = memo.get(moduleName);
+    if (visto) return visto;
     if (isPrimitive(moduleName)) return null;
     const moduleData = modules[moduleName];
     const { cleanName, filePath } = parseYosysIdentifier(moduleName);
     if (!moduleData) return null;
 
     let sourceFilePath = filePath;
-    let sourceLineNumber = null;
+    let sourceLineNumber: number | null = null;
     if (moduleData.attributes && moduleData.attributes.src) {
       const fileInfo = extractFileInfoFromSource(moduleData.attributes.src);
       if (fileInfo) {
@@ -108,12 +125,11 @@ function parseYosysHierarchy(jsonData, topLevelModule) {
       }
     }
 
-    const definitionNode = {
+    const definitionNode: NoDaHierarquia = {
       name: cleanName,
       filePath: sourceFilePath,
       lineNumber: sourceLineNumber,
-      // Sem o tipo, o strict infere `never[]` e recusa o push logo abaixo.
-      children: /** @type {any[]} */ ([]),
+      children: [],
     };
     memo.set(moduleName, definitionNode);
 

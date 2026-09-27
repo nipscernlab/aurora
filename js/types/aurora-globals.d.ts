@@ -51,6 +51,10 @@ interface AuroraElectronAPI {
    * quem desliga o ouvinte. Opcional porque fora do Electron nao ha fluxo.
    */
   onExecSpecStream?(cb: (payload: { type?: string; data?: string } | null | undefined) => void): () => void;
+  /** O laptop esta na bateria (main/ipc/system.js)? */
+  isOnBattery?(): Promise<boolean>;
+  /** Um open 'r+' que nao altera nada: o arquivo aceita ser sobrescrito? (main/ipc/files.js) */
+  checkFileWritable?(path: string): Promise<{ exists: boolean; writable: boolean; code?: string } | null>;
   /** Mata o filho que o executor de specs deixou parqueado (so ele, nao por nome). */
   killCurrentSpecProcess?(): Promise<unknown>;
   /** Os visualizadores de onda (main/ipc/compile.js). */

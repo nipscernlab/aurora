@@ -45,9 +45,8 @@ import { electronAPI } from '../app/electron_api.js';
 import { comAjuda } from '../ui/help_link.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
-import { lerProgresso } from '../terminal/progress_line.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
-import { nomesDeDumpEsperados, NOMES_DE_DUMP_COCOTB, dumpEstaFresco } from './dump_guard.js';
+import { nomesDeDumpEsperados, NOMES_DE_DUMP_COCOTB } from './dump_guard.js';
 import { SpfStore } from '../project/spf_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { projectTempDir } from '../project/project_temp.js';
@@ -69,6 +68,10 @@ import { gerarHierarquiaDoProjeto } from './hierarquia_do_projeto.js';
 import { lancarGtkwave, lancarSurfer, abrirOndaExterna as abrirOndaExternaNoVisualizador } from './abrir_onda.js';
 import { resolverLayoutDoSurfer } from './layout_do_surfer.js';
 import { rodarTesteDeHardware } from './teste_de_hardware.js';
+import { consumirProgresso, avisarSeNaBateria, vigiarTamanhoDoDump } from './durante_a_simulacao.js';
+import {
+    copiarDadosDoTestbench, acharDumpDaSimulacao, exigirDumpGravavel, exigirDumpNovo,
+} from './arquivos_da_simulacao.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
 import { resolveWaveToolchain, findWaveCandidateInDir, resolveVerilatorTools } from './wave_toolchain.js';
 import {
@@ -152,94 +155,6 @@ class CompilationModule {
                 });
             }
         }
-    }
-
-    /**
-     * A linha e um contador subindo? Entao ela move a barra e nao vai para o
-     * terminal.
-     *
-     * Um so ponto de decisao para todos os caminhos de saida (Icarus,
-     * Verilator, cocotb, teste de hardware). Antes cada um trazia o seu
-     * reconhecedor, entao um formato novo precisava ser ensinado quatro vezes,
-     * e na pratica era ensinado a um so: o resto continuava despejando uma
-     * linha por atualizacao no terminal.
-     *
-     * @param {string} terminalId
-     * @param {string} linha
-     * @param {string} rotuloPadrao  o que a barra mostra quando a linha nao se nomeia
-     * @returns {boolean} true quando a linha foi consumida pela barra
-     */
-    _consumirProgresso(terminalId, linha, rotuloPadrao) {
-        const p = lerProgresso(linha, { rotuloPadrao });
-        if (!p) return false;
-        this.terminalManager.renderHardwareProgress?.(terminalId, {
-            pct: p.pct,
-            cyc: p.cyc,
-            total: p.total,
-            reads: p.reads,
-            label: p.label,
-            done: p.done,
-        });
-        return true;
-    }
-
-    /**
-     * Um lembrete quando a simulacao comeca com o laptop na bateria.
-     *
-     * Na bateria o Windows corta o clock da CPU, e uma simulacao longa fica
-     * visivelmente mais lenta; quem nao sabe disso conclui que a AURORA e
-     * lenta. Uma linha de dica, no inicio, uma vez por corrida: sem alerta
-     * modal e sem mexer no plano de energia do sistema, que e escolha do
-     * dono da maquina. Num desktop o main responde false e nada aparece.
-     */
-    async _avisarSeNaBateria(terminalId) {
-        try {
-            if (typeof electronAPI.isOnBattery !== 'function') return;
-            if (await electronAPI.isOnBattery()) {
-                this.terminalManager.appendToTerminal(terminalId,
-                    tr('terminal.wave.onBattery'), 'tips');
-            }
-        } catch (_e) { /* dica e cortesia */ }
-    }
-
-    /**
-     * Vigia o tamanho do arquivo de onda enquanto a simulacao roda.
-     *
-     * Recebe os caminhos CANDIDATOS (o nome vem do $dumpfile do testbench, e
-     * a extensao varia por simulador), adota o primeiro que aparecer no disco
-     * e atualiza o pill do twave ate stop() ser chamado. Melhor esforco por
-     * inteiro: falha de stat nao para o vigia nem a simulacao.
-     *
-     * @param {string[]} candidatos caminhos absolutos possiveis do dump
-     * @returns {() => Promise<void>} stop: ultima leitura e marca 'done'
-     */
-    _vigiarTamanhoDoDump(candidatos) {
-        let alvo = null;
-        let vivo = true;
-        const medir = async (final = false) => {
-            try {
-                if (!alvo) {
-                    for (const c of candidatos) {
-                        if (await electronAPI.fileExists(c)) { alvo = c; break; }
-                    }
-                    if (!alvo) return;
-                }
-                const st = await electronAPI.getFileStats(alvo);
-                if (!vivo && !final) return; // stat resolveu depois do stop
-                this.terminalManager.renderDumpSize?.('twave', {
-                    name: alvo.split(/[\\/]/).pop(),
-                    path: alvo,
-                    bytes: st?.size ?? 0,
-                    done: final,
-                });
-            } catch (_e) { /* dump ainda nao existe, ou sumiu no meio */ }
-        };
-        const timer = setInterval(() => { if (vivo) medir(false); }, 700);
-        return async () => {
-            vivo = false;
-            clearInterval(timer);
-            await medir(true);
-        };
     }
 
     /**
@@ -1174,13 +1089,13 @@ async runGtkWave() {
             }
             // Scan the dir the simulation actually ran in, the dump lands
             // in the cwd (_waveSimCwd: the project folder).
-            vcdFile = await this._waveResolveVcdFile(simTopModule, simDir);
+            vcdFile = await acharDumpDaSimulacao(this.terminalManager, simTopModule, simDir);
         }
         // Defesa 2 (dump_guard.js): o dump tem de ser DESTA corrida. Sem
         // isto, um escritor que falhe sem exit code, ou um $dumpfile custom
         // adotado pelo resolver, abre a onda da rodada ANTERIOR como se fosse
         // nova, que foi exatamente o sintoma do laboratorio.
-        await this._waveExigirDumpNovo(vcdFile, inicioDaSimulacao);
+        await exigirDumpNovo(vcdFile, inicioDaSimulacao);
         // Unified header capture, ONE extraction for all four wave paths
         // (iverilog, Verilator, cocotb+iverilog, cocotb+Verilator). Replaces the
         // old per-flow two-pass: the non-cocotb flows used to run a throwaway
@@ -1604,7 +1519,7 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningCocotb', {
         sim: profile.sim === 'verilator' ? 'Verilator' : 'Icarus',
     }), 'info');
-    await this._avisarSeNaBateria('twave');
+    await avisarSeNaBateria(this.terminalManager, 'twave');
     this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(spec), 'info', { internal: true });
 
     // Um contador que sobe vira a barra, e nao uma linha por atualizacao. Os
@@ -1617,7 +1532,7 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
-                if (this._consumirProgresso('twave', line, tr('terminal.wave.progress'))) continue;
+                if (consumirProgresso(this.terminalManager, 'twave', line, tr('terminal.wave.progress'))) continue;
                 this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });
@@ -1626,13 +1541,13 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     // Mesma blindagem dos fluxos vvp/Verilator (defesa 1 de dump_guard.js).
     // So no modo wave: o Fast Sim (wave=false) nao escreve dump nenhum.
     if (wave) {
-        await this._waveExigirDumpGravavel(this.projectPath || tbDir, NOMES_DE_DUMP_COCOTB);
+        await exigirDumpGravavel(this.projectPath || tbDir, NOMES_DE_DUMP_COCOTB);
     }
 
     let code;
     // O runner do cocotb sob Verilator escreve dump.fst no test_dir (a pasta
     // do projeto); sob Icarus o nome vem do runner tambem como dump.
-    const pararVigia = this._vigiarTamanhoDoDump([
+    const pararVigia = vigiarTamanhoDoDump(this.terminalManager, [
         await electronAPI.joinPath(this.projectPath || tbDir, 'dump.fst'),
         await electronAPI.joinPath(buildDir, 'dump.fst'),
         await electronAPI.joinPath(this.projectPath || tbDir, 'dump.vcd'),
@@ -1741,14 +1656,14 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // nao esta na pasta do projeto, copia cada arquivo pra ca. No-op
     // quando origem e destino coincidem (tb na pasta do projeto).
     if (config.testbenchFile) {
-        await this._stageTestbenchDataFiles(simCwd, config.testbenchFile);
+        await copiarDadosDoTestbench(this.terminalManager, simCwd, config.testbenchFile);
     }
 
     // Defesa 1 (dump_guard.js): dump da rodada anterior preso ou
     // somente-leitura aborta AGORA, nomeando o arquivo e a correcao, em vez
     // de gastar a simulacao para o vvp morrer com um "Unable to open"
     // perdido no meio da saida.
-    await this._waveExigirDumpGravavel(simCwd, nomesDeDumpEsperados(simTopModule));
+    await exigirDumpGravavel(simCwd, nomesDeDumpEsperados(simTopModule));
 
     const vvpFile = await electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
 
@@ -1759,7 +1674,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // where the +AURORA_HEADER_ONLY plusarg was a no-op and pass 1 ran the FULL
     // simulation twice.
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVvp'), 'info');
-    await this._avisarSeNaBateria('twave');
+    await avisarSeNaBateria(this.terminalManager, 'twave');
 
     // Stream sim output to twave live so $display lines from the
     // testbench show up as the simulation progresses. User $display
@@ -1809,13 +1724,13 @@ async _waveRunVvpSimulation(simTopModule, tools) {
                 }
                 // Um `$display` de contador escrito pelo aluno no testbench
                 // vira a barra em vez de mil linhas. Ver _consumirProgresso.
-                if (this._consumirProgresso('twave', line, tr('terminal.wave.progress'))) continue;
+                if (consumirProgresso(this.terminalManager, 'twave', line, tr('terminal.wave.progress'))) continue;
                 this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });
     }
     let code;
-    const pararVigia = this._vigiarTamanhoDoDump([
+    const pararVigia = vigiarTamanhoDoDump(this.terminalManager, [
         await electronAPI.joinPath(simCwd, `${simTopModule}.vcd`),
         await electronAPI.joinPath(simCwd, `${simTopModule}.fst`),
     ]);
@@ -2031,7 +1946,7 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
                 if (!line.trim()) continue;
                 // O make que o Verilator dispara conta em "[ 42%]". Uma barra
                 // subindo diz o mesmo que as dezenas de linhas, e diz melhor.
-                if (this._consumirProgresso('twave', line, tr('terminal.wave.progressBuild'))) continue;
+                if (consumirProgresso(this.terminalManager, 'twave', line, tr('terminal.wave.progressBuild'))) continue;
                 this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });
@@ -2076,14 +1991,14 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     const simCwd = await this._waveSimCwd(tools);
     await this._stageProcessorMemoryFiles(tools.tempBaseDir, simCwd);
     if (config.testbenchFile) {
-        await this._stageTestbenchDataFiles(simCwd, config.testbenchFile);
+        await copiarDadosDoTestbench(this.terminalManager, simCwd, config.testbenchFile);
     }
 
     // Mesma blindagem do fluxo vvp (defesa 1 de dump_guard.js).
-    await this._waveExigirDumpGravavel(simCwd, nomesDeDumpEsperados(simTopModule));
+    await exigirDumpGravavel(simCwd, nomesDeDumpEsperados(simTopModule));
 
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVerilator'), 'plain');
-    await this._avisarSeNaBateria('twave');
+    await avisarSeNaBateria(this.terminalManager, 'twave');
 
     // Full sim. Stream output pro twave live (igual vvp).
     const isVvpNoise = (line) => {
@@ -2116,13 +2031,13 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
                 if (isVvpNoise(line)) continue;
-                if (this._consumirProgresso('twave', line, tr('terminal.wave.progress'))) continue;
+                if (consumirProgresso(this.terminalManager, 'twave', line, tr('terminal.wave.progress'))) continue;
                 this.terminalManager.appendToTerminal('twave', line, isVerilatorReport(line) ? 'plain' : 'raw');
             }
         });
     }
     let code;
-    const pararVigia = this._vigiarTamanhoDoDump([
+    const pararVigia = vigiarTamanhoDoDump(this.terminalManager, [
         await electronAPI.joinPath(simCwd, `${simTopModule}.vcd`),
         await electronAPI.joinPath(simCwd, `${simTopModule}.fst`),
     ]);
@@ -2325,233 +2240,6 @@ async verilatorProcessorRun() {
  */
 async _stageProcessorMemoryFiles(tempBaseDir, destDir = tempBaseDir) {
     return stageProcessorMemoryFiles(this._instanceDeps(), tempBaseDir, destDir);
-}
-
-/**
- * Varre o source do testbench atras de chamadas $fopen / $readmemb /
- * $readmemh com argumentos string literal. Pra cada arquivo
- * referenciado por path relativo (i.e. sem drive letter ou raiz
- * absoluta), tenta copia-lo de <dir-do-testbench>/<nome> pra
- * destDir/<nome>, o CWD onde a simulacao realmente procura
- * (a pasta do projeto, ver _waveSimCwd). Quando o testbench ja esta
- * na pasta do projeto, origem == destino e a copia e pulada.
- *
- * Suporta paths com subpastas (ex: $fopen("data/x.txt")) criando
- * dirs intermediarios em destDir.
- *
- * Tolerante a falhas: arquivo nao existe ou copia falha apenas
- * pula com warning silencioso. O proprio erro do vvp (com
- * mensagem clara apontando o $fopen falho) e mais informativo
- * que tentar adivinhar aqui.
- */
-async _stageTestbenchDataFiles(destDir, testbenchPath) {
-    if (!testbenchPath) return;
-    let content;
-    try {
-        content = await electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
-    } catch (_e) {
-        return;
-    }
-
-    // Coletar so arquivos que o testbench LE, sao os que precisam
-    // ser stageados em tempBaseDir antes do vvp rodar. Arquivos
-    // abertos pra ESCRITA (ex: um dump.txt via $fopen("...", "w"))
-    // sao output do testbench e nao existem antes da simulacao;
-    // stageamos quebraria com um warning falso "not found".
-    //
-    //   $readmemb / $readmemh       , sempre leitura → stage.
-    //   $fopen sem 2o arg           , modo write-only (padrao Verilog
-    //                                  2001 retorna mcd) → skip.
-    //   $fopen com 2o arg "r"/"rb"  , leitura → stage.
-    //   $fopen com qualquer outro
-    //   modo ("w","a","wb",etc)     , write/append → skip.
-    const filenames = new Set();
-    // $readmemb / $readmemh, argumento entre aspas duplas.
-    const reReadmem = /\$readmem[bh]\s*\(\s*"([^"]+)"/g;
-    let m;
-    while ((m = reReadmem.exec(content)) !== null) {
-        filenames.add(m[1]);
-    }
-    // $fopen("file", "mode"), captura modo pra decidir se le ou
-    // escreve. Sem 2o arg, e write-only por default (Verilog 2001
-    // returns mcd), nao entra aqui, ent skip implicito.
-    const reFopenWithMode = /\$fopen\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/g;
-    while ((m = reFopenWithMode.exec(content)) !== null) {
-        const mode = m[2].toLowerCase();
-        // Modos de leitura: "r", "rb", "r+", "rb+", "r+b". Conservador
-        // mas cobre os casos comuns.
-        if (mode === 'r' || mode === 'rb' || mode.startsWith('r+') || mode.startsWith('rb+')) {
-            filenames.add(m[1]);
-        }
-    }
-    if (filenames.size === 0) return;
-
-    const tbDir = await electronAPI.dirname(testbenchPath);
-    const failures = [];
-    for (const fname of filenames) {
-        // Skip absolute paths, usuario sabe o que quer (e o vvp
-        // resolve corretamente desde o CWD).
-        if (/^[a-zA-Z]:[\\/]/.test(fname) || fname.startsWith('/') || fname.startsWith('\\')) continue;
-        const clean = fname.replace(/^\.[\\/]+/, '');
-        const src = await electronAPI.joinPath(tbDir, clean);
-        try {
-            const exists = await electronAPI.fileExists(src);
-            if (!exists) {
-                failures.push({ name: fname, reason: 'not found in testbench folder' });
-                continue;
-            }
-            const dst = await electronAPI.joinPath(destDir, clean);
-            // Testbench na pasta do projeto: origem == destino, nada a copiar
-            // (copiar um arquivo sobre ele mesmo pode trunca-lo no Windows).
-            if (src.replace(/\//g, '\\').toLowerCase() === dst.replace(/\//g, '\\').toLowerCase()) {
-                continue;
-            }
-            // Garante dirs intermediarios pra fname com subpasta.
-            const dstDir = await electronAPI.dirname(dst);
-            if (dstDir && dstDir !== destDir) {
-                try { await electronAPI.mkdir(dstDir); } catch (_e) { /* exists ok */ }
-            }
-            await electronAPI.copyFile(src, dst);
-        } catch (e) {
-            failures.push({ name: fname, reason: e.message });
-        }
-    }
-
-    // Success path is silent, copying testbench data files between
-    // folders is internal plumbing. Failures still surface as warnings
-    // because those *are* actionable (a missing data file means the
-    // testbench will crash on $readmemh).
-    for (const fail of failures) {
-        this.terminalManager.appendToTerminal(
-            'twave',
-            tr('terminal.wave.couldNotStageTbFile', { name: fail.name, reason: fail.reason }),
-            'warning',
-        );
-    }
-}
-
-/**
- * Find the .vcd that vvp just produced.
- *
- * Aurora's auto-instrumented testbench writes `${simTopModule}.vcd`,
- * which is the happy path. The recovery branch handles the
- * "user wrote $dumpfile with a different name" case: the dump lands in
- * the simulation cwd (`simDir`, the project folder; see _waveSimCwd),
- * so the file is in there under whatever name the user picked. We scan
- * for unambiguous .vcd files and adopt one if the choice is clear.
- *
- * Inputs:  simTopModule, simDir (the cwd the simulation ran in)
- * Returns: absolute path to the .vcd to use downstream
- * Throws:  if zero or multiple candidate .vcds (ambiguous);
- *          message names the candidates and offers two concrete fixes
- * Side-effects: logs to twave (success line, or warning when the
- *               adopted file's name differs from simTopModule.vcd)
- */
-async _waveResolveVcdFile(simTopModule, simDir) {
-    // Pass 2 (vvp -fst) produces ${simTopModule}.fst, that's what
-    // GTKWave opens. Pass 1 left a partial .vcd alongside it for
-    // _waveResolveGtkwSaveFile to parse the header from; that file
-    // isn't returned here.
-    // Success is silent, confirming the dump file exists is internal
-    // plumbing. The user already saw "Simulation started"; the next
-    // visible step is GTKWave opening. Failures still throw with a
-    // detailed error below.
-    const expectedFst = await electronAPI.joinPath(simDir, `${simTopModule}.fst`);
-    if (await electronAPI.fileExists(expectedFst)) {
-        return expectedFst;
-    }
-    // Legacy fallback: a full .vcd, in case someone runs vvp without
-    // -fst (e.g. when investigating a problem with the two-pass flow).
-    const expectedVcd = await electronAPI.joinPath(simDir, `${simTopModule}.vcd`);
-    if (await electronAPI.fileExists(expectedVcd)) {
-        return expectedVcd;
-    }
-
-    let candidates = [];
-    try {
-        const entries = await electronAPI.listFilesInDirectory(simDir);
-        candidates = (entries || []).filter((name) => {
-            const n = name.toLowerCase();
-            return n.endsWith('.fst') || n.endsWith('.vcd');
-        });
-    } catch (_listErr) {
-        candidates = [];
-    }
-
-    if (candidates.length === 1) {
-        const adopted = await electronAPI.joinPath(simDir, candidates[0]);
-        // The warning is the actionable bit, the user's $dumpfile()
-        // picked a different name than expected. Keep it. The "found
-        // the file" success line is suppressed (internal plumbing).
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.dumpfileMismatch', { name: candidates[0], expected: simTopModule }),
-            'warning');
-        return adopted;
-    }
-
-    const detail = candidates.length === 0
-        ? `No .fst/.vcd was produced.`
-        : `Multiple dump candidates were produced: ${candidates.join(', ')}.`;
-    throw new Error(
-        `Dump file was not generated as ${simTopModule}.fst.\n` +
-        `${detail}\n` +
-        `Aurora looks for a .fst (or .vcd) named after the testbench module.`,
-    );
-}
-
-/**
- * Defesa 1 de dump_guard.js: cada nome em `nomes` que JA exista em `simDir`
- * precisa aceitar abertura em escrita, o mesmo acesso que o simulador vai
- * pedir ao sobrescrever. O veredito vem do IPC file:check-writable (um open
- * 'r+' que nao altera nada). Medido no Windows real: viewer prendendo o
- * arquivo devolve EBUSY; somente-leitura/politica devolve EPERM. Teste de
- * ESCRITA de proposito, nunca de delecao: o GTKWave aberto bloqueia deletar
- * mas nao sobrescrever, e um pre-delete acusaria erro num caso que simularia
- * normalmente.
- *
- * Inputs:  simDir (cwd da simulacao), nomes (basenames de dump esperados)
- * Throws:  quando um dump existente esta bloqueado para escrita; a mensagem
- *          separa EBUSY (feche o viewer) do resto (destrave o arquivo).
- *          Falha do proprio IPC nao bloqueia (fail-open): a defesa primaria
- *          continua sendo o exit code do simulador.
- */
-async _waveExigirDumpGravavel(simDir, nomes) {
-    if (typeof electronAPI.checkFileWritable !== 'function') return;
-    for (const nome of nomes) {
-        let veredito = null;
-        try {
-            const alvo = await electronAPI.joinPath(simDir, nome);
-            veredito = await electronAPI.checkFileWritable(alvo);
-        } catch (_) { continue; }
-        if (!veredito || !veredito.exists || veredito.writable) continue;
-        const chave = veredito.code === 'EBUSY'
-            ? 'error.compilation.dumpLockedBusy'
-            : 'error.compilation.dumpLockedDenied';
-        throw comAjuda(
-            new Error(tr(chave, { file: nome, code: veredito.code || '?' })),
-            'dumpBloqueadoHelp',
-        );
-    }
-}
-
-/**
- * Defesa 2 de dump_guard.js: o dump resolvido precisa ser DESTA corrida.
- * `inicioMs` vem de runGtkWave, capturado antes de qualquer build/sim; um
- * mtime anterior a ele (com a folga de dumpEstaFresco) significa que o
- * simulador NAO reescreveu o arquivo e o que esta ali e onda velha.
- *
- * Inputs:  vcdFile (path absoluto do dump resolvido), inicioMs (Date.now())
- * Throws:  quando o dump e de uma corrida anterior. Stat quebrado nao
- *          bloqueia (fail-open), mesmo racional da defesa 1.
- */
-async _waveExigirDumpNovo(vcdFile, inicioMs) {
-    let stats = null;
-    try { stats = await electronAPI.getFileStats(vcdFile); } catch (_) { return; }
-    if (dumpEstaFresco(stats ? stats.mtime : NaN, inicioMs)) return;
-    throw comAjuda(
-        new Error(tr('error.compilation.dumpStale', { file: basenameOfPath(vcdFile) })),
-        'dumpBloqueadoHelp',
-    );
 }
 
 /**

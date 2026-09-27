@@ -32,18 +32,22 @@ vi.mock('../../js/terminal/terminal_module.js', () => ({
 }));
 
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
+import { consumirProgresso, avisarSeNaBateria, vigiarTamanhoDoDump } from '../../js/compilation/durante_a_simulacao.js';
+import {
+    copiarDadosDoTestbench, acharDumpDaSimulacao, exigirDumpGravavel, exigirDumpNovo,
+} from '../../js/compilation/arquivos_da_simulacao.js';
 
 const PROJ = 'C:/proj';
 const COMP = 'C:/comp';
 
 const chamar = {
-    progresso: (mod, ...a) => mod._consumirProgresso(...a),
-    bateria: (mod, ...a) => mod._avisarSeNaBateria(...a),
-    vigia: (mod, ...a) => mod._vigiarTamanhoDoDump(...a),
-    dadosDoTestbench: (mod, ...a) => mod._stageTestbenchDataFiles(...a),
-    acharDump: (mod, ...a) => mod._waveResolveVcdFile(...a),
-    exigirGravavel: (mod, ...a) => mod._waveExigirDumpGravavel(...a),
-    exigirNovo: (mod, ...a) => mod._waveExigirDumpNovo(...a),
+    progresso: (mod, ...a) => consumirProgresso(mod.terminalManager, ...a),
+    bateria: (mod, ...a) => avisarSeNaBateria(mod.terminalManager, ...a),
+    vigia: (mod, ...a) => vigiarTamanhoDoDump(mod.terminalManager, ...a),
+    dadosDoTestbench: (mod, ...a) => copiarDadosDoTestbench(mod.terminalManager, ...a),
+    acharDump: (mod, ...a) => acharDumpDaSimulacao(mod.terminalManager, ...a),
+    exigirGravavel: (_mod, ...a) => exigirDumpGravavel(...a),
+    exigirNovo: (_mod, ...a) => exigirDumpNovo(...a),
 };
 
 function makeTerminal() {

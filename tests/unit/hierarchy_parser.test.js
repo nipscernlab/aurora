@@ -84,4 +84,33 @@ describe('parseYosysHierarchy', () => {
   it('is tolerant of missing/empty input', () => {
     expect(parseYosysHierarchy({}, 'x').children).toEqual([]);
   });
+
+  // Modulo sem `src` e o que o Yosys cria sozinho (blackbox, caixa gerada):
+  // com celulas ele ainda e do projeto e entra; sem celulas e tratado como
+  // primitivo e some. O mesmo modulo instanciado duas vezes aponta para o MESMO
+  // no, pelo memo, em vez de ser montado de novo.
+  it('sem src: entra se tem celulas, some se nao tem, e o no e compartilhado', () => {
+    const tree = parseYosysHierarchy({
+      modules: {
+        top: {
+          attributes: { src: 'top.v:1.1-9.9' },
+          cells: {
+            u1: { type: 'gerado' },
+            u2: { type: 'gerado' },
+            u3: { type: 'caixa_vazia' },
+          },
+        },
+        gerado: { cells: { f: { type: 'folha' } } },
+        caixa_vazia: { attributes: {}, cells: {} },
+        folha: { attributes: { src: 'sem_linha' }, cells: {} },
+      },
+    }, 'top');
+    expect(tree.children.map((c) => c.instanceName)).toEqual(['u1', 'u2']);
+    const [a, b] = tree.children;
+    expect(a.moduleDefinition).toBe(b.moduleDefinition);
+    expect(a.moduleDefinition).toMatchObject({ name: 'gerado', filePath: null, lineNumber: null });
+    // `src` que nao casa o formato path.v:linha.coluna deixa o no sem arquivo.
+    expect(a.moduleDefinition.children[0].moduleDefinition)
+      .toMatchObject({ name: 'folha', filePath: null, lineNumber: null });
+  });
 });

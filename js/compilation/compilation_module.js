@@ -45,17 +45,13 @@ import { electronAPI } from '../app/electron_api.js';
 import { comAjuda } from '../ui/help_link.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
-import { nomesDeDumpEsperados } from './dump_guard.js';
 import { SpfStore } from '../project/spf_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { projectTempDir } from '../project/project_temp.js';
-import {
-  instrumentTestbenchSource,
-} from '../wave/testbench_instrumenter.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
-import { extractFopenReads } from '../wave/fopen_paths.js';
 import { statusUpdater } from '../ui/status_updater.js';
+import { foiCancelada } from './cancelamento.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
 import { gerarHierarquiaDoProjeto } from './hierarquia_do_projeto.js';
 import { lancarGtkwave, lancarSurfer, abrirOndaExterna as abrirOndaExternaNoVisualizador } from './abrir_onda.js';
@@ -64,21 +60,18 @@ import { resolverLayoutDoGtkwave } from './layout_do_gtkwave.js';
 import { rodarTesteDeHardware } from './teste_de_hardware.js';
 import { construirNoVerilator, simularNoVerilator, rodarFastSim } from './verilator_da_onda.js';
 import { validarCocotb, anunciarCocotb, rodarCocotb } from './cocotb_da_onda.js';
-import { consumirProgresso, avisarSeNaBateria, vigiarTamanhoDoDump } from './durante_a_simulacao.js';
 import {
-    copiarDadosDoTestbench, acharDumpDaSimulacao, exigirDumpGravavel, exigirDumpNovo,
-} from './arquivos_da_simulacao.js';
+    ferramentasDoIcarus, rodarIverilog, construirEConferirVvp, simularNoIcarus,
+} from './icarus_da_onda.js';
+import { acharDumpDaSimulacao, exigirDumpNovo } from './arquivos_da_simulacao.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
 import { resolveWaveToolchain, resolveVerilatorTools } from './wave_toolchain.js';
-import {
-  validateWaveSelection, resolveWaveSelection,
-} from './wave_signal_validator.js';
+import { validateWaveSelection } from './wave_signal_validator.js';
 import {
   cmmCompilation, cppCompilation, asmCompilation, stageProcessorMemoryFiles,
 } from './processor_compiler.js';
 import {
-  buildIverilogCheckSpec, buildIverilogBuildSpec,
-  buildVvpRunSpec,
+  buildIverilogCheckSpec,
   buildFst2VcdSpec,
 } from './builders/index.js';
 import * as CommandSpec from './command_spec.js';
@@ -98,12 +91,11 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
  * kill. Quem pediu para parar recebia um cartao de erro dizendo que o
  * Verilator falhou, e ficava sem saber se quebrou alguma coisa.
  *
- * Mesma bandeira que o compilation_flow expoe pra barra de progresso se calar
- * (renderHardwareProgress), pelo mesmo motivo: e o rastro do que ja estava em
- * voo quando o kill chegou. Zera no inicio da proxima compilacao.
+ * A bandeira e a do cancelamento.ts, a mesma que a barra de progresso consulta
+ * para se calar: e o rastro do que ja estava em voo quando o kill chegou. Zera
+ * no inicio da proxima compilacao.
  */
-const canceladoPeloUsuario = () =>
-    (typeof window !== 'undefined' && !!window.isCompilationCanceled?.());
+const canceladoPeloUsuario = foiCancelada;
 
 class CompilationModule {
     constructor(projectPath) {
@@ -514,241 +506,6 @@ async syntaxCheck() {
 }
 
 /**
- * Read the testbench, hand its content + the user's picker selection
- * to the testbench_instrumenter module to decide whether and how to
- * inject $dumpfile/$dumpvars, then write the result to Temp/. Returns
- * the path iverilog should compile against, either the original (if
- * the user already wrote dump plumbing, or the file is malformed) or
- * the new instrumented copy.
- *
- * Pure decision logic + string building lives in
- * js/wave/testbench_instrumenter.js (unit-tested). This method is
- * the IO glue.
- */
-/**
- * Delega pra resolveWaveSelection (wave_signal_validator.js): resolve a
- * fonte do $dumpvars (.gtkw ativo > Wave Config > $dumpvars do tb > default)
- * e devolve { signalsToDump, overrideUserDumpvars, source, tbKey }.
- */
-async _resolveWaveSelection({ config, simTopModule, filePaths }) {
-    return resolveWaveSelection(this._instanceDeps(), { config, simTopModule, filePaths });
-}
-
-/**
- * Avisa, uma vez por simulacao, que o testbench nao manda a simulacao parar.
- *
- * Nao ha timeout em lugar nenhum do caminho de simulacao: o vvp e o binario
- * do Verilator sao spawnados sem limite de tempo, entao um testbench com
- * clock livre e sem $finish roda ate a pessoa apertar Cancelar. Quem esta
- * aprendendo le isso como "a AURORA travou" e mata o processo, e o dump sai
- * truncado ou nem existe.
- *
- * So avisa quando as DUAS coisas valem (ver mayRunForever no instrumentador):
- * ha gerador livre de eventos e nao ha $finish/$stop. Testbench que termina
- * sozinho nao recebe nada, senao o aviso viraria ruido de toda execucao.
- *
- * Vale para o iverilog e para o Verilator: o main gerado pelo Verilator
- * tambem roda o eval-loop ate o $finish.
- */
-_avisarSeNaoTermina(testbenchPath, mayRunForever) {
-    if (!mayRunForever || this._avisouSemFinish) return;
-    this._avisouSemFinish = true;
-    const file = String(testbenchPath || '').split(/[\\/]/).pop();
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.noFinish', { file }), 'warning');
-}
-
-async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals = [], overrideUserDumpvars = false, monitorScopes = []) {
-    const originalContent = await electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
-    const result = instrumentTestbenchSource({
-        originalContent,
-        tbModule,
-        selectedSignals,
-        overrideUserDumpvars,
-        monitorScopes,
-    });
-    this._avisarSeNaoTermina(testbenchPath, result.mayRunForever);
-    if (!result.needsWrite) return { path: testbenchPath, reason: result.reason };
-
-    const basename = testbenchPath.split(/[\\/]/).pop();
-    const instrumentedPath = await electronAPI.joinPath(tempBaseDir, `instr_${basename}`);
-
-    // Idempotencia de mtime: so escreve se o conteudo realmente mudou.
-    // Importante pro path do Verilator, o make detecta mudanca via
-    // mtime; se reescrevemos com mesmo conteudo a cada clique no Wave,
-    // o make recompila tudo (5-15s desperdicados). Pro iverilog e
-    // neutro (compile e fast anyway). Checamos existence antes de readFile
-    // pra evitar o ENOENT spam que o IPC handler loga ate em try/catch.
-    if (await electronAPI.fileExists(instrumentedPath)) {
-        try {
-            const existing = await electronAPI.readFile(instrumentedPath, { encoding: 'utf8' });
-            if (existing === result.content) {
-                return { path: instrumentedPath, reason: result.reason };
-            }
-        } catch (_e) { /* read falhou apos exists ok — race ou disco; segue e escreve */ }
-    }
-
-    await electronAPI.writeFile(instrumentedPath, result.content);
-    return { path: instrumentedPath, reason: result.reason };
-}
-
-/**
- * Pre-flight do botao Wave compartilhado entre iverilog e verilator:
- * resolve a selecao de signals, instrumenta o testbench e monta o
- * conjunto de fontes (synth + tb instrumentado).
- *
- * Tudo que e independente do simulador esta aqui. As fases _waveBuild*
- * que vem depois so precisam saber o cmdline do seu simulador.
- *
- * Side-effects:
- *   - Escreve instr_<basename>.v em tempBaseDir (se instrumentacao for
- *     necessaria).
- *   - Atualiza this._validatedWaveSelection (consumido pelo .gtkw
- *     auto-generator em _waveResolveGtkwSaveFile).
- *   - Loga "Wave source: ..." em twave.
- *
- * Returns: { fileSet, instrumentedTbPath, decision }
- *   fileSet: Set<string> com synth files + tb instrumentado (uso direto
- *            pra montar a linha de comando do simulador).
- *   instrumentedTbPath: string (== config.testbenchFile se o tb tem
- *                       $dumpvars hand-written e o user nao customizou).
- *   decision: objeto retornado por _resolveWaveSelection.
- */
-async _prepareWaveBuildInputs(config, simTopModule, tempBaseDir) {
-    const filePaths = new Set(config.synthesizableFiles);
-    if (config.testbenchFile) filePaths.add(config.testbenchFile);
-    try {
-        const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
-        const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
-        if (Array.isArray(hdlEntries)) {
-            for (const name of hdlEntries) {
-                if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
-                    filePaths.add(await electronAPI.joinPath(hdlPath, name));
-                }
-            }
-        }
-    } catch (_e) { /* HDL nao acessivel — segue sem */ }
-
-    const decision = await this._resolveWaveSelection({
-        config,
-        simTopModule,
-        filePaths: [...filePaths],
-    });
-
-    const { path: tbPath, reason } = await this.instrumentTestbench(
-        config.testbenchFile,
-        simTopModule,
-        tempBaseDir,
-        decision.signalsToDump,
-        decision.overrideUserDumpvars,
-        decision.monitorScopes || [],
-    );
-
-    this._validatedWaveSelection = reason === 'user-defined'
-        ? []
-        : decision.signalsToDump;
-
-    const sourceLabel = {
-        gtkw: tr('terminal.wave.sourceLabelGtkw', { count: decision.signalsToDump.length }),
-        wc: tr('terminal.wave.sourceLabelWc', { count: decision.signalsToDump.length }),
-        tb: tr('terminal.wave.sourceLabelTb'),
-        default: tr('terminal.wave.sourceLabelDefault'),
-    }[decision.source] || decision.source;
-    this.terminalManager.appendToTerminal('twave',
-        tr('terminal.wave.waveSource', { label: sourceLabel }), 'info');
-
-    if (reason === 'override-user') {
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.overrideUserDumpvars'), 'tips');
-    }
-
-    const fileSet = new Set(config.synthesizableFiles);
-    fileSet.add(tbPath);
-
-    // Os $fopen de leitura do testbench, conferidos ANTES de simular. Um
-    // `define apontando para a pasta antiga do projeto fez um $fopen devolver
-    // 0 e a simulacao rodar 90 segundos lendo entrada vazia, com o $fscanf
-    // reclamando a cada ciclo; o simulador nao tem como avisar antes, a
-    // AURORA tem. So caminhos que resolvem para literal entram (fopen_paths),
-    // porque um aviso errado ensina a ignorar o certo. Aviso, nunca bloqueio:
-    // o dono do testbench pode saber algo que nos nao sabemos.
-    try {
-        const fonteTb = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
-        for (const { path: alvo } of extractFopenReads(fonteTb)) {
-            if (!(await electronAPI.fileExists(alvo))) {
-                this.terminalManager.appendToTerminal('twave',
-                    tr('terminal.wave.fopenMissing', { path: alvo }), 'warning');
-            }
-        }
-    } catch (_e) { /* conferencia e cortesia; sem ela a simulacao segue igual */ }
-
-    return { fileSet, instrumentedTbPath: tbPath, decision };
-}
-
-// ---------------------------------------------------------------------
-// Iverilog shared helpers
-// ---------------------------------------------------------------------
-
-/**
- * Resolve os paths/binarios que ambos os fluxos iverilog (syntax-check
- * e wave-build) precisam:
- *   - tempBaseDir: components/Temp/ (criado se nao existe)
- *   - iveriCompPath: caminho absoluto pro iverilog.exe (throws se ausente)
- *   - hdlPath: components/HDL/ (search dir do -y, pra modulos tipo
- *     processor.v, myFIFO.v, etc.)
- *
- * Side-effect: mkdir tempBaseDir.
- */
-async _resolveIverilogTools() {
-    const tempBaseDir = await projectTempDir(this.projectPath);
-    const iveriCompPath = await electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'iverilog.exe',
-    );
-    if (!await electronAPI.fileExists(iveriCompPath)) {
-        throw new Error(tr('error.toolchain.iverilogNotFound', { path: iveriCompPath }));
-    }
-    await electronAPI.mkdir(tempBaseDir);
-    const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
-    return { tempBaseDir, iveriCompPath, hdlPath };
-}
-
-/**
- * Spawna iverilog com a spec dada, faz streaming do output pro terminal
- * tveri, e joga se exit code != 0. `phase` controla as mensagens:
- *   'check' → "Check command:", "Verificando...", iverilogFailedCheck
- *   'build' → "Build command:", "Construindo VVP...", iverilogFailedBuild
- *
- * NAO loga sucesso, caller faz isso (cada fluxo tem mensagem diferente
- * de "Build successful" / "Check successful").
- */
-async _runIverilogSpec(spec, { phase }) {
-    const isBuild = phase === 'build';
-    // Rotulo + linha de comando crua: ambos so em verbose/debug. O
-    // rotulo ("Build command:" / "Check command:") precisa do
-    // { internal: true } senao aparece sozinho no modo normal
-    // enquanto o comando que ele rotula fica escondido.
-    this.terminalManager.appendToTerminal('tveri',
-        tr(isBuild ? 'terminal.veri.buildCmd' : 'terminal.veri.checkCmd'),
-        'info', { internal: true });
-    this.terminalManager.appendToTerminal('tveri', CommandSpec.formatSpec(spec), 'info', { internal: true });
-
-    await TabManager.saveAllFiles();
-
-    this.terminalManager.appendToTerminal('tveri',
-        tr(isBuild ? 'terminal.veri.building' : 'terminal.veri.checking'),
-        'info');
-
-    const result = await runSpec(spec, { consumeEphemeral: true });
-    this.terminalManager.processExecutableOutput('tveri', result);
-
-    if (result.code !== 0) {
-        throw new Error(tr(
-            isBuild ? 'error.compilation.iverilogFailedBuild' : 'error.compilation.iverilogFailedCheck',
-            { code: result.code },
-        ));
-    }
-}
-
-/**
  * Syntax-check do design Verilog via iverilog -tnull. Usado pelos
  * botoes Verilog, ASM (re-check pos-otimizacao do .asm) e PRISM
  * (que precisa da hierarquia regenerada pra Yosys consumir).
@@ -777,7 +534,7 @@ async verilogSyntaxCheck() {
         this.terminalManager.appendToTerminal('tveri',
             tr('terminal.veri.synthFiles', { count: config.synthesizableFiles.length }), 'info');
 
-        const { iveriCompPath, hdlPath } = await this._resolveIverilogTools();
+        const { iveriCompPath, hdlPath } = await ferramentasDoIcarus(this);
 
         const topLevelModuleName = config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
 
@@ -801,7 +558,7 @@ async verilogSyntaxCheck() {
             cwd: this.projectPath,
         });
 
-        await this._runIverilogSpec(spec, { phase: 'check' });
+        await rodarIverilog(this.terminalManager, spec, { phase: 'check' });
 
         this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.checkSuccess'), 'success');
         statusUpdater.compilationSuccess('verilog');
@@ -810,143 +567,6 @@ async verilogSyntaxCheck() {
         // "compile"). O Wave button (waveBuildVvp) nao toca hierarquia:
         // o user ja clicou Verilog antes pra chegar num design valido.
         await this.generateProjectHierarchy();
-
-    } catch (error) {
-        if (!canceladoPeloUsuario()) {
-            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
-            this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
-            error.jaNoTerminal = true;
-        }
-        statusUpdater.compilationError('verilog', error.message);
-        throw error;
-    }
-}
-
-/**
- * Build do .vvp pro botao Wave: synth files + testbench instrumentado
- * → iverilog -o components/Temp/<tb>.vvp.
- *
- * Antes de spawnar o iverilog, faz a parte heavy do pipeline Wave:
- *   1. Resolve a selecao de signals (.gtkw ativo > Wave Config > tb com
- *      $dumpvars hand-written > default $dumpvars(1, tb)).
- *   2. Instrumenta o testbench (escreve cópia em
- *      components/Temp/instr_<tb>.v só com o $dumpfile/$dumpvars escolhido:
- *      sem hook de header-pass; o header sai do FST depois). O .v original
- *      NUNCA e tocado, Aurora escreve uma cópia em Temp/.
- *
- * Apos sucesso, NAO regenera hierarquia (essa e tarefa do botao Verilog).
- *
- * Substitui iverilogCompile({buildVvp:true}). Pareado com
- * verilogSyntaxCheck(), que cuida do botao Verilog.
- */
-async waveBuildVvp() {
-    this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.phaseBuild'), 'info');
-    statusUpdater.startCompilation('verilog');
-
-    try {
-        const config = this.validateForWave();
-
-        if (config.topLevelFile) {
-            this.terminalManager.appendToTerminal('tveri',
-                tr('terminal.veri.topLevel', { name: config.topLevelFile.split(/[\\/]/).pop() }), 'tips');
-        }
-        this.terminalManager.appendToTerminal('tveri',
-            tr('terminal.veri.testbench', { name: config.testbenchFile.split(/[\\/]/).pop() }), 'tips');
-        this.terminalManager.appendToTerminal('tveri',
-            tr('terminal.veri.synthFiles', { count: config.synthesizableFiles.length }), 'info');
-
-        const { tempBaseDir, iveriCompPath, hdlPath } = await this._resolveIverilogTools();
-
-        const simTopModule = config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
-        const outputFile = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
-
-        // Source set: synth files; o tb instrumentado e adicionado abaixo.
-        const fileSet = new Set(config.synthesizableFiles);
-
-        // Reunir o conjunto de .v pra validacao de signals do picker:
-        // synth + testbench + components/HDL/*.v (assim selecoes de
-        // Stack/ULA/SAPHO nao sao descartadas como "stale").
-        const filePaths = new Set(config.synthesizableFiles);
-        filePaths.add(config.testbenchFile);
-        try {
-            const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
-            if (Array.isArray(hdlEntries)) {
-                for (const name of hdlEntries) {
-                    if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
-                        filePaths.add(await electronAPI.joinPath(hdlPath, name));
-                    }
-                }
-            }
-        } catch (_e) { /* HDL nao acessivel, segue sem */ }
-
-        // Precedencia: .gtkw ativo > Wave Config customizado >
-        // tb-com-dumpvars > default. Tambem registra o tb no WaveStore
-        // na 1a visita.
-        const decision = await this._resolveWaveSelection({
-            config,
-            simTopModule,
-            filePaths: [...filePaths],
-        });
-
-        const { path: tbPath, reason } = await this.instrumentTestbench(
-            config.testbenchFile,
-            simTopModule,
-            tempBaseDir,
-            decision.signalsToDump,
-            decision.overrideUserDumpvars,
-            decision.monitorScopes || [],
-        );
-        fileSet.add(tbPath);
-
-        // Quando o tb domina (`user-defined`), a selecao usada pelo
-        // .gtkw auto-gerado fica vazia, buildAuroraGtkw cai no layout
-        // completo do VCD. Pros outros casos, _validatedWaveSelection
-        // = signals escolhidos, e o auto-gtkw filtra por eles.
-        this._validatedWaveSelection = reason === 'user-defined'
-            ? []
-            : decision.signalsToDump;
-
-        // Log diagnostico, mostra qual eixo ditou a selecao,
-        // pra debuggar quando o user esperava outra coisa.
-        const sourceLabel = {
-            gtkw: tr('terminal.wave.sourceLabelGtkw', { count: decision.signalsToDump.length }),
-            wc: tr('terminal.wave.sourceLabelWc', { count: decision.signalsToDump.length }),
-            tb: tr('terminal.wave.sourceLabelTb'),
-            default: tr('terminal.wave.sourceLabelDefault'),
-        }[decision.source] || decision.source;
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.waveSource', { label: sourceLabel }), 'info');
-
-        if (reason === 'override-user') {
-            this.terminalManager.appendToTerminal('twave',
-                tr('terminal.wave.overrideUserDumpvars'), 'tips');
-        }
-        if (tbPath !== config.testbenchFile) {
-            this.terminalManager.appendToTerminal('tveri',
-                tr('terminal.veri.autoInstrTb', { name: tbPath.split(/[\\/]/).pop() }), 'info');
-        }
-
-        // -y components/HDL pra resolver modulos referenciados mas nao
-        // listados (processor.v, myFIFO.v, etc).
-        const spec = buildIverilogBuildSpec({
-            iveriCompPath,
-            hdlPath,
-            simTopModule,
-            outputFile,
-            sourceFiles: [...fileSet],
-            cwd: this.projectPath,
-        });
-
-        await this._runIverilogSpec(spec, { phase: 'build' });
-
-        // Defensive: iverilog exit 0 mas o -o pode ter falhado em escrever
-        // (race com AV scanner, permission, etc).
-        if (!await electronAPI.fileExists(outputFile)) {
-            throw new Error(tr('error.compilation.vvpNotGenerated'));
-        }
-
-        this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.buildSuccess'), 'success');
-        statusUpdater.compilationSuccess('verilog');
 
     } catch (error) {
         if (!canceladoPeloUsuario()) {
@@ -1055,8 +675,8 @@ async runGtkWave() {
                 // the statusUpdater per step, so mark 'verilog' here or the bar
                 // stays on 'asm' through the whole Wave.
                 statusUpdater.startCompilation('verilog');
-                await this._waveBuildAndVerifyVvp(simTopModule, tools.tempBaseDir);
-                simDir = await this._waveRunVvpSimulation(simTopModule, tools);
+                await construirEConferirVvp(this, simTopModule, tools.tempBaseDir);
+                simDir = await simularNoIcarus(this, simTopModule, tools);
             }
             // Scan the dir the simulation actually ran in, the dump lands
             // in the cwd (_waveSimCwd: the project folder).
@@ -1210,173 +830,6 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
         if (!stats || stats.size === 0) return false;
     } catch { /* sem stat -> fileExists ja confirmou presenca; deixa passar */ }
     return true;
-}
-
-/**
- * Build the .vvp via iverilog and confirm it landed at the expected
- * path. Always rebuilds, the instrumented testbench bakes the user's
- * $dumpvars selection in at iverilog time, so a previous .vvp would
- * lock in a previous selection.
- *
- * Inputs:  simTopModule, tempBaseDir
- * Returns: void (vvp file path is reconstructible from the inputs)
- * Throws:  if iverilog fails OR the expected .vvp isn't on disk
- * Side-effects: writes ${tempBaseDir}/${simTopModule}.vvp; logs to twave;
- *               also caches `this._validatedWaveSelection` as part of
- *               waveBuildVvp (the .gtkw resolver reads it).
- */
-async _waveBuildAndVerifyVvp(simTopModule, tempBaseDir) {
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.buildingVvp'), 'info');
-    await this.waveBuildVvp();
-    // waveBuildVvp ja verifica internamente que o .vvp existe (defesa
-    // em profundidade); este check externo permite mensagem de erro
-    // especifica do contexto Wave caso o path seja sintetizado errado.
-    const vvpFile = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
-    if (!await electronAPI.fileExists(vvpFile)) {
-        throw new Error(tr('error.compilation.vvpNotProduced', { path: vvpFile }));
-    }
-}
-
-/**
- * Working directory for the simulation run (vvp / Verilator exe):
- * ALWAYS the project folder, the directory of the open .spf, the same
- * base the .spf's own relative file paths resolve against. One uniform
- * rule, no special cases: anything relative in the project (testbench
- * $readmemb/$fopen data, DUT memory files) resolves against the project
- * folder, and the dump lands there too. Generated SAPHO pc_*_mem.txt
- * are staged INTO this folder before the run (see the callers).
- *
- * Inputs:  tools (tempBaseDir, fallback only)
- * Returns: absolute dir to run the simulation in
- */
-async _waveSimCwd(tools) {
-    return this.projectPath || tools.tempBaseDir;
-}
-
-/**
- * Run vvp on the freshly-built .vvp. The cwd is _waveSimCwd (the
- * project folder); processor memory files and out-of-folder testbench
- * data files are staged into it first.
- *
- * Inputs:  simTopModule, tools (uses tempBaseDir + vvpBin)
- * Returns: the cwd the simulation ran in (dir to scan for the dump)
- * Throws:  if vvp exits non-zero
- * Side-effects: writes a .vcd under the returned dir; streams
- *               vvp's stdout/stderr to twave.
- */
-async _waveRunVvpSimulation(simTopModule, tools) {
-    // Re-entry: runGtkWave ja validou pra Wave upstream; aqui so
-    // precisamos consultar config.testbenchFile. loadConfigUnsafe
-    // pega o config sem re-validar (evita throws fantasmas no meio
-    // da execucao).
-    const config = this.loadConfigUnsafe();
-    const simCwd = await this._waveSimCwd(tools);
-
-    // SAPHO: o cmmcomp escreve os pc_<proc>_mem.txt em
-    // <components>/Temp/<proc>/, e o .v gerado do processador os le por
-    // $readmemb com nome RELATIVO (yanc/ASM/Sources/hdl.c), copia-los
-    // pro cwd da simulacao. No-op em projeto sem processador.
-    await this._stageProcessorMemoryFiles(tools.tempBaseDir, simCwd);
-
-    // Arquivos de dado que o testbench le ($fopen/$readmem relativo):
-    // o usuario espera resolucao relativa a pasta do TESTBENCH; se o tb
-    // nao esta na pasta do projeto, copia cada arquivo pra ca. No-op
-    // quando origem e destino coincidem (tb na pasta do projeto).
-    if (config.testbenchFile) {
-        await copiarDadosDoTestbench(this.terminalManager, simCwd, config.testbenchFile);
-    }
-
-    // Defesa 1 (dump_guard.js): dump da rodada anterior preso ou
-    // somente-leitura aborta AGORA, nomeando o arquivo e a correcao, em vez
-    // de gastar a simulacao para o vvp morrer com um "Unable to open"
-    // perdido no meio da saida.
-    await exigirDumpGravavel(simCwd, nomesDeDumpEsperados(simTopModule));
-
-    const vvpFile = await electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
-
-    // Single full simulation with vvp -fst → ${simTopModule}.vcd (FST binary
-    // written under the $dumpfile name). No header-only pass anymore: the VCD
-    // header is pulled from this FST by the unified _extractFstHeaderVcd in
-    // runGtkWave. This also fixes the old hand-written-$dumpvars edge case,
-    // where the +AURORA_HEADER_ONLY plusarg was a no-op and pass 1 ran the FULL
-    // simulation twice.
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVvp'), 'info');
-    await avisarSeNaBateria(this.terminalManager, 'twave');
-
-    // Stream sim output to twave live so $display lines from the
-    // testbench show up as the simulation progresses. User $display
-    // lines get tagged 'raw' (no card, always visible). Lines that
-    // are clearly vvp/iverilog system noise, dump-format announce,
-    // $finish location, etc., get tagged 'plain' so the verbose-off
-    // filter hides them; the user only cares about those during
-    // debugging.
-    // Substring match (lowercased) is more robust than regex against
-    // variations of vvp's bookkeeping output.
-    const isVvpNoise = (line) => {
-        const t = (line || '').toLowerCase();
-        return (
-            t.includes('fst info:')
-            || t.includes('vcd info:')
-            || t.includes('lxt info:') || t.includes('lxt2 info:')
-            || t.includes('vzt info:')
-            || t.includes('$finish called at')
-            || t.includes('$stop called at')
-        );
-    };
-    // Guard a ausencia de onExecSpecStream (degrada sem streaming ao vivo)
-    //, consistente com os fluxos cocotb e Verilator, que ja checam.
-    let unsubscribe = null;
-    // Uma explicacao SO por corrida: o vvp repete "invalid file descriptor"
-    // a cada ciclo de clock quando um $fopen falhou, e mil copias do erro nao
-    // dizem mais que uma. A primeira dispara a dica com a causa e o que fazer.
-    let avisouDescritor = false;
-    if (typeof electronAPI.onExecSpecStream === 'function') {
-        unsubscribe = electronAPI.onExecSpecStream((payload) => {
-            if (!payload || !payload.data) return;
-            // Split so each line can be classified independently; chunks
-            // from spawn can carry multiple newlines per data event.
-            for (const line of payload.data.split(/\r?\n/)) {
-                if (!line.trim()) continue;
-                // Hard-drop toolchain bookkeeping lines (FST/VCD info,
-                // $finish called at, …). They're useful only when
-                // debugging the simulator itself, and the user has
-                // electron-log + DevTools for that. Keeping them out
-                // of twave entirely avoids the verbose-mode toggle
-                // sync issue altogether.
-                if (isVvpNoise(line)) continue;
-                if (!avisouDescritor && /invalid file descriptor/i.test(line)) {
-                    avisouDescritor = true;
-                    this.terminalManager.appendToTerminal('twave',
-                        tr('terminal.wave.invalidFd'), 'warning');
-                }
-                // Um `$display` de contador escrito pelo aluno no testbench
-                // vira a barra em vez de mil linhas. Ver _consumirProgresso.
-                if (consumirProgresso(this.terminalManager, 'twave', line, tr('terminal.wave.progress'))) continue;
-                this.terminalManager.appendToTerminal('twave', line, 'raw');
-            }
-        });
-    }
-    let code;
-    const pararVigia = vigiarTamanhoDoDump(this.terminalManager, [
-        await electronAPI.joinPath(simCwd, `${simTopModule}.vcd`),
-        await electronAPI.joinPath(simCwd, `${simTopModule}.fst`),
-    ]);
-    try {
-        const vvpRunSpec = buildVvpRunSpec({
-            vvpBin: tools.vvpBin,
-            vvpFile,
-            cwd: simCwd,
-        });
-        const r = await runSpecStreamed(vvpRunSpec, { consumeEphemeral: true });
-        code = r.code;
-    } finally {
-        if (unsubscribe) unsubscribe();
-        await pararVigia();
-    }
-    if (code !== 0) {
-        throw new Error(tr('error.compilation.vvpFailed', { code }));
-    }
-    return simCwd;
 }
 
 /**

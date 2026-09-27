@@ -49,7 +49,14 @@ vi.mock('../../js/compilation/cocotb_da_onda.js', async (original) => ({
     rodarCocotb: vi.fn(async () => null),
 }));
 
+// O preparo do Wave tem teste proprio (ondaNoIcarus); aqui ele e falso.
+vi.mock('../../js/compilation/preparo_da_onda.js', async (original) => ({
+    ...(await original()),
+    prepararWave: vi.fn(),
+}));
+
 import { runSpec, runSpecStreamed } from '../../js/compilation/spec_runner.js';
+import { prepararWave as preparoFalso } from '../../js/compilation/preparo_da_onda.js';
 import { validarCocotb, rodarCocotb } from '../../js/compilation/cocotb_da_onda.js';
 import { TabManager } from '../../js/tabs/tab_manager.js';
 import { statusUpdater } from '../../js/ui/status_updater.js';
@@ -161,8 +168,8 @@ async function novoModulo(config = { testbenchFile: TB, synthesizableFiles: [{ p
 }
 
 /** O preparo do Wave (instrumentar o testbench, resolver a selecao) tem teste proprio. */
-function prepararWave(mod, decision, instrumentado = TB_INSTR) {
-    mod._prepareWaveBuildInputs = vi.fn(async () => ({
+function prepararWave(_mod, decision, instrumentado = TB_INSTR) {
+    preparoFalso.mockImplementation(async () => ({
         instrumentedTbPath: instrumentado,
         fileSet: new Set([DUT, instrumentado]),
         decision,

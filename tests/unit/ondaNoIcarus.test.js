@@ -41,13 +41,15 @@ import { statusUpdater } from '../../js/ui/status_updater.js';
 import { resolveWaveSelection } from '../../js/compilation/wave_signal_validator.js';
 import { pedirCancelamento, iniciarRodada } from '../../js/compilation/cancelamento.js';
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
+import { prepararWave, instrumentarTestbench } from '../../js/compilation/preparo_da_onda.js';
+import { construirNoIcarus, construirEConferirVvp, simularNoIcarus } from '../../js/compilation/icarus_da_onda.js';
 
 const chamar = {
-    preparar: (mod, ...a) => mod._prepareWaveBuildInputs(...a),
-    instrumentar: (mod, ...a) => mod.instrumentTestbench(...a),
-    construir: (mod) => mod.waveBuildVvp(),
-    construirEConferir: (mod, ...a) => mod._waveBuildAndVerifyVvp(...a),
-    simular: (mod, ...a) => mod._waveRunVvpSimulation(...a),
+    preparar: (mod, ...a) => prepararWave(mod, ...a),
+    instrumentar: (mod, ...a) => instrumentarTestbench(mod, ...a),
+    construir: (mod) => construirNoIcarus(mod),
+    construirEConferir: (mod, ...a) => construirEConferirVvp(mod, ...a),
+    simular: (mod, ...a) => simularNoIcarus(mod, ...a),
 };
 
 const PROJ = 'C:/proj';

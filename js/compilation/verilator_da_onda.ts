@@ -16,8 +16,8 @@
  * vvp em testbench longo, ao custo de um lint mais estrito e de depender do
  * g++. A escolha e do usuario (simulator_preference.ts; o padrao e o Icarus).
  *
- * O preparo do Wave (instrumentar o testbench e resolver a selecao) ainda mora
- * no CompilationModule e chega pelo contexto; o cocotb e o cocotb_da_onda.ts.
+ * O preparo do Wave (instrumentar o testbench e resolver a selecao) e o
+ * preparo_da_onda.ts; o cocotb e o cocotb_da_onda.ts.
  */
 
 import { electronAPI } from '../app/electron_api.js';
@@ -32,6 +32,7 @@ import { copiarDadosDoTestbench, exigirDumpGravavel } from './arquivos_da_simula
 import { consumirProgresso, avisarSeNaBateria, vigiarTamanhoDoDump, type TerminalDaSimulacao } from './durante_a_simulacao.js';
 import { stageProcessorMemoryFiles, type TerminalManager } from './processor_compiler.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
+import { prepararWave } from './preparo_da_onda.js';
 import { validarCocotb, anunciarCocotb, rodarCocotb } from './cocotb_da_onda.js';
 import { resolveWaveToolchain, resolveVerilatorTools } from './wave_toolchain.js';
 import { commentOutDumpCalls } from '../wave/testbench_instrumenter.js';
@@ -78,7 +79,6 @@ export interface ContextoDoVerilator {
     validateForWave(): ConfigDaSimulacao;
     loadConfigUnsafe(): ConfigDaSimulacao;
     _waveDeriveSimTopModule(config: ConfigDaSimulacao): string;
-    _prepareWaveBuildInputs(config: ConfigDaSimulacao, simTopModule: string, tempBaseDir: string): Promise<PreparoDoWave>;
     _validatedWaveSelection?: string[] | null;
 }
 
@@ -177,7 +177,7 @@ export async function construirNoVerilator(
     const terminal = ctx.terminalManager;
     terminal.appendToTerminal('twave', tr('terminal.wave.buildingVerilator'), 'plain');
 
-    const prep = await ctx._prepareWaveBuildInputs(config, simTopModule, tempBaseDir);
+    const prep = await prepararWave(ctx, config, simTopModule, tempBaseDir);
     if (prep.instrumentedTbPath !== config.testbenchFile) {
         terminal.appendToTerminal('twave',
             tr('terminal.veri.autoInstrTb', { name: prep.instrumentedTbPath.split(/[\\/]/).pop() }), 'plain');

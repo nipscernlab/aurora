@@ -65,6 +65,7 @@ vi.mock('../../js/terminal/terminal_module.js', () => ({
 import { runSpec, runSpecStreamed } from '../../js/compilation/spec_runner.js';
 import { TabManager } from '../../js/tabs/tab_manager.js';
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
+import { pedirCancelamento, iniciarRodada } from '../../js/compilation/cancelamento.js';
 
 const PROJ = 'C:/proj';
 const COMP = 'C:/comp';
@@ -251,7 +252,7 @@ beforeEach(() => {
 afterEach(() => {
     delete window.electronAPI;
     delete window._latestCompilationModule;
-    delete window.isCompilationCanceled;
+    iniciarRodada();
     vi.clearAllMocks();
 });
 
@@ -570,7 +571,7 @@ describe('depois de um Cancelar, a morte da ferramenta nao vira cartao de erro',
         matarFerramenta();
         // A mesma bandeira que o compilation_flow expoe para a barra de
         // progresso se calar; aqui ela cala o cartao vermelho.
-        window.isCompilationCanceled = () => true;
+        pedirCancelamento();
 
         await expect(mod.runGtkWave()).rejects.toThrow();
 

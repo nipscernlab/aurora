@@ -58,11 +58,10 @@ import { lancarGtkwave, lancarSurfer, abrirOndaExterna as abrirOndaExternaNoVisu
 import { resolverLayoutDoSurfer } from './layout_do_surfer.js';
 import { resolverLayoutDoGtkwave } from './layout_do_gtkwave.js';
 import { rodarTesteDeHardware } from './teste_de_hardware.js';
+import { checarVerilog, checarParaAWaveConfig } from './checagem_de_sintaxe.js';
 import { construirNoVerilator, simularNoVerilator, rodarFastSim } from './verilator_da_onda.js';
 import { validarCocotb, anunciarCocotb, rodarCocotb } from './cocotb_da_onda.js';
-import {
-    ferramentasDoIcarus, rodarIverilog, construirEConferirVvp, simularNoIcarus,
-} from './icarus_da_onda.js';
+import { construirEConferirVvp, simularNoIcarus } from './icarus_da_onda.js';
 import { acharDumpDaSimulacao, exigirDumpNovo } from './arquivos_da_simulacao.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
 import { resolveWaveToolchain, resolveVerilatorTools } from './wave_toolchain.js';
@@ -70,11 +69,7 @@ import { validateWaveSelection } from './wave_signal_validator.js';
 import {
   cmmCompilation, cppCompilation, asmCompilation, stageProcessorMemoryFiles,
 } from './processor_compiler.js';
-import {
-  buildIverilogCheckSpec,
-  buildFst2VcdSpec,
-} from './builders/index.js';
-import * as CommandSpec from './command_spec.js';
+import { buildFst2VcdSpec } from './builders/index.js';
 import {
   moduleStemFromPath, isPythonFile, escolherTestbench,
 } from './compilation_helpers.js';
@@ -419,164 +414,18 @@ async _validateWaveSelection(rawSelected, filePaths, simTopModule, tbKey = null)
 }
 
 /**
- * Run iverilog in `-tnull` mode with the testbench as the simulation
- * top, just to confirm the design (synth files + testbench together)
- * actually parses + elaborates. No `.vvp` is produced; nothing is
- * instrumented.
- *
- * Used by the Wave Configuration modal as a gate: there's no point
- * showing a hierarchy picker built from a regex parse if iverilog
- * itself can't read the design. On failure the iverilog output goes
- * to the `tveri` terminal (which we switch focus to) and the modal
- * stays closed, the user fixes their code before picking signals.
- *
- * Returns `{ success: boolean, message?: string }`. Never throws.
+ * A porta da Wave Configuration (checagem_de_sintaxe.ts). O
+ * wave_config_manager chama por aqui. Nunca lanca.
  */
 async syntaxCheck() {
-    if (!this.componentsPath) {
-        await this.initializeComponentsPath();
-    }
-    try {
-        const config = this.validateForVerilog();
-
-        const iveriCompPath = await electronAPI.joinPath(
-            this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'iverilog.exe',
-        );
-        if (!await electronAPI.fileExists(iveriCompPath)) {
-            const msg = tr('error.toolchain.iverilogNotFound', { path: iveriCompPath });
-            this.terminalManager.appendToTerminal('tveri', msg, 'error');
-            return { success: false, message: msg };
-        }
-
-        const topLevelModuleName = moduleStemFromPath(config.topLevelFile);
-        const hasVerilogTestbench = config.testbenchFile && !isPythonFile(config.testbenchFile);
-        const simTopModule = hasVerilogTestbench
-            ? moduleStemFromPath(config.testbenchFile)
-            : topLevelModuleName;
-
-        // Whole design: synth files + testbench (raw, no auto-instrumentation
-        //, we want iverilog to evaluate exactly what the user wrote).
-        const fileSet = new Set(config.synthesizableFiles);
-        if (hasVerilogTestbench) fileSet.add(config.testbenchFile);
-
-        // -y points iverilog at components/HDL pra resolver os modulos
-        // da biblioteca SAPHO (processor.v, addr_dec.v, instr_dec.v,
-        // ula.v, myFIFO.v, core.v) que o .v gerado pelo asmcomp
-        // instancia. Sem isso o syntax check falha com "Unknown module
-        // type: processor" em projetos que tem processadores SAPHO.
-        // Mesmo padrao do verilogSyntaxCheck / waveBuildVvp.
-        const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
-
-        const checkSpec = buildIverilogCheckSpec({
-            iveriCompPath,
-            hdlPath,
-            simTopModule,
-            sourceFiles: [...fileSet],
-            cwd: this.projectPath,
-        });
-
-        this.terminalManager.appendToTerminal('tveri',
-            tr('terminal.veri.bannerSyntaxWc'), 'info');
-        this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.simTop', { name: simTopModule }), 'info');
-        // Linha de comando crua e ruido pra usuario nao-debug, esconde
-        // quando verbose=off (mesmo padrao do cmm/asm).
-        this.terminalManager.appendToTerminal('tveri', CommandSpec.formatSpec(checkSpec), 'info', { internal: true });
-
-        const result = await runSpec(checkSpec, { consumeEphemeral: true });
-        this.terminalManager.processExecutableOutput('tveri', result);
-
-        if (result.code !== 0) {
-            this.terminalManager.appendToTerminal('tveri',
-                tr('terminal.veri.bannerSyntaxFailed'), 'error');
-            return {
-                success: false,
-                message: `Iverilog reported errors (exit ${result.code}). See terminal.`,
-            };
-        }
-
-        this.terminalManager.appendToTerminal('tveri',
-            tr('terminal.veri.bannerSyntaxPassed'), 'success');
-        return { success: true };
-
-    } catch (error) {
-        this.terminalManager.appendToTerminal('tveri',
-            tr('terminal.veri.syntaxError', { message: error.message }), 'error');
-        return { success: false, message: error.message };
-    }
+    return checarParaAWaveConfig(this);
 }
 
 /**
- * Syntax-check do design Verilog via iverilog -tnull. Usado pelos
- * botoes Verilog, ASM (re-check pos-otimizacao do .asm) e PRISM
- * (que precisa da hierarquia regenerada pra Yosys consumir).
- *
- * NAO gera .vvp (iverilog -tnull pula code-gen) e NAO inclui o
- * testbench no source set (constructos nao-sintetizaveis como
- * $dumpvars/$finish/delays confundiriam o check puro).
- *
- * Apos sucesso, regenera a hierarquia (write_json via Yosys) pro
- * file tree mostrar a arvore de modulos atualizada.
- *
- * Substitui iverilogCompile({buildVvp:false}). Pareado com
- * waveBuildVvp(), que cuida do fluxo do botao Wave.
+ * O botao Verilog (checagem_de_sintaxe.ts). O compilation_flow chama por aqui.
  */
 async verilogSyntaxCheck() {
-    this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.phaseCheck'), 'info');
-    statusUpdater.startCompilation('verilog');
-
-    try {
-        const config = this.validateForVerilog();
-
-        // 'tips' = blue/info badge. Contexto do que vai compilar (FYI),
-        // nao success, o verde so aparece no checkSuccess no fim.
-        this.terminalManager.appendToTerminal('tveri',
-            tr('terminal.veri.topLevel', { name: config.topLevelFile.split(/[\\/]/).pop() }), 'tips');
-        this.terminalManager.appendToTerminal('tveri',
-            tr('terminal.veri.synthFiles', { count: config.synthesizableFiles.length }), 'info');
-
-        const { iveriCompPath, hdlPath } = await ferramentasDoIcarus(this);
-
-        const topLevelModuleName = config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
-
-        // Source set: so synth files. Testbench fica de fora, tem
-        // $dumpvars/$finish/delays nao-sintetizaveis que so confundiriam
-        // um check de design puro.
-        const fileSet = new Set(config.synthesizableFiles);
-
-        // -y tells iverilog to resolve any module referenced but not
-        // listed in the source set by looking for `<moduleName>.v` in
-        // these directories. components/HDL tem componentes do processador
-        // SAPHO (processor.v, addr_dec.v, instr_dec.v, ula.v, core.v) e
-        // componentes usados fora dele (myFIFO.v).
-        const spec = buildIverilogCheckSpec({
-            iveriCompPath,
-            hdlPath,
-            // -tnull pede pro iverilog elaborar mas pular code-gen, dando
-            // parse + type-check sem produzir .vvp.
-            simTopModule: topLevelModuleName,
-            sourceFiles: [...fileSet],
-            cwd: this.projectPath,
-        });
-
-        await rodarIverilog(this.terminalManager, spec, { phase: 'check' });
-
-        this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.checkSuccess'), 'success');
-        statusUpdater.compilationSuccess('verilog');
-
-        // Hierarquia regenerada so no syntax-check (acao user-facing
-        // "compile"). O Wave button (waveBuildVvp) nao toca hierarquia:
-        // o user ja clicou Verilog antes pra chegar num design valido.
-        await this.generateProjectHierarchy();
-
-    } catch (error) {
-        if (!canceladoPeloUsuario()) {
-            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
-            this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
-            error.jaNoTerminal = true;
-        }
-        statusUpdater.compilationError('verilog', error.message);
-        throw error;
-    }
+    return checarVerilog(this);
 }
 
 /**

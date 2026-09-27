@@ -38,10 +38,11 @@ import { statusUpdater } from '../../js/ui/status_updater.js';
 import { gerarHierarquiaDoProjeto } from '../../js/compilation/hierarquia_do_projeto.js';
 import { pedirCancelamento, iniciarRodada } from '../../js/compilation/cancelamento.js';
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
+import { checarVerilog, checarParaAWaveConfig } from '../../js/compilation/checagem_de_sintaxe.js';
 
 const chamar = {
-    doBotao: (mod) => mod.verilogSyntaxCheck(),
-    daWaveConfig: (mod) => mod.syntaxCheck(),
+    doBotao: (mod) => checarVerilog(mod),
+    daWaveConfig: (mod) => checarParaAWaveConfig(mod),
 };
 
 const PROJ = 'C:/proj';
@@ -235,5 +236,16 @@ describe('a porta da Wave Configuration', () => {
         ligarIverilog();
         expect(await chamar.daWaveConfig(mod)).toEqual({ success: true });
         expect(api.getComponentsPath).toHaveBeenCalledTimes(2);
+    });
+});
+
+// O wave_config_manager e o compilation_flow chamam pela instancia.
+describe('pela instancia', () => {
+    it('syntaxCheck e verilogSyntaxCheck levam as duas checagens', async () => {
+        const mod = await novoModulo();
+        ligarIverilog();
+        expect(await mod.syntaxCheck()).toEqual({ success: true });
+        await mod.verilogSyntaxCheck();
+        expect(gerarHierarquiaDoProjeto).toHaveBeenCalledTimes(1);
     });
 });

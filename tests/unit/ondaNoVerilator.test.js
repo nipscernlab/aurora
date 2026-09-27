@@ -41,7 +41,16 @@ vi.mock('../../js/wave/verilator_trace_rules.js', async (original) => ({
     contarEscopos: vi.fn(() => ({ ligados: 1, desligados: 3 })),
 }));
 
+// O cocotb tem teste proprio (cocotbNaSimulacao); aqui interessa o que o Fast Sim
+// pede a ele.
+vi.mock('../../js/compilation/cocotb_da_onda.js', async (original) => ({
+    ...(await original()),
+    validarCocotb: vi.fn(),
+    rodarCocotb: vi.fn(async () => null),
+}));
+
 import { runSpec, runSpecStreamed } from '../../js/compilation/spec_runner.js';
+import { validarCocotb, rodarCocotb } from '../../js/compilation/cocotb_da_onda.js';
 import { TabManager } from '../../js/tabs/tab_manager.js';
 import { statusUpdater } from '../../js/ui/status_updater.js';
 import {
@@ -448,8 +457,7 @@ describe('Fast Sim', () => {
 
         async function moduloCocotb(ctx) {
             const mod = await novoModulo({ testbenchFile: PY, synthesizableFiles: [{ path: DUT, isTopLevel: true }] });
-            mod._waveValidateCocotbConfig = vi.fn(async () => ctx);
-            mod._waveRunCocotbSimulation = vi.fn(async () => {});
+            validarCocotb.mockResolvedValue(ctx);
             return mod;
         }
 
@@ -457,7 +465,8 @@ describe('Fast Sim', () => {
             const mod = await moduloCocotb({ toplevelSource: 'directive', hdlTopModule: 'filtro' });
             await chamar.fastSim(mod);
 
-            expect(mod._waveRunCocotbSimulation).toHaveBeenCalledWith(
+            expect(rodarCocotb).toHaveBeenCalledWith(
+                mod,
                 { toplevelSource: 'directive', hdlTopModule: 'filtro' },
                 expect.objectContaining({ tempBaseDir: TEMP }),
                 expect.objectContaining({ testbenchFile: PY }),

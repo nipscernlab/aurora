@@ -46,7 +46,7 @@ import { comAjuda } from '../ui/help_link.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
-import { nomesDeDumpEsperados, NOMES_DE_DUMP_COCOTB } from './dump_guard.js';
+import { nomesDeDumpEsperados } from './dump_guard.js';
 import { SpfStore } from '../project/spf_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { projectTempDir } from '../project/project_temp.js';
@@ -58,9 +58,6 @@ import {
 import { WaveStore } from '../wave/wave_state_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
-import {
-    verilatorTraceRules, contarEscopos,
-} from '../wave/verilator_trace_rules.js';
 import { extractFopenReads } from '../wave/fopen_paths.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
@@ -69,15 +66,15 @@ import { lancarGtkwave, lancarSurfer, abrirOndaExterna as abrirOndaExternaNoVisu
 import { resolverLayoutDoSurfer } from './layout_do_surfer.js';
 import { rodarTesteDeHardware } from './teste_de_hardware.js';
 import { construirNoVerilator, simularNoVerilator, rodarFastSim } from './verilator_da_onda.js';
+import { validarCocotb, anunciarCocotb, rodarCocotb } from './cocotb_da_onda.js';
 import { consumirProgresso, avisarSeNaBateria, vigiarTamanhoDoDump } from './durante_a_simulacao.js';
 import {
     copiarDadosDoTestbench, acharDumpDaSimulacao, exigirDumpGravavel, exigirDumpNovo,
 } from './arquivos_da_simulacao.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
-import { resolveWaveToolchain, findWaveCandidateInDir, resolveVerilatorTools } from './wave_toolchain.js';
+import { resolveWaveToolchain, resolveVerilatorTools } from './wave_toolchain.js';
 import {
-  validateWaveSelection, resolveWaveSelection,
-  resolveCocotbWaveSelection, parseProjectSources, buildHierarchyFromFiles,
+  validateWaveSelection, resolveWaveSelection, parseProjectSources,
 } from './wave_signal_validator.js';
 import {
   cmmCompilation, cppCompilation, asmCompilation, stageProcessorMemoryFiles,
@@ -85,16 +82,12 @@ import {
 import {
   buildIverilogCheckSpec, buildIverilogBuildSpec,
   buildVvpRunSpec,
-  buildCocotbRunSpec,
   buildFst2VcdSpec,
 } from './builders/index.js';
 import * as CommandSpec from './command_spec.js';
 import {
-  basenameOfPath, moduleStemFromPath, isPythonFile,
-  decideCocotbDut,
-  isVerilogLikeFile, assertPythonModuleName, safeNamePart, escolherTestbench,
+  moduleStemFromPath, isPythonFile, escolherTestbench,
 } from './compilation_helpers.js';
-import { COCOTB_RUNNER_SOURCE, COCOTB_TESTS_FAILED } from './cocotb_runner_source.js';
 
 // i18n shim, falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -1037,29 +1030,10 @@ async runGtkWave() {
         const inicioDaSimulacao = Date.now();
 
         if (isPythonFile(config.testbenchFile)) {
-            const cocotbCtx = await this._waveValidateCocotbConfig(config);
+            const cocotbCtx = await validarCocotb(config);
             simTopModule = cocotbCtx.hdlTopModule;
-            // Surface where the DUT came from: the .py directive (explicit), or
-            // the .spf top-level fallback (warn so a forgotten directive doesn't
-            // silently test the wrong module).
-            if (cocotbCtx.toplevelSource === 'directive') {
-                this.terminalManager.appendToTerminal('twave',
-                    tr('terminal.wave.cocotbToplevelDirective', { module: cocotbCtx.hdlTopModule }), 'tips');
-            } else {
-                this.terminalManager.appendToTerminal('twave',
-                    tr('terminal.wave.cocotbToplevelFallback', {
-                        file: basenameOfPath(config.testbenchFile),
-                        module: cocotbCtx.hdlTopModule,
-                    }), 'warning');
-            }
-            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbSimulator', {
-                sim: getSimulator() === 'verilator' ? 'Verilator' : 'Icarus',
-            }), 'tips');
-            // The cocotb build + run doesn't go through the statusUpdater per
-            // step, so without this the bar stays stuck on 'asm'. Reflect the
-            // actual engine (verilator OR the iverilog/Verilog flow).
-            statusUpdater.startCompilation(getSimulator() === 'verilator' ? 'verilator' : 'verilog');
-            vcdFile = await this._waveRunCocotbSimulation(cocotbCtx, tools, config);
+            anunciarCocotb(this.terminalManager, config, cocotbCtx);
+            vcdFile = await rodarCocotb(this, cocotbCtx, tools, config);
         } else {
             // Branch no simulador escolhido. iverilog e default; verilator e
             // opt-in via Wave Config (localStorage flag aurora.waveSimulator).
@@ -1154,98 +1128,6 @@ _waveDeriveSimTopModule(config) {
     return moduleStemFromPath(config.topLevelFile);
 }
 
-async _waveValidateCocotbConfig(config) {
-    // Quem e o DUT, e o motivo quando nao da: a regra vive em
-    // compilation_helpers.decideCocotbDut, com teste. Aqui fica a leitura do
-    // arquivo (que pode falhar, e ai a diretiva simplesmente nao existe) e a
-    // traducao do motivo. O modulo escolhido ainda precisa estar entre as
-    // fontes compiladas por _collectCocotbSources, ou o simulador nao acha.
-    let pySource = '';
-    if (config.testbenchFile) {
-        try {
-            pySource = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
-        } catch { /* ilegivel aqui, cai no topo do .spf abaixo */ }
-    }
-    const dut = decideCocotbDut(config, pySource);
-    if (!dut.ok) throw new Error(tr(`error.compilation.${dut.motivo}`));
-    const { hdlTopFile, hdlTopModule, toplevelSource } = dut;
-
-    return {
-        hdlTopFile,
-        hdlTopModule,
-        testbenchFile: config.testbenchFile,
-        testModule: assertPythonModuleName(config.testbenchFile),
-        tbKey: moduleStemFromPath(config.testbenchFile),
-        toplevelSource,
-    };
-}
-
-async _writeCocotbRunnerScript(tempBaseDir) {
-    const scriptPath = await electronAPI.joinPath(tempBaseDir, 'aurora_cocotb_runner.py');
-    // Fonte unica com o teste: js/compilation/cocotb_runner_source.js.
-    // Antes eram ~80 linhas de literais aqui dentro, impossiveis de testar;
-    // agora tests/toolchain/pipeline.test.js executa exatamente estes bytes.
-    const source = COCOTB_RUNNER_SOURCE;
-    await electronAPI.writeFile(scriptPath, source);
-    return scriptPath;
-}
-
-async _collectCocotbSources(config) {
-    const fileSet = new Set();
-    for (const path of config.synthesizableFiles || []) {
-        if (isVerilogLikeFile(path)) fileSet.add(path);
-    }
-    if (config.topLevelFile && isVerilogLikeFile(config.topLevelFile)) {
-        fileSet.add(config.topLevelFile);
-    }
-
-    try {
-        const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
-        const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
-        if (Array.isArray(hdlEntries)) {
-            for (const name of hdlEntries) {
-                if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
-                    fileSet.add(await electronAPI.joinPath(hdlPath, name));
-                }
-            }
-        }
-    } catch (_e) { /* optional bundled HDL library */ }
-
-    return [...fileSet];
-}
-
-async _stageProcessorMemoryFilesForCocotb(tempBaseDir, buildDir) {
-    await this._stageProcessorMemoryFiles(tempBaseDir);
-    let entries = [];
-    try {
-        entries = await electronAPI.listFilesInDirectory(tempBaseDir);
-    } catch (_e) {
-        return;
-    }
-    for (const name of entries || []) {
-        if (typeof name !== 'string') continue;
-        if (!name.startsWith('pc_') || !name.endsWith('_mem.txt')) continue;
-        try {
-            await electronAPI.copyFile(
-                await electronAPI.joinPath(tempBaseDir, name),
-                await electronAPI.joinPath(buildDir, name),
-            );
-        } catch (_copyErr) { /* best effort: simulator reports the missing file */ }
-    }
-}
-
-/**
- * Delega pra resolveCocotbWaveSelection (wave_signal_validator.js). O helper
- * RETORNA a selecao validada; a escrita de `this._validatedWaveSelection`
- * (cache consumido pelos geradores de auto-gtkw/auto-surfer) fica AQUI, pra
- * o ciclo de vida do campo seguir todo dentro da classe.
- */
-async _resolveCocotbWaveSelection(ctx, config, sources) {
-    const validSignals = await resolveCocotbWaveSelection(this._instanceDeps(), ctx, config, sources);
-    this._validatedWaveSelection = validSignals;
-    return validSignals;
-}
-
 /**
  * Pull ONLY the VCD header (the $scope/$var hierarchy, up to $enddefinitions)
  * out of an FST, WITHOUT materializing the full text VCD. fst2vcd streams VCD
@@ -1331,260 +1213,6 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
         if (!stats || stats.size === 0) return false;
     } catch { /* sem stat -> fileExists ja confirmou presenca; deixa passar */ }
     return true;
-}
-
-async _adoptCocotbWaveform(ctx, tools, buildDir) {
-    // cocotb runs the sim with cwd = test_dir, which Aurora sets to the
-    // PROJECT folder (the .spf dir, same uniform rule as _waveSimCwd), so
-    // the dump can land there instead of in buildDir. Search the build dir
-    // first, then the project folder, then the testbench's dir (legacy runs).
-    const testDir = await electronAPI.dirname(ctx.testbenchFile);
-    const candidate =
-        await findWaveCandidateInDir(buildDir, ctx.hdlTopModule) ||
-        (this.projectPath ? await findWaveCandidateInDir(this.projectPath, ctx.hdlTopModule) : null) ||
-        await findWaveCandidateInDir(testDir, ctx.hdlTopModule);
-    if (!candidate) {
-        throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
-    }
-
-    // Normalize the dump into the temp dir under the canonical name and hand it
-    // back. GTKWave opens the FST directly; the VCD header is pulled from it by
-    // the unified _extractFstHeaderVcd in runGtkWave, the SAME post-sim step
-    // every wave path now uses. (A rare direct text-VCD dump is just copied
-    // through; it is its own parseable header source.)
-    const ext = /\.fst$/i.test(candidate) ? 'fst' : 'vcd';
-    const target = await electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.${ext}`);
-    if (candidate.toLowerCase() !== target.toLowerCase()) {
-        await electronAPI.copyFile(candidate, target);
-    }
-    if (!await electronAPI.fileExists(target)) {
-        throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
-    }
-    this.terminalManager.appendToTerminal('twave',
-        tr('terminal.wave.cocotbVcd', { name: basenameOfPath(target) }), 'info');
-    return target;
-}
-
-/**
- * Resolve the simulator-specific half of the cocotb run.
- *
- * Both flows run on the ONE Python inside the unified mingw bundle
- * (components/Packages/msys/mingw64/bin/python.exe), whose cocotb carries
- * BOTH VPIs (libcocotbvpi_icarus.vpl + the static libcocotbvpi_verilator.a).
- * That Python needs PYTHONHOME at the bundle's mingw64 and its bin on PATH
- * (for its own DLLs + the iverilog/verilator/g++ it spawns). The only
- * per-simulator differences are SIM and the build args (-g2012 is Icarus-only).
- *
- * @param {boolean} [wave] default true. false (Fast Sim) = sem --trace-fst:
- *        a sim cocotb so verifica (asserts Python), sem gerar onda.
- */
-async _resolveCocotbSimProfile(wave = true) {
-    const vTools = await resolveVerilatorTools(this.componentsPath);
-    const pythonPath = await electronAPI.joinPath(vTools.mingwBin, 'python.exe');
-    if (!await electronAPI.fileExists(pythonPath)) {
-        throw new Error(tr('error.compilation.cocotbPythonMissing'));
-    }
-    const status = await electronAPI.getPythonStatus();
-    if (!status?.ok || !status.hasCocotb) {
-        throw new Error(tr('error.compilation.cocotbPackageMissing', { path: pythonPath }));
-    }
-    // <bundle>/mingw64/bin → <bundle>/mingw64 (PYTHONHOME).
-    const pythonHome = await electronAPI.dirname(vTools.mingwBin);
-    const base = {
-        pythonPath,
-        prependPath: [vTools.mingwBin, vTools.usrBin],
-        extraEnv: { PYTHONHOME: pythonHome },
-    };
-    // Verilator is stricter than Icarus: the SAPHO HDL (e.g. ula.v's float
-    // normalization) trips warnings like UNOPTFLAT that Icarus tolerates.
-    // Mirror the non-cocotb Verilator flow's -Wno set so warnings don't abort
-    // the build (-Wno-fatal is the key one).
-    const VERILATOR_BUILD = [
-        '-Wno-fatal', '-Wno-TIMESCALEMOD', '-Wno-DECLFILENAME',
-        '-Wno-STMTDLY', '-Wno-WIDTHTRUNC', '-Wno-WIDTHEXPAND',
-        // Activate the YANC_SIM_VIS block in the generated <proc>.v so the
-        // processor's mirrored variables/arrays (marked /* verilator public_flat */)
-        // are visible in the waveform, same as the non-cocotb Verilator flow.
-        // (Icarus gets this for free via the predefined __ICARUS__.)
-        '+define+YANC_TRACE',
-        // cocotb's runner builds the model with -Os (size). SAPHO sims are
-        // embedded-processor and can run long, so optimize the C++ for speed
-        // like the non-cocotb flow: -O3 + -march=native (safe because Aurora
-        // builds and runs the binary on the SAME host, host == target, and never
-        // redistributes it). The last -O on the g++ line wins, so this overrides
-        // cocotb's -Os.
-        '-CFLAGS', '-O3',
-        '-CFLAGS', '-march=native',
-        // Dump FST instead of VCD: cocotb forces --trace (VCD); --trace-fst
-        // comes after it in the command, so it wins (VM_TRACE_FST=1) and cocotb's
-        // verilator.cpp wrapper writes dump.fst. FST is ~10x smaller than the raw
-        // VCD, so the trace I/O during the (long) sim is far cheaper, the main
-        // reason cocotb was slower than the native flow. GTKWave opens the .fst
-        // directly; the header for the auto-gtkw is pulled from it by the unified
-        // _extractFstHeaderVcd in runGtkWave (no full-VCD conversion anymore).
-        // No Fast Sim (wave=false) isto sai: sem trace nenhum, a sim so roda os
-        // testes (asserts no Python), o ganho do cocotb headless.
-        ...(wave ? ['--trace-fst'] : []),
-    ];
-    return getSimulator() === 'verilator'
-        ? { ...base, sim: 'verilator', buildArgs: VERILATOR_BUILD }
-        : { ...base, sim: 'icarus', buildArgs: ['-g2012'] };
-}
-
-async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
-    // wave=false (Fast Sim): roda os testes cocotb SEM onda, sem --trace-fst
-    // no build, WAVES=0 no runner, e nao adota/abre waveform no fim.
-    const wave = opts.wave !== false;
-    await TabManager.saveAllFiles();
-    await electronAPI.mkdir(tools.tempBaseDir);
-
-    const profile = await this._resolveCocotbSimProfile(wave);
-
-    const buildDir = await electronAPI.joinPath(
-        tools.tempBaseDir,
-        `cocotb_${safeNamePart(ctx.tbKey)}`,
-    );
-    await electronAPI.mkdir(buildDir);
-    await this._stageProcessorMemoryFilesForCocotb(tools.tempBaseDir, buildDir);
-
-    const sources = await this._collectCocotbSources(config);
-    const selecao = await this._resolveCocotbWaveSelection(ctx, config, sources);
-    // Sob Verilator a selecao do picker vira regras de escopo num .vlt, como
-    // no fluxo nativo; aqui ele entra pelos argumentos de build, porque o
-    // runner do cocotb recusa um .vlt na lista de fontes. Sem selecao o dump
-    // fica como o cocotb faz nos dois simuladores: tudo a partir do topo.
-    const buildArgs = [...profile.buildArgs];
-    if (profile.sim === 'verilator' && wave && selecao.length > 0) {
-        try {
-            const arvore = await buildHierarchyFromFiles(sources, ctx.hdlTopModule);
-            const regras = verilatorTraceRules(arvore, selecao);
-            if (regras.length) {
-                const vltPath = await electronAPI.joinPath(buildDir, 'aurora_scopes.vlt');
-                await electronAPI.writeFile(vltPath, [
-                    '`verilator_config',
-                    '// Gerado pela AURORA a cada build: a selecao do picker por escopo.',
-                    ...regras,
-                    '',
-                ].join('\n'));
-                buildArgs.unshift(vltPath);
-                const { ligados, desligados } = contarEscopos(arvore, regras);
-                this.terminalManager.appendToTerminal('twave',
-                    tr('terminal.wave.verilatorScopeRules', { on: ligados, off: desligados }), 'info');
-            }
-        } catch (_e) { /* sem o .vlt o dump sai inteiro, como antes */ }
-    }
-    const tbDir = await electronAPI.dirname(ctx.testbenchFile);
-    const runnerScript = await this._writeCocotbRunnerScript(tools.tempBaseDir);
-    const pythonPathSep = ';';
-    const env = {
-        AURORA_COCOTB_SOURCES_JSON: JSON.stringify(sources),
-        AURORA_COCOTB_TOP: ctx.hdlTopModule,
-        AURORA_COCOTB_TEST_MODULE: ctx.testModule,
-        AURORA_COCOTB_BUILD_DIR: buildDir,
-        // test_dir = cwd da SIMULACAO no runner do cocotb. Mesma regra
-        // uniforme dos fluxos vvp/Verilator (_waveSimCwd): a pasta do
-        // projeto (.spf) e a base de referencia, paths relativos do .py
-        // e do HDL resolvem contra ela, e o dump cai la.
-        AURORA_COCOTB_TEST_DIR: this.projectPath || tbDir,
-        AURORA_COCOTB_PYTHONPATH: [tbDir, this.projectPath, buildDir].filter(Boolean).join(pythonPathSep),
-        AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(buildArgs),
-        AURORA_COCOTB_TEST_ARGS_JSON: JSON.stringify([]),
-        SIM: profile.sim,
-        TOPLEVEL_LANG: 'verilog',
-        WAVES: wave ? '1' : '0',
-        // Force UTF-8 stdio so cocotb's logs (and the user's prints/docstrings)
-        // with non-ASCII, arrows, pt-BR accents, emoji, don't crash the bundle
-        // Python's logging on the Windows cp1252 codepage (UnicodeEncodeError).
-        PYTHONUTF8: '1',
-        PYTHONIOENCODING: 'utf-8',
-        // Use cocotb's C-side clock (GpiClock) instead of the Python-coroutine
-        // clock. cocotb's `Clock(..., impl="auto")` (the default) picks the
-        // GpiClock only when COCOTB_TRUST_INERTIAL_WRITES is set; otherwise it
-        // falls back to a Python coroutine that toggles the clock over the VPI on
-        // every edge. Measured on teste345 (Verilator): identical outputs, and
-        // ~12% faster on the full ~4.5ms sim / ~2.4x faster on short sims (the
-        // Python clock's cost is mostly fixed startup). A free, verified win.
-        COCOTB_TRUST_INERTIAL_WRITES: '1',
-        ...profile.extraEnv,
-    };
-
-    const spec = buildCocotbRunSpec({
-        pythonPath: profile.pythonPath,
-        runnerScript,
-        cwd: buildDir,
-        env,
-        prependPath: profile.prependPath,
-    });
-
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningCocotb', {
-        sim: profile.sim === 'verilator' ? 'Verilator' : 'Icarus',
-    }), 'info');
-    await avisarSeNaBateria(this.terminalManager, 'twave');
-    this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(spec), 'info', { internal: true });
-
-    // Mesma blindagem dos fluxos vvp/Verilator (defesa 1 de dump_guard.js).
-    // So no modo wave: o Fast Sim (wave=false) nao escreve dump nenhum. Vem
-    // ANTES de ligar o ouvinte do fluxo: com a recusa depois dele, o ouvinte
-    // ficava ligado e repetia no TWAVE toda saida em fluxo que viesse depois.
-    if (wave) {
-        await exigirDumpGravavel(this.projectPath || tbDir, NOMES_DE_DUMP_COCOTB);
-    }
-
-    // Um contador que sobe vira a barra, e nao uma linha por atualizacao. Os
-    // formatos reconhecidos moram no progress_line.ts, junto com a regra de
-    // quando NAO engolir a linha; aqui so se decide o que fazer com o que ele
-    // devolve. Ver consumirProgresso.
-    let unsubscribe = null;
-    if (typeof electronAPI.onExecSpecStream === 'function') {
-        unsubscribe = electronAPI.onExecSpecStream((payload) => {
-            if (!payload || !payload.data) return;
-            for (const line of payload.data.split(/\r?\n/)) {
-                if (!line.trim()) continue;
-                if (consumirProgresso(this.terminalManager, 'twave', line, tr('terminal.wave.progress'))) continue;
-                this.terminalManager.appendToTerminal('twave', line, 'raw');
-            }
-        });
-    }
-
-    let code;
-    // O runner do cocotb sob Verilator escreve dump.fst no test_dir (a pasta
-    // do projeto); sob Icarus o nome vem do runner tambem como dump.
-    const pararVigia = vigiarTamanhoDoDump(this.terminalManager, [
-        await electronAPI.joinPath(this.projectPath || tbDir, 'dump.fst'),
-        await electronAPI.joinPath(buildDir, 'dump.fst'),
-        await electronAPI.joinPath(this.projectPath || tbDir, 'dump.vcd'),
-    ]);
-    try {
-        const result = await runSpecStreamed(spec, { consumeEphemeral: true });
-        code = result.code;
-    } finally {
-        if (unsubscribe) unsubscribe();
-        await pararVigia();
-    }
-    // Two distinct outcomes, deliberately handled differently.
-    //
-    // COCOTB_TESTS_FAILED (2): the simulation itself ran to completion and the
-    // dump exists, some @cocotb.test() asserted false. Aborting here would
-    // deny the student the waveform at the exact moment it is most useful, so
-    // report the failure loudly and CONTINUE to adopt/open the wave.
-    //
-    // Any other non-zero: infrastructure failure (build error, missing module,
-    // interpreter crash). There is nothing to show; fail hard.
-    //
-    // Before this, ONLY `code !== 0` was checked and the runner exited 0 even
-    // when tests failed, so a failing testbench was reported as a successful
-    // simulation, the single verdict a testbench exists to produce, silently
-    // discarded.
-    if (code !== 0 && code !== COCOTB_TESTS_FAILED) {
-        throw new Error(tr('error.compilation.cocotbFailed', { code }));
-    }
-    if (code === COCOTB_TESTS_FAILED) {
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbTestsFailed'), 'error');
-        statusUpdater.compilationError('verilog', 'cocotb tests failed');
-    }
-
-    // Fast Sim nao tem onda pra adotar nem abrir, so o resultado dos testes.
-    return wave ? this._adoptCocotbWaveform(ctx, tools, buildDir) : null;
 }
 
 /**

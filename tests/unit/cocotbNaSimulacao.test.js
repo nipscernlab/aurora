@@ -53,10 +53,11 @@ import { verilatorTraceRules } from '../../js/wave/verilator_trace_rules.js';
 import { buildHierarchyFromFiles, resolveCocotbWaveSelection } from '../../js/compilation/wave_signal_validator.js';
 import { COCOTB_RUNNER_SOURCE } from '../../js/compilation/cocotb_runner_source.js';
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
+import { validarCocotb, rodarCocotb } from '../../js/compilation/cocotb_da_onda.js';
 
 const chamar = {
-    validar: (mod, config) => mod._waveValidateCocotbConfig(config),
-    rodar: (mod, ...a) => mod._waveRunCocotbSimulation(...a),
+    validar: (_mod, config) => validarCocotb(config),
+    rodar: (mod, ...a) => rodarCocotb(mod, ...a),
 };
 
 const PROJ = 'C:/proj';

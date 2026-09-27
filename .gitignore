@@ -230,6 +230,7 @@ js/compilation/teste_de_hardware.js
 js/compilation/durante_a_simulacao.js
 js/compilation/arquivos_da_simulacao.js
 js/compilation/verilator_da_onda.js
+js/compilation/cocotb_da_onda.js
 js/wave/surfer_tab_preference.js
 js/wave/prism_wave_layout.js
 js/compilation/dump_guard.js

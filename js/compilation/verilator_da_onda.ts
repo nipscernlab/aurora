@@ -16,8 +16,8 @@
  * vvp em testbench longo, ao custo de um lint mais estrito e de depender do
  * g++. A escolha e do usuario (simulator_preference.ts; o padrao e o Icarus).
  *
- * O preparo do Wave (instrumentar o testbench e resolver a selecao) e o cocotb
- * ainda moram no CompilationModule e chegam pelo contexto.
+ * O preparo do Wave (instrumentar o testbench e resolver a selecao) ainda mora
+ * no CompilationModule e chega pelo contexto; o cocotb e o cocotb_da_onda.ts.
  */
 
 import { electronAPI } from '../app/electron_api.js';
@@ -26,15 +26,15 @@ import { statusUpdater } from '../ui/status_updater.js';
 import { buildVerilatorBuildSpec, buildVerilatorRunSpec } from './builders/index.js';
 import { foiCancelada } from './cancelamento.js';
 import * as CommandSpec from './command_spec.js';
-import { basenameOfPath, isPythonFile } from './compilation_helpers.js';
+import { isPythonFile } from './compilation_helpers.js';
 import { nomesDeDumpEsperados } from './dump_guard.js';
 import { copiarDadosDoTestbench, exigirDumpGravavel } from './arquivos_da_simulacao.js';
 import { consumirProgresso, avisarSeNaBateria, vigiarTamanhoDoDump, type TerminalDaSimulacao } from './durante_a_simulacao.js';
 import { stageProcessorMemoryFiles, type TerminalManager } from './processor_compiler.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
+import { validarCocotb, anunciarCocotb, rodarCocotb } from './cocotb_da_onda.js';
 import { resolveWaveToolchain, resolveVerilatorTools } from './wave_toolchain.js';
 import { commentOutDumpCalls } from '../wave/testbench_instrumenter.js';
-import { getSimulator } from '../wave/simulator_preference.js';
 import {
     verilatorTraceRules, defaultScopeRules, rulesFromDumpvars, contarEscopos, type EscopoDaArvore,
 } from '../wave/verilator_trace_rules.js';
@@ -68,8 +68,6 @@ interface PreparoDoWave {
     } | null;
 }
 
-interface ContextoCocotb { toplevelSource: string; hdlTopModule: string }
-
 /** O que o Verilator le do CompilationModule. */
 export interface ContextoDoVerilator {
     projectPath: string;
@@ -81,8 +79,7 @@ export interface ContextoDoVerilator {
     loadConfigUnsafe(): ConfigDaSimulacao;
     _waveDeriveSimTopModule(config: ConfigDaSimulacao): string;
     _prepareWaveBuildInputs(config: ConfigDaSimulacao, simTopModule: string, tempBaseDir: string): Promise<PreparoDoWave>;
-    _waveValidateCocotbConfig(config: ConfigDaSimulacao): Promise<ContextoCocotb>;
-    _waveRunCocotbSimulation(ctx: ContextoCocotb, tools: unknown, config: ConfigDaSimulacao, opts: { wave: boolean }): Promise<unknown>;
+    _validatedWaveSelection?: string[] | null;
 }
 
 // Filosofia de warnings: deixar passar o que indica bug ou oportunidade de
@@ -383,28 +380,11 @@ async function fastSimVerilog(ctx: ContextoDoVerilator, config: ConfigDaSimulaca
  * Wave menos a adocao e a abertura da onda.
  */
 async function fastSimCocotb(ctx: ContextoDoVerilator, config: ConfigDaSimulacao): Promise<void> {
-    const terminal = ctx.terminalManager;
     const tools = await resolveWaveToolchain(ctx.componentsPath as string, ctx.projectPath);
-    const cocotbCtx = await ctx._waveValidateCocotbConfig(config);
-
-    if (cocotbCtx.toplevelSource === 'directive') {
-        terminal.appendToTerminal('twave',
-            tr('terminal.wave.cocotbToplevelDirective', { module: cocotbCtx.hdlTopModule }), 'tips');
-    } else {
-        terminal.appendToTerminal('twave',
-            tr('terminal.wave.cocotbToplevelFallback', {
-                file: basenameOfPath(config.testbenchFile as string), module: cocotbCtx.hdlTopModule,
-            }), 'warning');
-    }
-    const verilator = getSimulator() === 'verilator';
-    terminal.appendToTerminal('twave', tr('terminal.wave.cocotbSimulator', {
-        sim: verilator ? 'Verilator' : 'Icarus',
-    }), 'tips');
-    statusUpdater.startCompilation(verilator ? 'verilator' : 'verilog');
-
-    await ctx._waveRunCocotbSimulation(cocotbCtx, tools, config, { wave: false });
-
-    terminal.appendToTerminal('twave', tr('terminal.wave.fastDone', { name: cocotbCtx.hdlTopModule }), 'success');
+    const cocotbCtx = await validarCocotb(config);
+    anunciarCocotb(ctx.terminalManager, config, cocotbCtx);
+    await rodarCocotb(ctx, cocotbCtx, tools, config, { wave: false });
+    ctx.terminalManager.appendToTerminal('twave', tr('terminal.wave.fastDone', { name: cocotbCtx.hdlTopModule }), 'success');
 }
 
 /**

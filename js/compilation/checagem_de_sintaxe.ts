@@ -68,7 +68,8 @@ export async function checarVerilog(ctx: ContextoDaChecagem): Promise<void> {
 
         const { iveriCompPath, hdlPath } = await ferramentasDoIcarus(ctx);
 
-        const topLevelModuleName = (topLevelFile.split(/[\\/]/).pop() as string).replace(/\.v$/i, '');
+        // O nome do arquivo sem a extensao, qualquer que seja ela (.v, .sv).
+        const topLevelModuleName = moduleStemFromPath(topLevelFile);
 
         const spec = buildIverilogCheckSpec({
             iveriCompPath,

@@ -171,6 +171,17 @@ describe('o botao Verilog', () => {
         await expect(chamar.doBotao(mod)).rejects.toThrow(`error.toolchain.iverilogNotFound {"path":"${IVERILOG}"}`);
     });
 
+    // O topo e o nome do arquivo sem a extensao, qualquer que seja ela, como
+    // na porta da Wave Configuration; com `.replace(/\.v$/)` um topo .sv virava
+    // `-s filtro.sv` e o iverilog nao achava o modulo.
+    it('topo SystemVerilog: o -s leva o nome do modulo', async () => {
+        const SV = PROJ + '/Hardware/filtro.sv';
+        const mod = await novoModulo({ synthesizableFiles: [{ path: SV, name: 'filtro.sv', isTopLevel: true }] });
+        const passos = ligarIverilog();
+        await chamar.doBotao(mod);
+        expect(passos[0].args).toEqual(expect.arrayContaining(['-s', 'filtro', SV]));
+    });
+
     it('cancelado pelo usuario: sem banner de falha', async () => {
         pedirCancelamento();
         const mod = await novoModulo();

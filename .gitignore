@@ -226,6 +226,7 @@ js/compilation/hierarchy_parser.js
 js/compilation/hierarquia_do_projeto.js
 js/compilation/abrir_onda.js
 js/compilation/layout_do_surfer.js
+js/compilation/teste_de_hardware.js
 js/wave/surfer_tab_preference.js
 js/wave/prism_wave_layout.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)

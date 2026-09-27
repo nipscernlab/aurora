@@ -63,12 +63,12 @@ import {
     verilatorTraceRules, defaultScopeRules, rulesFromDumpvars, contarEscopos,
 } from '../wave/verilator_trace_rules.js';
 import { extractFopenReads } from '../wave/fopen_paths.js';
-import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
 import { gerarHierarquiaDoProjeto } from './hierarquia_do_projeto.js';
 import { lancarGtkwave, lancarSurfer, abrirOndaExterna as abrirOndaExternaNoVisualizador } from './abrir_onda.js';
 import { resolverLayoutDoSurfer } from './layout_do_surfer.js';
+import { rodarTesteDeHardware } from './teste_de_hardware.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
 import { resolveWaveToolchain, findWaveCandidateInDir, resolveVerilatorTools } from './wave_toolchain.js';
 import {
@@ -83,13 +83,8 @@ import {
   buildVvpRunSpec,
   buildCocotbRunSpec,
   buildVerilatorBuildSpec, buildVerilatorRunSpec,
-  buildVerilatorJsonSpec, buildVerilatorTbBuildSpec, buildVerilatorTbRunSpec,
   buildFst2VcdSpec,
 } from './builders/index.js';
-import {
-  parseVerilatorPorts,
-  parseProcessorIO, generateVerilatorProcTb,
-} from './verilator_tb.js';
 import * as CommandSpec from './command_spec.js';
 import {
   basenameOfPath, moduleStemFromPath, isPythonFile,
@@ -2310,261 +2305,12 @@ async _runFastCocotb(config) {
         tr('terminal.wave.fastDone', { name: cocotbCtx.hdlTopModule }), 'success');
 }
 
-// =====================================================================
-// Botao "Verilator (processador CMM)"
-// =====================================================================
-//
-// Roda o top-level gerado pelo compilador CMM (<proc>.v) com Verilator,
-// usando a fiacao previsivel do processador SAPHO. Self-contained: o
-// handler (compilation_flow) ja roda cmm+asm antes pra ter <proc>.v,
-// <proc>_tb.v e .mif frescos.
-//
-//   1. --json-only no <proc>.v        -> portas (clk/rst/in/out/req_in/out_en[/itr])
-//   2. parseia o <proc>_tb.v          -> fiacao input_<N>.txt <-> req_in one-hot,
-//                                        output_<N>.txt <-> out_en one-hot
-//   3. gera o harness C++ (decimal com sinal, rst pulso, itr=0 se existir)
-//   4. --cc --exe --build             -> V<proc>.exe
-//   5. roda numClocks fixos no <proc>/Simulation/ (mesmos arquivos do iverilog)
-//
-// O exe imprime no fim "N clocks simulados, M leitura(s) de entrada" no
-// terminal twave. Diferente do botao top-level generico, NAO ha templates
-// nem diretivas `# @gate`, a fiacao vem do tb.
-
 /**
- * Resolve o processador-alvo do botao: o PROCESSADOR ATIVO mostrado na
- * status bar (o .cmm em foco no editor cruzado com a lista do projeto).
- * Fonte unica = getActiveProcessorName() (project/active_processor). Retorna
- * o objeto do processador (com numClocks) ou null se nao ha ativo, caso
- * em que o botao ja deveria estar desabilitado; o run() trata o null com
- * uma mensagem clara como rede de seguranca (ex: chamada via AuroraAPI).
- */
-_resolveProcessorTarget() {
-    const activeName = getActiveProcessorName() || null;
-    if (!activeName) return null;
-    const procs = (Array.isArray(this.projectConfig?.processors) ? this.projectConfig.processors : [])
-        .map((p) => (typeof p === 'string' ? { name: p } : p))
-        .filter((p) => p && p.name);
-    return procs.find((p) => p.name === activeName) || null;
-}
-
-    /**
-     * Endereco do laco de parada (@fim) do processador, lido da linha
-     * `@fim <n>` do app_log.txt que o appcomp escreve na Temp. E' a MESMA
-     * fonte que o asmcomp usa pra cravar o $finish do _tb.v do Icarus
-     * (labels.c: se o label e' "fim", chama sim_set_fim(val)), entao os
-     * dois fluxos param no mesmo endereco. null se o arquivo nao existe ou
-     * nao tem a linha.
-     *
-     * @param {string} tempBaseDir  Temp do projeto (.aurora/Temp)
-     * @param {string} procName
-     * @returns {Promise<number|null>}
-     */
-    async _readFimAddress(tempBaseDir, procName) {
-        try {
-            const logPath = await electronAPI.joinPath(tempBaseDir, procName, 'app_log.txt');
-            const text = await electronAPI.readFile(logPath, { encoding: 'utf8' });
-            const m = /^@fim\s+(\d+)\s*$/m.exec(String(text || ''));
-            if (m) return Number(m[1]);
-        } catch (_e) { /* sem arquivo: sem fim conhecido */ }
-        return null;
-    }
-
-/**
- * Pipeline do harness Verilator do processador CMM. Throws com mensagem
- * clara em qualquer falha de etapa.
+ * O botao de teste de hardware: o processador ativo no Verilator, saida no
+ * THTEST (teste_de_hardware.ts). O compilation_flow chama por aqui.
  */
 async verilatorProcessorRun() {
-    await this.initializeComponentsPath();
-    if (!this.projectConfig) throw new Error(tr('error.config.notLoaded'));
-
-    const proc = this._resolveProcessorTarget();
-    if (!proc) throw new Error(tr('error.compilation.noActiveProcessor'));
-    const procName = proc.name;
-    const numClocks = Number.isFinite(proc.numClocks) ? proc.numClocks : 2000;
-
-    const procDir = await electronAPI.joinPath(this.projectPath, procName);
-    const procV = await electronAPI.joinPath(procDir, 'Hardware', `${procName}.v`);
-    const simDir = await electronAPI.joinPath(procDir, 'Simulation');
-
-    if (!await electronAPI.fileExists(procV)) {
-        throw new Error(tr('error.compilation.procVMissing', { path: procV }));
-    }
-
-    const tools = await resolveVerilatorTools(this.componentsPath);
-    const tempBaseDir = await projectTempDir(this.projectPath);
-    const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
-    const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_proc_${procName}`);
-    await electronAPI.mkdir(objDir);
-
-    // Todo este fluxo loga no terminal THTEST (Hardware Test), etapas de
-    // pipeline em alto nivel (info/success), ruido da toolchain
-    // (verilator/perl/g++/make) so no modo verbose (plain), e a barra de
-    // progresso ASCII inline da execucao. Ver renderHardwareProgress.
-    const T = 'thtest';
-
-    // ---- Inicio ----
-    this.terminalManager.appendToTerminal(T, tr('terminal.htest.start', { name: procName, clocks: numClocks }), 'info');
-
-    // ---- Passo 1: portas via --json-only ----
-    this.terminalManager.appendToTerminal(T, tr('terminal.wave.procPorts', { name: procName }), 'info');
-    const jsonSpec = buildVerilatorJsonSpec({
-        perlExe: tools.perlExe, verilatorScript: tools.verilatorScript,
-        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
-        hdlPath, topModule: procName, objDir,
-        sourceFiles: [procV], cwd: tempBaseDir,
-    });
-    this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(jsonSpec), 'info', { internal: true });
-    const jsonResult = await runSpec(jsonSpec, { consumeEphemeral: true });
-    this.terminalManager.processExecutableOutput(T, jsonResult);
-    if (jsonResult.code !== 0) throw new Error(tr('error.compilation.verilatorJsonFailed', { code: jsonResult.code }));
-    const jsonPath = await electronAPI.joinPath(objDir, `V${procName}.tree.json`);
-    if (!await electronAPI.fileExists(jsonPath)) {
-        throw new Error(tr('error.compilation.verilatorJsonMissing', { path: jsonPath }));
-    }
-    const ports = parseVerilatorPorts(JSON.parse(await electronAPI.readFile(jsonPath, { encoding: 'utf8' })));
-
-    // ---- Passo 2: fiacao de I/O lida do proprio <proc>.v (bloco YANC_SIM_VIS) ----
-    const wiring = parseProcessorIO(await electronAPI.readFile(procV, { encoding: 'utf8' }));
-    if (wiring.inputs.length === 0 && wiring.outputs.length === 0) {
-        this.terminalManager.appendToTerminal(T, tr('terminal.wave.procNoPorts'), 'warning');
-    }
-
-    // ---- Passo 3: gera o harness C++ ----
-    // Fim do programa: o harness le `valr10` (a cadeia de atraso do PC que o
-    // bloco YANC_SIM_VIS do <proc>.v declara public_flat) e para quando ela
-    // chega ao laco de parada @fim, cujo endereco vem do app_log.txt do
-    // appcomp -- a mesma fonte do $finish do _tb.v do Icarus. Sem o arquivo,
-    // roda o teto de clocks e avisa. Nenhum pino, nenhum #TOAQUI, nenhuma
-    // mudanca no hardware, e o .cmm do usuario nao e tocado.
-    const fimAddr = await this._readFimAddress(tempBaseDir, procName);
-    if (fimAddr == null) {
-        this.terminalManager.appendToTerminal(T, tr('terminal.htest.fimUnknown', { name: procName }), 'warning');
-    }
-    this.terminalManager.appendToTerminal(T, tr('terminal.htest.genCpp', { name: procName }), 'info');
-    const gen = generateVerilatorProcTb({
-        topModule: procName, ports,
-        inputs: wiring.inputs, outputs: wiring.outputs,
-        numClocks, fimAddr,
-    });
-    const cppPath = await electronAPI.joinPath(tempBaseDir, `tl_proc_${procName}.cpp`);
-    await electronAPI.writeFile(cppPath, gen.source);
-
-    this.terminalManager.appendToTerminal(T,
-        tr('terminal.wave.procWiring', {
-            inputs: wiring.inputs.map((p) => `${p.file}@req${p.reqValue}`).join(', ') || '—',
-            outputs: wiring.outputs.map((p) => `${p.file}@en${p.enValue}`).join(', ') || '—',
-            itr: gen.hasItr ? 'itr=0' : 'sem itr',
-        }), 'info');
-
-    // ---- Passo 4: build ----
-    this.terminalManager.appendToTerminal(T, tr('terminal.wave.procBuilding', { name: procName }), 'info');
-    const buildSpec = buildVerilatorTbBuildSpec({
-        perlExe: tools.perlExe, verilatorScript: tools.verilatorScript,
-        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
-        hdlPath, topModule: procName, objDir,
-        sourceFiles: [procV, cppPath], cwd: tempBaseDir,
-    });
-    this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(buildSpec), 'info', { internal: true });
-    const buildResult = await runSpec(buildSpec, { consumeEphemeral: true });
-    this.terminalManager.processExecutableOutput(T, buildResult);
-    if (buildResult.code !== 0) throw new Error(tr('error.compilation.verilatorTbBuildFailed', { code: buildResult.code }));
-
-    let exePath = await electronAPI.joinPath(objDir, `V${procName}.exe`);
-    if (!await electronAPI.fileExists(exePath)) {
-        const fallback = await electronAPI.joinPath(objDir, `V${procName}`);
-        if (!await electronAPI.fileExists(fallback)) {
-            throw new Error(tr('error.compilation.verilatorExeMissing', { path: exePath }));
-        }
-        exePath = fallback;
-    }
-
-    // ---- Passo 5: roda numClocks no Simulation/ (streamed, com barra) ----
-    this.terminalManager.appendToTerminal(T, tr('terminal.wave.procRunning', { name: procName, clocks: numClocks }), 'info');
-    const runProcSpec = buildVerilatorTbRunSpec({
-        exePath, cwd: simDir,
-        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
-        cycles: numClocks,
-    });
-    this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(runProcSpec), 'info', { internal: true });
-
-    // O harness imprime "@@AURORA_PROG <cyc> <nclk> <reads>" no stdout a cada
-    // ~1% dos clocks (com fflush). Essas linhas movem a barra e NAO sao
-    // ecoadas; o formato mora no progress_line.js, junto com os demais, e a
-    // barra e alimentada pelo mesmo _consumirProgresso dos outros caminhos.
-    // O @@AURORA_CHEGUEI <clock> nao e progresso e sim o fim: o PC chegou ao
-    // @fim e o harness encerrou a simulacao; guardamos o clock para avisar o
-    // usuario. Tambem e consumido; o resto do stdout vai como plain (so no
-    // verbose).
-    const CHEGUEI_RE = /^@@AURORA_CHEGUEI\s+(\d+)/;
-    // @@AURORA_NOPC: a HDL embarcada e' anterior ao `public_flat_rd` do PC
-    // (YANC <= v5.4); o harness nao enxerga o fim e roda o teto de clocks.
-    const NOPC_RE = /^@@AURORA_NOPC\b/;
-    let pcNotVisible = false;
-    const execLabel = tr('terminal.htest.exec');
-    let chegueiClock = null;
-    let lastReads = null;
-    let unsub = null;
-    if (typeof electronAPI.onExecSpecStream === 'function') {
-        unsub = electronAPI.onExecSpecStream((payload) => {
-            if (!payload || !payload.data) return;
-            for (const line of payload.data.split(/\r?\n/)) {
-                const p = lerProgresso(line, { rotuloPadrao: execLabel });
-                if (p) {
-                    // O total do harness manda; numClocks e a reserva para o
-                    // caso de ele imprimir zero.
-                    if (p.reads != null) lastReads = p.reads;
-                    this.terminalManager.renderHardwareProgress?.(T, {
-                        pct: p.pct, cyc: p.cyc, total: p.total || numClocks,
-                        reads: p.reads, label: execLabel,
-                    });
-                    continue;
-                }
-                const ch = line.match(CHEGUEI_RE);
-                if (ch) { chegueiClock = +ch[1]; continue; }
-                if (NOPC_RE.test(line)) { pcNotVisible = true; continue; }
-                if (!line.trim()) continue;
-                this.terminalManager.processStreamedLine(T, line.trim());
-            }
-        });
-    }
-    let runCode;
-    try {
-        const r = await runSpecStreamed(runProcSpec, { consumeEphemeral: true });
-        runCode = r.code;
-    } finally {
-        if (unsub) unsub();
-    }
-    if (runCode !== 0) throw new Error(tr('error.compilation.verilatorTbRunFailed', { code: runCode }));
-
-    // Fecha a barra no clock REAL de parada: o teto (numClocks) num run
-    // completo, ou o clock do `cheguei` se o programa terminou antes, assim
-    // a barra para em "1224/2000", nao forca "2000/2000".
-    const endCyc = chegueiClock != null ? chegueiClock : numClocks;
-    const endPct = numClocks ? Math.min(100, Math.round((endCyc / numClocks) * 100)) : 100;
-    this.terminalManager.renderHardwareProgress?.(T, {
-        pct: endPct, cyc: endCyc, total: numClocks, reads: lastReads, label: execLabel, done: true,
-    });
-
-    // Encerrou pelo pino `cheguei` (programa terminou antes do teto de clocks).
-    if (pcNotVisible) {
-        this.terminalManager.appendToTerminal(T, tr('terminal.htest.pcNotVisible', { name: procName }), 'warning');
-    }
-    if (chegueiClock != null) {
-        this.terminalManager.appendToTerminal(T,
-            tr('terminal.htest.chegueiEnd', { clock: chegueiClock }), 'success');
-    }
-
-    // Mensagem final com o diretorio de saida como LINK: clicar abre a
-    // view de pastas da file tree e revela essa pasta (aberta).
-    const doneMsg = tr('terminal.wave.procDone', {
-        dir: simDir,
-        outputs: wiring.outputs.map((p) => p.file).join(', ') || '—',
-    });
-    if (this.terminalManager.appendFolderLink) {
-        this.terminalManager.appendFolderLink(T, doneMsg, simDir, 'success');
-    } else {
-        this.terminalManager.appendToTerminal(T, doneMsg, 'success');
-    }
+    return rodarTesteDeHardware(this);
 }
 
 /**

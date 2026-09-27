@@ -318,6 +318,24 @@ describe('runGtkWave, Icarus com GTKWave', () => {
     });
 });
 
+describe('runGtkWave com o Surfer escolhido', () => {
+    it('abre o Surfer com o layout gerado, e nao o GTKWave', async () => {
+        localStorage.setItem('aurora.waveViewer', 'surfer');
+        localStorage.setItem('aurora.surferInTab', 'false');
+        const mod = await novoModulo(CONFIG_PADRAO);
+        ligarExecutor(api);
+
+        await mod.runGtkWave();
+
+        expect(api.launchGtkwaveOnly).not.toHaveBeenCalled();
+        expect(api.launchSurfer).toHaveBeenCalledTimes(1);
+        const [pedido] = api.launchSurfer.mock.calls[0];
+        expect(pedido.args[0]).toBe(DUMP);
+        expect(pedido.args).toContain(`${TEMP}/${SIM_TOP}.surf.ron`);
+        expect(houveErro()).toBe(false);
+    });
+});
+
 describe('runGtkWave, Verilator com GTKWave', () => {
     it('constroi e simula no Verilator e abre a mesma onda', async () => {
         localStorage.setItem('aurora.waveSimulator', 'verilator');

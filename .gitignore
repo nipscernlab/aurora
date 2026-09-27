@@ -235,6 +235,7 @@ js/compilation/layout_do_gtkwave.js
 js/compilation/preparo_da_onda.js
 js/compilation/icarus_da_onda.js
 js/compilation/checagem_de_sintaxe.js
+js/compilation/cabecalho_do_dump.js
 js/wave/surfer_tab_preference.js
 js/wave/prism_wave_layout.js
 js/compilation/dump_guard.js

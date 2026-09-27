@@ -26,9 +26,10 @@ vi.mock('../../js/terminal/terminal_module.js', () => ({
 
 import { runSpec, runSpecStreamed } from '../../js/compilation/spec_runner.js';
 import { CompilationModule } from '../../js/compilation/compilation_module.js';
+import { extrairCabecalhoDoFst } from '../../js/compilation/cabecalho_do_dump.js';
 
 const chamar = {
-    extrair: (mod, ...a) => mod._extractFstHeaderVcd(...a),
+    extrair: (mod, ...a) => extrairCabecalhoDoFst(mod.terminalManager, ...a),
 };
 
 const PROJ = 'C:/proj';

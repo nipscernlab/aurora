@@ -52,7 +52,6 @@ import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { foiCancelada } from './cancelamento.js';
-import { runSpec, runSpecStreamed } from './spec_runner.js';
 import { gerarHierarquiaDoProjeto } from './hierarquia_do_projeto.js';
 import { lancarGtkwave, lancarSurfer, abrirOndaExterna as abrirOndaExternaNoVisualizador } from './abrir_onda.js';
 import { resolverLayoutDoSurfer } from './layout_do_surfer.js';
@@ -63,13 +62,13 @@ import { construirNoVerilator, simularNoVerilator, rodarFastSim } from './verila
 import { validarCocotb, anunciarCocotb, rodarCocotb } from './cocotb_da_onda.js';
 import { construirEConferirVvp, simularNoIcarus } from './icarus_da_onda.js';
 import { acharDumpDaSimulacao, exigirDumpNovo } from './arquivos_da_simulacao.js';
+import { extrairCabecalhoDoFst } from './cabecalho_do_dump.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
 import { resolveWaveToolchain, resolveVerilatorTools } from './wave_toolchain.js';
 import { validateWaveSelection } from './wave_signal_validator.js';
 import {
-  cmmCompilation, cppCompilation, asmCompilation, stageProcessorMemoryFiles,
+  cmmCompilation, cppCompilation, asmCompilation,
 } from './processor_compiler.js';
-import { buildFst2VcdSpec } from './builders/index.js';
 import {
   moduleStemFromPath, isPythonFile, escolherTestbench,
 } from './compilation_helpers.js';
@@ -546,7 +545,7 @@ async runGtkWave() {
         // regardless of the file extension; for a genuine text VCD it reports no
         // FST and we skip, the VCD is its own header source, parsed downstream.
         const headerVcd = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
-        await this._extractFstHeaderVcd(vcdFile, headerVcd, tools.fst2vcdBin, tools.tempBaseDir);
+        await extrairCabecalhoDoFst(this.terminalManager, vcdFile, headerVcd, tools.fst2vcdBin, tools.tempBaseDir);
         // Branch on the user's viewer choice. Default 'gtkwave' → the existing
         // path is untouched for current users; 'surfer' opens Surfer with its
         // own active layout (.surf.ron/.sucl), and no .gtkw is generated for it.
@@ -595,93 +594,6 @@ _waveDeriveSimTopModule(config) {
 }
 
 /**
- * Pull ONLY the VCD header (the $scope/$var hierarchy, up to $enddefinitions)
- * out of an FST, WITHOUT materializing the full text VCD. fst2vcd streams VCD
- * to stdout header-first; we accumulate stdout and, the instant we see
- * $enddefinitions, kill fst2vcd (killCurrentSpecProcess). So it iterates only the FST
- * geometry plus the first buffered block, never the whole multi-hundred-MB body.
- * The header alone is what _waveResolveGtkwSaveFile / _waveValidateUserGtkwAgainstVcd
- * parse to build the auto-gtkw and cross-check user .gtkw files; GTKWave then
- * opens the .fst directly. Returns true on success, false if the header could
- * not be captured (caller falls back to a full conversion).
- */
-async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
-    // Fast path: stream fst2vcd (no -o → it emits the VCD to stdout) and kill it
-    // the instant $enddefinitions appears, so it iterates only the FST geometry
-    // plus the first buffered block, never the multi-hundred-MB body.
-    if (typeof electronAPI.onExecSpecStream === 'function'
-        && typeof electronAPI.killCurrentSpecProcess === 'function') {
-        const spec = {
-            step: 'fst2vcd',
-            binary: fst2vcdBin,
-            args: ['-f', fstPath],
-            cwd,
-            label: 'fst2vcd (header only — cancelled at $enddefinitions)',
-        };
-        const ENDDEFS = /\$enddefinitions\s+\$end/;
-        let acc = '';
-        let header = null;
-        let killPromise = null;
-        const unsubscribe = electronAPI.onExecSpecStream((payload) => {
-            if (header !== null || !payload || payload.type !== 'stdout' || !payload.data) return;
-            acc += payload.data;
-            const m = ENDDEFS.exec(acc);
-            if (m) {
-                header = `${acc.slice(0, m.index + m[0].length)}\n`;
-                // We have the whole hierarchy, stop fst2vcd before it streams the
-                // body. Targeted kill of the parked child ONLY (NOT cancelVvpProcess,
-                // whose by-name vvp/gtkwave sweep would race with and kill the
-                // GTKWave this same wave flow launches moments later).
-                killPromise = electronAPI.killCurrentSpecProcess();
-            }
-        });
-        try {
-            await runSpecStreamed(spec, { consumeEphemeral: true });
-        } catch {
-            // fall through, header may still have been captured before the throw
-        } finally {
-            unsubscribe();
-        }
-        // Ensure the kill fully settled before returning (defensive ordering).
-        if (killPromise) { try { await killPromise; } catch { /* best-effort */ } }
-        // The boundary can also land exactly as the process closes (tiny design
-        // that fully emitted before a chunk carried $enddefinitions), re-check.
-        if (header === null) {
-            const m = ENDDEFS.exec(acc);
-            if (m) header = `${acc.slice(0, m.index + m[0].length)}\n`;
-        }
-        if (header && header.length > 0) {
-            await electronAPI.writeFile(headerVcdPath, header);
-            return true;
-        }
-    }
-
-    // Fallback: full fst2vcd conversion. Correct but materializes the whole text
-    // VCD, only reached when streaming is unavailable or the header never
-    // surfaced. A real sim FST converts fine; a non-FST input (e.g. a dump that
-    // is already a text VCD) fails the magic check, so we return false and the
-    // caller leaves that VCD to be parsed directly downstream. Surface it: the
-    // fast path is the norm, so hitting this means a slower run the user should
-    // know about (otherwise the wait looks like an unexplained hang).
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.headerFallback'), 'tips');
-    const result = await runSpec(
-        buildFst2VcdSpec({ fst2vcdBin, inputFile: fstPath, outputFile: headerVcdPath, cwd }),
-        { consumeEphemeral: true });
-    if (result.code !== 0 && result.code !== null) return false;
-    if (!await electronAPI.fileExists(headerVcdPath)) return false;
-    // Um exit limpo pode ainda deixar um arquivo VAZIO (FST corrompido, entrada
-    // nao-FST que mesmo assim saiu com code 0). Sem este check o downstream
-    // parsearia 0 scopes e geraria um auto-gtkw vazio SEM nenhum aviso, o
-    // usuario veria o GTKWave abrir sem sinais e culparia a propria simulacao.
-    // Trata vazio como falha de captura (caller cai no comportamento sem-gtkw).
-    try {
-        const stats = await electronAPI.getFileStats(headerVcdPath);
-        if (!stats || stats.size === 0) return false;
-    } catch { /* sem stat -> fileExists ja confirmou presenca; deixa passar */ }
-    return true;
-}
-
-/**
  * O botao Fast Sim (verilator_da_onda.ts). O compilation_flow e a AuroraAPI
  * chamam por aqui.
  */
@@ -695,20 +607,6 @@ async runFastSim() {
  */
 async verilatorProcessorRun() {
     return rodarTesteDeHardware(this);
-}
-
-/**
- * Varre subdirectorias de tempBaseDir procurando arquivos pc_*_mem.txt
- * (gerados pelo cmmcomp em cada Temp/<proc>/) e copia pro proprio
- * tempBaseDir. vvp roda com CWD=tempBaseDir e precisa achar esses
- * arquivos no $readmemb que o ProcDTW.v faz internamente.
- *
- * Tolerante a falha por subdir, se uma das pastas nao puder ser
- * lida, segue pra proxima. Tolerante a "subdir nao existe ou nao tem
- * arquivo de memoria", silencio.
- */
-async _stageProcessorMemoryFiles(tempBaseDir, destDir = tempBaseDir) {
-    return stageProcessorMemoryFiles(this._instanceDeps(), tempBaseDir, destDir);
 }
 
 /** Abre o GTKWave (abrir_onda.ts). */

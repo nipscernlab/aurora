@@ -317,6 +317,37 @@ describe('runGtkWave, Icarus com GTKWave', () => {
     });
 });
 
+describe('a saida do vvp no TWAVE', () => {
+    it('o ruido some, o contador vira barra e o descritor invalido e explicado uma vez', async () => {
+        const mod = await novoModulo(CONFIG_PADRAO);
+        ligarExecutor(api);
+        const executar = runSpecStreamed.getMockImplementation();
+        runSpecStreamed.mockImplementation(async (spec) => {
+            if (spec.step === 'vvp-run') {
+                api._emitir({ type: 'stdout', data: [
+                    'FST info: dumpfile mediamovel_tb.fst opened for output.',
+                    'progress: 3/10',
+                    'ERROR: invalid file descriptor',
+                    'ERROR: invalid file descriptor',
+                    'y = 7',
+                ].join('\n') });
+            }
+            return executar(spec);
+        });
+
+        await mod.runGtkWave();
+
+        const vvp = terminal.calls.filter((c) => c.level === 'raw' || c.msg === 'terminal.wave.invalidFd');
+        expect(vvp.map((c) => [c.msg, c.level])).toEqual([
+            ['terminal.wave.invalidFd', 'warning'],
+            ['ERROR: invalid file descriptor', 'raw'],
+            ['ERROR: invalid file descriptor', 'raw'],
+            ['y = 7', 'raw'],
+        ]);
+        expect(msgs().some((m) => /FST info|progress/.test(m))).toBe(false);
+    });
+});
+
 describe('o .gtkw escolhido pelo usuario, que e o caso do aluno', () => {
     // ESTE CAMINHO NAO TINHA TESTE, e era justamente o que quebrou em campo: um
     // aluno levou um projeto para outra maquina, o `.gtkw` escolhido estava

@@ -2209,6 +2209,28 @@ A cadeia, nesta ordem:
         parâmetro do nome da operação do `motivoDe`.
       - [x] `shell_terminal` (26/09) virou `.ts`, com teste de caracterização
         (`shellTerminal`). O import de CSS ganhou `js/types/css.d.ts`.
+      - [ ] `compilation_module` (em curso desde 27/09): de 3725 para 2826
+        linhas. Escolhido por ser o maior e o terceiro que mais muda, e por
+        nunca ter sido mexido. Saíram, cada um com teste de caracterização
+        que entra pela instância e foi rodado no `.js` antigo:
+        `hierarquia_do_projeto.ts` (a hierarquia pelo Yosys;
+        `hierarquiaDoProjeto`), `abrir_onda.ts` (GTKWave, Surfer em aba e em
+        janela, o salvar da aba, a onda do PRISM) e `layout_do_surfer.ts` (o
+        layout automático e os complexos; os dois em `ondaNoVisualizador`), e
+        `teste_de_hardware.ts` (o processador no Verilator;
+        `testeDeHardware`). Viraram `.ts` antes: `hierarchy_parser`,
+        `surfer_tab_preference`, `prism_wave_layout`. Saiu código morto: o
+        `monitorGtkwaveProcess` consultava o processo a cada 2 s só para
+        zerar campos que ninguém lia (o `isHierarchicalView` nunca virava
+        `true`), e o `surferProcess` era só escrito. Com isso o canal
+        `check-process-running` (`isProcessRunning` no `preload.js`, handler
+        em `main/ipc/compile.js`) ficou sem chamador; sai quando esses dois
+        arquivos converterem. Defeito corrigido: a aba do Surfer reconhecia
+        `.sucl` com o ponto sem escape. Falta, do maior para o menor: o
+        Verilator da onda e o fast sim (`_waveBuildVerilator`,
+        `_waveRunVerilatorSimulation`, `runFastSim`), o cocotb, o Icarus
+        (`waveBuildVvp`, `_waveRunVvpSimulation`), o `.gtkw`
+        (`_waveResolveGtkwSaveFile`), o `syntaxCheck` e a configuração.
       - [ ] E2E instável: `shell-terminal > navigates folders (cd persists,
         prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
         mudança do momento (o repetidor deu 3 verdes seguidas).

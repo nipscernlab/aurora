@@ -1,4 +1,4 @@
-// hierarchy_view.js: DOM renderer for the post-synthesis module hierarchy.
+// hierarchy_view.ts: DOM renderer for the post-synthesis module hierarchy.
 //
 // Extracted from compilation_module.js (A2 god-file decomposition #2). Consumes
 // the pure tree data model from hierarchy_parser.js and renders it into the
@@ -16,6 +16,14 @@
 import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
+import type * as Monaco from 'monaco-editor';
+import type { NoDaHierarquia } from './hierarchy_parser.js';
+
+/** Uma instancia na arvore: o nome dela e o modulo que ela e. */
+interface InstanciaDaVista { instanceName: string; type?: string; moduleDefinition: NoDaHierarquia }
+
+/** O container ganha a marca dos dados que ele ja mostra. */
+type HostDaHierarquia = HTMLElement & { __auroraHierarchyData?: unknown };
 
 // The whole tree is built into the DOM up front (collapse is CSS-only); a very
 // large synthesis can put thousands of rows in the DOM. They're cheap while
@@ -31,15 +39,15 @@ const HIERARCHY_LARGE = 2000;
 function refreshHierarchyFocusHighlight() {
   const host = (typeof window !== 'undefined') && window.treeView?.getContainer?.('hierarchy');
   if (!host) return;
-  const norm = (p) => String(p || '').replace(/\\/g, '/').toLowerCase();
+  const norm = (p: unknown) => String(p || '').replace(/\\/g, '/').toLowerCase();
   const target = norm(window.TabManager?.getEditingFilePath?.() || '');
-  host.querySelectorAll('.hierarchy-item[data-filepath]').forEach((it) => {
+  host.querySelectorAll('.hierarchy-item[data-filepath]').forEach((it: Element) => {
     const match = !!target && norm(it.getAttribute('data-filepath')) === target;
     it.classList.toggle('active', match);
   });
 }
 
-function goToLineInEditor(editor, lineNumber) {
+function goToLineInEditor(editor: Monaco.editor.IStandaloneCodeEditor | null | undefined, lineNumber: number): void {
   if (!editor) return;
   const model = editor.getModel();
   if (!model) return;
@@ -56,7 +64,7 @@ function goToLineInEditor(editor, lineNumber) {
   });
 }
 
-async function openModuleFile(filePath, lineNumber = null) {
+async function openModuleFile(filePath: string, lineNumber: number | null = null): Promise<void> {
   try {
     const fileExists = await electronAPI.fileExists(filePath);
     if (!fileExists) {
@@ -70,7 +78,7 @@ async function openModuleFile(filePath, lineNumber = null) {
     TabManager.addTab(filePath, content);
     if (lineNumber) {
       setTimeout(() => {
-        const editor = EditorManager.getEditorForFile(filePath);
+        const editor = EditorManager.getEditorForFile?.(filePath);
         if (editor) goToLineInEditor(editor, lineNumber);
       }, 100);
     }
@@ -79,7 +87,7 @@ async function openModuleFile(filePath, lineNumber = null) {
   }
 }
 
-function toggleHierarchyItem(itemElement) {
+function toggleHierarchyItem(itemElement: Element): void {
   const toggle = itemElement.querySelector('.hierarchy-toggle');
   const children = itemElement.querySelector('.hierarchy-children');
   if (!toggle || !children) return;
@@ -89,7 +97,7 @@ function toggleHierarchyItem(itemElement) {
   toggle.classList.toggle('expanded', !isExpanded);
 }
 
-function createHierarchyItem(instanceNode, type, icon, isExpanded = false) {
+function createHierarchyItem(instanceNode: InstanciaDaVista, _type: string, icon: string, isExpanded = false): HTMLElement {
   const itemContainer = document.createElement('div');
   itemContainer.className = 'hierarchy-item';
 
@@ -98,7 +106,7 @@ function createHierarchyItem(instanceNode, type, icon, isExpanded = false) {
   if (moduleDef.filePath) {
     itemContainer.setAttribute('data-filepath', moduleDef.filePath);
     if (moduleDef.lineNumber) {
-      itemContainer.setAttribute('data-linenumber', moduleDef.lineNumber);
+      itemContainer.setAttribute('data-linenumber', String(moduleDef.lineNumber));
     }
   }
 
@@ -129,7 +137,7 @@ function createHierarchyItem(instanceNode, type, icon, isExpanded = false) {
     ? window.TabManager.getFileIcon(fileBase)
     : icon;
   itemElement.appendChild(document.createElement('span')).className = 'hierarchy-icon';
-  itemElement.querySelector('.hierarchy-icon').innerHTML = `<i class="${resolvedIcon}"></i>`;
+  (itemElement.querySelector('.hierarchy-icon') as HTMLElement).innerHTML = `<i class="${resolvedIcon}"></i>`;
 
   const label = document.createElement('span');
   label.className = 'hierarchy-label';
@@ -147,7 +155,7 @@ function createHierarchyItem(instanceNode, type, icon, isExpanded = false) {
     const fileName = moduleDef.filePath.split(/[\\/]/).pop();
     itemElement.title = `Click to open ${fileName}`;
     itemElement.addEventListener('click', async (e) => {
-      if (e.target.closest('.hierarchy-toggle')) return;
+      if ((e.target as Element | null)?.closest('.hierarchy-toggle')) return;
       const filePath = itemContainer.getAttribute('data-filepath');
       const lineNumber = itemContainer.getAttribute('data-linenumber');
       if (filePath) {
@@ -159,7 +167,7 @@ function createHierarchyItem(instanceNode, type, icon, isExpanded = false) {
   return itemContainer;
 }
 
-function buildHierarchyChildren(parentItem, moduleDefinition) {
+function buildHierarchyChildren(parentItem: Element, moduleDefinition: NoDaHierarquia): void {
   if (!moduleDefinition.children || moduleDefinition.children.length === 0) return;
 
   const childrenContainer = parentItem.querySelector('.hierarchy-children');
@@ -185,17 +193,17 @@ function buildHierarchyChildren(parentItem, moduleDefinition) {
  * untouched when it already reflects the same data object (the controller
  * re-invokes this every time the hierarchy view becomes active).
  *
- * @param {object|null|undefined} hierarchyData  parsed tree; falls back to the
+ * @param hierarchyData  parsed tree; falls back to the
  *   file-tree view controller's stored copy when omitted.
  */
-function renderHierarchy(hierarchyData) {
+function renderHierarchy(hierarchyData?: NoDaHierarquia | null): void {
   // Hierarchy view owns its dedicated subcontainer inside #file-tree, so we can
   // freely innerHTML='' our own without touching the standard tree or the
   // verilog picker (see js/tree/tree_view.js).
-  const hostContainer = window.treeView?.getContainer('hierarchy');
+  const hostContainer = window.treeView?.getContainer?.('hierarchy') as HostDaHierarquia | null | undefined;
   if (!hostContainer) return;
 
-  const data = hierarchyData ?? window.fileTreeViewController?.getHierarchyData?.();
+  const data = (hierarchyData ?? window.fileTreeViewController?.getHierarchyData?.()) as NoDaHierarquia | null | undefined;
   if (!data) return;
 
   if (hostContainer.__auroraHierarchyData === data
@@ -209,7 +217,7 @@ function renderHierarchy(hierarchyData) {
   const container = document.createElement('div');
   container.className = 'hierarchy-container';
 
-  const topLevelInstance = { instanceName: data.name, type: 'instance', moduleDefinition: data };
+  const topLevelInstance: InstanciaDaVista = { instanceName: data.name, type: 'instance', moduleDefinition: data };
   const topItem = createHierarchyItem(topLevelInstance, 'top-level', 'ph ph-cpu', true);
   topItem.setAttribute('data-type', 'top-level');
   container.appendChild(topItem);

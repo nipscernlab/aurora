@@ -244,7 +244,9 @@ declare global {
       verilogFiles?: import('../ai/file_ref.js').ArquivoDaArvore[];
     };
     /** O controlador das duas visoes da arvore (js/tree/file_tree_view_controller.ts); lido por window para nao fechar ciclo. */
-    fileTreeViewController?: { getActiveView?(): string };
+    fileTreeViewController?: { getActiveView?(): string; getHierarchyData?(): unknown };
+    /** As subarvores da arvore de arquivos (js/tree/tree_view.ts). */
+    treeView?: { getContainer?(nome: string): HTMLElement | null };
     /** As operacoes da visao de pastas (js/tree/standard_tree_crud.ts), para o roteador do botao direito. */
     standardTreeCrud?: unknown;
     /** O inicializador do app (js/app/app_initializer.js): lembra o ultimo projeto. */
@@ -277,7 +279,14 @@ declare global {
       project?: { listMemories?(): Promise<{ ok: boolean; data?: { memories?: unknown[] } } | null | undefined> };
     };
     /** O TabManager exposto em window (renderer.js); o PRISM em aba abre por ele. */
-    TabManager?: { openPrismTab?(resultado: unknown): unknown; addTab?(filePath: string, content: string, opcoes?: { preview?: boolean; revealPosition?: { line: number; column: number } }): unknown };
+    TabManager?: {
+      openPrismTab?(resultado: unknown): unknown;
+      addTab?(filePath: string, content: string, opcoes?: { preview?: boolean; revealPosition?: { line: number; column: number } }): unknown;
+      /** O arquivo em foco no editor. */
+      getEditingFilePath?(): string;
+      /** A classe do icone da aba de um arquivo, pelo nome. */
+      getFileIcon?(nome: string): string;
+    };
     /** Abre o painel de problemas (js/terminal/problems_panel.ts). */
     openProblemsPanel?: () => void;
     /** O terminal da aba TCMD (js/terminal/shell_terminal.ts), para a arvore e a API. */

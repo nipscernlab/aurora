@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * cocotb_runner_source.js: the Python runner Aurora writes next to a cocotb
+ * cocotb_runner_source.ts: the Python runner Aurora writes next to a cocotb
  * testbench, as a string.
  *
  * Aurora owns this script; the user's `.py` contains only cocotb tests, with
@@ -26,7 +25,7 @@
  *
  * @type {2}
  */
-export const COCOTB_TESTS_FAILED = 2;
+export const COCOTB_TESTS_FAILED: 2 = 2;
 
 /**
  * The runner script source.
@@ -44,7 +43,7 @@ export const COCOTB_TESTS_FAILED = 2;
  *
  * @type {string}
  */
-export const COCOTB_RUNNER_SOURCE = [
+export const COCOTB_RUNNER_SOURCE: string = [
   'import json',
   'import os',
   'import sys',

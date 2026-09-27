@@ -46,7 +46,7 @@ The code is halfway through a move from JavaScript to strict TypeScript (see
 
 A few JavaScript modules that TypeScript code imports have a hand-written,
 partial `.d.ts` next to them (`tab_manager.d.ts`, `monaco_editor.d.ts`,
-`compilation_module.d.ts`, ...). They describe only what the `.ts` files use
+...). They describe only what the `.ts` files use
 and disappear when the module is converted.
 
 ## Globals on `window`
@@ -82,7 +82,7 @@ yanc checkout by `npm run rules:sync` and committed.
 
 | You want to change | Start here |
 |---|---|
-| A toolbar compile button | `js/compilation/compilation_flow.ts` → `compilation_module.js` → `builders/` (the command line of each tool) → `spec_runner.ts` → `electronAPI.execSpec` → `main/ipc/compile.js` and `main/compile/` |
+| A toolbar compile button | `js/compilation/compilation_flow.ts` → `compilation_module.ts` (the state of one compile; each step lives in its own module: `processor_compiler.ts`, `checagem_de_sintaxe.ts`, `icarus_da_onda.ts`, `verilator_da_onda.ts`, `cocotb_da_onda.ts`, `teste_de_hardware.ts`, ...) → `builders/` (the command line of each tool) → `spec_runner.ts` → `electronAPI.execSpec` → `main/ipc/compile.js` and `main/compile/` |
 | The AI panel | `js/ui/ai_assistant_manager.js` (the panel and the turn) and `js/ai/` (rendering, attachments, queue, provider status); main side in `main/ai/` |
 | What the AI can do in the IDE | `js/api/aurora_api.js` and `js/api/*_ns.ts` (the AuroraAPI), tool list in `main/ai/tools.js` |
 | The file tree | `js/tree/` (Folders view: `standard_tree_*`), `js/project/file_mode.js` (Verilog view) |

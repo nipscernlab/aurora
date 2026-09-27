@@ -2209,56 +2209,57 @@ A cadeia, nesta ordem:
         parâmetro do nome da operação do `motivoDe`.
       - [x] `shell_terminal` (26/09) virou `.ts`, com teste de caracterização
         (`shellTerminal`). O import de CSS ganhou `js/types/css.d.ts`.
-      - [ ] `compilation_module` (em curso desde 27/09): de 3725 para 1684
-        linhas. Escolhido por ser o maior e o terceiro que mais muda, e por
-        nunca ter sido mexido. Cada parte saiu com teste de caracterização
-        que entra pelo que o fluxo chama e foi rodado também no `.js`
-        antigo; os testes têm um objeto `chamar` que é o único ponto que
-        sabe onde cada peça mora. Saíram:
-        - `hierarquia_do_projeto.ts`, a hierarquia pelo Yosys
-          (`hierarquiaDoProjeto`);
-        - `abrir_onda.ts` (GTKWave, Surfer em aba e em janela, o salvar da
-          aba, a onda do PRISM) e `layout_do_surfer.ts` (o layout automático
-          e os complexos), os dois em `ondaNoVisualizador`;
-        - `teste_de_hardware.ts`, o processador no Verilator
-          (`testeDeHardware`);
-        - `durante_a_simulacao.ts` (barra, bateria, vigia do dump) e
-          `arquivos_da_simulacao.ts` (dados do testbench, achar o dump, as
-          duas defesas), em `apoioDaSimulacao`. Saíram antes dos grupos de
-          simulação porque eles chamavam uma dúzia desses métodos de volta
-          pela instância, e extrair o Verilator primeiro só trocaria
-          `this.x()` por `ctx.x()`;
-        - `verilator_da_onda.ts`, o Verilator do Wave e o Fast Sim
-          (`ondaNoVerilator`);
-        - `cocotb_da_onda.ts` (`cocotbNaSimulacao`, com o mundo montado
-          inteiro: Python, pacote, HDL, dump). O anúncio do DUT e do
-          simulador, que estava escrito duas vezes, virou uma função.
+      - [x] `compilation_module` (27/09): de 3725 linhas `.js` para cerca
+        de 650 `.ts`, e o `compilation_module.d.ts` escrito à mão saiu.
+        Escolhido por ser o maior e o terceiro que mais muda, e por nunca ter
+        sido mexido. A classe ficou com o estado de uma compilação (a
+        configuração, o terminal, a seleção de sinais) e a ordem das fases do
+        `runGtkWave`; cada passo mora num módulo que a recebe como contexto:
+        `hierarquia_do_projeto`, `checagem_de_sintaxe`, `preparo_da_onda`,
+        `icarus_da_onda`, `verilator_da_onda` (com o Fast Sim),
+        `cocotb_da_onda`, `teste_de_hardware`, `durante_a_simulacao`,
+        `arquivos_da_simulacao`, `cabecalho_do_dump`, `layout_do_gtkwave`,
+        `layout_do_surfer` e `abrir_onda`. Cada um saiu com teste de
+        caracterização que entra pelo que o fluxo chama e foi rodado também no
+        `.js` antigo; os testes têm um objeto `chamar`, o único ponto que
+        sabe onde cada peça mora. Os utilitários comuns das simulações
+        (`durante_a_simulacao`, `arquivos_da_simulacao`) saíram antes dos
+        simuladores porque estes os chamavam de volta pela instância, e
+        extrair um simulador primeiro só trocaria `this.x()` por `ctx.x()`.
+        Lição para o próximo gigante: falso de método da instância no teste não
+        sobrevive à extração; falsificar no nível do módulo ou montar o mundo
+        inteiro.
 
-        Viraram `.ts` antes, com teste das linhas que faltavam:
-        `hierarchy_parser`, `surfer_tab_preference`, `prism_wave_layout`,
-        `dump_guard`, `verilator_trace_rules`, `wave_signal_validator`,
-        `cocotb_runner_source`. Código morto que saiu: o
-        `monitorGtkwaveProcess` consultava o processo a cada 2 s só para
-        zerar campos que ninguém lia (o `isHierarchicalView` nunca virava
-        `true`), e o `surferProcess` era só escrito. Com isso o canal
-        `check-process-running` (`isProcessRunning` no `preload.js`, handler
-        em `main/ipc/compile.js`) ficou sem chamador; sai quando esses dois
-        arquivos converterem.
+        Viraram `.ts` no caminho, com teste das linhas que faltavam:
+        `hierarchy_parser`, `hierarchy_view`, `surfer_tab_preference`,
+        `prism_wave_layout`, `dump_guard`, `verilator_trace_rules`,
+        `wave_signal_validator`, `cocotb_runner_source`, `fopen_paths`. O
+        CompilationModule passou a ler a bandeira do Cancelar direto do
+        `cancelamento.ts`. Código morto que saiu: o `monitorGtkwaveProcess`
+        consultava o processo a cada 2 s só para zerar campos que ninguém lia
+        (o `isHierarchicalView` nunca virava `true`), o `surferProcess` era
+        só escrito, e o `_stageProcessorMemoryFiles` ficou sem chamador. Com
+        isso o canal `check-process-running` (`isProcessRunning` no
+        `preload.js`, handler em `main/ipc/compile.js`) ficou sem chamador;
+        sai quando esses dois arquivos converterem.
 
-        Defeitos corrigidos no caminho: a aba do Surfer reconhecia `.sucl`
-        com o ponto sem escape; no cocotb, a defesa do dump rodava depois de
-        ligar o ouvinte da saída ao vivo, e a recusa o deixava ligado, então
-        toda saída em fluxo seguinte aparecia repetida no TWAVE.
+        Defeitos corrigidos no caminho, cada um com o teste antes:
+        - a aba do Surfer reconhecia `.sucl` com o ponto sem escape;
+        - no cocotb, a defesa do dump rodava depois de ligar o ouvinte da
+          saída ao vivo, e a recusa o deixava ligado: toda saída em fluxo
+          seguinte aparecia repetida no TWAVE;
+        - o Icarus, o simulador padrão, não conferia os `$fopen` de leitura:
+          a conferência nasceu para o caso do vvp (`d6e6a399`), mas ficou no
+          preparo que só o Verilator usava, porque o build do `.vvp` repetia
+          o preparo à mão;
+        - testbench `.sv` no Icarus e topo `.sv` no botão Verilog: o nome do
+          módulo saía de `.replace(/\.v$/)`, e `filtro_tb.sv` virava
+          `-s filtro_tb.sv`.
 
-        Falta: o Icarus (`waveBuildVvp`, `_prepareWaveBuildInputs`,
-        `instrumentTestbench`, `_waveRunVvpSimulation`), o `.gtkw`
-        (`_waveResolveGtkwSaveFile`, `_waveValidateUserGtkwAgainstVcd`), o
-        `_extractFstHeaderVcd`, o `syntaxCheck`/`verilogSyntaxCheck`, a
-        configuração e o `runGtkWave`; depois converter o que sobrar. Um
-        latente, não corrigido: a onda do PRISM aberta na aba do Surfer leva
-        os tradutores da última corrida do Wave (`_surferTabMappings` não é
-        zerado no `abrirOndaExterna`); não aparece na tela porque o layout do
-        PRISM não os usa.
+        Um latente, não corrigido: a onda do PRISM aberta na aba do Surfer
+        leva os tradutores da última corrida do Wave (`_surferTabMappings` não
+        é zerado no `abrirOndaExterna`); não aparece na tela porque o layout
+        do PRISM não os usa.
       - [ ] E2E instável: `shell-terminal > navigates folders (cd persists,
         prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
         mudança do momento (o repetidor deu 3 verdes seguidas).

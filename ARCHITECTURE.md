@@ -227,15 +227,25 @@ que existir no dump que a simulação de fato produziu. O usuário pode pedir si
 por mais de um caminho, mas o dump vence.
 
 O orquestrador é o `runGtkWave` em
-[compilation_module.js](js/compilation/compilation_module.js). Ele valida, exigindo
-testbench e deixando síntese e topo opcionais, e então roda fases privadas, cada
-uma com contrato próprio em JSDoc. O orquestrador é curto de propósito e documenta
-só a ordem das fases. Mudança de comportamento pertence a uma fase; se você se
-pegar tocando duas fases para uma funcionalidade, achou uma abstração faltando.
+[compilation_module.ts](js/compilation/compilation_module.ts). Ele valida, exigindo
+testbench e deixando síntese e topo opcionais, e então roda as fases, cada uma num
+módulo próprio que recebe a instância como contexto: o preparo
+([preparo_da_onda.ts](js/compilation/preparo_da_onda.ts)), o simulador
+([icarus_da_onda.ts](js/compilation/icarus_da_onda.ts),
+[verilator_da_onda.ts](js/compilation/verilator_da_onda.ts),
+[cocotb_da_onda.ts](js/compilation/cocotb_da_onda.ts)), o dump
+([arquivos_da_simulacao.ts](js/compilation/arquivos_da_simulacao.ts),
+[cabecalho_do_dump.ts](js/compilation/cabecalho_do_dump.ts)), o layout
+([layout_do_gtkwave.ts](js/compilation/layout_do_gtkwave.ts),
+[layout_do_surfer.ts](js/compilation/layout_do_surfer.ts)) e o visualizador
+([abrir_onda.ts](js/compilation/abrir_onda.ts)). O orquestrador é curto de
+propósito e documenta só a ordem das fases. Mudança de comportamento pertence a
+uma fase; se você se pegar tocando duas fases para uma funcionalidade, achou uma
+abstração faltando.
 
 O fluxo tem dois eixos de ramificação, a linguagem do testbench, Verilog ou Python
 com cocotb, e o simulador, Icarus por padrão ou Verilator por opção. Os quatro
-caminhos convergem em `_waveResolveVcdFile`, que acha o dump produzido; se houver
+caminhos convergem em `acharDumpDaSimulacao`, que acha o dump produzido; se houver
 um candidato com nome diferente ele adota com aviso, e se houver zero ou vários
 ele lança com instrução concreta.
 

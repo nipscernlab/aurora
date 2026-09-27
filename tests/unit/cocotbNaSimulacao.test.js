@@ -269,10 +269,10 @@ describe('_waveRunCocotbSimulation', () => {
         const passos = ligarRunner();
         await expect(chamar.rodar(mod, CTX, TOOLS, { testbenchFile: PY })).rejects.toThrow('error.compilation.dumpLockedDenied');
         expect(passos).toHaveLength(0);
-        // DEFEITO de hoje: o ouvinte do fluxo e ligado antes da defesa e fica
-        // ligado quando ela recusa. Toda saida em fluxo que vier depois, de
-        // qualquer passo, e repetida no TWAVE. Corrigido no commit seguinte.
-        expect(api._ouvintes).toHaveLength(1);
+        // A defesa vem antes de ligar o ouvinte do fluxo. Com ela depois, a
+        // recusa deixava o ouvinte ligado, e toda saida em fluxo que viesse
+        // depois, de qualquer passo, era repetida no TWAVE.
+        expect(api._ouvintes).toHaveLength(0);
     });
 
     it('sem pasta de projeto, a do testbench faz as vezes; sem fluxo ao vivo roda igual', async () => {

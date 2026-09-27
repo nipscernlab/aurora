@@ -1522,10 +1522,18 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     await avisarSeNaBateria(this.terminalManager, 'twave');
     this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(spec), 'info', { internal: true });
 
+    // Mesma blindagem dos fluxos vvp/Verilator (defesa 1 de dump_guard.js).
+    // So no modo wave: o Fast Sim (wave=false) nao escreve dump nenhum. Vem
+    // ANTES de ligar o ouvinte do fluxo: com a recusa depois dele, o ouvinte
+    // ficava ligado e repetia no TWAVE toda saida em fluxo que viesse depois.
+    if (wave) {
+        await exigirDumpGravavel(this.projectPath || tbDir, NOMES_DE_DUMP_COCOTB);
+    }
+
     // Um contador que sobe vira a barra, e nao uma linha por atualizacao. Os
-    // formatos reconhecidos moram no progress_line.js, junto com a regra de
+    // formatos reconhecidos moram no progress_line.ts, junto com a regra de
     // quando NAO engolir a linha; aqui so se decide o que fazer com o que ele
-    // devolve. Ver _consumirProgresso.
+    // devolve. Ver consumirProgresso.
     let unsubscribe = null;
     if (typeof electronAPI.onExecSpecStream === 'function') {
         unsubscribe = electronAPI.onExecSpecStream((payload) => {
@@ -1536,12 +1544,6 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
                 this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });
-    }
-
-    // Mesma blindagem dos fluxos vvp/Verilator (defesa 1 de dump_guard.js).
-    // So no modo wave: o Fast Sim (wave=false) nao escreve dump nenhum.
-    if (wave) {
-        await exigirDumpGravavel(this.projectPath || tbDir, NOMES_DE_DUMP_COCOTB);
     }
 
     let code;

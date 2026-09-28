@@ -13,7 +13,6 @@
 const { ipcMain, app, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { execFile } = require('child_process');
 const log = require('electron-log');
 
 const state = require('../state');
@@ -108,25 +107,6 @@ function register() {
   // sink with no remaining callers. All toolchain execution now goes through
   // the structured-spec executor (main/compile/executor.js), which validates
   // against a binary allowlist and protected flags and spawns with shell:false.
-
-  ipcMain.handle('check-process-running', async (_event, pid) => {
-    // Coerce to integer: pid comes from the renderer; if it's not a clean
-    // number we shouldn't shell anything out for it.
-    const pidInt = Number.parseInt(pid, 10);
-    if (!Number.isFinite(pidInt)) return false;
-    return new Promise((resolve) => {
-      // CSV sem cabecalho e o PID (segunda coluna) comparado inteiro: o
-      // `includes` casava 12 com 1234 e com a coluna de memoria de qualquer linha.
-      execFile('tasklist', ['/FI', `PID eq ${pidInt}`, '/FO', 'CSV', '/NH'], (error, stdout) => {
-        if (error) { resolve(false); return; }
-        const vivo = String(stdout).split(/\r?\n/).some((linha) => {
-          const colunas = linha.split('","');
-          return colunas.length > 1 && colunas[1] === String(pidInt);
-        });
-        resolve(vivo);
-      });
-    });
-  });
 
   ipcMain.handle('launch-gtkwave-only', async (_event, options) => {
     const { gtkwaveBin, args, workingDir } = options;

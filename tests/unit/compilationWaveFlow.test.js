@@ -151,7 +151,6 @@ function makeFakeApi() {
             return { exists: arquivos.has(norm(p)), writable: true };
         }),
         isOnBattery: vi.fn(async () => ({ naBateria: false })),
-        isProcessRunning: vi.fn(async () => false),
         killCurrentSpecProcess: vi.fn(async () => ({ success: true })),
         // Os ouvintes de saida ao vivo, guardados de verdade: a captura do
         // cabecalho do FST depende deles. O caminho normal le o cabecalho pelo

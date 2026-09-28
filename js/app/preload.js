@@ -265,7 +265,6 @@ const compilationOperations = {
 
   cancelVvpProcess:    () => ipcRenderer.invoke('cancel-vvp-process'),
   killCurrentSpecProcess: () => ipcRenderer.invoke('kill-current-spec-process'),
-  isProcessRunning:    (pid) => ipcRenderer.invoke('check-process-running', pid),
 
   launchGtkwaveOnly: (opts) => ipcRenderer.invoke('launch-gtkwave-only', opts),
   launchSurfer: (opts) => ipcRenderer.invoke('launch-surfer', opts),

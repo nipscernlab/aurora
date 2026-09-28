@@ -16,15 +16,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const require = createRequire(import.meta.url);
-const { renderModule, classify, allModules } = require('../../scripts/prism-skin-standard.js');
+import { renderModule, classify, allModules } from '../../scripts/prism-skin-standard.mts';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SCRIPT = path.join(RAIZ, 'scripts', 'prism-skin-standard.js');
+const SCRIPT = path.join(RAIZ, 'scripts', 'prism-skin-standard.mts');
 const SKINS = path.join(RAIZ, 'assets', 'prism-skins');
 const HDL = path.join(RAIZ, 'components', 'HDL');
 const temHdl = fs.existsSync(path.join(HDL, 'core.v'));

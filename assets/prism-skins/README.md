@@ -79,7 +79,7 @@ não uma coleção de logos.
 
 A referência que define o padrão é o `ula_mux.svg`, a célula SAPHO mais complexa,
 com um multiplexador de quarenta e dois para um, gerado por
-`scripts/prism-skin-standard.js`. Esse script é o padrão: edite os tokens, as
+`scripts/prism-skin-standard.mts`. Esse script é o padrão: edite os tokens, as
 famílias e a geometria nele, e não os SVGs à mão.
 
 São oito princípios.
@@ -136,7 +136,7 @@ comparação em `--aurora-teal`, deslocamento em `--aurora-pink` e normalizaçã
 ### Silhuetas por classe
 
 Cada classe é desenhada como seu símbolo de livro-texto, e todas estão
-implementadas no `prism-skin-standard.js`, que despacha pela forma devolvida por
+implementadas no `prism-skin-standard.mts`, que despacha pela forma devolvida por
 `classify(name)`.
 
 | Classe | Forma | Exemplos |
@@ -182,13 +182,13 @@ sempre defina `font-family`.
 
 ## Gerando e revisando
 
-O `scripts/prism-skin-standard.js` percorre cada módulo em `components/HDL/*.v` e
+O `scripts/prism-skin-standard.mts` percorre cada módulo em `components/HDL/*.v` e
 o desenha, escolhendo acento e marca automaticamente a partir do nome.
 
 ```sh
-node scripts/prism-skin-standard.js            # regenera todas as skins
-node scripts/prism-skin-standard.js --only pc  # só uma
-node scripts/prism-skin-standard.js --print pc # despeja uma na saída padrão
+node scripts/prism-skin-standard.mts            # regenera todas as skins
+node scripts/prism-skin-standard.mts --only pc  # só uma
+node scripts/prism-skin-standard.mts --print pc # despeja uma na saída padrão
 ```
 
 Existe ainda o `scripts/gen-prism-skins.mts`, que é outro gerador, com outro

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * prism-skin-standard.js: the PRISM symbol STANDARD, made executable.
+ * prism-skin-standard.mts: the PRISM symbol STANDARD, made executable.
  *
  * Parses every SAPHO HDL module (components/HDL/*.v) and renders each one to a
  * professional, consistent PRISM symbol, so the whole datapath looks like one
  * deliberate family. Run:
  *
- *     node scripts/prism-skin-standard.js            # regenerate every skin
- *     node scripts/prism-skin-standard.js --only pc  # just one (debug)
- *     node scripts/prism-skin-standard.js --print pc # dump one to stdout
+ *     node scripts/prism-skin-standard.mts            # regenerate every skin
+ *     node scripts/prism-skin-standard.mts --only pc  # just one (debug)
+ *     node scripts/prism-skin-standard.mts --print pc # dump one to stdout
  *
  * ── THE STANDARD ────────────────────────────────────────────────────────────
  *  1. SILHOUETTE = MEANING. Each class is drawn as its textbook symbol: mux =
@@ -33,12 +33,11 @@
  * HARD RULES: `s:pid` MUST equal the Verilog port name; exclude `ifdef
  * YANC_SIM_VIS ports (yosys reads PRISM without that define). Keep s:type/alias.
  */
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const fs = require('fs');
-const path = require('path');
-
-const REPO = path.resolve(__dirname, '..');
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HDL_DIR = path.join(REPO, 'components', 'HDL');
 const SKIN_DIR = path.join(REPO, 'assets', 'prism-skins');
 
@@ -105,7 +104,13 @@ const WM = {
 };
 
 /* ── ula_mux input families (the one richly-grouped selector) ────────────── */
-const ULA_MUX_GROUPS = [
+interface Group {
+  family: keyof typeof FAMILY;
+  label: string;
+  pins: string[];
+}
+
+const ULA_MUX_GROUPS: Group[] = [
   { family: 'operand',     label: 'OPERANDS',           pins: ['in1', 'in2'] },
   { family: 'arithmetic',  label: 'ARITHMETIC · BINARY', pins: ['add', 'mlt', 'div', 'mod', 'sgn', 'fsgn'] },
   { family: 'arithmetic',  label: 'ARITHMETIC · UNARY',  pins: ['neg', 'negm', 'fneg', 'fnegm', 'abs', 'absm', 'fabs', 'fabsm', 'pst', 'pstm', 'fpst', 'fpstm', 'nrm', 'nrmm', 'f2i', 'f2im'] },
@@ -117,15 +122,30 @@ const ULA_MUX_GROUPS = [
 ];
 
 /* ── Verilog port extraction ────────────────────────────────────────────── */
-const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-function matchParen(s, open) { let d = 0; for (let i = open; i < s.length; i++) { if (s[i] === '(') d++; else if (s[i] === ')') { if (--d === 0) return i; } } return -1; }
-function portListText(s, after) {
+interface Port {
+  name: string;
+  dir: string;
+  bus?: boolean;
+}
+
+interface Mod {
+  name: string;
+  ports: Port[];
+}
+
+interface HdlMod extends Mod {
+  file: string;
+}
+
+const stripComments = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+function matchParen(s: string, open: number): number { let d = 0; for (let i = open; i < s.length; i++) { if (s[i] === '(') d++; else if (s[i] === ')') { if (--d === 0) return i; } } return -1; }
+function portListText(s: string, after: number): string {
   let i = after; while (i < s.length && /\s/.test(s[i])) i++;
   if (s[i] === '#') { const po = s.indexOf('(', i); if (po < 0) return ''; i = matchParen(s, po) + 1; while (i < s.length && /\s/.test(s[i])) i++; }
   if (s[i] !== '(') return ''; const c = matchParen(s, i); return c < 0 ? '' : s.slice(i + 1, c);
 }
-function dropIfdef(t) {
-  const out = []; let d = 0;
+function dropIfdef(t: string): string {
+  const out: string[] = []; let d = 0;
   for (const ln of t.split('\n')) {
     if (/^\s*`(ifdef|ifndef|if)\b/.test(ln)) { d++; continue; }
     if (/^\s*`endif\b/.test(ln)) { if (d > 0) d--; continue; }
@@ -135,11 +155,11 @@ function dropIfdef(t) {
   return out.join('\n');
 }
 const KW = /\b(input|output|inout|reg|wire|logic|signed|unsigned|integer)\b/g;
-function parsePorts(text) {
-  const clean = dropIfdef(text); const segs = []; let d = 0, buf = '';
+function parsePorts(text: string): Port[] {
+  const clean = dropIfdef(text); const segs: string[] = []; let d = 0, buf = '';
   for (const ch of clean) { if (ch === '[') d++; else if (ch === ']') d = Math.max(0, d - 1); if (ch === ',' && d === 0) { segs.push(buf); buf = ''; } else buf += ch; }
   if (buf.trim()) segs.push(buf);
-  const ports = []; let dir = 'input';
+  const ports: Port[] = []; let dir = 'input';
   for (let seg of segs) {
     seg = seg.trim(); if (!seg) continue;
     const dm = seg.match(/^(input|output|inout)\b/); if (dm) dir = dm[1];
@@ -149,13 +169,13 @@ function parsePorts(text) {
   }
   return ports;
 }
-function modulesInFile(src) {
-  const clean = stripComments(src); const out = []; const re = /\bmodule\s+([A-Za-z_]\w*)/g; let m;
+function modulesInFile(src: string): Mod[] {
+  const clean = stripComments(src); const out: Mod[] = []; const re = /\bmodule\s+([A-Za-z_]\w*)/g; let m: RegExpExecArray | null;
   while ((m = re.exec(clean))) out.push({ name: m[1], ports: parsePorts(portListText(clean, m.index + m[0].length)) });
   return out;
 }
-function allModules() {
-  const out = [];
+function allModules(): HdlMod[] {
+  const out: HdlMod[] = [];
   for (const f of fs.readdirSync(HDL_DIR).filter((x) => x.endsWith('.v'))) {
     for (const mod of modulesInFile(fs.readFileSync(path.join(HDL_DIR, f), 'utf8'))) out.push({ ...mod, file: f });
   }
@@ -163,7 +183,13 @@ function allModules() {
 }
 
 /* ── Classification ─────────────────────────────────────────────────────── */
-function classify(name) {
+interface Info {
+  cls: keyof typeof CLASS;
+  shape: string;
+  wm: keyof typeof WM | null;
+}
+
+function classify(name: string): Info {
   // Silhouette = meaning: each class gets the textbook shape for its function.
   // Watermark only on the `processor` top cell (the SAPHO "S").
   if (name === 'ula_mux' || name === 'norm_mux') return { cls: 'selector', shape: 'selector', wm: null };
@@ -181,12 +207,12 @@ function classify(name) {
 }
 
 /* ── Drawing helpers ────────────────────────────────────────────────────── */
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-const labW = (s) => String(s).length * 3.35 + 3;       // ~mono 5.5px width
-let P = [];
-const push = (...l) => P.push(...l);
+const esc = (s: unknown): string => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+const labW = (s: unknown): number => String(s).length * 3.35 + 3;       // ~mono 5.5px width
+let P: string[] = [];
+const push = (...l: string[]): number => P.push(...l);
 
-function watermark(kind, cxT, cyT, size) {
+function watermark(kind: keyof typeof WM, cxT: number, cyT: number, size: number): string {
   const w = WM[kind];
   const sc = (size / w.w).toFixed(5);
   const tx = (cxT - w.cx * (size / w.w)).toFixed(2);
@@ -197,7 +223,7 @@ function watermark(kind, cxT, cyT, size) {
   return out.join('\n');
 }
 
-function roundRect(x, y, w, h, r) {
+function roundRect(x: number, y: number, w: number, h: number, r: number): string {
   return `M ${x + r},${y} H ${x + w - r} A ${r},${r} 0 0 1 ${x + w},${y + r} V ${y + h - r} ` +
     `A ${r},${r} 0 0 1 ${x + w - r},${y + h} H ${x + r} A ${r},${r} 0 0 1 ${x},${y + h - r} ` +
     `V ${y + r} A ${r},${r} 0 0 1 ${x + r},${y} Z`;
@@ -215,10 +241,10 @@ function roundRect(x, y, w, h, r) {
  * triangulo do clk.
  */
 const PIN = 2.0;
-const pin = (x, y) => `    <rect x="${(x - PIN / 2).toFixed(1)}" y="${(y - PIN / 2).toFixed(1)}" width="${PIN}" height="${PIN}" rx="0.6" fill="${C.pin}"/>`;
-const anchor = (x, y, name) => `    <g s:x="${x}" s:y="${y}" s:pid="${name}"/>`;
+const pin = (x: number, y: number): string => `    <rect x="${(x - PIN / 2).toFixed(1)}" y="${(y - PIN / 2).toFixed(1)}" width="${PIN}" height="${PIN}" rx="0.6" fill="${C.pin}"/>`;
+const anchor = (x: number, y: number, name: string): string => `    <g s:x="${x}" s:y="${y}" s:pid="${name}"/>`;
 
-function header(x, w, title, subtitle, accent) {
+function header(x: number, w: number, title: string, subtitle: string, accent: string): void {
   // The instance ref sits a clear ~11px below the top edge so it never clips
   // (it used to ride the border and get cut). Title + subtitle + hairline follow.
   push(`    <text x="${x}" y="${TOP + 11}" class="$cell_id" s:attribute="ref" style="font-family: ${FONT}; text-anchor: start; font-size: 7px; font-style: italic; fill: ${accent}; opacity: 0.85;">u</text>`);
@@ -232,11 +258,11 @@ function header(x, w, title, subtitle, accent) {
 const TOP = 18, HEADER = 40;
 
 /* ── Shared port rows + scaffolding ─────────────────────────────────────── */
-const clkTri = (x, y) =>
+const clkTri = (x: number, y: number): string =>
   `    <path d="M ${x + 3},${(y - 2.4).toFixed(1)} L ${x + 6},${y} L ${x + 3},${(y + 2.4).toFixed(1)} Z" fill="${C.control}"/>`;
 
 // One west input row: pin + (edge ▸ for clk) + mono label + anchor.
-function inputRow(p, x, y, accent) {
+function inputRow(p: Port, x: number, y: number, accent: string): void {
   const isC = CONTROL.has(p.name);
   push(pin(x, y));
   if (p.name === 'clk') push(clkTri(x, y));
@@ -245,15 +271,15 @@ function inputRow(p, x, y, accent) {
 }
 
 // One east output row: pin + right-aligned mono label + anchor.
-function outputRow(p, xRight, y) {
+function outputRow(p: Port, xRight: number, y: number): void {
   push(pin(xRight, y));
   push(`    <text x="${xRight - 7}" y="${(y + 2.1).toFixed(1)}" class="$cell_id" s:attribute="" style="font-family: ${MONO}; text-anchor: end; font-size: 5.5px; fill: ${C.label};">${esc(p.name)}</text>`);
   push(anchor(xRight, y, p.name));
 }
 
-function svgOpen(mod, info, bodyW, height) {
+function svgOpen(mod: Mod, info: Info, bodyW: number, height: number): void {
   push('<?xml version="1.0" encoding="UTF-8"?>');
-  push(`<!-- PRISM symbol: ${mod.name} (${CLASS[info.cls].tag}) — generated by scripts/prism-skin-standard.js`);
+  push(`<!-- PRISM symbol: ${mod.name} (${CLASS[info.cls].tag}) — generated by scripts/prism-skin-standard.mts`);
   push('     Edit the standard there, not this file. Keep s:type / s:alias / every s:pid. -->');
   push('<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="https://github.com/nturley/netlistsvg">');
   push(`  <g s:type="${mod.name}" transform="translate(0, 0)" s:width="${bodyW}" s:height="${height}">`);
@@ -262,14 +288,14 @@ function svgOpen(mod, info, bodyW, height) {
 }
 
 // control-first input order (so clk/rst sit at the top), data, outputs.
-function splitPorts(mod) {
+function splitPorts(mod: Mod): { ins: Port[]; data: Port[]; outs: Port[] } {
   const ctrl = mod.ports.filter((p) => p.dir !== 'output' && CONTROL.has(p.name));
   const data = mod.ports.filter((p) => p.dir !== 'output' && !CONTROL.has(p.name));
   const outs = mod.ports.filter((p) => p.dir === 'output');
   return { ins: [...ctrl, ...data], data, outs };
 }
 
-function bodyWidth(mod, ins, outs, extra = 46) {
+function bodyWidth(mod: Mod, ins: Port[], outs: Port[], extra = 46): number {
   const maxInW = Math.max(0, ...ins.map((p) => labW(p.name)));
   const maxOutW = Math.max(0, ...outs.map((p) => labW(p.name)));
   const titleW = labW(mod.name) * 1.6;
@@ -281,7 +307,12 @@ const cardStyle = `fill: ${C.card}; stroke: ${C.stroke}; stroke-width: 1.4; stro
 /* ── Rectangular family: chip / register / memory / FIFO ─────────────────── */
 // All four share the chip layout; they differ only in corner radius and an
 // optional interior motif (decorate). One code path → identical port geometry.
-function renderRectish(mod, info, opts = {}) {
+interface RectOpts {
+  corner?: number;
+  decorate?: (bodyW: number, bodyH: number) => void;
+}
+
+function renderRectish(mod: Mod, info: Info, opts: RectOpts = {}): string {
   P = [];
   const corner = opts.corner != null ? opts.corner : 6;
   const accent = CLASS[info.cls].color;
@@ -314,12 +345,12 @@ function renderRectish(mod, info, opts = {}) {
 }
 
 // chip: hierarchical / control block (rounded card).
-const renderBlock = (mod, info) => renderRectish(mod, info);
+const renderBlock = (mod: Mod, info: Info): string => renderRectish(mod, info);
 // register: sharp corners + the clk edge ▸ (drawn by inputRow) say "clocked state".
-const renderRegister = (mod, info) => renderRectish(mod, info, { corner: 1.5 });
+const renderRegister = (mod: Mod, info: Info): string => renderRectish(mod, info, { corner: 1.5 });
 
 // memory: a faint array grid in a centre band reads as stored rows × cells.
-function renderMemory(mod, info) {
+function renderMemory(mod: Mod, info: Info): string {
   return renderRectish(mod, info, {
     corner: 6,
     decorate: (bodyW, bodyH) => {
@@ -339,7 +370,7 @@ function renderMemory(mod, info) {
 }
 
 // FIFO: three flow chevrons through the body say "data streams in → out".
-function renderFIFO(mod, info) {
+function renderFIFO(mod: Mod, info: Info): string {
   return renderRectish(mod, info, {
     corner: 6,
     decorate: (bodyW, bodyH) => {
@@ -356,7 +387,7 @@ function renderFIFO(mod, info) {
 
 /* ── ALU: the textbook function unit, flat top, tapered result edge, and a
  *    V-notch bitten into the operand (west) side when there are ≥2 operands. ─ */
-function renderALU(mod, info) {
+function renderALU(mod: Mod, info: Info): string {
   P = [];
   const accent = CLASS[info.cls].color;
   const { ins, data, outs } = splitPorts(mod);
@@ -369,7 +400,7 @@ function renderALU(mod, info) {
   const n = ins.length;
   const topN = Math.ceil(n / 2), botN = n - topN;
   const groupGap = (hasNotch && botN > 0) ? 8 : 0;
-  const rowY = [];
+  const rowY: number[] = [];
   let yy = topPortY;
   for (let i = 0; i < topN; i++) { rowY.push(yy); yy += rowPitch; }
   yy += groupGap;
@@ -405,7 +436,7 @@ function renderALU(mod, info) {
 
 /* ── Decoder: few-in → many-out. Flat top (header), vertical right edge for the
  *    fanned outputs, sloped bottom up to a shorter input (west) edge. ──────── */
-function renderDecoder(mod, info) {
+function renderDecoder(mod: Mod, info: Info): string {
   P = [];
   const accent = CLASS[info.cls].color;
   const { ins, outs } = splitPorts(mod);
@@ -433,13 +464,13 @@ function renderDecoder(mod, info) {
 }
 
 /* ── Selector renderer (ula_mux, norm_mux): pentagon + grouped inputs ──────── */
-function renderSelector(mod, info) {
+function renderSelector(mod: Mod, info: Info): string {
   P = [];
   const accent = CLASS.selector.color;
   const selPort = mod.ports.find((p) => p.name === 'op') || mod.ports.find((p) => CONTROL.has(p.name));
   const outPort = mod.ports.find((p) => p.dir === 'output');
   // groups
-  let groups;
+  let groups: Group[];
   if (mod.name === 'ula_mux') groups = ULA_MUX_GROUPS;
   else {
     const ins = mod.ports.filter((p) => p.dir !== 'output' && p !== selPort).map((p) => p.name);
@@ -448,7 +479,8 @@ function renderSelector(mod, info) {
   const rowPitch = 7, groupH = 12, groupGap = 5;
   const bodyW = 170, taper = 56, apexH = 18, flatRight = bodyW - taper;
 
-  const rows = []; const heads = [];
+  const rows: { y: number; name: string; family: Group['family'] }[] = [];
+  const heads: { hy: number; label: string; family: Group['family']; y0: number; y1: number }[] = [];
   let cur = TOP + HEADER + 6;
   for (const g of groups) {
     const hy = cur; cur += groupH; const y0 = cur - rowPitch / 2;
@@ -465,7 +497,7 @@ function renderSelector(mod, info) {
     `L ${bodyW - 2},${cy - apexH} L ${bodyW - 2},${cy + apexH} L ${flatRight},${botEdge} L 4,${botEdge} Z`;
 
   push('<?xml version="1.0" encoding="UTF-8"?>');
-  push(`<!-- PRISM symbol: ${mod.name} (selector) — generated by scripts/prism-skin-standard.js`);
+  push(`<!-- PRISM symbol: ${mod.name} (selector) — generated by scripts/prism-skin-standard.mts`);
   push('     Edit the standard there, not this file. Keep s:type / s:alias / every s:pid. -->');
   push('<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="https://github.com/nturley/netlistsvg">');
   push(`  <g s:type="${mod.name}" transform="translate(0, 0)" s:width="${bodyW}" s:height="${height}">`);
@@ -506,7 +538,7 @@ function renderSelector(mod, info) {
   return P.join('\n') + '\n';
 }
 
-function renderModule(mod) {
+function renderModule(mod: Mod): string {
   const info = classify(mod.name);
   switch (info.shape) {
     case 'selector': return renderSelector(mod, info);
@@ -537,5 +569,5 @@ function main() {
   console.log(`[prism-skin-standard] wrote ${n} skin${n === 1 ? '' : 's'} to assets/prism-skins/`);
 }
 
-if (require.main === module) main();
-module.exports = { renderModule, classify, allModules };
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main();
+export { renderModule, classify, allModules };

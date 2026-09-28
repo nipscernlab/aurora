@@ -2563,6 +2563,6 @@ formalmente, não consertado.
   parece defeito no aplicativo e não é. Custou três tentativas em 29/08/2026,
   com o `npm run test:e2e` passando ao lado o tempo todo, que era a pista.
 - PRISM, a grade dentro dos cartões de memória é símbolo da família (linhas por
-  colunas = células armazenadas), gerada por `scripts/prism-skin-standard.js`
+  colunas = células armazenadas), gerada por `scripts/prism-skin-standard.mts`
   com opacidade 0,16 a 0,22. Decidido em 22/08 manter; se incomodar, ajustar
   no gerador e regerar, nunca editar o SVG à mão.

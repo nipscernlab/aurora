@@ -1,5 +1,5 @@
 /**
- * wave_config_manager.js: Wave Configuration modal.
+ * wave_config_manager.ts: Wave Configuration modal.
  *
  * Hierarchical signal picker: walks the project's Verilog files, builds
  * a tree rooted at the testbench module, lets the user check which
@@ -15,6 +15,7 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { parseVerilogModules, buildHierarchyTree } from './signal_parser.js';
+import type { HierarchyNode, VerilogFile, VerilogSignal } from './signal_parser.js';
 import { parseVcdHeaderFromContent } from './vcd_parser.js';
 import { buildAliasMap } from './gtkw_proc_writer.js';
 import { hasUserDumpCalls } from './testbench_instrumenter.js';
@@ -22,34 +23,86 @@ import { WaveStore } from './wave_state_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { projectTempDir } from '../project/project_temp.js';
 import { SpfStore } from '../project/spf_store.js';
+import type { SpfStructure } from '../project/spf_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getSurferMultiWindow, setSurferMultiWindow } from './surfer_window_preference.js';
 import { getSurferInTab, setSurferInTab } from './surfer_tab_preference.js';
 import { getSimulator } from './simulator_preference.js';
 
-function tbKeyFromPath(tbPath) {
+function tbKeyFromPath(tbPath: string | null | undefined): string {
     if (!tbPath) return '';
-    return tbPath.split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+    return tbPath.split(/[\\/]/).pop()!.replace(/\.[^.]+$/i, '');
 }
 
-function isCocotbTestbench(tbPath) {
+function isCocotbTestbench(tbPath: string | null | undefined): boolean {
     return /\.py$/i.test(String(tbPath || ''));
 }
 
+/** Os elementos do modal, achados por id em cacheElements(). */
+interface WaveConfigElements {
+    closeBtn?: HTMLElement | null;
+    cancelBtn?: HTMLElement | null;
+    saveBtn?: HTMLElement | null;
+    selectDefaultBtn?: HTMLElement | null;
+    selectAllBtn?: HTMLElement | null;
+    selectNoneBtn?: HTMLElement | null;
+    processorOnlyCb?: HTMLInputElement | null;
+    processorOnlyFilter?: HTMLElement | null;
+    surferInTabCb?: HTMLInputElement | null;
+    surferMultiWindowCb?: HTMLInputElement | null;
+    hintVerilator?: HTMLElement | null;
+    tree?: HTMLElement | null;
+    counter?: HTMLElement | null;
+    filterInput?: HTMLInputElement | null;
+    filterCount?: HTMLElement | null;
+    filterCaseBtn?: HTMLElement | null;
+    filterRegexBtn?: HTMLElement | null;
+    filterClearBtn?: HTMLElement | null;
+}
+
+/** O formato de escopo que o buildAliasMap le. */
+interface AliasScope {
+    path: string;
+    signals: { name: string }[];
+}
+
+/** Traducao opcional (window.t); sem ela, a propria chave. */
+type Traduzir = (k: string, p?: Record<string, unknown>) => string;
+
 class WaveConfigManager {
+    modal: HTMLElement | null;
+    elements: WaveConfigElements;
+    tree: HierarchyNode | null;
+    selected: Set<string>;
+    collapsedScopes: Set<string>;
+    _initialized: boolean;
+    _initialSelection: Set<string>;
+    _processorOnly: boolean;
+    _scopesWithAliasedSignal: Set<string>;
+    _filterText: string;
+    _filterCaseSensitive: boolean;
+    _filterIsRegex: boolean;
+    _filterRegex: RegExp | null;
+    _filterScopesOnPath: Set<string>;
+    _filterMatchedSignals: Set<string>;
+    _filterMatchCount: number;
+    // So existe depois do primeiro refresh() com arvore: `declare` para nao
+    // nascer a propriedade no construtor, como no .js.
+    declare aliasMap?: Map<string, string>;
+
     constructor() {
         this.modal = null;
         this.elements = {};
         this.tree = null;
-        this.selected = new Set();
-        this.collapsedScopes = new Set();
+        this.selected = new Set<string>();
+        this.collapsedScopes = new Set<string>();
         this._initialized = false;
         // Snapshot da selecao no momento em que o modal abre. Usado em
         // save() pra detectar se o usuario mudou algo, qualquer
         // diferenca seta wcCustomized=true no WaveStore e o compile
         // flow passa a injetar o proprio $dumpvars (override do testbench).
-        this._initialSelection = new Set();
+        this._initialSelection = new Set<string>();
         // Filtro visual "Show processor signals only", quando ligado,
         // mostra apenas signals "codificados" do processador (os que
         // tem alias no aliasMap, renderizados em negrito + cor accent
@@ -61,7 +114,7 @@ class WaveConfigManager {
         // signal aliased em si ou em descendentes. Modules fora desse
         // conjunto somem quando o filtro liga (junto com seus signals).
         // Consultado por _procFilterVisibility.
-        this._scopesWithAliasedSignal = new Set();
+        this._scopesWithAliasedSignal = new Set<string>();
 
         // Find widget state. Monaco-style text filter: literal substring
         // by default, regex via toggle; case-insensitive by default.
@@ -77,12 +130,12 @@ class WaveConfigManager {
         // visible (path-preservation) and to auto-expand them.
         // `_filterMatchedSignals` is the exact set of `scope.sig` full
         // names that pass the filter.
-        this._filterScopesOnPath = new Set();
-        this._filterMatchedSignals = new Set();
+        this._filterScopesOnPath = new Set<string>();
+        this._filterMatchedSignals = new Set<string>();
         this._filterMatchCount = 0;
     }
 
-    initialize() {
+    initialize(): void {
         if (this._initialized) return;
         this.cacheElements();
         if (!this.modal) {
@@ -94,7 +147,7 @@ class WaveConfigManager {
         this._initialized = true;
     }
 
-    cacheElements() {
+    cacheElements(): void {
         this.modal = document.getElementById('modalWaveConfig');
         if (!this.modal) return;
         this.elements = {
@@ -104,14 +157,14 @@ class WaveConfigManager {
             selectDefaultBtn:  document.getElementById('waveConfigSelectDefault'),
             selectAllBtn:      document.getElementById('waveConfigSelectAll'),
             selectNoneBtn:     document.getElementById('waveConfigSelectNone'),
-            processorOnlyCb:   document.getElementById('waveConfigProcessorOnly'),
-            processorOnlyFilter: document.getElementById('waveConfigProcessorOnly')?.closest('.wave-tree-filter'),
-            surferInTabCb:     document.getElementById('waveConfigSurferInTab'),
-            surferMultiWindowCb: document.getElementById('waveConfigSurferMultiWindow'),
+            processorOnlyCb:   document.getElementById('waveConfigProcessorOnly') as HTMLInputElement | null,
+            processorOnlyFilter: document.getElementById('waveConfigProcessorOnly')?.closest<HTMLElement>('.wave-tree-filter'),
+            surferInTabCb:     document.getElementById('waveConfigSurferInTab') as HTMLInputElement | null,
+            surferMultiWindowCb: document.getElementById('waveConfigSurferMultiWindow') as HTMLInputElement | null,
             hintVerilator:     document.getElementById('waveConfigHintVerilator'),
             tree:              document.getElementById('waveConfigTree'),
             counter:           document.getElementById('waveConfigSelectedCount'),
-            filterInput:       document.getElementById('waveConfigFilterInput'),
+            filterInput:       document.getElementById('waveConfigFilterInput') as HTMLInputElement | null,
             filterCount:       document.getElementById('waveConfigFilterCount'),
             filterCaseBtn:     document.getElementById('waveConfigFilterCase'),
             filterRegexBtn:    document.getElementById('waveConfigFilterRegex'),
@@ -121,7 +174,7 @@ class WaveConfigManager {
 
     // Multi-janela e um conceito do modo janela; com a aba ligada o checkbox
     // fica desabilitado (mantendo o valor salvo para quando a aba desligar).
-    _syncSurferMultiWindowEnabled() {
+    _syncSurferMultiWindowEnabled(): void {
         const cb = this.elements.surferMultiWindowCb;
         if (!cb) return;
         const inTab = this.elements.surferInTabCb ? this.elements.surferInTabCb.checked : getSurferInTab();
@@ -129,7 +182,7 @@ class WaveConfigManager {
         cb.closest('.wave-tree-filter')?.classList.toggle('is-disabled', inTab);
     }
 
-    bindListeners() {
+    bindListeners(): void {
         this.elements.closeBtn?.addEventListener('click', () => this.close());
         this.elements.cancelBtn?.addEventListener('click', () => this.close());
         // A ajuda contextual deste modal mora na tabela de js/ui/help_link.js,
@@ -143,18 +196,18 @@ class WaveConfigManager {
         // Preferencia GLOBAL persistida (localStorage), independente do Save/Cancel
         // do modal, espelha o toggle de viewer. Off = uma janela do Surfer (fecha
         // a anterior); On = varias janelas (comparar simulacoes lado a lado).
-        this.elements.surferMultiWindowCb?.addEventListener('change', (e) => {
-            setSurferMultiWindow(!!e.target.checked);
+        this.elements.surferMultiWindowCb?.addEventListener('change', (e: Event) => {
+            setSurferMultiWindow(!!(e.target as HTMLInputElement).checked);
         });
         // Aba x janela do Surfer: tambem GLOBAL e persistida. A opcao de
         // multi-janela so descreve o modo janela, entao ela desabilita
         // enquanto a aba esta ligada, em vez de fingir que se aplica.
-        this.elements.surferInTabCb?.addEventListener('change', (e) => {
-            setSurferInTab(!!e.target.checked);
+        this.elements.surferInTabCb?.addEventListener('change', (e: Event) => {
+            setSurferInTab(!!(e.target as HTMLInputElement).checked);
             this._syncSurferMultiWindowEnabled();
         });
-        this.elements.processorOnlyCb?.addEventListener('change', (e) => {
-            this._processorOnly = !!e.target.checked;
+        this.elements.processorOnlyCb?.addEventListener('change', (e: Event) => {
+            this._processorOnly = !!(e.target as HTMLInputElement).checked;
             if (this._processorOnly) {
                 // Default e abrir tudo colapsado menos o root, o que
                 // esconderia os signals do processador atras de varios
@@ -178,7 +231,7 @@ class WaveConfigManager {
         // Esc closes when modal is open. But if the focus is in the
         // filter input AND there's filter text, Esc clears the filter
         // first, Monaco-style two-step Esc (clear, then close).
-        document.addEventListener('keydown', (e) => {
+        document.addEventListener('keydown', (e: KeyboardEvent) => {
             if (e.key === 'Escape' && this.isOpen()) {
                 if (document.activeElement === this.elements.filterInput && this._filterText) {
                     this._setFilterText('');
@@ -191,13 +244,13 @@ class WaveConfigManager {
 
         // Click on overlay (outside the container) closes, same as
         // every other modal in Aurora.
-        this.modal.addEventListener('click', (e) => {
+        this.modal!.addEventListener('click', (e: MouseEvent) => {
             if (e.target === this.modal) this.close();
         });
 
         // Ctrl/Cmd+F focuses the find input, like Monaco. Scoped to the
         // modal so it doesn't intercept the shortcut globally.
-        this.modal.addEventListener('keydown', (e) => {
+        this.modal!.addEventListener('keydown', (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
                 const input = this.elements.filterInput;
                 if (input) {
@@ -209,21 +262,21 @@ class WaveConfigManager {
         });
 
         // Find widget, input, case/regex toggles, clear button.
-        this.elements.filterInput?.addEventListener('input', (e) => {
-            this._setFilterText(e.target.value);
+        this.elements.filterInput?.addEventListener('input', (e: Event) => {
+            this._setFilterText((e.target as HTMLInputElement).value);
         });
         this.elements.filterCaseBtn?.addEventListener('click', () => {
             this._filterCaseSensitive = !this._filterCaseSensitive;
-            this.elements.filterCaseBtn.classList.toggle('active', this._filterCaseSensitive);
-            this.elements.filterCaseBtn.setAttribute('aria-pressed', String(this._filterCaseSensitive));
+            this.elements.filterCaseBtn!.classList.toggle('active', this._filterCaseSensitive);
+            this.elements.filterCaseBtn!.setAttribute('aria-pressed', String(this._filterCaseSensitive));
             this._compileFilter();
             this._computeFilterMatches();
             this.renderTree();
         });
         this.elements.filterRegexBtn?.addEventListener('click', () => {
             this._filterIsRegex = !this._filterIsRegex;
-            this.elements.filterRegexBtn.classList.toggle('active', this._filterIsRegex);
-            this.elements.filterRegexBtn.setAttribute('aria-pressed', String(this._filterIsRegex));
+            this.elements.filterRegexBtn!.classList.toggle('active', this._filterIsRegex);
+            this.elements.filterRegexBtn!.setAttribute('aria-pressed', String(this._filterIsRegex));
             this._compileFilter();
             this._computeFilterMatches();
             this.renderTree();
@@ -239,7 +292,7 @@ class WaveConfigManager {
      * matcher, recomputes match sets, and re-renders. Called from the
      * input handler, from Esc-clear, and from the clear button.
      */
-    _setFilterText(text) {
+    _setFilterText(text: string | null | undefined): void {
         this._filterText = String(text ?? '');
         if (this.elements.filterInput && this.elements.filterInput.value !== this._filterText) {
             this.elements.filterInput.value = this._filterText;
@@ -257,11 +310,11 @@ class WaveConfigManager {
      * to literal substring if the user typed an invalid regex with the
      * `.*` toggle on, keeps the UI responsive instead of throwing.
      */
-    _compileFilter() {
+    _compileFilter(): void {
         const text = this._filterText.trim();
         if (!text) { this._filterRegex = null; return; }
         const flags = this._filterCaseSensitive ? 'g' : 'gi';
-        const literalEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const literalEscape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         try {
             this._filterRegex = this._filterIsRegex
                 ? new RegExp(text, flags)
@@ -296,7 +349,7 @@ class WaveConfigManager {
      * those are infra, not signals worth presenting to the picker. They
      * remain visible in hierarchical mode if the user navigates there.
      */
-    _computeFilterMatches() {
+    _computeFilterMatches(): void {
         this._filterScopesOnPath.clear();
         this._filterMatchedSignals.clear();
         this._filterMatchCount = 0;
@@ -304,12 +357,12 @@ class WaveConfigManager {
             this._updateFilterCount();
             return;
         }
-        const testRe = (s) => {
+        const testRe = (s: string | null | undefined): boolean => {
             if (!s) return false;
-            this._filterRegex.lastIndex = 0;
-            return this._filterRegex.test(s);
+            this._filterRegex!.lastIndex = 0;
+            return this._filterRegex!.test(s);
         };
-        const walk = (node) => {
+        const walk = (node: HierarchyNode): boolean => {
             let any = false;
             for (const sig of node.signals) {
                 if (this._isProcessorInternal(sig.name)) continue;
@@ -340,15 +393,15 @@ class WaveConfigManager {
      * Keep this list narrow, it's a hard-coded skip in the find widget
      * results, so over-inclusion would silently hide useful signals.
      */
-    _isProcessorInternal(sigName) {
+    _isProcessorInternal(sigName: string | null | undefined): boolean {
         if (!sigName) return false;
         return sigName.startsWith('me3_') || sigName.startsWith('arr_me3_');
     }
 
-    _updateFilterCount() {
+    _updateFilterCount(): void {
         const el = this.elements.filterCount;
         if (!el) return;
-        const tr = (k, p) => (window.t ? window.t(k, p) : k);
+        const tr: Traduzir = (k, p) => (window.t ? window.t(k, p) : k);
         if (!this._filterRegex) {
             el.textContent = '';
             el.classList.remove('no-match');
@@ -367,11 +420,11 @@ class WaveConfigManager {
 
     // ------------- open/close ------------------
 
-    isOpen() {
+    isOpen(): boolean {
         return this.modal?.getAttribute('aria-hidden') === 'false';
     }
 
-    async open() {
+    async open(): Promise<void> {
         const projectPath = ProjectStore.getProjectPath();
         const spfPath = ProjectStore.getSpfPath();
 
@@ -404,7 +457,7 @@ class WaveConfigManager {
                 ...(cfg.testbenchFiles || [])
                     .filter((f) => !cocotb || !/\.py$/i.test(f?.path || ''))
                     .map((f) => f?.path),
-            ].filter(Boolean);
+            ].filter(Boolean) as string[];
             // Include components/HDL/*.v (SAPHO library: core, ula, addr_dec,
             // instr_dec, myFIFO, ...). Without these, _validateWaveSelection
             // doesn't see signals inside the processor core (e.g.
@@ -424,7 +477,7 @@ class WaveConfigManager {
                     }
                 }
             } catch (_e) { /* HDL unavailable, validate proceeds without it */ }
-            const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+            const moduleNameFromPath = (p: string | null | undefined) => p && p.split(/[\\/]/).pop()!.replace(/\.[^.]+$/i, '');
             const tbModule = (cocotb ? moduleNameFromPath(cfg.topLevelFile) : moduleNameFromPath(cfg.testbenchFile))
                 || moduleNameFromPath(cfg.topLevelFile);
             // waveSignals vive no WaveStore per-testbench. Le do tb atual.
@@ -496,21 +549,21 @@ class WaveConfigManager {
         this.modal?.classList.add('show');
     }
 
-    close() {
+    close(): void {
         this.modal?.setAttribute('aria-hidden', 'true');
         this.modal?.classList.remove('show');
     }
 
     // ------------- data refresh ----------------
 
-    async refresh() {
+    async refresh(): Promise<void> {
         const projectPath = ProjectStore.getProjectPath();
         const spfPath = ProjectStore.getSpfPath();
         // Reset no inicio: cada early-return abaixo deixa o picker sem
         // arvore, o que tambem significa "sem processador". Sem esse
         // reset, o set ficaria stale do refresh anterior e o checkbox
         // "processor only" continuaria visivel num projeto sem processador.
-        this._scopesWithAliasedSignal = new Set();
+        this._scopesWithAliasedSignal = new Set<string>();
         if (!projectPath || !spfPath) {
             this.tree = null;
             this.renderTree();
@@ -519,7 +572,7 @@ class WaveConfigManager {
 
         const config = await SpfStore.read(spfPath);
         const cocotb = isCocotbTestbench(config.testbenchFile);
-        const filePaths = new Set();
+        const filePaths = new Set<string>();
         (config.synthesizableFiles || []).forEach((f) => f?.path && filePaths.add(f.path));
         if (!cocotb && config.testbenchFile) filePaths.add(config.testbenchFile);
         (config.testbenchFiles || [])
@@ -567,12 +620,12 @@ class WaveConfigManager {
                 }
             }),
         );
-        const ok = contents.filter(Boolean);
+        const ok = contents.filter(Boolean) as VerilogFile[];
         const { modules } = parseVerilogModules(ok);
 
         // The simulation top is the testbench module. Fall back to the
         // synthesizable top if no testbench is set (rare in practice).
-        const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+        const moduleNameFromPath = (p: string | null | undefined) => p && p.split(/[\\/]/).pop()!.replace(/\.[^.]+$/i, '');
         const topModule =
             (cocotb ? moduleNameFromPath(config.topLevelFile) : moduleNameFromPath(config.testbenchFile))
             || moduleNameFromPath(config.topLevelFile);
@@ -639,10 +692,10 @@ class WaveConfigManager {
         this.renderTree();
     }
 
-    _collapseAllExceptRoot() {
-        this.collapsedScopes = new Set();
+    _collapseAllExceptRoot(): void {
+        this.collapsedScopes = new Set<string>();
         if (!this.tree) return;
-        const walk = (node) => {
+        const walk = (node: HierarchyNode): void => {
             for (const child of node.children) {
                 this.collapsedScopes.add(child.scopePath);
                 walk(child);
@@ -657,9 +710,9 @@ class WaveConfigManager {
      * ({ path, signals: [{name}] }), pra que as regras do .gtkw
      * processor-aware se apliquem identicamente aqui no modal.
      */
-    _hierarchyToScopes(root) {
-        const scopes = [];
-        const walk = (n) => {
+    _hierarchyToScopes(root: HierarchyNode | null | undefined): AliasScope[] {
+        const scopes: AliasScope[] = [];
+        const walk = (n: HierarchyNode | null | undefined): void => {
             if (!n) return;
             scopes.push({
                 path: n.scopePath,
@@ -671,8 +724,8 @@ class WaveConfigManager {
         return scopes;
     }
 
-    _applyDefaultSelection() {
-        this.selected = new Set();
+    _applyDefaultSelection(): void {
+        this.selected = new Set<string>();
         if (!this.tree) return;
         for (const sig of this.tree.signals) {
             this.selected.add(`${this.tree.scopePath}.${sig.name}`);
@@ -691,7 +744,7 @@ class WaveConfigManager {
      *   - VCD nao existe ainda (primeira simulacao nem rodou);
      *   - parsing do testbench ou do VCD falhou.
      */
-    async _tryDeriveSelectionFromVcd(projectPath, config, topModule) {
+    async _tryDeriveSelectionFromVcd(projectPath: string, config: SpfStructure, topModule: string): Promise<Set<string> | null> {
         try {
             // Precisa ter um testbenchFile pra verificar dumpvars.
             if (!config.testbenchFile) return null;
@@ -709,7 +762,7 @@ class WaveConfigManager {
             // (legacy / single-pass runs).
             const headerPath = await electronAPI.joinPath(tempBaseDir, `${topModule}.header.vcd`);
             const legacyPath = await electronAPI.joinPath(tempBaseDir, `${topModule}.vcd`);
-            let vcdPath = null;
+            let vcdPath: string | null = null;
             if (await electronAPI.fileExists(headerPath)) vcdPath = headerPath;
             else if (await electronAPI.fileExists(legacyPath)) vcdPath = legacyPath;
             if (!vcdPath) return null;
@@ -718,7 +771,7 @@ class WaveConfigManager {
             const scopes = parseVcdHeaderFromContent(vcdContent);
             if (!Array.isArray(scopes) || scopes.length === 0) return null;
 
-            const derived = new Set();
+            const derived = new Set<string>();
             for (const scope of scopes) {
                 for (const sig of scope.signals) {
                     derived.add(`${scope.path}.${sig.name}`);
@@ -730,14 +783,14 @@ class WaveConfigManager {
         }
     }
 
-    selectDefault() {
+    selectDefault(): void {
         this._applyDefaultSelection();
         this.renderTree();
     }
 
-    selectAll() {
+    selectAll(): void {
         if (!this.tree) {
-            this.selected = new Set();
+            this.selected = new Set<string>();
             this.renderTree();
             return;
         }
@@ -746,7 +799,7 @@ class WaveConfigManager {
         // preservando o estado dos outros pra nao mexer no que esta
         // escondido. Filtro desligado: comportamento classico (todos).
         if (this._processorOnly) {
-            const walk = (node) => {
+            const walk = (node: HierarchyNode): void => {
                 for (const sig of node.signals) {
                     const full = `${node.scopePath}.${sig.name}`;
                     if (this._shouldRenderSignal(full)) this.selected.add(full);
@@ -755,8 +808,8 @@ class WaveConfigManager {
             };
             walk(this.tree);
         } else {
-            this.selected = new Set();
-            const walk = (node) => {
+            this.selected = new Set<string>();
+            const walk = (node: HierarchyNode): void => {
                 for (const sig of node.signals) {
                     this.selected.add(`${node.scopePath}.${sig.name}`);
                 }
@@ -767,12 +820,12 @@ class WaveConfigManager {
         this.renderTree();
     }
 
-    selectNone() {
+    selectNone(): void {
         // Filtro ligado: limpa so signals aliased (visiveis); o que esta
         // escondido pelo filtro fica intocado. Filtro desligado: limpa
         // tudo.
         if (this._processorOnly && this.tree) {
-            const walk = (node) => {
+            const walk = (node: HierarchyNode): void => {
                 for (const sig of node.signals) {
                     const full = `${node.scopePath}.${sig.name}`;
                     if (this._shouldRenderSignal(full)) this.selected.delete(full);
@@ -781,14 +834,14 @@ class WaveConfigManager {
             };
             walk(this.tree);
         } else {
-            this.selected = new Set();
+            this.selected = new Set<string>();
         }
         this.renderTree();
     }
 
     // ------------- rendering -------------------
 
-    renderTree() {
+    renderTree(): void {
         const treeEl = this.elements.tree;
         if (!treeEl) return;
         treeEl.innerHTML = '';
@@ -818,7 +871,7 @@ class WaveConfigManager {
             // can tell where every match lives without the indentation
             // dance. No module rows, no chevrons, no collapse state.
             treeEl.classList.add('flat-mode');
-            const flatWalk = (node) => {
+            const flatWalk = (node: HierarchyNode): void => {
                 for (const sig of node.signals) {
                     const fullName = `${node.scopePath}.${sig.name}`;
                     if (!this._shouldRenderSignal(fullName)) continue;
@@ -833,7 +886,7 @@ class WaveConfigManager {
         }
         treeEl.classList.remove('flat-mode');
 
-        const walk = (node, depth, parentVisible) => {
+        const walk = (node: HierarchyNode, depth: number, parentVisible: boolean): void => {
             const vis = this._procFilterVisibility(node.scopePath);
             if (vis.module) {
                 treeEl.appendChild(this._renderModuleRow(node, depth, parentVisible));
@@ -869,10 +922,8 @@ class WaveConfigManager {
      *     renderTree (`shouldRenderSignal`), porque o filtro precisa
      *     casar com aliasMap.has(fullName).
      *
-     * @param {string} scopePath
-     * @returns {{ module: boolean }}
      */
-    _procFilterVisibility(scopePath) {
+    _procFilterVisibility(scopePath: string): { module: boolean; } {
         if (!this._processorOnly) return { module: true };
         return { module: this._scopesWithAliasedSignal.has(scopePath) };
     }
@@ -882,10 +933,9 @@ class WaveConfigManager {
      * presente no aliasMap (= "codificado" do processador, renderizado
      * em negrito).
      *
-     * @param {string} fullName  `scope.path.sig`
-     * @returns {boolean}
+     * @param fullName  `scope.path.sig`
      */
-    _shouldRenderSignal(fullName) {
+    _shouldRenderSignal(fullName: string): boolean {
         if (!this._processorOnly) return true;
         return !!this.aliasMap?.has(fullName);
     }
@@ -899,15 +949,14 @@ class WaveConfigManager {
      * Roda uma vez por refresh(), depois cada renderTree consulta o
      * set em O(1).
      *
-     * @returns {Set<string>}
      */
-    _computeScopesWithAliasedSignal() {
-        const out = new Set();
+    _computeScopesWithAliasedSignal(): Set<string> {
+        const out = new Set<string>();
         if (!this.tree || !this.aliasMap) return out;
-        const walk = (node) => {
+        const walk = (node: HierarchyNode): boolean => {
             let qualifies = false;
             for (const sig of node.signals) {
-                if (this.aliasMap.has(`${node.scopePath}.${sig.name}`)) {
+                if (this.aliasMap!.has(`${node.scopePath}.${sig.name}`)) {
                     qualifies = true;
                     break;
                 }
@@ -929,7 +978,7 @@ class WaveConfigManager {
      * escondemos, tambem desligamos o filtro pra nao deixar a arvore
      * presa num estado filtrado que o usuario nao consegue mais reverter.
      */
-    _updateProcessorFilterVisibility() {
+    _updateProcessorFilterVisibility(): void {
         const wrap = this.elements.processorOnlyFilter;
         if (!wrap) return;
         const hasProcessor = this._scopesWithAliasedSignal.size > 0;
@@ -940,7 +989,7 @@ class WaveConfigManager {
         }
     }
 
-    _renderModuleRow(node, depth, visible) {
+    _renderModuleRow(node: HierarchyNode, depth: number, visible: boolean): HTMLDivElement {
         const row = document.createElement('div');
         row.className = 'wave-tree-row module-row';
         if (!visible) row.classList.add('hidden-by-parent');
@@ -962,7 +1011,7 @@ class WaveConfigManager {
             </span>
         `;
 
-        const cb = row.querySelector('.wave-tree-checkbox');
+        const cb = row.querySelector<HTMLInputElement>('.wave-tree-checkbox')!;
         const state = this._moduleCheckState(node);
         cb.checked = state.all;
         cb.indeterminate = state.partial;
@@ -979,7 +1028,7 @@ class WaveConfigManager {
         });
 
         if (hasChildren) {
-            const chev = row.querySelector('.wave-tree-chevron');
+            const chev = row.querySelector('.wave-tree-chevron')!;
             chev.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (collapsed) this.collapsedScopes.delete(node.scopePath);
@@ -991,7 +1040,7 @@ class WaveConfigManager {
         return row;
     }
 
-    _renderSignalRow(parent, sig, depth, visible) {
+    _renderSignalRow(parent: HierarchyNode, sig: VerilogSignal, depth: number, visible: boolean): HTMLDivElement {
         const row = document.createElement('div');
         row.className = 'wave-tree-row signal-row';
         if (!visible) row.classList.add('hidden-by-parent');
@@ -1028,7 +1077,7 @@ class WaveConfigManager {
             </span>
         `;
 
-        const cb = row.querySelector('.wave-tree-checkbox');
+        const cb = row.querySelector<HTMLInputElement>('.wave-tree-checkbox')!;
         cb.checked = this.selected.has(fullName);
 
         cb.addEventListener('click', (e) => {
@@ -1041,9 +1090,9 @@ class WaveConfigManager {
         return row;
     }
 
-    _moduleCheckState(node) {
-        const all = [];
-        const walk = (n) => {
+    _moduleCheckState(node: HierarchyNode): { all: boolean; partial: boolean } {
+        const all: string[] = [];
+        const walk = (n: HierarchyNode): void => {
             for (const sig of n.signals) all.push(`${n.scopePath}.${sig.name}`);
             for (const child of n.children) walk(child);
         };
@@ -1055,8 +1104,8 @@ class WaveConfigManager {
         return { all: false, partial: true };
     }
 
-    _toggleScope(node, turnOn) {
-        const walk = (n) => {
+    _toggleScope(node: HierarchyNode, turnOn: boolean): void {
+        const walk = (n: HierarchyNode): void => {
             for (const sig of n.signals) {
                 const full = `${n.scopePath}.${sig.name}`;
                 if (turnOn) this.selected.add(full);
@@ -1067,10 +1116,10 @@ class WaveConfigManager {
         walk(node);
     }
 
-    _updateCounter() {
+    _updateCounter(): void {
         if (!this.elements.counter) return;
         const n = this.selected.size;
-        const tr = (k, p) => (window.t ? window.t(k, p) : k);
+        const tr: Traduzir = (k, p) => (window.t ? window.t(k, p) : k);
         // Two keys instead of an ICU plural, fine for {0/1, many}; if a
         // third locale lands with more plural forms (Slavic, Arabic) we
         // promote to a plural-aware helper at that point.
@@ -1079,7 +1128,7 @@ class WaveConfigManager {
             : tr('modal.waveConfig.selectedCountOther', { count: n });
     }
 
-    _escape(text) {
+    _escape(text: string | null | undefined): string {
         const d = document.createElement('div');
         d.textContent = text ?? '';
         return d.innerHTML;
@@ -1091,12 +1140,12 @@ class WaveConfigManager {
      * behaves identically to `_escape`. The regex is cloned to avoid
      * sharing `lastIndex` state with `_computeFilterMatches`.
      */
-    _highlightMatches(text) {
+    _highlightMatches(text: string | null | undefined): string {
         if (!this._filterRegex || !text) return this._escape(text);
         const re = new RegExp(this._filterRegex.source, this._filterRegex.flags);
         let out = '';
         let last = 0;
-        let m;
+        let m: RegExpExecArray | null;
         let safety = 0;
         while ((m = re.exec(text)) !== null && safety++ < 1000) {
             // Zero-width match: advance manually so the loop terminates.
@@ -1111,7 +1160,7 @@ class WaveConfigManager {
 
     // ------------- save -------------------------
 
-    async save() {
+    async save(): Promise<void> {
         const projectPath = ProjectStore.getProjectPath();
         const spfPath = ProjectStore.getSpfPath();
         if (!projectPath || !spfPath) {
@@ -1153,7 +1202,7 @@ if (typeof window !== 'undefined') {
     // Globally exposed so a future toolbar button + command palette
     // entry can call window.waveConfigManager.open() without an import
     // cycle.
-    window.waveConfigManager = waveConfigManager;
+    (window as unknown as { waveConfigManager?: WaveConfigManager }).waveConfigManager = waveConfigManager;
 }
 
 if (document.readyState === 'loading') {

@@ -1,36 +1,33 @@
-// TODO(types): opt this file into `// @ts-check` once exec-command is
-// migrated to a typed [bin, args[]] IPC contract. Today the renderer
-// composes raw shell strings, which tangles up the ChildProcess typings
-// (shell:true/encoding narrowing) into errors that aren't worth solving
-// with casts when the actual fix is the IPC redesign.
 /**
- * Compilation + simulation execution: exec-command, launch-gtkwave-only,
- * cancel-vvp-process. All process management ends up here so cancellation
- * has a single source of truth. (The structured-spec executor in
- * main/compile/executor.js is the modern path; vvp now runs through it.)
+ * compile.ts: os visualizadores de onda (GTKWave, Surfer), os tradutores do
+ * Surfer, a decodificacao dos complexos e as duas formas de parar processo (o
+ * Cancelar e o kill do filho parqueado). A execucao das ferramentas da
+ * toolchain e do executor de specs (main/compile/executor.js).
  */
 
-const { ipcMain, app, screen } = require('electron');
-const fs = require('fs');
-const path = require('path');
-const log = require('electron-log');
+import { ipcMain, app, screen } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+import log from 'electron-log';
+import type { ChildProcess } from 'node:child_process';
 
-const state = require('../state');
+/** O `e?.message` de sempre, para um erro que o TypeScript ve como unknown. */
+const mensagemDe = (e: unknown): string | undefined => (e as { message?: string } | null)?.message;
+
+import state from '../state.js';
 
 // Parte pura do que escrevemos na config do Surfer. Extraida daqui em
 // 08/08/2026 para ficar testavel; ver main/ipc/surfer_config.js.
-const {
+import {
   surferWindowGeometry,
   surferConfigToml,
   podeSobrescreverConfig,
   safeMappingName,
-} = require('./surfer_config');
-const {
-  killProcessSilently,
-} = require('../utils');
-const { spawnTracked, stopToolchainRun, GROUP } = require('../process_registry');
-const { mensagemDeErroDeSpawn } = require('../compile/spawn_hint');
-const { isAllowed } = require('../compile/binary_allowlist');
+} from './surfer_config.js';
+import { killProcessSilently } from '../utils.js';
+import { spawnTracked, stopToolchainRun, GROUP } from '../process_registry.js';
+import { mensagemDeErroDeSpawn } from '../compile/spawn_hint.js';
+import { isAllowed } from '../compile/binary_allowlist.js';
 
 // A ultima instancia do Surfer que a AURORA abriu. Fechamos ela antes de abrir
 // uma nova para que re-simular reaproveite UMA janela centralizada em vez de
@@ -38,7 +35,7 @@ const { isAllowed } = require('../compile/binary_allowlist');
 // Windows v0.7.0). Guardamos o ChildProcess (nao so o PID) para evitar matar
 // outro processo que tenha reusado o PID, e nunca tocamos em janelas que o
 // usuario abriu manualmente.
-let lastSurferChild = null;
+let lastSurferChild: ChildProcess | null = null;
 
 // Surfer has no "maximize" CLI flag and its state file carries no window
 // geometry, so to avoid a tiny top-left window we write a CENTERED, screen-
@@ -57,7 +54,7 @@ function writeSurferCenteredWindowConfig() {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(file, surferConfigToml(surferWindowGeometry(wa)), 'utf8');
   } catch (error) {
-    log.warn('Surfer window-config write skipped:', error?.message);
+    log.warn('Surfer window-config write skipped:', mensagemDe(error));
   }
 }
 
@@ -69,8 +66,8 @@ function writeSurferCenteredWindowConfig() {
 // `format`. Names are aurora_*-prefixed so user mappings are never touched;
 // each launch overwrites the active project's set (idempotent). Best-effort:
 // a failure here must not block opening the waveform.
-function writeSurferMappings(mappings) {
-  const result = { written: 0, failed: [] };
+function writeSurferMappings(mappings: unknown): { written: number; failed: Array<{ name: string; error: string }> } {
+  const result: { written: number; failed: Array<{ name: string; error: string }> } = { written: 0, failed: [] };
   try {
     if (!Array.isArray(mappings) || mappings.length === 0) return result;
     const dir = path.join(app.getPath('appData'), 'surfer-project', 'surfer', 'config', 'mappings');
@@ -91,12 +88,12 @@ function writeSurferMappings(mappings) {
       } catch (e) {
         // Per-mapping failure (permission/IO), record so the renderer can warn
         // the user that those tracks open as raw decimal, instead of silent.
-        result.failed.push({ name: m.name, error: e?.message || String(e) });
+        result.failed.push({ name: m.name, error: mensagemDe(e) || String(e) });
       }
     }
   } catch (error) {
-    log.warn('Surfer mappings write skipped:', error?.message);
-    result.failed.push({ name: '*', error: error?.message || String(error) });
+    log.warn('Surfer mappings write skipped:', mensagemDe(error));
+    result.failed.push({ name: '*', error: mensagemDe(error) || String(error) });
   }
   return result;
 }
@@ -271,15 +268,15 @@ function register() {
         const child = spawnTracked(exePath, [], { stdio: ['pipe', 'pipe', 'ignore'], shell: false, windowsHide: true }, GROUP.RUN);
         let out = '';
         let settled = false;
-        const done = (success) => { if (!settled) { settled = true; resolve({ success, decoded: out.split(/\r?\n/).filter((l) => l.length > 0) }); } };
-        child.stdout.on('data', (d) => { out += d.toString(); });
+        const done = (success: boolean) => { if (!settled) { settled = true; resolve({ success, decoded: out.split(/\r?\n/).filter((l) => l.length > 0) }); } };
+        child.stdout!.on('data', (d) => { out += d.toString(); });
         child.on('error', () => done(false));
         child.on('close', () => done(true));
-        child.stdin.on('error', () => { /* EPIPE if it exits early — close() still fires */ });
-        child.stdin.write(values.join('\n') + '\n');
-        child.stdin.end();
+        child.stdin!.on('error', () => { /* EPIPE if it exits early — close() still fires */ });
+        child.stdin!.write(values.join('\n') + '\n');
+        child.stdin!.end();
       } catch (error) {
-        log.warn('decode-complex skipped:', error?.message);
+        log.warn('decode-complex skipped:', mensagemDe(error));
         resolve({ success: false, decoded: [] });
       }
     });
@@ -302,7 +299,7 @@ function register() {
       return { success: true, message: `Compilation canceled: ${killed} process(es) terminated` };
     } catch (error) {
       log.error('Error canceling processes:', error);
-      return { success: false, message: `Error occurred while canceling processes: ${error.message}` };
+      return { success: false, message: `Error occurred while canceling processes: ${mensagemDe(error)}` };
     }
   });
 
@@ -310,16 +307,16 @@ function register() {
   // currentVvpProcess) and nothing else. Unlike cancel-vvp-process this does
   // NOT sweep-and-kill vvp.exe/gtkwave.exe by name, that broad sweep would
   // race with, and kill, a GTKWave that the wave flow launches moments later.
-  // Used by _extractFstHeaderVcd to stop fst2vcd once the header is captured.
+  // Used by cabecalho_do_dump.ts to stop fst2vcd once the header is captured.
   ipcMain.handle('kill-current-spec-process', async () => {
     const child = state.currentVvpProcess;
     if (!child || child.killed) return { success: false };
     try {
-      await killProcessSilently(child.pid);
+      await killProcessSilently(child.pid as number);
       return { success: true };
     } catch (error) {
       log.error('Error killing current spec process:', error);
-      return { success: false, message: error.message };
+      return { success: false, message: mensagemDe(error) };
     } finally {
       state.currentVvpProcess = null;
       state.vvpProcessPid = null;
@@ -327,4 +324,4 @@ function register() {
   });
 }
 
-module.exports = { register };
+export { register };

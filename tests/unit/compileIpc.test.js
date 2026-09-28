@@ -77,7 +77,9 @@ let state;
 beforeAll(async () => {
     const mod = await import('../../main/ipc/compile.js');
     (mod.register ?? mod.default.register)();
-    state = req('../../main/state.js');
+    // A mesma copia que o modulo usa: pelo Vite (import), e nao pelo require nativo.
+    const st = await import('../../main/state.js');
+    state = st.default ?? st;
     await processos.provar();
 });
 

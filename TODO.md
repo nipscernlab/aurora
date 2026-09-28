@@ -2239,9 +2239,10 @@ A cadeia, nesta ordem:
         consultava o processo a cada 2 s só para zerar campos que ninguém lia
         (o `isHierarchicalView` nunca virava `true`), o `surferProcess` era
         só escrito, e o `_stageProcessorMemoryFiles` ficou sem chamador. Com
-        isso o canal `check-process-running` (`isProcessRunning` no
-        `preload.js`, handler em `main/ipc/compile.js`) ficou sem chamador;
-        sai quando esses dois arquivos converterem.
+        isso o canal `check-process-running` ficou sem chamador e saiu das
+        duas pontas: o `main/ipc/compile` virou `.ts` (teste `compileIpc`), e
+        no `preload.js` saiu só a linha, por decisão do Luciano, porque
+        converter o preload depende do 13.4.
 
         Defeitos corrigidos no caminho, cada um com o teste antes:
         - a aba do Surfer reconhecia `.sucl` com o ponto sem escape;
@@ -2256,10 +2257,8 @@ A cadeia, nesta ordem:
           módulo saía de `.replace(/\.v$/)`, e `filtro_tb.sv` virava
           `-s filtro_tb.sv`.
 
-        Um latente, não corrigido: a onda do PRISM aberta na aba do Surfer
-        leva os tradutores da última corrida do Wave (`_surferTabMappings` não
-        é zerado no `abrirOndaExterna`); não aparece na tela porque o layout
-        do PRISM não os usa.
+        Depois, também corrigido: a onda do PRISM aberta na aba do Surfer
+        levava os tradutores da última corrida do Wave.
       - [ ] E2E instável: `shell-terminal > navigates folders (cd persists,
         prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
         mudança do momento (o repetidor deu 3 verdes seguidas).

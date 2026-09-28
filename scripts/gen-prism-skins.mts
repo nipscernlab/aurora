@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * gen-prism-skins.js: baseline PRISM skin generator + inventory.
+ * gen-prism-skins.mts: baseline PRISM skin generator + inventory.
  *
  * PRISM (the RTL viewer) renders each Verilog cell through a netlistsvg skin.
  * A module WITHOUT a custom skin falls back to the plain `generic` box. This
@@ -14,8 +14,8 @@
  * It also writes `assets/prism-skins/COMPONENTS.md`, the full inventory of
  * every component PRISM can skin (netlistsvg primitives + SAPHO modules).
  *
- *   node scripts/gen-prism-skins.js          # generate + inventory
- *   node scripts/gen-prism-skins.js --check  # report only, write nothing
+ *   node scripts/gen-prism-skins.mts          # generate + inventory
+ *   node scripts/gen-prism-skins.mts --check  # report only, write nothing
  *
  * Idempotent: hand-crafted skins (and any baseline a human later redesigns and
  * removes the AUTO-GENERATED marker from) are never overwritten.
@@ -26,14 +26,16 @@
  * an anchor for them would make ELK abort with "Referenced shape does not
  * exist" (see pruneNetlistToSkinPorts in main/ipc/prism.js).
  */
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const fs = require('fs');
-const path = require('path');
-
-const REPO = path.resolve(__dirname, '..');
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HDL_DIR = path.join(REPO, 'components', 'HDL');
 const SKIN_DIR = path.join(REPO, 'assets', 'prism-skins');
+// A marca fica com o nome antigo, .js: e ela que coveredTypes procura numa skin
+// para saber que foi este script que a escreveu, e trocar o texto faria uma
+// skin de base ja gravada passar por feita a mao.
 const AUTO_MARK = 'AUTO-GENERATED baseline skin (gen-prism-skins.js)';
 
 const CHECK_ONLY = process.argv.includes('--check');
@@ -53,15 +55,34 @@ const NETLISTSVG_PRIMITIVES = [
 
 /* ── Verilog port extraction ─────────────────────────────────────────────── */
 
+interface Port {
+  name: string;
+  dir: string;
+}
+
+interface Mod {
+  name: string;
+  ports: Port[];
+}
+
+interface HdlMod extends Mod {
+  file: string;
+}
+
+interface SkinHit {
+  file: string;
+  auto: boolean;
+}
+
 /** Remove Verilog block comments and line comments. */
-function stripComments(src) {
+function stripComments(src: string): string {
   return src
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/[^\n]*/g, '');
 }
 
 /** Find the matching close paren for the `(` at `open` (depth-counted). */
-function matchParen(src, open) {
+function matchParen(src: string, open: number): number {
   let depth = 0;
   for (let i = open; i < src.length; i++) {
     if (src[i] === '(') depth++;
@@ -74,7 +95,7 @@ function matchParen(src, open) {
  * Pull the port-list text of a module: skip an optional `#( … )` parameter
  * block, then capture the next balanced `( … )`. Returns the inner text.
  */
-function portListText(src, afterName) {
+function portListText(src: string, afterName: number): string {
   let i = afterName;
   while (i < src.length && /\s/.test(src[i])) i++;
   if (src[i] === '#') {                 // parameter block — skip it
@@ -90,8 +111,8 @@ function portListText(src, afterName) {
 }
 
 /** Drop `\`ifdef … \`endif` regions (the sim-only ports live there). */
-function dropIfdefRegions(text) {
-  const out = [];
+function dropIfdefRegions(text: string): string {
+  const out: string[] = [];
   let depth = 0;
   for (const line of text.split('\n')) {
     if (/^\s*`(ifdef|ifndef|if)\b/.test(line)) { depth++; continue; }
@@ -106,10 +127,10 @@ const DIR_RE = /^(input|output|inout)\b/;
 const KEYWORD_RE = /\b(input|output|inout|reg|wire|logic|signed|unsigned|integer)\b/g;
 
 /** Parse `dir [width] a, b, …` ANSI port text → [{name, dir}]. */
-function parsePorts(portText) {
+function parsePorts(portText: string): Port[] {
   const clean = dropIfdefRegions(portText);
   // Split on commas that are NOT inside [ ] width brackets.
-  const segments = [];
+  const segments: string[] = [];
   let depth = 0, buf = '';
   for (const ch of clean) {
     if (ch === '[') depth++;
@@ -119,7 +140,7 @@ function parsePorts(portText) {
   }
   if (buf.trim()) segments.push(buf);
 
-  const ports = [];
+  const ports: Port[] = [];
   let curDir = 'input';
   for (let seg of segments) {
     seg = seg.trim();
@@ -142,11 +163,11 @@ function parsePorts(portText) {
 }
 
 /** Extract every `module NAME … ( ports );` from one .v file. */
-function modulesInFile(src) {
+function modulesInFile(src: string): Mod[] {
   const clean = stripComments(src);
-  const mods = [];
+  const mods: Mod[] = [];
   const re = /\bmodule\s+([A-Za-z_]\w*)/g;
-  let m;
+  let m: RegExpExecArray | null;
   while ((m = re.exec(clean))) {
     const ports = parsePorts(portListText(clean, m.index + m[0].length));
     mods.push({ name: m[1], ports });
@@ -157,8 +178,8 @@ function modulesInFile(src) {
 /* ── Existing-skin coverage ──────────────────────────────────────────────── */
 
 /** s:type + s:alias values already claimed by a skin file. */
-function coveredTypes() {
-  const covered = new Map(); // type -> skin filename
+function coveredTypes(): Map<string, SkinHit> {
+  const covered = new Map<string, SkinHit>(); // type -> skin filename
   for (const f of fs.readdirSync(SKIN_DIR)) {
     if (!f.endsWith('.svg')) continue;
     const txt = fs.readFileSync(path.join(SKIN_DIR, f), 'utf8');
@@ -178,13 +199,13 @@ const HEAD = 16;   // top padding inside box
 const FOOT = 12;
 const WIDTH = 88;
 
-function baselineSkin(name, ports) {
+function baselineSkin(name: string, ports: Port[]): string {
   const ins = ports.filter((p) => p.dir !== 'output');
   const outs = ports.filter((p) => p.dir === 'output');
   const rows = Math.max(ins.length, outs.length, 1);
   const height = HEAD + FOOT + (rows - 1) * PORT_PITCH + PORT_PITCH;
 
-  const anchors = [];
+  const anchors: string[] = [];
   ins.forEach((p, i) => {
     anchors.push(`    <g s:x="0" s:y="${HEAD + i * PORT_PITCH}" s:pid="${p.name}"/>`);
   });
@@ -193,7 +214,7 @@ function baselineSkin(name, ports) {
   });
 
   // Tiny in/out port labels so the baseline is readable before the redesign.
-  const labels = [];
+  const labels: string[] = [];
   ins.forEach((p, i) => {
     labels.push(`    <text x="5" y="${HEAD + i * PORT_PITCH + 3}" class="$cell_id" ` +
       `style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">${p.name}</text>`);
@@ -244,15 +265,15 @@ ${anchors.join('\n')}
 function main() {
   const covered = coveredTypes();
   const files = fs.readdirSync(HDL_DIR).filter((f) => f.endsWith('.v'));
-  const allModules = [];
+  const allModules: HdlMod[] = [];
   for (const f of files) {
     const src = fs.readFileSync(path.join(HDL_DIR, f), 'utf8');
     for (const mod of modulesInFile(src)) allModules.push({ ...mod, file: f });
   }
   allModules.sort((a, b) => a.name.localeCompare(b.name));
 
-  const written = [];
-  const skipped = [];
+  const written: HdlMod[] = [];
+  const skipped: (HdlMod & { reason: string })[] = [];
   for (const mod of allModules) {
     const hit = covered.get(mod.name);
     if (hit && !hit.auto) { skipped.push({ ...mod, reason: `hand-crafted (${hit.file})` }); continue; }
@@ -270,9 +291,9 @@ function main() {
   for (const s of skipped) console.log(`    - ${s.name}  (${s.reason})`);
 }
 
-function writeInventory(allModules, covered, written) {
+function writeInventory(allModules: HdlMod[], covered: Map<string, SkinHit>, written: HdlMod[]): void {
   const writtenSet = new Set(written.map((m) => m.name));
-  const row = (m) => {
+  const row = (m: HdlMod): string => {
     const hit = covered.get(m.name);
     const status = writtenSet.has(m.name) ? 'baseline'
       : hit && !hit.auto ? `hand-crafted (\`${hit.file}\`)`
@@ -284,8 +305,8 @@ function writeInventory(allModules, covered, written) {
 
   const md = `# PRISM component inventory
 
-> Auto-generated by \`scripts/gen-prism-skins.js\`. Lists every component PRISM
-> can give a custom skin. Re-run \`node scripts/gen-prism-skins.js\` after the
+> Auto-generated by \`scripts/gen-prism-skins.mts\`. Lists every component PRISM
+> can give a custom skin. Re-run \`node scripts/gen-prism-skins.mts\` after the
 > HDL changes.
 
 A skin is a netlistsvg symbol keyed by \`s:type\` (with \`<s:alias>\` fallbacks).
@@ -319,4 +340,4 @@ _(\`generic\`, \`join\`, \`split\`, \`inputExt\`, \`outputExt\` are netlistsvg-i
   fs.writeFileSync(path.join(SKIN_DIR, 'COMPONENTS.md'), md);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main();

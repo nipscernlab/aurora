@@ -7,7 +7,7 @@ para desenhar cada célula. Cada arquivo define uma ou mais skins para células 
 sobrevivem a um `npm install` e são relidas a cada recompilação do PRISM.
 
 O inventário completo do que existe está em [COMPONENTS.md](COMPONENTS.md), que é
-gerado por `scripts/gen-prism-skins.js` e não deve ser editado à mão.
+gerado por `scripts/gen-prism-skins.mts` e não deve ser editado à mão.
 
 Este documento reúne o que antes estava separado em dois, o mecanismo e o padrão
 visual, porque os dois se sobrepunham em metade do conteúdo.
@@ -191,7 +191,7 @@ node scripts/prism-skin-standard.js --only pc  # só uma
 node scripts/prism-skin-standard.js --print pc # despeja uma na saída padrão
 ```
 
-Existe ainda o `scripts/gen-prism-skins.js`, que é outro gerador, com outro
+Existe ainda o `scripts/gen-prism-skins.mts`, que é outro gerador, com outro
 propósito: ele extrai a lista real de portas de cada módulo e emite uma skin
 baseline para quem ainda não tem uma feita à mão, além de reescrever o
 `COMPONENTS.md`. Ele é idempotente e nunca sobrescreve skin manual.

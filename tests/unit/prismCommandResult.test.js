@@ -1,6 +1,6 @@
 /**
  * A resposta de um comando do PRISM so vale de quem recebeu o comando
- * (main/ipc/prism.js).
+ * (main/ipc/prism.ts).
  *
  * O comando vai por um canal e a resposta volta por outro, correlacionados
  * por um id. O id era a unica credencial: qualquer renderer que falasse
@@ -9,37 +9,45 @@
  * e quem consome a resposta e a AuroraAPI, por onde a Aurora Intelligence
  * opera o Simular.
  *
- * O modulo e CommonJS e faz `require('electron')` por dentro, entao o
- * Electron falso entra pelo cache do require nativo antes de ele carregar
- * (ver reference: testar main CJS com createRequire).
+ * O Electron falso entra nas duas copias antes de o modulo carregar: a do Vite
+ * (vi.doMock), que o prism.ts usa, e a do require nativo, que os .js vizinhos
+ * usam.
  */
 
 import { createRequire } from 'node:module';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const req = createRequire(import.meta.url);
 
 /** Os handlers que o modulo registra, para o teste poder aciona-los. */
 const canais = { on: new Map(), handle: new Map() };
 
+const electron = {
+    ipcMain: {
+        on: (c, fn) => canais.on.set(c, fn),
+        handle: (c, fn) => canais.handle.set(c, fn),
+    },
+    app: { getAppPath: () => process.cwd(), getPath: () => process.cwd() },
+    BrowserWindow: class { static getAllWindows() { return []; } },
+    dialog: {},
+    shell: {},
+    session: { defaultSession: {} },
+};
 const electronPath = req.resolve('electron');
 req.cache[electronPath] = {
-    id: electronPath, filename: electronPath, loaded: true, children: [], paths: [],
-    exports: {
-        ipcMain: {
-            on: (c, fn) => canais.on.set(c, fn),
-            handle: (c, fn) => canais.handle.set(c, fn),
-        },
-        app: { getAppPath: () => process.cwd(), getPath: () => process.cwd() },
-        BrowserWindow: class { static getAllWindows() { return []; } },
-        dialog: {},
-        shell: {},
-        session: { defaultSession: {} },
-    },
+    id: electronPath, filename: electronPath, loaded: true, children: [], paths: [], exports: electron,
 };
+vi.doMock('electron', () => ({ default: electron, ...electron }));
 
-const state = req('../../main/state.js');
-const prism = req('../../main/ipc/prism.js');
+let state;
+let prism;
+beforeAll(async () => {
+    const mod = await import('../../main/ipc/prism.js');
+    prism = mod.register ? mod : mod.default;
+    // A mesma copia que o modulo usa: pelo Vite (import), e nao pelo require nativo.
+    const st = await import('../../main/state.js');
+    state = st.default ?? st;
+});
 
 /** Uma superficie de PRISM de mentira: guarda o que recebeu. */
 function superficie(id) {

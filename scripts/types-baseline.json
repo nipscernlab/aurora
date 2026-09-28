@@ -16,9 +16,6 @@
   "main/ipc/history.js": {
     "TS2345": 1
   },
-  "main/ipc/prism.js": {
-    "TS2339": 1
-  },
   "main/ipc/project.js": {
     "TS2339": 2
   },

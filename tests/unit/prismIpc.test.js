@@ -156,7 +156,9 @@ let state;
 beforeAll(async () => {
     prism = await import('../../main/ipc/prism.js');
     (prism.register ?? prism.default.register)();
-    state = req('../../main/state.js');
+    // A mesma copia que o modulo usa: pelo Vite (import), e nao pelo require nativo.
+    const st = await import('../../main/state.js');
+    state = st.default ?? st;
     await c.provar();
 });
 

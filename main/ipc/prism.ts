@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * PRISM: Yosys/netlistsvg-driven schematic viewer.
  *
@@ -8,27 +7,37 @@
  * `prism-recompile`, `generate-svg-from-module`, `get-prism-compilation-paths`.
  */
 
-const path = require('path');
-const fse = require('fs-extra');
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-const log = require('electron-log');
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import fse from 'fs-extra';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import log from 'electron-log';
 // @ts-ignore -- @silimate/netlistsvg ships no type declarations
-const netlistsvgLib = require('@silimate/netlistsvg');
-const { buildPrismYosysScript } = require('./prism_yosys_script');
+// import * e nao default: o pacote marca __esModule e nao tem default, entao
+// o default do esModuleInterop viria undefined e o render quebraria.
+import * as netlistsvgLib from '@silimate/netlistsvg';
+import { buildPrismYosysScript } from './prism_yosys_script.js';
 
-const state = require('../state');
-const janelas = require('../main_windows');
-const { spfDaJanela } = require('./project_paths');
-const { componentsPath } = require('../paths');
-const { sanitizeFileName } = require('../utils');
-const { spawnTracked, GROUP } = require('../process_registry');
-const { loadPage, pageUrl } = require('../render_loader');
-const { cellLabel, deveTrocarRotulo } = require('./prism_labels');
-const { alvoDaSimulacao } = require('./prism_sim_target');
-const { vcdDaSimulacao } = require('./prism_vcd');
-const { isAllowed } = require('../compile/binary_allowlist');
-const protectedFlags = require('../compile/protected_flags');
-const { validarIdentificadorVerilog, caminhoParaScript } = require('./prism_yosys_script');
+import state from '../state.js';
+import janelas from '../main_windows.js';
+import { spfDaJanela } from './project_paths.js';
+import { componentsPath } from '../paths.js';
+import { sanitizeFileName } from '../utils.js';
+import { spawnTracked, GROUP } from '../process_registry.js';
+import { loadPage, pageUrl } from '../render_loader.js';
+import { cellLabel, deveTrocarRotulo } from './prism_labels.js';
+import { alvoDaSimulacao } from './prism_sim_target.js';
+import { vcdDaSimulacao } from './prism_vcd.js';
+import { isAllowed } from '../compile/binary_allowlist.js';
+import * as protectedFlags from '../compile/protected_flags.js';
+import { validarIdentificadorVerilog, caminhoParaScript } from './prism_yosys_script.js';
+import { createRequire } from 'node:module';
+
+// O conversor do DigitalJS carrega so quando a pessoa entra no Simular (ver
+// buildDigitalJSCircuit), e o default.svg do netlistsvg se acha pela resolucao
+// do require. Os dois pedem um require de verdade, e o .ts nao tem require solto.
+const requireTarde = createRequire(__filename);
 
 // Onde a sintese do PRISM escreve e qual yosys ela roda. Sao os UNICOS
 // caminhos que os handlers aceitam: o renderer manda os seus, por historico,
@@ -59,7 +68,7 @@ const YOSYS_EXE = path.join(componentsPath, 'Packages', 'msys', 'mingw64', 'bin'
  * abre, e `yosysOverride`, que ainda passa pelo `protectedFlags` e pelo filtro
  * de ambiente antes do spawn.
  */
-function caminhosConfiaveis(/** @type {any} */ recebido, /** @type {any} */ event) {
+function caminhosConfiaveis(recebido: any, event: any) {
   // O projeto e o da JANELA que pediu. Era o ultimo aberto em qualquer lugar,
   // entao com duas janelas o PRISM da segunda sintetizava o projeto da
   // primeira e mostrava o esquematico dele, sem nada dizer que era outro.
@@ -92,9 +101,8 @@ function caminhosConfiaveis(/** @type {any} */ recebido, /** @type {any} */ even
  * do buildChildEnv do executor; o resto do override e descartado em silencio,
  * como la.
  */
-function envSeguro(/** @type {any} */ envSet) {
-  /** @type {Record<string, string>} */
-  const out = {};
+function envSeguro(envSet: any) {
+  const out: Record<string,string> = {};
   if (!envSet || typeof envSet !== 'object') return out;
   for (const [k, v] of Object.entries(envSet)) {
     if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(k) && typeof v === 'string' && !v.includes('\0')) out[k] = v;
@@ -104,7 +112,7 @@ function envSeguro(/** @type {any} */ envSet) {
 
 // ---------- helpers ----------
 
-function cleanModuleName(/** @type {any} */ moduleName) {
+function cleanModuleName(moduleName: any) {
   let cleanName = moduleName;
 
   if (cleanName.startsWith('$paramod')) {
@@ -131,7 +139,7 @@ function cleanModuleName(/** @type {any} */ moduleName) {
   return cleanName;
 }
 
-function isClickableModule(/** @type {any} */ moduleName) {
+function isClickableModule(moduleName: any) {
   const skipPatterns = [
     /^\$_/, /^\$dff/, /^\$mux/, /^\$add/, /^\$sub/, /^\$mul/, /^\$div/, /^\$mod/,
     /^\$eq/, /^\$ne/, /^\$lt/, /^\$le/, /^\$gt/, /^\$ge/, /^\$and/, /^\$or/,
@@ -148,14 +156,13 @@ function isClickableModule(/** @type {any} */ moduleName) {
 
 // ---------- window factory ----------
 
-/**
- * @typedef {object} PrismCompilationResult
- * @property {boolean} success
- * @property {string} [message]
- * @property {string} [topLevelModule]
- * @property {string} [svgPath]
- * @property {string} [tempDir]
- */
+interface PrismCompilationResult {
+  success: boolean;
+  message?: string;
+  topLevelModule?: string;
+  svgPath?: string;
+  tempDir?: string;
+}
 
 /**
  * Manda para a janela que abriu ESTE projeto.
@@ -166,11 +173,8 @@ function isClickableModule(/** @type {any} */ moduleName) {
  * encher. Sem janela dona, nao manda: saida de um projeto na janela de outro
  * e pior do que saida nenhuma.
  *
- * @param {string | null | undefined} spfPath
- * @param {string} canal
- * @param {...any} args
  */
-function paraOProjeto(spfPath, canal, ...args) {
+function paraOProjeto(spfPath: string|null|undefined, canal: string, ...args: any[]) {
   return janelas.mandar({ spf: spfPath, reserva: false }, canal, ...args);
 }
 
@@ -182,16 +186,14 @@ function paraOProjeto(spfPath, canal, ...args) {
  * e ali o `event.sender` e a propria pagina do PRISM, nao uma janela
  * principal. `state.prismDono` guarda quem mandou o PRISM abrir.
  *
- * @param {string} canal
- * @param {...any} args
  */
-function paraQuemAbriuOPrism(canal, ...args) {
+function paraQuemAbriuOPrism(canal: string, ...args: any[]) {
   return janelas.mandar({ origem: { id: state.prismDono }, reserva: false }, canal, ...args);
 }
 
 /** A janela que abriu o PRISM, para restaurar e focar junto com o envio. */
 function janelaDoPrism() {
-  return /** @type {any} */ (janelas.doSender({ id: state.prismDono }));
+  return janelas.doSender({ id: state.prismDono }) as any;
 }
 
 /**
@@ -203,18 +205,16 @@ function janelaDoPrism() {
  * renderer, num <webview>, e sem isto a dona ficaria nula e tudo o que a
  * pagina devolvesse morreria pelo caminho.
  *
- * @param {any} event
  */
-function marcarDonoDoPrism(event) {
+function marcarDonoDoPrism(event: any) {
   const dono = janelas.doSender(event);
   if (dono) state.prismDono = dono.webContents?.id ?? null;
 }
 
 /**
- * @param {PrismCompilationResult | null} [compilationData]
- * @param {any} [event] quem pediu a abertura; vira o dono do PRISM
+ * @param [event] quem pediu a abertura; vira o dono do PRISM
  */
-async function createPrismWindow(compilationData = null, event = undefined) {
+async function createPrismWindow(compilationData: PrismCompilationResult|null = null, event: any = undefined) {
   marcarDonoDoPrism(event);
   if (state.prismWindow && !state.prismWindow.isDestroyed()) {
     state.prismWindow.focus();
@@ -233,7 +233,7 @@ async function createPrismWindow(compilationData = null, event = undefined) {
   }
 
   const preloadPath = path.join(app.getAppPath(), 'js', 'app', 'preload_prism.js');
-  if (!require('fs').existsSync(preloadPath)) {
+  if (!fs.existsSync(preloadPath)) {
     throw new Error(`Preload script not found: ${preloadPath}`);
   }
 
@@ -340,9 +340,9 @@ async function createPrismWindow(compilationData = null, event = undefined) {
 // ---------- compilation pipeline ----------
 
 async function runYosysCompilationWithPaths(
-  /** @type {any} */ compilationPaths,
-  /** @type {any} */ topLevelModule,
-  /** @type {any} */ tempDir,
+  compilationPaths: any,
+  topLevelModule: any,
+  tempDir: any,
 ) {
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
   const hdlPath = compilationPaths.hdlPath;
@@ -363,7 +363,7 @@ async function runYosysCompilationWithPaths(
   //
   // Dedup por path absoluto pra evitar duplicate-module errors do
   // yosys quando o mesmo arquivo aparece em mais de uma fonte.
-  const fileSet = new Set();
+  const fileSet = new Set<string>();
 
   if (await fse.pathExists(hdlPath)) {
     const hdlFiles = await fse.readdir(hdlPath);
@@ -390,8 +390,8 @@ async function runYosysCompilationWithPaths(
   // mas aqui em main lemos .spf raw via fse.readJson e precisamos
   // expandir por conta propria. Paths absolutos passam direto.
   const spfBaseDir = spfStructure?.basePath || (spfPath ? path.dirname(spfPath) : '');
-  const isAbs = (/** @type {any} */ p) => typeof p === 'string' && /^([a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(p);
-  const resolveSpf = (/** @type {any} */ p) => (!p || isAbs(p) || !spfBaseDir) ? p : path.join(spfBaseDir, p);
+  const isAbs = (p: any) => typeof p === 'string' && /^([a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(p);
+  const resolveSpf = (p: any) => (!p || isAbs(p) || !spfBaseDir) ? p : path.join(spfBaseDir, p);
 
   if (spfStructure && Array.isArray(spfStructure.synthesizableFiles)) {
     for (const f of spfStructure.synthesizableFiles) {
@@ -417,7 +417,7 @@ async function runYosysCompilationWithPaths(
   // vazio, esse scan garante que os modulos do processador entrem no
   // yosys de qualquer jeito.
   const projectPath = compilationPaths.projectPath;
-  const processorNames = new Set();
+  const processorNames = new Set<string>();
   if (spfStructure && Array.isArray(spfStructure.processors)) {
     for (const p of spfStructure.processors) {
       const n = typeof p === 'string' ? p : p?.name;
@@ -507,7 +507,7 @@ async function runYosysCompilationWithPaths(
   });
 }
 
-async function splitHierarchyJson(/** @type {any} */ hierarchyJsonPath, /** @type {any} */ tempDir) {
+async function splitHierarchyJson(hierarchyJsonPath: any, tempDir: any) {
   const hierarchyData = await fse.readJson(hierarchyJsonPath);
   if (!hierarchyData.modules) throw new Error('No modules found in hierarchy JSON');
 
@@ -521,9 +521,8 @@ async function splitHierarchyJson(/** @type {any} */ hierarchyJsonPath, /** @typ
     const cleanModuleData = JSON.parse(JSON.stringify(moduleData));
 
     if (cleanModuleData.cells) {
-      /** @type {Record<string, any>} */
-      const cleanedCells = {};
-      for (const [cellName, cellData] of Object.entries(cleanModuleData.cells)) {
+      const cleanedCells: Record<string,any> = {};
+      for (const [cellName, cellData] of Object.entries<any>(cleanModuleData.cells)) {
         const cleanCellName = cleanModuleName(cellName);
         cleanedCells[cleanCellName] = cellData;
         if (cellData.type && isClickableModule(cellData.type)) {
@@ -555,11 +554,10 @@ async function splitHierarchyJson(/** @type {any} */ hierarchyJsonPath, /** @typ
 // contagem de profundidade de tags `<g>` pra suportar `<g>` aninhados
 // dentro de portas/labels (sem isso uma regex non-greedy quebraria em
 // blocos como o `generic`, que tem `<g>...</g>` aninhados dentro).
-function extractTopLevelGBlocks(/** @type {any} */ svgText) {
+function extractTopLevelGBlocks(svgText: any) {
   const blocks = [];
   const tagRe = /<g\b[^>]*>|<\/g>/g;
-  /** @type {any[]} */
-  const stack = []; // entradas: { type, startIdx }
+  const stack: any[] = []; // entradas: { type, startIdx }
   let m;
   while ((m = tagRe.exec(svgText)) !== null) {
     const tag = m[0];
@@ -581,7 +579,7 @@ function extractTopLevelGBlocks(/** @type {any} */ svgText) {
   return blocks;
 }
 
-async function loadCustomSkinBlocks(/** @type {any} */ customSkinDir) {
+async function loadCustomSkinBlocks(customSkinDir: any) {
   // Ler a pasta E JA TRATAR a falta dela, em vez de perguntar antes se ela
   // existe. `pathExists` responde NAO para uma pasta dentro do app.asar (ele
   // usa `fs.access`, que o Electron nao resolve dentro do arquivo, embora
@@ -593,7 +591,7 @@ async function loadCustomSkinBlocks(/** @type {any} */ customSkinDir) {
   try {
     arquivos = await fse.readdir(customSkinDir);
   } catch (err) {
-    if (err && err.code !== 'ENOENT') {
+    if (err && (err as NodeJS.ErrnoException).code !== 'ENOENT') {
       log.warn(`[PRISM] nao consegui ler ${customSkinDir}:`, err instanceof Error ? err.message : String(err));
     }
     return [];
@@ -617,7 +615,7 @@ async function loadCustomSkinBlocks(/** @type {any} */ customSkinDir) {
 }
 
 async function getDefaultSkinData() {
-  const libIndex = require.resolve('@silimate/netlistsvg');
+  const libIndex = requireTarde.resolve('@silimate/netlistsvg');
   const skinPath = path.join(path.dirname(libIndex), '..', 'lib', 'default.svg');
   let skin = await fse.readFile(skinPath, 'utf-8');
 
@@ -650,12 +648,12 @@ async function getDefaultSkinData() {
 // o renderer nao consegue saber pra qual modulo navegar olhando so o
 // SVG. O fix e' injetar data-cell-type=<tipo> em cada <g id="cell_<inst>">
 // abaixo, antes de devolver o SVG.
-function buildInstanceTypeMap(/** @type {any} */ netlistJson) {
+function buildInstanceTypeMap(netlistJson: any) {
   const map = new Map();
   if (!netlistJson?.modules) return map;
-  for (const moduleData of Object.values(netlistJson.modules)) {
+  for (const moduleData of Object.values<any>(netlistJson.modules)) {
     if (!moduleData?.cells) continue;
-    for (const [instName, cellData] of Object.entries(moduleData.cells)) {
+    for (const [instName, cellData] of Object.entries<any>(moduleData.cells)) {
       if (cellData?.type) map.set(instName, cellData.type);
     }
   }
@@ -664,7 +662,7 @@ function buildInstanceTypeMap(/** @type {any} */ netlistJson) {
 
 // Escape minimo pra valor de atributo XML, basta cobrir `"`, `&` e `<`
 // (path/identificador yosys raramente tem esses, mas defensivo).
-function xmlAttrEscape(/** @type {any} */ s) {
+function xmlAttrEscape(s: any) {
   return String(s)
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
@@ -674,11 +672,11 @@ function xmlAttrEscape(/** @type {any} */ s) {
 // Injeta data-cell-type=<tipo> em cada <g id="cell_<inst>"> do SVG.
 // Regex em vez de parse XML real porque (a) overkill, (b) a forma do
 // output do netlistsvg e' previsivel (id="cell_..." sempre em <g>).
-function injectCellTypesIntoSvg(/** @type {any} */ svgString, /** @type {any} */ instanceTypeMap) {
+function injectCellTypesIntoSvg(svgString: any, instanceTypeMap: any) {
   if (instanceTypeMap.size === 0) return svgString;
   const comTipos = svgString.replace(
     /<g\b([^>]*?)\sid="cell_([^"]+)"([^>]*?)(\/?>)/g,
-    (/** @type {any} */ match, /** @type {any} */ before, /** @type {any} */ instName, /** @type {any} */ after, /** @type {any} */ close) => {
+    (match: any, before: any, instName: any, after: any, close: any) => {
       const type = instanceTypeMap.get(instName);
       if (!type) return match;
       return `<g${before} id="cell_${instName}"${after} data-cell-type="${xmlAttrEscape(type)}"${close}`;
@@ -693,7 +691,7 @@ function injectCellTypesIntoSvg(/** @type {any} */ svgString, /** @type {any} */
   // desenho. Foi assim que os simbolos +, −, ×, ÷ sumiram do PRISM.
   return comTipos.replace(
     /(<text\b[^>]*\bclass="nodelabel cell_([^"]+)"[^>]*>)([^<]*)(<\/text>)/g,
-    (/** @type {any} */ match, /** @type {any} */ abre, /** @type {any} */ instName, /** @type {any} */ texto, /** @type {any} */ fecha) => {
+    (match: any, abre: any, instName: any, texto: any, fecha: any) => {
       if (!deveTrocarRotulo(instName, texto)) return match;
       return `${abre}${xmlAttrEscape(cellLabel(instName, instanceTypeMap.get(instName)))}${fecha}`;
     },
@@ -703,7 +701,7 @@ function injectCellTypesIntoSvg(/** @type {any} */ svgString, /** @type {any} */
 // Mapa tipo-de-cell -> Set de portas (s:pid) que a skin custom desenha.
 // Uma skin custom tem um conjunto FIXO de portas; netlistsvg so cria a
 // shape das portas que a skin declara.
-function buildSkinPortMap(/** @type {any} */ skinData) {
+function buildSkinPortMap(skinData: any) {
   const map = new Map();
   for (const block of extractTopLevelGBlocks(skinData)) {
     if (!block.type) continue;
@@ -723,10 +721,10 @@ function buildSkinPortMap(/** @type {any} */ skinData) {
 // a porta extra apenas nao aparece (com aviso), em vez de quebrar a tela.
 // Cells de tipo generico (sem skin) nao sao tocadas, la o netlistsvg cria
 // as portas a partir das proprias conexoes, entao nunca ficam penduradas.
-function pruneNetlistToSkinPorts(/** @type {any} */ netlistJson, /** @type {any} */ skinPortMap) {
+function pruneNetlistToSkinPorts(netlistJson: any, skinPortMap: any) {
   if (!netlistJson?.modules) return;
-  for (const moduleData of Object.values(netlistJson.modules)) {
-    for (const [cellName, cell] of Object.entries(moduleData.cells || {})) {
+  for (const moduleData of Object.values<any>(netlistJson.modules)) {
+    for (const [cellName, cell] of Object.entries<any>(moduleData.cells || {})) {
       const allowed = skinPortMap.get(cell.type);
       if (!allowed || !cell.connections) continue;
       for (const port of Object.keys(cell.connections)) {
@@ -743,7 +741,7 @@ function pruneNetlistToSkinPorts(/** @type {any} */ netlistJson, /** @type {any}
   }
 }
 
-async function generateModuleSVGWithPaths(/** @type {any} */ moduleName, /** @type {any} */ tempDir) {
+async function generateModuleSVGWithPaths(moduleName: any, tempDir: any) {
   const cleanName = sanitizeFileName(moduleName);
   const inputJsonPath = path.join(tempDir, `${cleanName}.json`);
   const outputSvgPath = path.join(tempDir, `${cleanName}.svg`);
@@ -765,7 +763,7 @@ async function generateModuleSVGWithPaths(/** @type {any} */ moduleName, /** @ty
   // lib.render usa callback (err, svgString), wrap em Promise. Sem spawn
   // de processo, sem .exe externo: fica tudo in-process.
   const rawSvg = await new Promise((resolve, reject) => {
-    netlistsvgLib.render(skinData, netlistJson, (/** @type {any} */ err, /** @type {any} */ svg) => {
+    netlistsvgLib.render(skinData, netlistJson, (err: any, svg: any) => {
       if (err) reject(err);
       else resolve(svg);
     });
@@ -783,7 +781,7 @@ async function generateModuleSVGWithPaths(/** @type {any} */ moduleName, /** @ty
   return outputSvgPath;
 }
 
-async function performPrismCompilationWithPaths(/** @type {any} */ compilationPaths) {
+async function performPrismCompilationWithPaths(compilationPaths: any) {
   try {
     paraOProjeto(compilationPaths.spfPath, 'terminal-log', 'tprism', 'Starting PRISM compilation process', 'info');
 
@@ -831,9 +829,9 @@ async function performPrismCompilationWithPaths(/** @type {any} */ compilationPa
 // .spf's synthesizableFiles + an optional TopLevel/ + each processor's
 // Hardware/. Same sources as runYosysCompilationWithPaths, kept lean and
 // standalone so the DigitalJS build never perturbs the schematic path.
-async function collectSynthFiles(/** @type {any} */ compilationPaths) {
-  const fileSet = new Set();
-  const addV = (/** @type {string} */ p) => { if (p && p.toLowerCase().endsWith('.v')) fileSet.add(p); };
+async function collectSynthFiles(compilationPaths: any) {
+  const fileSet = new Set<string>();
+  const addV = (p: string) => { if (p && p.toLowerCase().endsWith('.v')) fileSet.add(p); };
 
   const hdlPath = compilationPaths.hdlPath;
   if (hdlPath && await fse.pathExists(hdlPath)) {
@@ -850,8 +848,8 @@ async function collectSynthFiles(/** @type {any} */ compilationPaths) {
 
   // Resolve .spf-relative paths against basePath (new .spf format); absolute paths pass through.
   const spfBaseDir = spfStructure?.basePath || (spfPath ? path.dirname(spfPath) : '');
-  const isAbs = (/** @type {any} */ p) => typeof p === 'string' && /^([a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(p);
-  const resolveSpf = (/** @type {any} */ p) => (!p || isAbs(p) || !spfBaseDir) ? p : path.join(spfBaseDir, p);
+  const isAbs = (p: any) => typeof p === 'string' && /^([a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(p);
+  const resolveSpf = (p: any) => (!p || isAbs(p) || !spfBaseDir) ? p : path.join(spfBaseDir, p);
 
   if (Array.isArray(spfStructure?.synthesizableFiles)) {
     for (const f of spfStructure.synthesizableFiles) addV(resolveSpf(typeof f === 'string' ? f : f?.path));
@@ -865,7 +863,7 @@ async function collectSynthFiles(/** @type {any} */ compilationPaths) {
   }
 
   const projectPath = compilationPaths.projectPath;
-  const procNames = new Set();
+  const procNames = new Set<string>();
   if (Array.isArray(spfStructure?.processors)) {
     for (const p of spfStructure.processors) { const n = typeof p === 'string' ? p : p?.name; if (n) procNames.add(n); }
   }
@@ -893,10 +891,10 @@ const MAX_CELLS = 3000;
 // AURORA's own (allowlisted) yosys and feed its JSON to the converter's pure
 // function, so nothing needs yosys on PATH and the schematic flow is untouched.
 async function buildDigitalJSCircuit(
-  /** @type {any} */ compilationPaths,
-  /** @type {string} */ topLevelModule,
-  /** @type {string} */ tempDir,
-  /** @type {Array<[string, string]>} */ chparams = [],
+  compilationPaths: any,
+  topLevelModule: string,
+  tempDir: string,
+  chparams: Array<[string,string]> = [],
 ) {
   const fileList = await collectSynthFiles(compilationPaths);
   if (fileList.length === 0) throw new Error('No Verilog files found for the simulation');
@@ -906,7 +904,7 @@ async function buildDigitalJSCircuit(
 
   // Per-phase progress to the terminal so a slow/stuck build is diagnosable
   // (which phase, yosys, convert, or the renderer, is the bottleneck).
-  const tlog = (/** @type {string} */ m, /** @type {string} */ t = 'info') => {
+  const tlog = (m: string, t: string = 'info') => {
     paraOProjeto(compilationPaths.spfPath, 'terminal-log', 'tprism', m, t);
   };
   const t0 = Date.now();
@@ -938,7 +936,7 @@ write_json "${jsonPath}"
     }, GROUP.RUN);
     let stderr = '';
     let settled = false;
-    const finish = (/** @type {Error|null} */ err) => {
+    const finish = (err: Error|null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -948,7 +946,7 @@ write_json "${jsonPath}"
     // endless "Building simulation…" spinner.
     const timer = setTimeout(() => {
       try { proc.kill(); } catch (_) { /* already gone */ }
-      const e = /** @type {any} */ (new Error(`Yosys synthesis of ${topLevelModule} timed out (${YOSYS_TIMEOUT_MS / 1000}s)`));
+      const e = new Error(`Yosys synthesis of ${topLevelModule} timed out (${YOSYS_TIMEOUT_MS / 1000}s)`) as any;
       e.reason = 'timeout'; e.module = topLevelModule; e.seconds = YOSYS_TIMEOUT_MS / 1000;
       finish(e);
     }, YOSYS_TIMEOUT_MS);
@@ -957,7 +955,7 @@ write_json "${jsonPath}"
     proc.stdout.on('data', () => {});
     proc.stderr.on('data', (d) => (stderr += d.toString()));
     proc.on('error', (e) => finish(e instanceof Error ? e : new Error(String(e))));
-    proc.on('close', (/** @type {number} */ code) => {
+    proc.on('close', (code: number) => {
       finish(code === 0 ? null : new Error(`yosys exited ${code}${stderr ? `: ${stderr.slice(-400)}` : ''}`));
     });
   });
@@ -971,9 +969,9 @@ write_json "${jsonPath}"
   // oversized netlist up front with clear guidance instead of freezing the app
   // on an endless spinner (the static PRISM schematic already handles big RTL).
   const cellCount = Object.values(yosysJson.modules || {}).reduce(
-    (/** @type {number} */ n, /** @type {any} */ m) => n + Object.keys((m && m.cells) || {}).length, 0);
+    (n: number, m: any) => n + Object.keys((m && m.cells) || {}).length, 0);
   if (cellCount > MAX_CELLS) {
-    const e = /** @type {any} */ (new Error(`${topLevelModule} is too large for interactive simulation (${cellCount} cells, limit ${MAX_CELLS})`));
+    const e = new Error(`${topLevelModule} is too large for interactive simulation (${cellCount} cells, limit ${MAX_CELLS})`) as any;
     e.reason = 'too-large'; e.module = topLevelModule; e.cells = cellCount; e.limit = MAX_CELLS;
     throw e;
   }
@@ -983,7 +981,7 @@ write_json "${jsonPath}"
   // TopModule directly (no yosys spawn, we already ran ours). Required lazily
   // so the (Node-only) converter isn't loaded until the user enters Sim mode.
   const tConv = Date.now();
-  const { yosys2digitaljs } = require('yosys2digitaljs/core');
+  const { yosys2digitaljs } = requireTarde('yosys2digitaljs/core') as typeof import('yosys2digitaljs/core');
   const circuit = yosys2digitaljs(yosysJson, {});
   stripYosysLabels(circuit);
   limparNomesDeSubcircuitos(circuit);
@@ -1002,12 +1000,12 @@ write_json "${jsonPath}"
 // Silicio de verdade liga com algum valor, e zero e o que todo reset do SAPHO
 // poe. O `initial` e do proprio DigitalJS; so entra onde nao ha um definido.
 // Vale para os subcircuitos tambem, que e onde os registradores moram.
-function zerarRegistradores(/** @type {any} */ circuit) {
+function zerarRegistradores(circuit: any) {
   let n = 0;
-  const zera = (/** @type {any} */ devs) => {
+  const zera = (devs: any) => {
     if (!devs) return;
     for (const d of Object.values(devs)) {
-      const dev = /** @type {any} */ (d);
+      const dev = d as any;
       if (!dev || dev.type !== 'Dff') continue;
       const bits = Number(dev.bits) || 1;
       if (typeof dev.initial === 'string' && !/x/i.test(dev.initial)) continue;
@@ -1016,7 +1014,7 @@ function zerarRegistradores(/** @type {any} */ circuit) {
     }
   };
   zera(circuit && circuit.devices);
-  for (const sub of Object.values((circuit && circuit.subcircuits) || {})) zera(/** @type {any} */ (sub).devices);
+  for (const sub of Object.values((circuit && circuit.subcircuits) || {})) zera((sub as any).devices);
   return n;
 }
 
@@ -1028,11 +1026,11 @@ function zerarRegistradores(/** @type {any} */ circuit) {
 // DigitalJS tem o dispositivo Clock, que oscila sozinho com meio periodo de
 // `propagation` ticks; a entrada que se chama clk ou clock, de 1 bit, vira
 // ele. So no topo: um clk de subcircuito vem de fora, pelo fio.
-function trocarClockPorRelogio(/** @type {any} */ circuit) {
+function trocarClockPorRelogio(circuit: any) {
   const devs = circuit && circuit.devices;
   if (!devs) return;
   for (const d of Object.values(devs)) {
-    const dev = /** @type {any} */ (d);
+    const dev = d as any;
     if (!dev || dev.type !== 'Input' || (dev.bits && dev.bits !== 1)) continue;
     const nome = String(dev.net || dev.label || '');
     if (!/^(clk|clock)$/i.test(nome)) continue;
@@ -1048,11 +1046,10 @@ function trocarClockPorRelogio(/** @type {any} */ circuit) {
 // linha de 60 caracteres de lixo sobre o desenho. Aqui a chave e o celltype
 // viram o nome limpo (cleanModuleName, o mesmo do esquematico); dois modulos
 // diferentes que limpem para o mesmo nome ganham sufixo, para nao se fundirem.
-function limparNomesDeSubcircuitos(/** @type {any} */ circuit) {
+function limparNomesDeSubcircuitos(circuit: any) {
   const subs = circuit && circuit.subcircuits;
   if (!subs) return;
-  /** @type {Map<string, string>} */
-  const mapa = new Map();
+  const mapa: Map<string,string> = new Map();
   const usados = new Set();
   for (const cru of Object.keys(subs)) {
     let limpo = cleanModuleName(cru) || cru;
@@ -1061,18 +1058,18 @@ function limparNomesDeSubcircuitos(/** @type {any} */ circuit) {
     usados.add(limpo);
     mapa.set(cru, limpo);
   }
-  const trocaTipos = (/** @type {any} */ devs) => {
+  const trocaTipos = (devs: any) => {
     if (!devs) return;
     for (const d of Object.values(devs)) {
-      const dev = /** @type {any} */ (d);
+      const dev = d as any;
       if (dev && typeof dev.celltype === 'string' && mapa.has(dev.celltype)) dev.celltype = mapa.get(dev.celltype);
     }
   };
   trocaTipos(circuit.devices);
-  const novos = /** @type {any} */ ({});
+  const novos = {} as any;
   for (const [cru, sub] of Object.entries(subs)) {
-    trocaTipos(/** @type {any} */ (sub).devices);
-    novos[/** @type {string} */ (mapa.get(cru))] = sub;
+    trocaTipos((sub as any).devices);
+    novos[(mapa.get(cru) as string)] = sub;
   }
   circuit.subcircuits = novos;
 }
@@ -1080,17 +1077,17 @@ function limparNomesDeSubcircuitos(/** @type {any} */ circuit) {
 // yosys names internal cells "$xor$<src>:<line>$n", pure clutter next to the
 // gate symbol (and they overlap badly). Named ports (a, b, sum…) don't start
 // with '$', so blanking only the '$'-prefixed labels keeps the useful ones.
-function stripYosysLabels(/** @type {any} */ circuit) {
-  const strip = (/** @type {any} */ devs) => {
+function stripYosysLabels(circuit: any) {
+  const strip = (devs: any) => {
     if (!devs) return;
     for (const d of Object.values(devs)) {
-      const dev = /** @type {any} */ (d);
+      const dev = d as any;
       if (dev && typeof dev.label === 'string' && dev.label.startsWith('$')) dev.label = '';
     }
   };
   strip(circuit.devices);
   if (circuit.subcircuits) {
-    for (const sub of Object.values(circuit.subcircuits)) strip(/** @type {any} */ (sub).devices);
+    for (const sub of Object.values(circuit.subcircuits)) strip((sub as any).devices);
   }
 }
 
@@ -1104,9 +1101,9 @@ function stripYosysLabels(/** @type {any} */ circuit) {
  * da aba de qualquer outra: era um lugar so, e um comando da AuroraAPI feito
  * na segunda janela ia parar na pagina do PRISM da primeira.
  *
- * @param {number | null} [donoId] webContents.id da janela que pediu
+ * @param [donoId] webContents.id da janela que pediu
  */
-function superficieDoPrism(donoId) {
+function superficieDoPrism(donoId?: number|null) {
   const daAba = donoId != null ? state.prismTabContents.get(donoId) : null;
   if (daAba && !daAba.isDestroyed()) return daAba;
   if (state.prismWindow && !state.prismWindow.isDestroyed()) return state.prismWindow.webContents;
@@ -1141,10 +1138,9 @@ let seqComando = 0;
  * porque um dos comandos (entrar na simulacao) roda o yosys, e um so: uma
  * pagina que morra no meio resolve na hora, pelo evento, sem esperar relogio.
  *
- * @param {any} cmd
- * @param {number | null} [donoId] janela que pediu, para achar a aba dela
+ * @param [donoId] janela que pediu, para achar a aba dela
  */
-function comandarPrism(cmd, donoId = null) {
+function comandarPrism(cmd: any, donoId: number|null = null) {
   return new Promise((resolve) => {
     const alvo = superficieDoPrism(donoId);
     if (!alvo) {
@@ -1153,7 +1149,7 @@ function comandarPrism(cmd, donoId = null) {
     }
     const id = `prism-cmd-${Date.now()}-${++seqComando}`;
     let pronto = false;
-    const encerrar = (/** @type {{ ok: boolean, error?: string, [k: string]: any }} */ r) => {
+    const encerrar = (r: { ok: boolean; error?: string;[k: string]: any; }) => {
       if (pronto) return;
       pronto = true;
       clearTimeout(prazo);
@@ -1227,7 +1223,7 @@ function register() {
   ipcMain.handle('prism-tab:page', () => {
     const pagina = pageUrl('html/prism/prism.html');
     if (!pagina.ok) return { ok: false, error: pagina.error };
-    const preload = require('url').pathToFileURL(path.join(app.getAppPath(), 'js', 'app', 'preload_prism.js')).href;
+    const preload = pathToFileURL(path.join(app.getAppPath(), 'js', 'app', 'preload_prism.js')).href;
     return { ok: true, url: `${pagina.url}?embedded=1`, preload };
   });
   ipcMain.handle('generate-svg-from-module', async (event, moduleName, _tempDir) => {
@@ -1352,8 +1348,8 @@ function register() {
       // O retrato dos sinais vai junto, sem as mudancas: e com ele que o
       // renderer monta o layout para a onda abrir ja no lugar.
       const sinais = (payload && Array.isArray(payload.sinais) ? payload.sinais : [])
-        .filter((/** @type {any} */ s) => s && typeof s.nome === 'string')
-        .map((/** @type {any} */ s) => ({
+        .filter((s: any) => s && typeof s.nome === 'string')
+        .map((s: any) => ({
           nome: s.nome,
           caminho: Array.isArray(s.caminho) ? s.caminho.map(String) : [],
           bits: Number(s.bits) || 1,
@@ -1400,7 +1396,7 @@ function register() {
       const alvo = /^[A-Za-z_][A-Za-z0-9_]*$/.test(alvoInfo.modulo) ? alvoInfo.modulo : topLevelModule;
       if (!alvo) throw new Error('No module to simulate: nothing is open in PRISM and the .spf has no top-level');
 
-      const tlog = (/** @type {string} */ m, /** @type {string} */ t = 'info') => {
+      const tlog = (m: string, t: string = 'info') => {
         paraOProjeto(compilationPaths.spfPath, 'terminal-log', 'tprism', m, t);
       };
       const params = alvoInfo.chparams.map(([k, v]) => `${k}=${v}`).join(', ');
@@ -1417,7 +1413,7 @@ function register() {
       // nao ajuda ninguem na hora.
       paraOProjeto(compilationPaths.spfPath, 'terminal-log', 'tprism',
         `DigitalJS: ${error instanceof Error ? error.message : String(error)}`, 'error');
-      const e = /** @type {any} */ (error);
+      const e = error as any;
       return {
         ok: false,
         message: error instanceof Error ? error.message : String(error),
@@ -1431,11 +1427,11 @@ function register() {
   });
 }
 
-module.exports = {
+export {
   register,
   createPrismWindow,
   // Exposto para o teste: e o ponto onde as skins do SAPHO entram (ou nao) no
   // esquematico, e a diferenca entre desenvolvimento e instalado passou por
   // aqui uma vez, calada.
-  __loadCustomSkinBlocks: loadCustomSkinBlocks,
+  loadCustomSkinBlocks as __loadCustomSkinBlocks,
 };

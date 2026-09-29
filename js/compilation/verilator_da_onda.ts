@@ -162,7 +162,7 @@ async function gravarVltDaOnda(
  * Compila o design pelo Verilator para o Wave: <tempBaseDir>/obj_dir_<top>/V<top>.exe.
  *
  * As fontes sao as mesmas que iriam para o Icarus (sintetizaveis + testbench
- * instrumentado + -y HDL), mais o `.vlt`. As flags moram no
+ * instrumentado + -y SAPHO), mais o `.vlt`. As flags moram no
  * buildVerilatorBuildSpec: --binary, --timing (os testbenches do SAPHO geram
  * o clock com #delay; sem ele o clk fica preso e a simulacao aborta com
  * DIDNOTCONVERGE), --trace-fst, -O3 no g++. O make que o Verilator dispara

@@ -398,7 +398,7 @@ decodificador (\file{instr_dec.v}) e na ULA (\file{ula.v}), e os opcodes de desv
 \lstinline|localparam| de \file{core.v}; o \file{Scripts/check_isa.py} confere os quatro
 contra a tabela.
 
-Na v5.5 são \textbf{106 opcodes} (0 a 105) e \textbf{114 mnemônicos}: \lstinline|LEA| e a
+Desde a v5.5 são \textbf{106 opcodes} (0 a 105) e \textbf{114 mnemônicos}: \lstinline|LEA| e a
 família \lstinline|_V| não têm opcode próprio e reusam o de outra instrução. Os opcodes são
 numerados por família: 0 \lstinline|NOP|; 1 a 10 memória e pilha; 11 a 15 E/S; 16 a 19
 desvios; 20 a 29 aritmética inteira; 30 a 43 aritmética em ponto flutuante; 44 a 61
@@ -547,7 +547,7 @@ assign out = in1 + in2;   assign out = in1 * in2;
 assign out = in1 / in2;   assign out = in1 % in2;
 \end{lstlisting}
 
-A divisão tem um caso nomeado na v5.5: \lstinline|INT_MIN / -1|, o único quociente com sinal
+A divisão tem um caso nomeado desde a v5.5: \lstinline|INT_MIN / -1|, o único quociente com sinal
 que não cabe em \lstinline|NUBITS| bits, devolve o próprio \lstinline|INT_MIN| (o resultado
 com \emph{wrap} que o Verilog define), para que Icarus, o simulador C++ e a síntese
 concordem:
@@ -762,7 +762,7 @@ e foi escrita para substituir o IP de FIFO de fabricantes de FPGA.
 
 O endereçamento indireto é tratado por \lstinline|mem_ctrl| e \lstinline|rel_addr|, e só é
 sintetizado quando o programa usa \lstinline|LDI|, \lstinline|STI|, \lstinline|ILI| ou
-\lstinline|ISI|. Na v5.5 há um único modo: o endereço é sempre \textbf{base + índice}. A
+\lstinline|ISI|. Desde a v5.5 há um único modo: o endereço é sempre \textbf{base + índice}. A
 base é o campo operando da instrução; o índice é o acumulador na leitura
 (\lstinline|LDI|/\lstinline|ILI|) e o topo da pilha de dados na escrita
 (\lstinline|STI|/\lstinline|ISI|). Para FFT (\lstinline|ILI|/\lstinline|ISI|), o índice passa

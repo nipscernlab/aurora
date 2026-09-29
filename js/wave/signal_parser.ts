@@ -553,7 +553,7 @@ export function flattenSignalPaths(node: HierarchyNode | null | undefined, out: 
  * Escopos de monitoramento do processador SAPHO, derivados da arvore de
  * hierarquia DOS FONTES (pre-simulacao, entao sem ovo-e-galinha com o FST).
  *
- * O core (components/HDL/core.v) mantem, atras do guard YANC_SIM_VIS, os
+ * O core (components/SAPHO/core.v) mantem, atras do guard YANC_SIM_VIS, os
  * flags das pilhas (sp/isp: pointeri, fl_max, fl_full) e os erros de
  * arredondamento da ULA (delta_int, delta_float). Eles existem em TODA
  * simulacao (Icarus liga o guard via __ICARUS__; o builder do Verilator passa

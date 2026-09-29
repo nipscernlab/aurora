@@ -78,6 +78,11 @@ components/Macros/
 # O Scripts/aurora.bat do yanc (teste de um yanc local) copia tambem a pasta
 # SAPHO do stage, com a mesma regra das outras: vem do yanc, nao se versiona.
 components/SAPHO/
+# Desde a v5.6 o zip do yanc traz tambem, na raiz, um README.md (o que e cada
+# pasta) e example/ (um programa em C++ e em C+-); o download extrai o zip
+# inteiro em components/, entao os dois caem la e vem do yanc, como as pastas.
+components/README.md
+components/example/
 
 # --- Test scratch ---
 coverage/

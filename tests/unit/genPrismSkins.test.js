@@ -1,7 +1,7 @@
 /**
  * scripts/gen-prism-skins: o gerador das skins de base do PRISM e do
  * inventario assets/prism-skins/COMPONENTS.md. Ele le cada modulo de
- * components/HDL/*.v, pula quem ja tem skin feita a mao (s:type ou s:alias
+ * components/SAPHO/*.v, pula quem ja tem skin feita a mao (s:type ou s:alias
  * numa SVG sem a marca AUTO-GENERATED), escreve a skin de base dos outros e o
  * inventario. Com --check so relata.
  *
@@ -18,7 +18,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SCRIPT = path.join(RAIZ, 'scripts', 'gen-prism-skins.mts');
 const SKINS = path.join(RAIZ, 'assets', 'prism-skins');
-const HDL = path.join(RAIZ, 'components', 'HDL');
+const HDL = path.join(RAIZ, 'components', 'SAPHO');
 const temHdl = fs.existsSync(path.join(HDL, 'core.v'));
 
 const AUTO_MARK = 'AUTO-GENERATED baseline skin (gen-prism-skins.js)';
@@ -149,7 +149,7 @@ const SKIN_TINY = `<?xml version="1.0" encoding="UTF-8"?>
 `;
 
 describe('gen-prism-skins', () => {
-  it('--check le components/HDL e as skins, relata e nao grava nada', async () => {
+  it('--check le components/SAPHO e as skins, relata e nao grava nada', async () => {
     const { lidas, gravados, log } = fsFalso({ [HDL]: HDL_FALSO, [SKINS]: SKINS_FALSAS });
     await rodar(['--check']);
     expect(lidas).toEqual([SKINS, HDL]);

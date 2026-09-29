@@ -393,7 +393,7 @@ export async function asmCompilation(
         const tempPath = await electronAPI.joinPath(await projectTempDir(deps.projectPath), name);
         const appCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'appcomp.exe');
         const asmCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'asmcomp.exe');
-        const hdlPath = await electronAPI.joinPath(deps.componentsPath, 'HDL');
+        const hdlPath = await electronAPI.joinPath(deps.componentsPath, 'SAPHO');
         const selectedCmmFile = await getSelectedSourceFile(processor);
         const cmmBaseName = stripSourceExtension(selectedCmmFile);
         const softwarePath = await electronAPI.joinPath(deps.projectPath, name, 'Software');

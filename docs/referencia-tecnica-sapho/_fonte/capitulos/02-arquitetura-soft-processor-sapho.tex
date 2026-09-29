@@ -4,7 +4,7 @@
 
 Este capítulo descreve o processador (\emph{soft-processor}) que o \emph{toolchain}
 \tool{YANC} emite ao final da compilação. A fonte da verdade é o conjunto de módulos
-Verilog em \path{yanc/HDL/} --- \file{processor.v}, \file{core.v}, \file{ula.v},
+Verilog em \path{yanc/SAPHO/} --- \file{processor.v}, \file{core.v}, \file{ula.v},
 \file{instr\_dec.v}, \file{addr\_dec.v} e \file{myFIFO.v} --- e o \emph{back-end} do
 montador (\emph{ASMComp}) em \path{yanc/Compilers/ASMComp/Sources/}, que parametriza e
 instancia esses módulos, gera as imagens de memória (\path{.mif}) e produz o
@@ -316,27 +316,29 @@ O decodificador inteiro é uma tabela: um \lstinline|case| combinacional sobre o
 uma linha por opcode, numerada como em \file{Compilers/common/isa.tsv}. Cada linha preenche
 um vetor de controle de 14 bits, \lstinline|{ula_op, push, pop, mem_wr, req_in, out_en, ldi,
 sti, fft}|, e é guardada pelo parâmetro do seu mnemônico. Trecho real de
-\file{instr_dec.v}:
+\file{instr_dec.v} (v5.6):
 
 \begin{lstlisting}[language=Verilog]
 // {ula_op, push, pop, mem_wr, req_in, out_en, ldi, sti, fft}
-reg [13:0] ctl;
-
-always @ (*) begin
-    ctl = 14'd0;                                    // pass-acc, no push, no pop, no write
+function [13:0] decode(input [NBOPCO-1:0] opcode);
+begin
+    decode = 14'd0;                                 // pass-acc, no push, no pop, no write
     case (opcode)
-    //                        ula    push pop  wr   in   out  ldi  sti  fft
+    //                           ula    push pop  wr   in   out  ldi  sti  fft
     // memory and stack
-    7'd1  : if (LOD     ) ctl = {6'd1 , 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
-    7'd2  : if (P_LOD   ) ctl = {6'd1 , 1'b1, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
-    7'd3  : if (LDI     ) ctl = {6'd1 , 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1, 1'b0, 1'b0};
+    7'd1  : if (LOD     ) decode = {6'd1 , 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
+    7'd2  : if (P_LOD   ) decode = {6'd1 , 1'b1, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
+    7'd3  : if (LDI     ) decode = {6'd1 , 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1, 1'b0, 1'b0};
     // ...
-    7'd7  : if (STI     ) ctl = {6'd0 , 1'b0, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b1, 1'b0};
+    7'd7  : if (STI     ) decode = {6'd0 , 1'b0, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b1, 1'b0};
     // ...
-    7'd105: if (S_SRS   ) ctl = {6'd45, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
+    7'd105: if (S_SRS   ) decode = {6'd45, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
     default: ;
     endcase
 end
+endfunction
+
+wire [13:0] ctl = decode(opcode);
 
 assign {push, pop, mem_wr, req_in, out_en, ldi, sti, fft} = ctl[7:0];
 \end{lstlisting}
@@ -348,6 +350,16 @@ correspondente; o decodificador cresce com o programa, como o resto da ULA. Os o
 sem linha (o \lstinline|NOP|, 0, e os desvios 16 a 19, tratados no \lstinline|prefetch|)
 caem no \lstinline|default| e deixam \lstinline|ctl| em zero: \lstinline|ula_op = 0|
 (repassa o acumulador), sem \emph{push}, sem \emph{pop} e sem escrita.
+
+Até a v5.5 a tabela ficava num \lstinline|always @ (*)|. O Icarus só executa um bloco
+desses quando muda um sinal que ele lê; sob \tool{cocotb} o opcode já é 0 em $t=0$ e
+continua 0 durante o \emph{reset}, então o bloco nunca rodava e as linhas de controle
+(\lstinline|req_in|, \lstinline|push|, \lstinline|mem_wr|, \ldots) ficavam em X nos
+primeiros ciclos depois do \emph{reset}. Na v5.6 a tabela passou para uma
+\lstinline|function| ligada por atribuição contínua, que todo simulador avalia em $t=0$.
+A função é a mesma (comparada nos 128 opcodes para 260 conjuntos de parâmetros) e o
+\emph{hardware} também: no Quartus o decodificador do \lstinline|sapho_all| continua com
+31 ALUTs.
 
 Os sinais agregados deixaram de ser ORs de reconhecedores: cada um é uma coluna da tabela.
 A escrita em memória, por exemplo, é a coluna \lstinline|wr|, em 1 nas linhas de
@@ -772,10 +784,19 @@ decodificador. O trecho de \file{core.v}:
 // the address is always base + index: the operand field plus the acc (read)
 // or plus the data-stack top (write). A pointer is dereferenced with a raw
 // base of 0 in the operand field (LDI 0 / STI 0), or of the constant offset
-// it is read at (LDI 3 = mem[acc + 3]).
-rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ISI)) ra_rd(ldi, fft, ula[MDATAW-1:0], base_addr, mem_addr_rd);
-rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ILI)) ra_wr(sti, fft, stk_ofst       , base_addr, mem_addr_wr);
+// it is read at (LDI 3 = mem[acc + 3]). The FFT bit reversal of the index
+// (x[k) in C+-) is built into the read path when the program uses ILI and
+// into the write path when it uses ISI (cmm_fft_rd / cmm_fft_wr).
+rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ILI)) ra_rd(ldi, fft, ula[MDATAW-1:0], base_addr, mem_addr_rd);
+rel_addr #(.MDATAW(MDATAW), .FFTSIZ(FFTSIZ), .USEFFT(ISI)) ra_wr(sti, fft, stk_ofst       , base_addr, mem_addr_wr);
 \end{lstlisting}
+
+A reversão de cada caminho segue a instrução que precisa dela: \lstinline|ILI| liga a do
+caminho de leitura e \lstinline|ISI| a do de escrita. Até a v5.5 os dois parâmetros estavam
+trocados. Os programas de FFT usam as duas instruções, e por isso nada aparecia; um
+programa que só lia com \lstinline|x[k)|, sem \emph{store} com reversão (ou só escrevia, sem
+\emph{load} com reversão), recebia a ordem natural sem aviso. A v5.6 destrocou os
+parâmetros, e o \lstinline|proc_fft| sintetiza no mesmo \emph{hardware} de antes.
 
 A reversão de bits da FFT é feita invertendo a ordem dos \lstinline|FFTSIZ| bits menos
 significativos do deslocamento:

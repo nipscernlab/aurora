@@ -74,7 +74,7 @@ const CTX = {
     tbKey: 'test_filtro', hdlTopModule: 'filtro', testModule: 'test_filtro', testbenchFile: PY,
 };
 const CONFIG = { testbenchFile: PY, topLevelFile: DUT, synthesizableFiles: [DUT, PROJ + '/leia.txt'] };
-const FONTES = [DUT, COMP + '/HDL/processor.v', COMP + '/HDL/ula.v'];
+const FONTES = [DUT, COMP + '/SAPHO/processor.v', COMP + '/SAPHO/ula.v'];
 
 function makeTerminal() {
     const calls = [];
@@ -153,10 +153,10 @@ beforeEach(() => {
     localStorage.clear();
     for (const [p, c] of [
         [MINGW + '/verilator', '#!perl'], [MINGW + '/perl.exe', 'MZ'], [MINGW + '/python.exe', 'MZ'],
-        [COMP + '/HDL/processor.v', 'module processor; endmodule'],
-        [COMP + '/HDL/ula.v', 'module ula; endmodule'],
-        [COMP + '/HDL/processor_tb.v', 'module processor_tb; endmodule'],
-        [COMP + '/HDL/leia.md', 'x'],
+        [COMP + '/SAPHO/processor.v', 'module processor; endmodule'],
+        [COMP + '/SAPHO/ula.v', 'module ula; endmodule'],
+        [COMP + '/SAPHO/processor_tb.v', 'module processor_tb; endmodule'],
+        [COMP + '/SAPHO/leia.md', 'x'],
         [PY, 'import cocotb\n'],
         [DUT, 'module filtro; endmodule'],
     ]) api._arquivos.set(p, c);
@@ -382,7 +382,7 @@ describe('a execucao do cocotb', () => {
     describe('as fontes e as memorias', () => {
         it('sem a biblioteca HDL, vao so as fontes do projeto; topo nao Verilog fica fora', async () => {
             api.listFilesInDirectory.mockImplementation(async (dir) => {
-                if (dir === COMP + '/HDL') throw new Error('EACCES');
+                if (dir === COMP + '/SAPHO') throw new Error('EACCES');
                 return [];
             });
             const mod = await novoModulo();
@@ -393,7 +393,7 @@ describe('a execucao do cocotb', () => {
 
         it('HDL que nao lista como lista, ou pasta Temp que nao lista: segue sem', async () => {
             api.listFilesInDirectory.mockImplementation(async (dir) => {
-                if (dir === COMP + '/HDL') return null;
+                if (dir === COMP + '/SAPHO') return null;
                 throw new Error('EACCES');
             });
             const mod = await novoModulo({ ...CONFIG, synthesizableFiles: undefined });

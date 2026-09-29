@@ -31,7 +31,7 @@ const REQUIRED = ['cpppp.exe', 'cppcomp.exe', 'appcomp.exe', 'asmcomp.exe']
   .map((exe) => path.join(COMPONENTS, 'bin', exe));
 const toolchainReady = REQUIRED.every((p) => fs.existsSync(p))
   && fs.existsSync(path.join(COMPONENTS, 'Header'))
-  && fs.existsSync(path.join(COMPONENTS, 'HDL'));
+  && fs.existsSync(path.join(COMPONENTS, 'SAPHO'));
 
 /**
  * O programa: o proc_cpp do yanc quando ele esta na maquina, senao um

@@ -269,7 +269,7 @@ describe('runGtkWave, Icarus com GTKWave', () => {
         // myFIFO.v nao resolvem sem o usuario lista-los.
         const build = passos[0].args.join(' ');
         expect(build).toContain('-s ' + SIM_TOP);
-        expect(build).toContain('-y ' + COMP + '/HDL');
+        expect(build).toContain('-y ' + COMP + '/SAPHO');
         expect(build).toContain('-o ' + TEMP + '/' + SIM_TOP + '.vvp');
         expect(build).toContain(TOP);
         expect(build).toContain(TB);

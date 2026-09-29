@@ -34,7 +34,7 @@
  *      precompileAllProcessors (compilation_flow.js).
  *
  *   3. synthesizableFiles[] (populado pelo file tree) ja inclui os
- *      .v dos processadores. -y components/HDL e sempre adicionado
+ *      .v dos processadores. -y components/SAPHO e sempre adicionado
  *      pra resolver a biblioteca SAPHO (processor.v, ula.v,
  *      myFIFO.v, etc) sem o usuario precisar listar.
  *

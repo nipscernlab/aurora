@@ -158,7 +158,7 @@ export async function prepararWave(
     const filePaths = new Set(config.synthesizableFiles);
     if (config.testbenchFile) filePaths.add(config.testbenchFile);
     try {
-        const hdlPath = await electronAPI.joinPath(ctx.componentsPath as string, 'HDL');
+        const hdlPath = await electronAPI.joinPath(ctx.componentsPath as string, 'SAPHO');
         for (const p of await arquivosDaBibliotecaHdl(hdlPath)) filePaths.add(p);
     } catch (_e) { /* HDL nao acessivel, segue sem */ }
 

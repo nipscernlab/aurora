@@ -203,7 +203,7 @@ Duas fases: \lstinline|_waveBuildAndVerifyVvp(simTopModule, tempBaseDir)| e
 \lstinline|_waveRunVvpSimulation(simTopModule, tools)|.
 
 A primeira chama \lstinline|waveBuildVvp()|, que compila o conjunto de fontes
-(sintetizáveis $+$ testbench instrumentado $+$ \lstinline|-y components/HDL|)
+(sintetizáveis $+$ testbench instrumentado $+$ \lstinline|-y components/SAPHO|)
 com \tool{iverilog} produzindo \file{<top>.vvp}, e depois confirma que o
 arquivo foi escrito em disco. O \file{.vvp} é \emph{sempre} reconstruído ---
 o testbench instrumentado \enquote{assa} a seleção de \lstinline|$dumpvars| do

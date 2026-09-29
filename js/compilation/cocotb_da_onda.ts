@@ -127,7 +127,7 @@ async function fontesDoCocotb(componentsPath: string, config: ConfigDoCocotb): P
         fileSet.add(config.topLevelFile);
     }
     try {
-        const hdlPath = await electronAPI.joinPath(componentsPath, 'HDL');
+        const hdlPath = await electronAPI.joinPath(componentsPath, 'SAPHO');
         const hdlEntries: unknown = await electronAPI.listFilesInDirectory(hdlPath);
         if (Array.isArray(hdlEntries)) {
             for (const name of hdlEntries) {

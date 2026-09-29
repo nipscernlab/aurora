@@ -86,7 +86,7 @@ function caminhosConfiaveis(recebido: any, event: any) {
   return {
     projectPath,
     componentsPath,
-    hdlPath: path.join(componentsPath, 'HDL'),
+    hdlPath: path.join(componentsPath, 'SAPHO'),
     tempPath: path.join(projectPath, ...TEMP_DO_PROJETO, 'PRISM'),
     yosysPath: YOSYS_EXE,
     spfPath,
@@ -351,7 +351,7 @@ async function runYosysCompilationWithPaths(
   if (!gate.ok) throw new Error(`Yosys binary refused: ${gate.error}`);
 
   // Coleta unificada:
-  //   1. components/HDL/*.v , biblioteca SAPHO (processor, addr_dec,
+  //   1. components/SAPHO/*.v , biblioteca SAPHO (processor, addr_dec,
   //      core, ula, myFIFO, instr_dec). Sempre incluida porque
   //      qualquer top que seja um processador SAPHO depende disso.
   //   2. .spf structure.synthesizableFiles[].path, fonte canonica

@@ -216,7 +216,7 @@ describe('o build do Verilator no Wave', () => {
         expect(passos).toHaveLength(1);
         const args = passos[0].args;
         expect(args).toEqual(expect.arrayContaining([DUT, TB_INSTR, VLT, '-Wno-fatal', '-Wno-TIMESCALEMOD',
-            '-Wno-DECLFILENAME', '-Wno-STMTDLY', '--top-module', TOP, '-y', COMP + '/HDL']));
+            '-Wno-DECLFILENAME', '-Wno-STMTDLY', '--top-module', TOP, '-y', COMP + '/SAPHO']));
         expect(args).toContain('--trace-fst');
 
         // O .vlt expoe os cinco monitores e traz o pedido do usuario por escopo.

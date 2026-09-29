@@ -4,7 +4,7 @@
  *
  * PRISM (the RTL viewer) renders each Verilog cell through a netlistsvg skin.
  * A module WITHOUT a custom skin falls back to the plain `generic` box. This
- * script walks the SAPHO HDL (`components/HDL/*.v`), extracts every module's
+ * script walks the SAPHO HDL (`components/SAPHO/*.v`), extracts every module's
  * REAL synthesised port list, and emits a clean baseline skin for each module
  * that doesn't already have a hand-crafted one, so the whole datapath gets a
  * proper labelled symbol with correctly-anchored ports. The visual design is
@@ -31,7 +31,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const HDL_DIR = path.join(REPO, 'components', 'HDL');
+const HDL_DIR = path.join(REPO, 'components', 'SAPHO');
 const SKIN_DIR = path.join(REPO, 'assets', 'prism-skins');
 // A marca fica com o nome antigo, .js: e ela que coveredTypes procura numa skin
 // para saber que foi este script que a escreveu, e trocar o texto faria uma
@@ -313,7 +313,7 @@ A skin is a netlistsvg symbol keyed by \`s:type\` (with \`<s:alias>\` fallbacks)
 Files live in \`assets/prism-skins/\` and are merged over the stock netlistsvg
 skin at compile time by \`getDefaultSkinData\` in \`main/ipc/prism.js\`.
 
-## 1. SAPHO HDL modules (\`components/HDL/*.v\`)
+## 1. SAPHO HDL modules (\`components/SAPHO/*.v\`)
 
 These are the real Verilog modules in a SAPHO processor. Each is a clickable
 PRISM cell; without a skin it renders as a plain \`generic\` box.

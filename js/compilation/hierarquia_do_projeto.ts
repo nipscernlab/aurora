@@ -32,7 +32,7 @@ export interface DepsDaHierarquia {
 }
 
 /**
- * As linhas `read_verilog` da biblioteca SAPHO (components/HDL).
+ * As linhas `read_verilog` da biblioteca SAPHO (components/SAPHO).
  *
  * Ela tem os modulos que o design do usuario instancia sem listar no `.spf`
  * (processor, core, ula, myFIFO, addr_dec, instr_dec...). Sem le-los, o Yosys
@@ -43,7 +43,7 @@ export interface DepsDaHierarquia {
  * JSON. Pasta que nao se deixa listar vira aviso e string vazia.
  */
 async function lerBibliotecaHdl(deps: DepsDaHierarquia): Promise<string> {
-    const hdlPath = await electronAPI.joinPath(deps.componentsPath, 'HDL');
+    const hdlPath = await electronAPI.joinPath(deps.componentsPath, 'SAPHO');
     try {
         const hdlEntries: unknown = await electronAPI.listFilesInDirectory(hdlPath);
         if (!Array.isArray(hdlEntries)) return '';

@@ -8,7 +8,7 @@
 ; caminho que main/paths.js resolve.
 
 !macro customInstall
-  ; O instalador traz apenas o que e essencial (Scripts, bin do YANC, HDL) em
+  ; O instalador traz apenas o que e essencial (Scripts, bin do YANC, SAPHO) em
   ; resources\components_tmp. Copiamos POR CIMA da pasta persistente, para o
   ; que o usuario baixou continuar onde esta. CopyFiles cria o destino se ele
   ; nao existir, entao instalacao nova e atualizacao seguem o mesmo caminho.

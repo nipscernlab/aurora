@@ -125,7 +125,7 @@ describe('o botao Verilog', () => {
         expect(TabManager.saveAllFiles).toHaveBeenCalled();
         expect(passos).toHaveLength(1);
         expect(passos[0]).toMatchObject({ binary: IVERILOG, cwd: PROJ });
-        expect(passos[0].args).toEqual(expect.arrayContaining(['-tnull', '-s', 'filtro', '-y', COMP + '/HDL', DUT, SUB]));
+        expect(passos[0].args).toEqual(expect.arrayContaining(['-tnull', '-s', 'filtro', '-y', COMP + '/SAPHO', DUT, SUB]));
         expect(passos[0].args).not.toContain(TB);
         expect(visiveis()).toEqual([
             ['terminal.veri.phaseCheck', 'info'],

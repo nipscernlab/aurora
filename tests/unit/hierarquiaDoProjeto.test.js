@@ -59,7 +59,7 @@ const COMP = 'C:/comp';
 const TEMP = PROJ + '/.aurora/Temp';
 const TOP = PROJ + '/Hardware/filtro.v';
 const SUB = PROJ + '/Hardware/soma.v';
-const HDL = COMP + '/HDL';
+const HDL = COMP + '/SAPHO';
 const JSON_SAIDA = TEMP + '/project_hierarchy.json';
 const SCRIPT = TEMP + '/project_hierarchy_gen.ys';
 

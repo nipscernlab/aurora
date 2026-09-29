@@ -128,7 +128,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
 
   const lang = (window.getYancLang?.() ?? 'pt') as 'pt' | 'en';
   const macrosPath  = await joinComponents('Macros');
-  const hdlPath     = await joinComponents('HDL');
+  const hdlPath     = await joinComponents('SAPHO');
   // Intermediarios na Temp DO PROJETO, nunca na compartilhada (project_temp.js).
   const tempBaseDir = await projectTempDir(projectPath);
 

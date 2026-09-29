@@ -8,7 +8,7 @@
  * mostrar erro num projeto que compila.
  *
  * O mesmo vale, e com mais frequencia, para a biblioteca do proprio SAPHO: o
- * `processor` mora em components/HDL, pasta que nao e copiada para o projeto, e
+ * `processor` mora em components/SAPHO, pasta que nao e copiada para o projeto, e
  * era ela que fazia o editor sublinhar a instanciacao do processador no top
  * level de um projeto que compila.
  *
@@ -119,13 +119,13 @@ describe('quais pastas o indice precisa alem da raiz', () => {
 });
 
 describe('a biblioteca HDL do SAPHO', () => {
-  // A biblioteca de verdade mora em components/HDL, que vem com a toolchain
+  // A biblioteca de verdade mora em components/SAPHO, que vem com a toolchain
   // BAIXADA: o runner do CI nao a tem, e um teste que dependesse dela estar
   // no disco passaria numa maquina e quebraria na outra (quebrou). Cada teste
   // cria a sua em pasta temporaria e a injeta pelo parametro.
   let hdl;
   beforeEach(() => {
-    hdl = path.join(raiz, 'toolchain', 'HDL');
+    hdl = path.join(raiz, 'toolchain', 'SAPHO');
     fs.mkdirSync(hdl, { recursive: true });
   });
 
@@ -160,7 +160,7 @@ describe('a biblioteca HDL do SAPHO', () => {
     escreverSpf({
       synthesizableFiles: [{ path: path.join(fora, 'fifo.v') }],
     });
-    expect(indexExtraDirs(projeto, path.join(raiz, 'nao-existe', 'HDL'))).toEqual([fora]);
+    expect(indexExtraDirs(projeto, path.join(raiz, 'nao-existe', 'SAPHO'))).toEqual([fora]);
   });
 });
 

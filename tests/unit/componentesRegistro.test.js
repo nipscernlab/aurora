@@ -175,11 +175,11 @@ describe('arquivos-chave', () => {
   // cada rodada.
   it('todo arquivo-chave mora numa area do proprio componente', () => {
     // O YANC e a excecao declarada: o release dele espalha quatro areas
-    // (bin, HDL, Header, Macros), todas instaladas e conferidas pelo
+    // (bin, SAPHO, Header, Macros), todas instaladas e conferidas pelo
     // download-yanc.js. Qualquer outro componente vive numa pasta so, e um
     // arquivo-chave fora dela seria o doctor diagnosticando o componente
     // errado.
-    const AREAS = { yanc: ['bin/', 'HDL/', 'Header/', 'Macros/'] };
+    const AREAS = { yanc: ['bin/', 'SAPHO/', 'Header/', 'Macros/'] };
     for (const c of COMPONENTES) {
       const bases = AREAS[c.chave]
         || [c.sentinela.split('/')[0] === 'Packages'
@@ -195,12 +195,12 @@ describe('arquivos-chave', () => {
   });
 
   it('os arquivos-chave do yanc sao as sentinelas do proprio instalador', () => {
-    // download-yanc.js confere HDL/core.v, Header/cmath e Macros/float_sin.asm
+    // download-yanc.js confere SAPHO/core.v, Header/cmath e Macros/float_sin.asm
     // como prova de instalacao completa. O catalogo tem que olhar os mesmos
     // arquivos, senao o instalador e o doctor discordam sobre o que e uma
     // instalacao inteira.
     const yanc = COMPONENTES.find((c) => c.chave === 'yanc');
-    for (const rel of ['HDL/core.v', 'Header/cmath', 'Macros/float_sin.asm']) {
+    for (const rel of ['SAPHO/core.v', 'Header/cmath', 'Macros/float_sin.asm']) {
       expect(yanc.arquivosChave).toContain(rel);
     }
   });

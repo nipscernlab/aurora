@@ -70,7 +70,7 @@ absolutos e \emph{slashes} normalizadas para barra direta:
 \begin{lstlisting}[caption={Campos do payload de caminhos (compilation\_flow.js)}]
 {
   projectPath, componentsPath,
-  hdlPath:      <components>/HDL,
+  hdlPath:      <components>/SAPHO,
   tempPath:     <components>/Temp/PRISM,
   yosysPath:    <components>/Packages/msys/mingw64/bin/yosys.exe,
   spfPath:      <currentSpfPath>,
@@ -214,7 +214,7 @@ caminho absoluto, evitando erros de módulo duplicado no \tool{Yosys}). As fonte
 nesta ordem, são:
 
 \begin{enumerate}[leftmargin=2.2em]
-  \item \path{components/HDL/*.v} --- a biblioteca SAPHO (processor, addr\_dec,
+  \item \path{components/SAPHO/*.v} --- a biblioteca SAPHO (processor, addr\_dec,
         core, ula, myFIFO, instr\_dec etc.), sempre incluída porque qualquer
         \emph{top} que seja um processador SAPHO depende dela. Arquivos com
         \lstinline|_tb| ou \lstinline|test| no nome são excluídos.
@@ -486,7 +486,7 @@ no git.
 \subsection{A família de símbolos SAPHO}
 
 As \emph{skins} customizadas são geradas por
-\file{scripts/prism-skin-standard.js}, que estabelece um \emph{padrão} de
+\file{scripts/prism-skin-standard.mts}, que estabelece um \emph{padrão} de
 símbolos: cada classe de módulo é desenhada como seu símbolo de livro-texto (mux
 = pentágono apontando à direita; ALU = \emph{chevron} entalhado; decodificador =
 trapézio \emph{fan-out}; registrador = cartão com \emph{clock} $\blacktriangleright$;
@@ -766,7 +766,7 @@ reexecução de \tool{Yosys} ocorre durante a navegação (apenas uma nova chama
 \file{main/render\_loader.js} & seleção dev/prod do renderer (\lstinline|loadPage|) \\
 \repo{netlistsvg-aurora} & fork de \lstinline|@silimate/netlistsvg| (fix de tsconfig; skins default) \\
 \file{assets/prism-skins/*.svg} & símbolos customizados da família SAPHO (mesclados em runtime) \\
-\file{scripts/prism-skin-standard.js} & gerador do padrão de símbolos SAPHO \\
+\file{scripts/prism-skin-standard.mts} & gerador do padrão de símbolos SAPHO \\
 \bottomrule
 \end{tabularx}
 

@@ -4,7 +4,7 @@
  *
  * Fixa o comportamento de hoje antes da conversao para .ts: quais arquivos o
  * open() e o refresh() leem (inclusive a biblioteca do SAPHO em
- * components/HDL, com o caminho exato passado ao joinPath), como a selecao
+ * components/SAPHO, com o caminho exato passado ao joinPath), como a selecao
  * inicial e escolhida, o filtro de texto, o filtro "processor only", as
  * linhas da arvore e o save() no WaveStore.
  *
@@ -150,7 +150,7 @@ beforeEach(() => {
     arquivos = new Map([
         ['/proj/top.v', TOP_V],
         ['/proj/tb.v', TB_V],
-        ['C:/comp/HDL/core.v', CORE_V],
+        ['C:/comp/SAPHO/core.v', CORE_V],
     ]);
     listagem = () => ['core.v', 'core_tb.v', 'leia.txt', 42];
     montarApi();
@@ -201,7 +201,7 @@ describe('carga do modulo', () => {
 });
 
 describe('open(): a validacao le o projeto e a biblioteca do SAPHO', () => {
-    it('passa ao _validateWaveSelection os .v do projeto e os de components/HDL', async () => {
+    it('passa ao _validateWaveSelection os .v do projeto e os de components/SAPHO', async () => {
         projeto();
         estadoOnda = { waveSignals: ['tb.clk'] };
         const m = novo();
@@ -209,14 +209,14 @@ describe('open(): a validacao le o projeto e a biblioteca do SAPHO', () => {
 
         expect(compilador.instancias).toEqual(['/proj']);
         expect(fake.getComponentsPath).toHaveBeenCalled();
-        // O diretorio da biblioteca: exatamente (componentsPath, 'HDL').
-        expect(joins).toContainEqual(['C:/comp', 'HDL']);
-        expect(fake.listFilesInDirectory).toHaveBeenCalledWith('C:/comp/HDL');
-        expect(joins).toContainEqual(['C:/comp/HDL', 'core.v']);
+        // O diretorio da biblioteca: exatamente (componentsPath, 'SAPHO').
+        expect(joins).toContainEqual(['C:/comp', 'SAPHO']);
+        expect(fake.listFilesInDirectory).toHaveBeenCalledWith('C:/comp/SAPHO');
+        expect(joins).toContainEqual(['C:/comp/SAPHO', 'core.v']);
         // core_tb.v (tem _tb), leia.txt (nao e .v) e 42 (nao e string) ficam de fora.
-        expect(joins).not.toContainEqual(['C:/comp/HDL', 'core_tb.v']);
+        expect(joins).not.toContainEqual(['C:/comp/SAPHO', 'core_tb.v']);
         const v = compilador.validacoes[0];
-        expect(v.filePaths).toEqual(['/proj/top.v', '/proj/tb.v', '/proj/tb.v', 'C:/comp/HDL/core.v']);
+        expect(v.filePaths).toEqual(['/proj/top.v', '/proj/tb.v', '/proj/tb.v', 'C:/comp/SAPHO/core.v']);
         expect(v.tbModule).toBe('tb');
         expect(v.tbKey).toBe('tb');
         expect(v.raw).toEqual(['tb.clk']);
@@ -255,7 +255,7 @@ describe('open(): a validacao le o projeto e a biblioteca do SAPHO', () => {
         const m = novo();
         await m.open();
         const v = compilador.validacoes[0];
-        expect(v.filePaths).toEqual(['/proj/top.v', '/proj/aux.v', 'C:/comp/HDL/core.v']);
+        expect(v.filePaths).toEqual(['/proj/top.v', '/proj/aux.v', 'C:/comp/SAPHO/core.v']);
         expect(v.tbModule).toBe('top');
         expect(v.tbKey).toBe('test_top');
         expect(compilador.syntaxChecks).toBe(0);
@@ -331,16 +331,16 @@ describe('open(): a validacao le o projeto e a biblioteca do SAPHO', () => {
 });
 
 describe('refresh(): a arvore e a selecao inicial', () => {
-    it('le os .v do projeto e os de components/HDL, com o mesmo caminho', async () => {
+    it('le os .v do projeto e os de components/SAPHO, com o mesmo caminho', async () => {
         projeto();
         const m = novo();
         await m.refresh();
-        expect(joins).toContainEqual(['C:/comp', 'HDL']);
-        expect(fake.listFilesInDirectory).toHaveBeenCalledWith('C:/comp/HDL');
-        expect(joins).toContainEqual(['C:/comp/HDL', 'core.v']);
+        expect(joins).toContainEqual(['C:/comp', 'SAPHO']);
+        expect(fake.listFilesInDirectory).toHaveBeenCalledWith('C:/comp/SAPHO');
+        expect(joins).toContainEqual(['C:/comp/SAPHO', 'core.v']);
         // O testbench e lido duas vezes: no parse e na procura de $dumpvars.
         expect(fake.readFile.mock.calls.map((c) => c[0]).sort()).toEqual(
-            ['/proj/tb.v', '/proj/tb.v', '/proj/top.v', 'C:/comp/HDL/core.v'],
+            ['/proj/tb.v', '/proj/tb.v', '/proj/top.v', 'C:/comp/SAPHO/core.v'],
         );
         expect(m.tree.scopePath).toBe('tb');
         expect(m.tree.children[0].children[0].scopePath).toBe('tb.dut.u_core');
@@ -368,12 +368,12 @@ describe('refresh(): a arvore e a selecao inicial', () => {
         listagem = () => 'nao';
         const m = novo();
         await m.refresh();
-        expect(fake.readFile.mock.calls.map((c) => c[0])).not.toContain('C:/comp/HDL/core.v');
+        expect(fake.readFile.mock.calls.map((c) => c[0])).not.toContain('C:/comp/SAPHO/core.v');
     });
 
     it('arquivo que falha ao ler e pulado', async () => {
         projeto();
-        arquivos.delete('C:/comp/HDL/core.v');
+        arquivos.delete('C:/comp/SAPHO/core.v');
         const m = novo();
         await m.refresh();
         expect(m.tree.scopePath).toBe('tb');

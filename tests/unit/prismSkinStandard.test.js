@@ -1,6 +1,6 @@
 /**
  * scripts/prism-skin-standard: o padrao dos simbolos do PRISM. Ele le cada
- * modulo de components/HDL/*.v e desenha a skin de cada um em
+ * modulo de components/SAPHO/*.v e desenha a skin de cada um em
  * assets/prism-skins/<modulo>.svg.
  *
  * A caracterizacao mais forte e a das skins versionadas: cada uma foi gerada
@@ -24,7 +24,7 @@ import { renderModule, classify, allModules } from '../../scripts/prism-skin-sta
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SCRIPT = path.join(RAIZ, 'scripts', 'prism-skin-standard.mts');
 const SKINS = path.join(RAIZ, 'assets', 'prism-skins');
-const HDL = path.join(RAIZ, 'components', 'HDL');
+const HDL = path.join(RAIZ, 'components', 'SAPHO');
 const temHdl = fs.existsSync(path.join(HDL, 'core.v'));
 
 const lf = (s) => s.replace(/\r\n/g, '\n');
@@ -49,7 +49,7 @@ function hdlFalso(dir, arquivos) {
 }
 
 describe('allModules', () => {
-  it('le components/HDL, so os .v, e tira as portas de cada modulo', () => {
+  it('le components/SAPHO, so os .v, e tira as portas de cada modulo', () => {
     const lidas = hdlFalso(HDL, {
       'a.v': [
         '// module comentado (ignorado)',

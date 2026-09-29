@@ -162,8 +162,8 @@ beforeEach(() => {
     window.t = (k, p) => (p ? `${k} ${JSON.stringify(p)}` : k);
     for (const [p, c] of [
         [MINGW + '/iverilog.exe', 'MZ'],
-        [COMP + '/HDL/processor.v', 'module processor; endmodule'],
-        [COMP + '/HDL/core_tb.v', 'module core_tb; endmodule'],
+        [COMP + '/SAPHO/processor.v', 'module processor; endmodule'],
+        [COMP + '/SAPHO/core_tb.v', 'module core_tb; endmodule'],
         [TB, TB_SIMPLES],
         [DUT, 'module filtro; endmodule'],
     ]) api._arquivos.set(p, c);
@@ -187,7 +187,7 @@ describe('o preparo do Wave', () => {
 
         expect(resolveWaveSelection).toHaveBeenCalledWith(
             expect.objectContaining({ projectPath: PROJ }),
-            { config: CONFIG, simTopModule: TOP, filePaths: [DUT, TB, COMP + '/HDL/processor.v'] },
+            { config: CONFIG, simTopModule: TOP, filePaths: [DUT, TB, COMP + '/SAPHO/processor.v'] },
         );
         expect(r.instrumentedTbPath).toBe(INSTR);
         expect([...r.fileSet]).toEqual([DUT, INSTR]);
@@ -312,8 +312,8 @@ describe('o build do .vvp', () => {
         expect(api.mkdir).toHaveBeenCalledWith(TEMP);
         expect(passos).toHaveLength(1);
         expect(passos[0]).toMatchObject({ step: 'iverilog-build', binary: MINGW + '/iverilog.exe', cwd: PROJ });
-        expect(passos[0].args).toEqual(expect.arrayContaining(['-s', TOP, '-o', VVP, '-y', COMP + '/HDL', DUT, INSTR]));
-        expect(resolveWaveSelection.mock.calls[0][1].filePaths).toEqual([DUT, TB, COMP + '/HDL/processor.v']);
+        expect(passos[0].args).toEqual(expect.arrayContaining(['-s', TOP, '-o', VVP, '-y', COMP + '/SAPHO', DUT, INSTR]));
+        expect(resolveWaveSelection.mock.calls[0][1].filePaths).toEqual([DUT, TB, COMP + '/SAPHO/processor.v']);
         expect(mod._validatedWaveSelection).toEqual([]);
         expect(visiveis()).toEqual([
             ['tveri', 'terminal.veri.phaseBuild', 'info'],

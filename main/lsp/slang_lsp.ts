@@ -43,7 +43,7 @@
  * a nossa marca, e do usuario e nao encostamos nele.
  *
  * A terceira e a biblioteca do proprio SAPHO. O `processor`, o `core`, a `ula`,
- * o `addr_dec` e o `myFIFO` moram em `components/HDL`, que nao e copiada para
+ * o `addr_dec` e o `myFIFO` moram em `components/SAPHO`, que nao e copiada para
  * dentro do projeto: a compilacao resolve esses modulos com `-y`, e o indice,
  * que so varre a raiz, nunca os via. O resultado era o mais comum de todos, um
  * `unknown module 'processor'` na instanciacao do proprio processador. Essa
@@ -86,7 +86,7 @@ const LS_BIN = path.join(componentsPath, 'Packages', 'slang-server', 'bin', 'sla
 const REQUEST_TIMEOUT_MS = 20000; // elaboration can be heavier than a lint
 
 /** A biblioteca HDL do SAPHO, que a compilacao passa ao iverilog como `-y`. */
-const HDL_LIB_DIR = path.join(componentsPath, 'HDL');
+const HDL_LIB_DIR = path.join(componentsPath, 'SAPHO');
 
 /** Extensoes que o indice do slang cobre (as mesmas do glob default dele). */
 const WATCHED_EXTS = new Set(['.v', '.sv', '.vh', '.svh']);
@@ -313,7 +313,7 @@ function suavizarProcessadorNaoCompilado(diagnostics: any[], semHardware: Map<st
  * A biblioteca HDL do SAPHO, quando instalada e fora da pasta do projeto.
  *
  * Ela nunca e copiada para o projeto: a compilacao acha `processor`, `core`,
- * `ula`, `addr_dec` e `myFIFO` porque o iverilog recebe `-y components/HDL`.
+ * `ula`, `addr_dec` e `myFIFO` porque o iverilog recebe `-y components/SAPHO`.
  * O indice do slang nao tem esse `-y`, entao a pasta precisa ser dita aqui,
  * senao toda instanciacao do processador aparece sublinhada. A cadeia de
  * compilacao e baixada, e nao instalada junto: se a pasta nao existe, nao ha o

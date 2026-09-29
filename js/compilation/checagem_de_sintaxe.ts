@@ -43,7 +43,7 @@ export interface ContextoDaChecagem {
 }
 
 /**
- * O botao Verilog. O -y components/HDL resolve os modulos que o design usa sem
+ * O botao Verilog. O -y components/SAPHO resolve os modulos que o design usa sem
  * listar (processor.v, addr_dec.v, instr_dec.v, ula.v, core.v, myFIFO.v).
  * Depois do sucesso, regenera a hierarquia para a arvore de modulos; o Wave
  * nao faz isso, porque o usuario ja passou por aqui para chegar num design valido.
@@ -129,9 +129,9 @@ export async function checarParaAWaveConfig(ctx: ContextoDaChecagem): Promise<{ 
         const fileSet = new Set(config.synthesizableFiles);
         if (hasVerilogTestbench) fileSet.add(testbenchFile as string);
 
-        // Sem o -y components/HDL a checagem falha com "Unknown module type:
+        // Sem o -y components/SAPHO a checagem falha com "Unknown module type:
         // processor" em todo projeto com processador SAPHO.
-        const hdlPath = await electronAPI.joinPath(componentsPath, 'HDL');
+        const hdlPath = await electronAPI.joinPath(componentsPath, 'SAPHO');
 
         const checkSpec = buildIverilogCheckSpec({
             iveriCompPath,

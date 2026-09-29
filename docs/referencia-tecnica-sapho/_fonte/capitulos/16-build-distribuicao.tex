@@ -178,9 +178,9 @@ A tabela resume cada \emph{downloader}, sua origem e seu destino.
   & \emph{release} de \repo{aurora-toolchain}
   & \path{components/Packages/msys/} \\
 \addlinespace
-\texttt{download-yanc.js} \newline (\file{yanc-bin-v5.5.zip})
+\texttt{download-yanc.js} \newline (\file{yanc-bin-v5.6.zip})
   & \emph{release} de \repo{yanc}
-  & \path{components/} (gera \path{bin/}, \path{HDL/}, \path{Header/}, \path{Macros/}) \\
+  & \path{components/} (gera \path{bin/}, \path{SAPHO/}, \path{Header/}, \path{Macros/}) \\
 \addlinespace
 \texttt{download-gtkwave-nipscern.js} \newline (\emph{tag} \texttt{v0.1.2-nipscern})
   & \emph{release} de \repo{gtkwave-nipscern}
@@ -242,21 +242,21 @@ publicado pelo \emph{pipeline} dedicado do \repo{aurora-toolchain}; o
 
 \subsubsection{Compiladores YANC}
 
-O \file{download-yanc.js} baixa \file{yanc-bin-v5.5.zip} do \repo{yanc} e o
+O \file{download-yanc.js} baixa \file{yanc-bin-v5.6.zip} do \repo{yanc} e o
 extrai em \path{components/} (de modo que \path{bin/cmmcomp.exe} etc.\ caiam em
 \path{components/bin/}). O \texttt{.zip} contém sete binários:
 \texttt{cmmcomp.exe}, \texttt{cppcomp.exe}, \texttt{asmcomp.exe},
 \texttt{cpppp.exe}, \texttt{appcomp.exe} e \texttt{comp2gtkw.exe} desde a v4,
 mais o \texttt{gen\_gtkw.exe} desde a v5.0, além das
-pastas \path{HDL/} (bibliotecas Verilog do SAPHO), \path{Macros/} (\emph{helpers}
+pastas \path{SAPHO/} (bibliotecas Verilog do SAPHO), \path{Macros/} (\emph{helpers}
 de ponto flutuante \file{float\_*.asm}) e \path{Header/} (\emph{shims} de C++).
 
 Este \emph{downloader} tem o controle de versão mais elaborado:
 
 \begin{itemize}[nosep]
   \item \emph{sentinels} de presença: \file{components/bin/cppcomp.exe},
-        \file{components/HDL/core.v}, \file{components/Header/cmath} e
-        \file{components/Macros/float\_sin.asm} (um por pasta, pois HDL/Header/
+        \file{components/SAPHO/core.v}, \file{components/Header/cmath} e
+        \file{components/Macros/float\_sin.asm} (um por pasta, pois SAPHO/Header/
         Macros não são mais versionados);
   \item \emph{sentinel} de versão: \file{components/bin/.yanc-version}, escrito
         após uma extração bem-sucedida e comparado contra \texttt{YANC\_TAG}.
@@ -757,7 +757,7 @@ O diagrama a seguir resume a cadeia, do código-fonte ao usuário final.
   |  npm run bootstrap                                            |
   |    |-- check-pinned-versions.js  (monaco 0.52.2; manifest IA) |
   |    |-- download-toolchain (aurora-msys-v1.zip) -> Packages/msys|
-  |    |-- download-yanc (yanc-bin-v5.5.zip)       -> components/  |
+  |    |-- download-yanc (yanc-bin-v5.6.zip)       -> components/  |
   |    |-- download-gtkwave-nipscern               -> Packages/   |
   |    |-- download-norse-font (dafont)            -> assets/fonts|
   |    |-- download-surfer / verible / clang-format / slang-server|

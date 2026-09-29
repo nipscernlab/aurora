@@ -117,7 +117,7 @@ export async function rodarTesteDeHardware(ctx: ContextoDoTeste): Promise<void> 
 
     const tools = await resolveVerilatorTools(componentsPath);
     const tempBaseDir = await projectTempDir(ctx.projectPath);
-    const hdlPath = await electronAPI.joinPath(componentsPath, 'HDL');
+    const hdlPath = await electronAPI.joinPath(componentsPath, 'SAPHO');
     const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_proc_${procName}`);
     await electronAPI.mkdir(objDir);
 

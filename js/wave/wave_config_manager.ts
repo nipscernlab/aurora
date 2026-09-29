@@ -458,7 +458,7 @@ class WaveConfigManager {
                     .filter((f) => !cocotb || !/\.py$/i.test(f?.path || ''))
                     .map((f) => f?.path),
             ].filter(Boolean) as string[];
-            // Include components/HDL/*.v (SAPHO library: core, ula, addr_dec,
+            // Include components/SAPHO/*.v (SAPHO library: core, ula, addr_dec,
             // instr_dec, myFIFO, ...). Without these, _validateWaveSelection
             // doesn't see signals inside the processor core (e.g.
             // "Data Stack Max", "Rounding Error") and would auto-prune
@@ -467,7 +467,7 @@ class WaveConfigManager {
             // for the compile-time path in waveBuildVvp.
             try {
                 const componentsPath = await electronAPI.getComponentsPath();
-                const hdlDir = await electronAPI.joinPath(componentsPath, 'HDL');
+                const hdlDir = await electronAPI.joinPath(componentsPath, 'SAPHO');
                 const hdlEntries = await electronAPI.listFilesInDirectory(hdlDir);
                 if (Array.isArray(hdlEntries)) {
                     for (const name of hdlEntries) {
@@ -494,7 +494,7 @@ class WaveConfigManager {
             // couldn't reach the picker to clean it up). Now purely
             // informational; modal opens regardless. Roda pros dois
             // fluxos (com e sem processador), syntaxCheck usa
-            // -y components/HDL que resolve a biblioteca SAPHO, entao
+            // -y components/SAPHO que resolve a biblioteca SAPHO, entao
             // funciona em projeto com processador tambem.
             // Limpa o tveri antes de re-rodar o syntax check. Cada open()
             // reescreve os mesmos banners (simTop, passed/failed, etc); sem
@@ -579,7 +579,7 @@ class WaveConfigManager {
             .filter((f) => !cocotb || !/\.py$/i.test(f?.path || ''))
             .forEach((f) => f?.path && filePaths.add(f.path));
 
-        // components/HDL/*.v, biblioteca SAPHO (core.v, myFIFO.v,
+        // components/SAPHO/*.v, biblioteca SAPHO (core.v, myFIFO.v,
         // processor.v, ula.v, etc). Esses modulos sao instanciados
         // dentro do .v gerado pelo asmcomp mas nao aparecem em
         // synthesizableFiles. Sem incluir aqui, o Wave Config picker
@@ -588,7 +588,7 @@ class WaveConfigManager {
         // sumindo a secao Flags do .gtkw final.
         try {
             const componentsPath = await electronAPI.getComponentsPath();
-            const hdlPath = await electronAPI.joinPath(componentsPath, 'HDL');
+            const hdlPath = await electronAPI.joinPath(componentsPath, 'SAPHO');
             const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
             if (Array.isArray(hdlEntries)) {
                 for (const name of hdlEntries) {

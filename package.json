@@ -90,7 +90,7 @@
     "ships. Adding it would put the same clauses in the installer twice, which",
     "is how two copies drift apart and start contradicting each other.",
     "The three that ship are the ones a user needs to know what they received:",
-    "the AURORA terms, the SAPHO annex (the Verilog under components/HDL rides",
+    "the AURORA terms, the SAPHO annex (the Verilog under components/SAPHO rides",
     "along in extraResources), and the third-party inventory.",
     "nsis.license points at build/license.txt, which does NOT exist in the",
     "repo: beforePack generates it (LICENSE + LICENSE-SAPHO.md, UTF-8 BOM) on",

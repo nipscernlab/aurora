@@ -226,8 +226,8 @@ gerado de \path{Temp/<proc>/} para \path{<proj>/<proc>/Simulation/}.
 \textbf{Biblioteca SAPHO via \lstinline|-y|.} O \file{<proc>.v} gerado instancia
 módulos da biblioteca SAPHO (\file{processor.v}, \file{core.v}, \file{ula.v},
 \file{addr\_dec.v}, \file{instr\_dec.v}, \file{myFIFO.v}) que vivem em
-\path{components/HDL}. Em todos os passos seguintes que chamam \tool{iverilog} ou
-\tool{Yosys}, a AURORA acrescenta \path{components/HDL} como diretório de busca
+\path{components/SAPHO}. Em todos os passos seguintes que chamam \tool{iverilog} ou
+\tool{Yosys}, a AURORA acrescenta \path{components/SAPHO} como diretório de busca
 (\lstinline|-y| para o iverilog, \code{read\_verilog} para o Yosys) para resolver
 esses módulos sem o usuário precisar listá-los. Ver
 \autoref{cap:02-arquitetura-soft-processor-sapho}.
@@ -247,7 +247,7 @@ pré-compilação dos processadores (\code{precompileAllProcessors}) já rodou a
 
 \code{waveBuildVvp} monta a spec via \code{buildIverilogBuildSpec} e compila o
 \file{.vvp} a partir dos \code{synthesizableFiles} + testbench instrumentado, com
-\lstinline|-s <tbModule>| (top de simulação) e \lstinline|-y components/HDL|. A
+\lstinline|-s <tbModule>| (top de simulação) e \lstinline|-y components/SAPHO|. A
 fase \code{\_waveRunVvpSimulation} então roda \tool{vvp} com CWD em
 \path{components/Temp/}, depois de \code{stageProcessorMemoryFiles} ter copiado os
 \file{pc\_<proc>\_mem.txt} para a raiz desse diretório (é onde o
@@ -332,7 +332,7 @@ em \autoref{cap:10-aurora-visualizacao-gtkwave-surfer}.
 Paralelamente à simulação, o usuário pode inspecionar a estrutura do RTL. O botão
 PRISM dispara, primeiro, o \code{verilogSyntaxCheck}, que além do check de sintaxe
 (\lstinline|iverilog -tnull|) regenera a hierarquia: \code{generateProjectHierarchy}
-monta um script \tool{Yosys} (\code{read\_verilog} de \path{components/HDL/*} + dos
+monta um script \tool{Yosys} (\code{read\_verilog} de \path{components/SAPHO/*} + dos
 \code{synthesizableFiles}, \code{hierarchy -top}, \code{proc}, \code{write\_json})
 e o roda via \code{buildYosysHierarchySpec}, produzindo
 \path{Temp/project_hierarchy.json}, que \code{parseYosysHierarchy} converte na
@@ -376,11 +376,11 @@ de cada transição. A coluna da esquerda é o que o renderer orquestra; os bin�
      |                       +  <proc>_data.mif / <proc>_inst.mif   |
      | [appcomp.exe]  -i .asm -t                                    |
      |     -> .asm pre-processado (params + enderecos)              |
-     | [asmcomp.exe]  -i .asm -p -d HDL -m -t -f<clk> -c<numClk>    |
+     | [asmcomp.exe]  -i .asm -p -d SAPHO -m -t -f<clk> -c<numClk>  |
      |     -> Hardware/<proc>.v  (RTL sintetizavel)                 |
      |     -> <proc>_tb.v  (testbench padrao) -> Simulation/        |
      +--------------------------------------------------------------+
-        |   (-y components/HDL resolve processor/core/ula/addr_dec/instr_dec)
+        |   (-y components/SAPHO resolve processor/core/ula/addr_dec/instr_dec)
         |
         +-------------------------------+----------------------------------+
         |                               |                                  |
@@ -391,7 +391,7 @@ de cada transição. A coluna da esquerda é o que o renderer orquestra; os bin�
         |
         v
      [iverilog -s tb -o .vvp     [verilator --binary       [cocotb: iverilog
-       -y HDL] ; [vvp -fst]       --timing --trace]          ou verilator por baixo]
+       -y SAPHO] ; [vvp -fst]     --timing --trace]          ou verilator por baixo]
         |   stageProcessorMemoryFiles: pc_*_mem.txt -> Temp/ (readmemb)
         v
      DUMP de ondas (FST)

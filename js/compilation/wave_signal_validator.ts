@@ -381,13 +381,13 @@ export async function parseProjectSources(deps: {
                 .filter((p) => p && isVerilogLikeFile(p)),
         );
 
-        // components/HDL/*.v, biblioteca SAPHO. Inclui pra que
+        // components/SAPHO/*.v, biblioteca SAPHO. Inclui pra que
         // buildSignedSet/resolveScopeModules conhecam modulos como
         // `core`, `ula`, `myFIFO`. Sem isso, sinais dentro de
         // <inst>.core.sp.pointeri ficam com moduleType=null e nao
         // recebem decoracao SAPHO no .gtkw.
         try {
-            const hdlPath = await electronAPI.joinPath(deps.componentsPath as string, 'HDL');
+            const hdlPath = await electronAPI.joinPath(deps.componentsPath as string, 'SAPHO');
             const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
             if (Array.isArray(hdlEntries)) {
                 for (const name of hdlEntries) {

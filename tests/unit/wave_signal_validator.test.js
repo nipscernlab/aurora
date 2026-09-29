@@ -255,11 +255,11 @@ describe('parseProjectSources', () => {
         expect(modules.has('tb_counter')).toBe(true);
     });
 
-    it('inclui os .v da biblioteca HDL SAPHO (components/HDL/*.v)', async () => {
+    it('inclui os .v da biblioteca HDL SAPHO (components/SAPHO/*.v)', async () => {
         const deps = makeDeps({ projectConfig: { synthesizableFiles: [{ path: SYNTH }] } });
         window.electronAPI._files.set(SYNTH, COUNTER_V);
-        window.electronAPI._files.set('/comp/HDL/core.v', 'module core; endmodule');
-        window.electronAPI._files.set('/comp/HDL/core_tb.v', 'module core_tb; endmodule'); // _tb: ignorado
+        window.electronAPI._files.set('/comp/SAPHO/core.v', 'module core; endmodule');
+        window.electronAPI._files.set('/comp/SAPHO/core_tb.v', 'module core_tb; endmodule'); // _tb: ignorado
         const modules = await parseProjectSources(deps);
         expect(modules.has('core')).toBe(true);      // veio do HDL, nao do .spf
         expect(modules.has('core_tb')).toBe(false);  // *_tb excluido

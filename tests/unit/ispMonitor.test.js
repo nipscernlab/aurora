@@ -2,7 +2,7 @@
  * O monitor da pilha de instrução, contra o HDL de verdade do SAPHO.
  *
  * Os testes de generate_blocks.test.js provam as peças com fonte sintético.
- * Este prova a junta com `components/HDL`, que é onde a coisa realmente
+ * Este prova a junta com `components/SAPHO`, que é onde a coisa realmente
  * acontece, e fixa as duas metades da decisão:
  *
  *   com CAL != 0  o escopo `isp_blk.isp` existe e o monitor sai
@@ -13,7 +13,7 @@
  * tentativa de trazer o isp foi revertida. O valor de CAL atravessa dois
  * níveis, do `<proc>.v` para o `processor`, que repassa `.CAL(CAL)` ao `core`.
  *
- * Pula sozinho quando `components/HDL` não está na máquina (clone novo, sem
+ * Pula sozinho quando `components/SAPHO` não está na máquina (clone novo, sem
  * `npm run bootstrap`), como o resto da suíte faz com a toolchain.
  */
 
@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { parseVerilogModules, buildHierarchyTree, deriveMonitorScopes } from '../../js/wave/signal_parser.js';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const HDL = path.join(RAIZ, 'components', 'HDL');
+const HDL = path.join(RAIZ, 'components', 'SAPHO');
 const temHdl = fs.existsSync(path.join(HDL, 'core.v'));
 
 /** A árvore de um testbench que instancia o processador com um dado CAL. */

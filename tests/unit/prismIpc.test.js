@@ -28,7 +28,7 @@ import { cercar, pastaTemporaria } from '../helpers/cercado.js';
 const req = createRequire(import.meta.url);
 const tmp = pastaTemporaria('aurora-prism-');
 const COMPONENTES = path.join(tmp.raiz, 'components');
-const HDL = path.join(COMPONENTES, 'HDL');
+const HDL = path.join(COMPONENTES, 'SAPHO');
 const PROJETO = path.join(tmp.raiz, 'proj');
 const SPF = path.join(PROJETO, 'proj.spf');
 const TEMP_PRISM = path.join(PROJETO, '.aurora', 'Temp', 'PRISM');
@@ -271,7 +271,7 @@ describe('get-prism-compilation-paths (caminhosConfiaveis)', () => {
         expect(await chamar('get-prism-compilation-paths', DA_JANELA)).toEqual({
             projectPath: PROJETO,
             componentsPath: COMPONENTES,
-            hdlPath: path.join(COMPONENTES, 'HDL'),
+            hdlPath: path.join(COMPONENTES, 'SAPHO'),
             tempPath: TEMP_PRISM,
             yosysPath: YOSYS,
             spfPath: SPF,

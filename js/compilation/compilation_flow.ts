@@ -594,7 +594,7 @@ async function buildPrismCompilationPaths(projectPath: string): Promise<Caminhos
     return {
         projectPath:               toForwardSlashes(projectPath),
         componentsPath:            toForwardSlashes(rawComponentsPath),
-        hdlPath:                   toForwardSlashes(await join(rawComponentsPath, 'HDL')),
+        hdlPath:                   toForwardSlashes(await join(rawComponentsPath, 'SAPHO')),
         tempPath:                  toForwardSlashes(await join(rawComponentsPath, 'Temp', 'PRISM')),
         yosysPath:                 toForwardSlashes(await join(rawComponentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe')),
         spfPath:                   toForwardSlashes(ProjectStore.getSpfPath() || ''),

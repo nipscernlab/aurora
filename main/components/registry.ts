@@ -159,15 +159,15 @@ export const COMPONENTES: Componente[] = [
     nome: 'YANC',
     resumo: 'O compilador do SAPHO: cmmcomp, asmcomp, appcomp e comp2gtkw, que traduzem C± em processador.',
     sentinela: 'bin/cppcomp.exe',
-    // O YANC nao e so o bin/: o release dele traz tambem HDL/ (a biblioteca
+    // O YANC nao e so o bin/: o release dele traz tambem SAPHO/ (a biblioteca
     // Verilog do processador), Header/ (shims de C++) e Macros/ (ponto
     // flutuante em .asm), tudo casado por versao com os compiladores. Um
     // representante de cada area, os MESMOS que o download-yanc.js usa como
-    // sentinela, e o que faz o doctor enxergar um HDL apagado ou uma
+    // sentinela, e o que faz o doctor enxergar um SAPHO/ apagado ou uma
     // atualizacao pela metade como o que sao: YANC incompleto.
     arquivosChave: [
       'bin/cmmcomp.exe', 'bin/asmcomp.exe', 'bin/appcomp.exe',
-      'HDL/core.v', 'HDL/processor.v',
+      'SAPHO/core.v', 'SAPHO/processor.v',
       'Header/cmath',
       'Macros/float_sin.asm',
     ],
@@ -177,7 +177,7 @@ export const COMPONENTES: Componente[] = [
     essencial: true,
     requerParaCompilar: true,
     script: 'download-yanc.js',
-    versao: 'v5.5',
+    versao: 'v5.6',
     // O YANC ja tinha carimbo proprio antes dos outros; o nome fica.
     carimbo: 'bin/.yanc-version',
   },

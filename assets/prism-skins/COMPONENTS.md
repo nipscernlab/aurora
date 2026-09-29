@@ -8,7 +8,7 @@ A skin is a netlistsvg symbol keyed by `s:type` (with `<s:alias>` fallbacks).
 Files live in `assets/prism-skins/` and are merged over the stock netlistsvg
 skin at compile time by `getDefaultSkinData` in `main/ipc/prism.js`.
 
-## 1. SAPHO HDL modules (`components/HDL/*.v`)
+## 1. SAPHO HDL modules (`components/SAPHO/*.v`)
 
 These are the real Verilog modules in a SAPHO processor. Each is a clickable
 PRISM cell; without a skin it renders as a plain `generic` box.

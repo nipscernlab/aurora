@@ -182,7 +182,7 @@ sempre defina `font-family`.
 
 ## Gerando e revisando
 
-O `scripts/prism-skin-standard.mts` percorre cada módulo em `components/HDL/*.v` e
+O `scripts/prism-skin-standard.mts` percorre cada módulo em `components/SAPHO/*.v` e
 o desenha, escolhendo acento e marca automaticamente a partir do nome.
 
 ```sh

@@ -287,7 +287,7 @@ export function buildAsmSpec(ctx) {
     `-${ctx.lang}`,
     '-i', ctx.asmFile,
     '-p', ctx.projectPath,
-    '-d', ctx.hdlPath,     // components/HDL
+    '-d', ctx.hdlPath,     // components/SAPHO
     '-m', ctx.macrosPath,
     '-t', ctx.tempPath,
     '-f', String(ctx.freq),
@@ -310,7 +310,7 @@ Dois usos do \tool{iverilog}:
     \path{.vvp}); usado pelo botão Wave antes de o \tool{vvp} rodar.
 \end{itemize}
 
-\noindent Ambos sempre incluem \code{-y <components/HDL>} para que os módulos da
+\noindent Ambos sempre incluem \code{-y <components/SAPHO>} para que os módulos da
 biblioteca SAPHO (\path{processor.v}, \path{ula.v}, \path{myFIFO.v}, etc.)
 resolvam sem o usuário precisar listá-los. Ambos também retornam
 \code{prependPath} com o diretório do binário, porque o \tool{iverilog} e os

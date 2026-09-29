@@ -3,7 +3,7 @@
  * checagem de sintaxe tambem usa.
  *
  * Saiu do compilation_module.js. O build do .vvp (fontes sintetizaveis +
- * testbench instrumentado, -y components/HDL para a biblioteca do SAPHO) e a
+ * testbench instrumentado, -y components/SAPHO para a biblioteca do SAPHO) e a
  * simulacao pelo vvp na pasta do projeto.
  */
 
@@ -58,7 +58,7 @@ export async function ferramentasDoIcarus(
         throw new Error(tr('error.toolchain.iverilogNotFound', { path: iveriCompPath }));
     }
     await electronAPI.mkdir(tempBaseDir);
-    const hdlPath = await electronAPI.joinPath(ctx.componentsPath as string, 'HDL');
+    const hdlPath = await electronAPI.joinPath(ctx.componentsPath as string, 'SAPHO');
     return { tempBaseDir, iveriCompPath, hdlPath };
 }
 

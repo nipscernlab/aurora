@@ -34,10 +34,10 @@ são no-op (\emph{pipeline único}).
    |    -> <proc>.asm + cmm_log.txt + pc_<proc>_mem.txt              |
    |       + <proc>_data.mif / <proc>_inst.mif                       |
    | [appcomp.exe] -i .asm -t  -> .asm pre-processado (params/end.)  |
-   | [asmcomp.exe] -i .asm -p -d HDL -m -t -f<clk> -c<numClk>        |
+   | [asmcomp.exe] -i .asm -p -d SAPHO -m -t -f<clk> -c<numClk>      |
    |    -> Hardware/<proc>.v (RTL) + .mif + <proc>_tb.v -> Simulation|
    +-----------------------------------------------------------------+
-     (-y components/HDL: processor/core/ula/addr_dec/instr_dec/myFIFO)
+     (-y components/SAPHO: processor/core/ula/addr_dec/instr_dec/myFIFO)
         +----------------+------------------+
         v (4a Icarus)    v (4b Verilator)   v (4c cocotb/Python)
  (5) INSTRUMENTAR DUMP  (comum, ANTES de simular)
@@ -45,7 +45,7 @@ são no-op (\emph{pipeline único}).
        .gtkw ativo > Wave Config > $dumpvars no tb > default
      instrumentTestbench -> Temp/instr_<tb>.v  (copia; original intacto)
         v
-   [iverilog -s tb -y HDL  [verilator --binary  [cocotb: iverilog ou
+   [iverilog -s tb -y SAPHO  [verilator --binary  [cocotb: iverilog ou
     -o .vvp]; [vvp -fst]    --timing --trace]    verilator por baixo]
      stageProcessorMemoryFiles: pc_*_mem.txt -> Temp/ ($readmemb)
         v

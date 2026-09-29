@@ -374,7 +374,7 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       estratégia do grupo, não conclusão técnica.
       O que viaja dentro do binário assinado, e por isso não dá para tratar as
       licenças em conversas separadas: código da AURORA, os binários yanc em
-      `components/bin`, e o Verilog do SAPHO em `components/HDL`. Terceiros
+      `components/bin`, e o Verilog do SAPHO em `components/SAPHO`. Terceiros
       (Icarus e GTKWave GPL v2, Verilator LGPL v3, Yosys ISC, Surfer EUPL-1.2)
       entram como processo separado e ficam como estão.
 - [x] ~~**3.3 Corrigir as duas afirmações falsas nos arquivos de licença.**~~
@@ -837,7 +837,7 @@ Pós-release, com a regra de sempre: medir antes de mexer.
 
       Programa C± sem função não tem pilha de instrução, `CAL` fica no padrão
       zero, e nenhum monitor de isp é emitido. Fixado por 29 testes, sendo
-      cinco contra o `components/HDL` de verdade, e a suíte de toolchain
+      cinco contra o `components/SAPHO` de verdade, e a suíte de toolchain
       inteira segue verde, incluindo a elaboração no Icarus.
 
 - [x] ~~**Salvar estado do Surfer de dentro da aba.**~~ Feito pelo PR #103
@@ -2428,7 +2428,7 @@ formalmente, não consertado.
   gera a partir do `.cmm` e do `.spf`, hoje `clk`, `rst`, `in`, `out`,
   `req_in` e `out_en`. Nome de porta inventado ali derruba a verificação antes
   de qualquer síntese, e o sintoma aparece longe, como uma janela do PRISM que
-  não abre. Para conferir sem abrir a aplicação: `iverilog -y components/HDL
+  não abre. Para conferir sem abrir a aplicação: `iverilog -y components/SAPHO
   -tnull -s top_mediamovel <topo.v> <processador gerado.v>`.
 - Módulo `.ts` novo em `js/`: o `.js` que o `tsc` emite ao lado precisa entrar
   na lista do `.gitignore` NO MESMO commit. A lista é explícita, arquivo por

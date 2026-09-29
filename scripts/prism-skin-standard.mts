@@ -2,7 +2,7 @@
 /**
  * prism-skin-standard.mts: the PRISM symbol STANDARD, made executable.
  *
- * Parses every SAPHO HDL module (components/HDL/*.v) and renders each one to a
+ * Parses every SAPHO HDL module (components/SAPHO/*.v) and renders each one to a
  * professional, consistent PRISM symbol, so the whole datapath looks like one
  * deliberate family. Run:
  *
@@ -38,7 +38,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const HDL_DIR = path.join(REPO, 'components', 'HDL');
+const HDL_DIR = path.join(REPO, 'components', 'SAPHO');
 const SKIN_DIR = path.join(REPO, 'assets', 'prism-skins');
 
 /* ── Fonts & colour roles ───────────────────────────────────────────────── */

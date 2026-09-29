@@ -44,7 +44,7 @@ export interface AsmBuilderCtx {
   asmFile: string;
   /** per-processor project dir */
   projectPath: string;
-  /** components/HDL */
+  /** components/SAPHO */
   hdlPath: string;
   /** components/Macros */
   macrosPath: string;

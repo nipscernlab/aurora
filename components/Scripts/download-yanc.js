@@ -7,15 +7,22 @@
  *   - bin/  (cmmcomp.exe, cppcomp.exe, asmcomp.exe, cpppp.exe,
  *            appcomp.exe, comp2gtkw.exe desde v4, mais gen_gtkw.exe
  *            desde v5.0: sao 7 binarios, nao 6)
- *   - HDL/  (processor.v, core.v, addr_dec.v, instr_dec.v, ula.v,
- *            myFIFO.v, bibliotecas verilog do toolchain SAPHO, v2+.
+ *   - SAPHO/ (processor.v, core.v, addr_dec.v, instr_dec.v, ula.v,
+ *            myFIFO.v, o Verilog do processador SAPHO. Chamava-se HDL/
+ *            ate a v5.5; a v5.6 entrega as duas, HDL/ como copia de
+ *            transicao, e a Aurora le SAPHO/ desde entao.
  *            v5.4 acrescentou o parametro FROUND, o nivel de
  *            arredondamento do float, em processor/core/ula.
  *            v5.5 tirou LDA/STA do ISA e renumerou os opcodes, entao
- *            HDL e asmcomp de versoes diferentes nao funcionam juntos.)
+ *            Verilog e asmcomp de versoes diferentes nao funcionam juntos.
+ *            v5.6 fez do instr_dec uma function e corrigiu a inversao
+ *            de bits da FFT no mem_ctrl; portas e parametros iguais.)
  *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
+ *   - README.md e example/ na raiz, desde v5.6 (o que e cada pasta e um
+ *     programa de exemplo em C++ e em C+-). Caem em components/ e ficam
+ *     no .gitignore.
  *
  * Scripts/ NAO esta no zip a partir do v4.1, o yanc parou de empacotar
  * essa pasta (proc2rtl.ys / TCLs antigos). Aurora gerencia seus proprios
@@ -54,7 +61,7 @@ const { verifyChecksum } = require('./lib/checksum');
 // release). null = compute + log only (no enforcement yet).
 const EXPECTED_SHA256 = null;
 
-const YANC_TAG      = 'v5.5';
+const YANC_TAG      = 'v5.6';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';
@@ -70,14 +77,14 @@ const SENTINEL_FILE = path.join(BIN_DIR, 'cppcomp.exe');
 // Written after a successful extract; compared against YANC_TAG to force a
 // re-download on a version bump (e.g. v5.0 → v5.1, same binaries, new stdlib).
 const VERSION_SENTINEL = path.join(BIN_DIR, '.yanc-version');
-// The yanc release ships bin/ AND HDL/ (Verilog lib) AND Header/ (C++ shims)
+// The yanc release ships bin/ AND SAPHO/ (Verilog lib) AND Header/ (C++ shims)
 // AND Macros/ (float-math .asm), all version-matched with the compilers. None
-// of HDL/, Header/, Macros/ is committed to the Aurora repo anymore, so a dev
+// of SAPHO/, Header/, Macros/ is committed to the Aurora repo anymore, so a dev
 // who pulls the commit that untracked them ends up with bin/ present (gitignored,
 // persists) but those folders deleted. Gate "already installed" on a sentinel
 // from EACH so that case re-downloads instead of silently leaving the toolchain
-// without its HDL library / C++ headers / float macros.
-const HDL_SENTINEL    = path.join(ROOT_DIR, 'components', 'HDL', 'core.v');
+// without its SAPHO library / C++ headers / float macros.
+const HDL_SENTINEL    = path.join(ROOT_DIR, 'components', 'SAPHO', 'core.v');
 const HEADER_SENTINEL = path.join(ROOT_DIR, 'components', 'Header', 'cmath');
 const MACROS_SENTINEL = path.join(ROOT_DIR, 'components', 'Macros', 'float_sin.asm');
 const TMP_ZIP       = path.join(ROOT_DIR, YANC_FILENAME);
@@ -183,7 +190,7 @@ async function main() {
         log(`YANC binaries not found in components/bin/.`);
     } else {
         // Binaries are there but the version doesn't match (or has no marker):
-        // a tag bump. Re-download so the new compilers/HDL actually land.
+        // a tag bump. Re-download so the new compilers/SAPHO actually land.
         const have = installedTag() || 'unknown (pre-marker)';
         log(`YANC ${have} installed but ${YANC_TAG} is pinned — re-downloading.`);
     }

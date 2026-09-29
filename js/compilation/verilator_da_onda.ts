@@ -183,7 +183,7 @@ export async function construirNoVerilator(
             tr('terminal.veri.autoInstrTb', { name: prep.instrumentedTbPath.split(/[\\/]/).pop() }), 'plain');
     }
 
-    const hdlPath = await electronAPI.joinPath(ctx.componentsPath as string, 'HDL');
+    const hdlPath = await electronAPI.joinPath(ctx.componentsPath as string, 'SAPHO');
     const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_${simTopModule}`);
     await electronAPI.mkdir(objDir);
 
@@ -333,7 +333,7 @@ async function construirFastSim(
     const fileSet = new Set(config.synthesizableFiles);
     fileSet.add(fastTbPath);
 
-    const hdlPath = await electronAPI.joinPath(ctx.componentsPath as string, 'HDL');
+    const hdlPath = await electronAPI.joinPath(ctx.componentsPath as string, 'SAPHO');
     const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_fast_${simTopModule}`);
     await electronAPI.mkdir(objDir);
 

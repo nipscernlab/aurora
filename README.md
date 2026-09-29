@@ -226,7 +226,7 @@ directly.
 
 ## Testing a local yanc build
 
-The YANC compilers, HDL, headers and macros come from a pinned yanc release:
+The YANC compilers, the SAPHO Verilog, headers and macros come from a pinned yanc release:
 [`components/Scripts/download-yanc.js`](components/Scripts/download-yanc.js)
 downloads the zip named by `YANC_TAG`, and `components/bin/.yanc-version`
 records which one is installed. To try a yanc change before it is released,
@@ -239,8 +239,8 @@ set PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%
 ```
 
 Adjust the MSYS2 path to your install. The script builds with the same
-`make stage` recipe as a release, replaces `components/bin`, `HDL`, `Macros`
-and `Header` together (an HDL and an asmcomp from different yanc versions do
+`make stage` recipe as a release, replaces `components/bin`, `SAPHO`, `Macros`
+and `Header` together (a SAPHO Verilog and an asmcomp from different yanc versions do
 not work together), and writes the pinned `YANC_TAG` into
 `components/bin/.yanc-version`, so the next `npm start` keeps the local build
 instead of downloading the release over it. Nothing it writes is tracked by

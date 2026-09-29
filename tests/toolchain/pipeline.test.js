@@ -204,7 +204,7 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
       asmCompPath: REQUIRED_BINARIES.asmcomp,
       asmFile: asmPath,
       projectPath,
-      hdlPath: path.join(COMPONENTS, 'HDL'),
+      hdlPath: path.join(COMPONENTS, 'SAPHO'),
       macrosPath: path.join(COMPONENTS, 'Macros'),
       tempPath,
       // MHz, not Hz, `clk` in the .spf is megahertz (processor_config_panel
@@ -252,7 +252,7 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
 
     const spec = buildIverilogBuildSpec({
       iveriCompPath: REQUIRED_BINARIES.iverilog,
-      hdlPath: path.join(COMPONENTS, 'HDL'),
+      hdlPath: path.join(COMPONENTS, 'SAPHO'),
       simTopModule: `${PROC}_tb`,
       outputFile: `${PROC}_tb.vvp`,
       sourceFiles: [`${PROC}_tb.v`, `${PROC}.v`],
@@ -373,7 +373,7 @@ describe.skipIf(!verilatorReady)('SAPHO toolchain — Verilator simulation', () 
     );
     const asmFile = path.join(softwarePath, `${PROC}.asm`);
     const macrosPath = path.join(COMPONENTS, 'Macros');
-    const hdlPath = path.join(COMPONENTS, 'HDL');
+    const hdlPath = path.join(COMPONENTS, 'SAPHO');
 
     runSpec(buildCmmSpec({
       cmmCompPath: REQUIRED_BINARIES.cmmcomp,
@@ -417,7 +417,7 @@ describe.skipIf(!verilatorReady)('SAPHO toolchain — Verilator simulation', () 
       verilatorScript: path.join(MINGW_BIN, 'verilator'),
       mingwBin: MINGW_BIN,
       usrBin: USR_BIN,
-      hdlPath: path.join(COMPONENTS, 'HDL'),
+      hdlPath: path.join(COMPONENTS, 'SAPHO'),
       simTopModule: `${PROC}_tb`,
       objDir,
       sourceFiles: [`${PROC}_tb.v`, `${PROC}.v`],
@@ -496,7 +496,7 @@ describe.skipIf(!verilatorReady)('SAPHO toolchain — Verilator simulation', () 
       verilatorScript: path.join(MINGW_BIN, 'verilator'),
       mingwBin: MINGW_BIN,
       usrBin: USR_BIN,
-      hdlPath: path.join(COMPONENTS, 'HDL'),
+      hdlPath: path.join(COMPONENTS, 'SAPHO'),
       simTopModule: `${PROC}_tb`,
       objDir: dir,
       sourceFiles: [`${PROC}_tb.v`, `${PROC}.v`, path.basename(vlt)],
@@ -524,7 +524,7 @@ describe.skipIf(!verilatorReady)('SAPHO toolchain — Verilator simulation', () 
   }
 
   function parsedTree() {
-    const hdlDir = path.join(COMPONENTS, 'HDL');
+    const hdlDir = path.join(COMPONENTS, 'SAPHO');
     const hdl = fs.readdirSync(hdlDir)
       .filter((n) => n.endsWith('.v') && !n.includes('_tb'))
       .map((n) => path.join(hdlDir, n));
@@ -664,7 +664,7 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
     );
     const asmFile = path.join(softwarePath, `${PROC}.asm`);
     const macrosPath = path.join(COMPONENTS, 'Macros');
-    const hdlPath = path.join(COMPONENTS, 'HDL');
+    const hdlPath = path.join(COMPONENTS, 'SAPHO');
 
     runSpec(buildCmmSpec({
       cmmCompPath: REQUIRED_BINARIES.cmmcomp,
@@ -702,7 +702,7 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
 
     // The generated processor instantiates modules from the bundled HDL
     // library (processor.v, core.v, ula.v …). _collectCocotbSources adds every
-    // non-testbench .v from components/HDL for exactly this reason; without
+    // non-testbench .v from components/SAPHO for exactly this reason; without
     // them Icarus fails elaboration with "Unknown module type: processor".
     sources = [generated];
     for (const name of fs.readdirSync(hdlPath)) {
@@ -836,7 +836,7 @@ describe.skipIf(!prismReady)('SAPHO toolchain — PRISM schematic', () => {
     );
     const asmFile = path.join(softwarePath, `${PROC}.asm`);
     const macrosPath = path.join(COMPONENTS, 'Macros');
-    const hdlPath = path.join(COMPONENTS, 'HDL');
+    const hdlPath = path.join(COMPONENTS, 'SAPHO');
 
     runSpec(buildCmmSpec({
       cmmCompPath: REQUIRED_BINARIES.cmmcomp,

@@ -7,7 +7,7 @@
  *   iverilog-build : -o <vvp> (full build, .vvp produced)
  *                    used by the Wave button before vvp runs
  *
- * Library resolution: components/HDL is always -y included so SAPHO
+ * Library resolution: components/SAPHO is always -y included so SAPHO
  * library modules (processor.v, ula.v, myFIFO.v, etc.) resolve
  * without the user listing them. See ARCHITECTURE.md.
  *

@@ -283,6 +283,7 @@ main/lsp/slang_lsp.js
 main/ipc/git.js
 main/ipc/compile.js
 main/ipc/prism.js
+main/paths.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

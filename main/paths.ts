@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * Static paths used across the main process.
  *
@@ -26,8 +25,8 @@
  * laboratorio, e nao apenas espaco gasto.
  */
 
-const path = require('path');
-const { app } = require('electron');
+import path from 'node:path';
+import { app } from 'electron';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -49,11 +48,11 @@ const appRoot = temApp ? app.getAppPath() : path.join(__dirname, '..');
  * nao pode acontecer, nunca, e este caminho voltar para dentro da pasta de
  * instalacao.
  *
- * @param {string} exePath caminho do executavel.
- * @param {string|undefined} localAppData `%LOCALAPPDATA%`.
- * @param {string|undefined} userData reserva quando LOCALAPPDATA nao existe.
+ * @param exePath caminho do executavel.
+ * @param localAppData `%LOCALAPPDATA%`.
+ * @param userData reserva quando LOCALAPPDATA nao existe.
  */
-function componentesPersistentes(exePath, localAppData, userData) {
+function componentesPersistentes(exePath: string, localAppData: string|undefined, userData: string|undefined) {
   const base = localAppData || userData;
   // Sem nenhuma das duas, o lado do exe e melhor do que nao ter caminho: o
   // aplicativo continua funcionando e so perde a sobrevivencia a atualizacao.
@@ -80,10 +79,4 @@ const componentsPath = empacotado
 
 const rootPath = path.join(appRoot, '..', '..');
 
-module.exports = {
-  isDev,
-  appRoot,
-  componentsPath,
-  componentesPersistentes,
-  rootPath,
-};
+export { isDev, appRoot, componentsPath, componentesPersistentes, rootPath };

@@ -18,6 +18,7 @@ import { showCardNotification } from '../ui/notification.js';
 import { lerPaginasDoManual, montarBlocoTutorial, aberturaDoTutorial } from './api_tutorial.js';
 import { chatListHtml, serializeMessagesForStorage, type ConversaListada, type MensagemDoChat } from './chat_history.js';
 import { highlightCodeBlocks } from './chat_render.js';
+import { desenharRegistroDaPergunta, type RegistroDaPergunta } from './perguntas_inline.js';
 
 const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
@@ -72,7 +73,6 @@ export interface PainelDaConversa {
   appendBubble(role: string, content: string): HTMLElement;
   _renderBubbleAttachments(bubble: HTMLElement, atts: unknown[]): void;
   _blocoDeCitacoes(lista: unknown[]): HTMLElement;
-  _renderQuestionRecord(entry: MensagemDoChat): HTMLElement;
 }
 
 /** A dica de conversa vazia de volta, sozinha na area de mensagens. */
@@ -348,7 +348,7 @@ export async function abrirConversa(p: PainelDaConversa, id: string): Promise<vo
       // A question record has no `content`, so without this branch the
       // `typeof msg.content === 'string'` test below drops it silently.
       closeStaticGroup();
-      p.messagesEl.appendChild(p._renderQuestionRecord(msg));
+      p.messagesEl.appendChild(desenharRegistroDaPergunta(msg as RegistroDaPergunta));
     } else if (typeof msg.content === 'string') {
       closeStaticGroup();
       const bubble = p.appendBubble(msg.role, msg.content);

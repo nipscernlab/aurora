@@ -21,8 +21,6 @@ import { constrainTerminalHeight, persistTerminalHeight, faixaDosPaineis, semAni
 // Mesma regra de tamanho da árvore de arquivos e do terminal.
 import { resolvePaneSize, maxLateralWidth, PANE } from '../utils/pane_size.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
-
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
 import {
@@ -42,7 +40,8 @@ import {
     citacaoJaEsta,
     corpoDoResultado,
 } from '../ai/manual_citation.js';
-import { decideToolPermission, previewArgs, splitArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
+import { permissionOptionsHtml } from '../ai/tool_permission.js';
+import { confirmarFerramenta, perguntarAPessoa } from '../ai/perguntas_inline.js';
 import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
 import {
   novaConversa, comecarTutorial, alternarHistorico, relerLista, cliqueNoHistorico,
@@ -1175,17 +1174,10 @@ class AIAssistantManager {
   /* ---------------- tool permission gate ---------------- */
 
   /**
-   * Decide whether a tool call may run. Resolves true/false. Called by
-   * the tool runner before every tool. `allow` mode auto-approves;
-   * `writes` auto-approves reads; otherwise an inline card is shown.
+   * A ferramenta pode rodar? Chamado pelo tool_runner antes de cada uma. O
+   * cartao de permissao mora em js/ai/perguntas_inline.ts.
    */
-  confirmToolCall(def, args) {
-    // Pure decision logic (modes, always-confirm, pre-authorized) lives in
-    // tool_permission.js; the class still owns the DOM card (showInlineConfirm).
-    return decideToolPermission(def, this.permissionMode) === 'allow'
-      ? Promise.resolve(true)
-      : this.showInlineConfirm(def, args);
-  }
+  confirmToolCall(def, args) { return confirmarFerramenta(this, def, args); }
 
   /**
    * Runaway guard for memory hygiene: a single never-ending conversation must
@@ -1202,254 +1194,8 @@ class AIAssistantManager {
     }
   }
 
-  /**
-   * Render an inline Allow/Deny card in the message stream (not a
-   * full-screen modal) and resolve with the user's choice. The card
-   * removes itself once decided.
-   */
-  showInlineConfirm(def, args) {
-    return new Promise((resolve) => {
-      const card = document.createElement('div');
-      card.className = 'ai-confirm enter';
-      const verb = def && def.access === 'write' ? 'make a change' : 'read something';
-      card.innerHTML = `
-        <div class="ai-confirm-head">
-          <i class="ph ph-shield-check" aria-hidden="true"></i>
-          <span>Aurora Intelligence wants to ${verb}</span>
-        </div>
-        <div class="ai-confirm-tool"></div>
-        <div class="ai-confirm-desc"></div>
-        <div class="ai-confirm-notes"></div>
-        <pre class="ai-confirm-args"></pre>
-        <div class="ai-confirm-actions">
-          <button class="ai-confirm-deny" type="button">Deny</button>
-          <button class="ai-confirm-allow" type="button">Allow</button>
-        </div>
-      `;
-      card.querySelector('.ai-confirm-tool').textContent = def ? def.name : 'tool';
-      card.querySelector('.ai-confirm-desc').textContent = def ? (def.description || '') : '';
-      // The model's prose (note / question) reads as text; only the structural
-      // args stay in the JSON block. textContent throughout, this is model
-      // output, so it is never parsed as markup.
-      const { prose, rest } = splitArgs(args);
-      const notes = card.querySelector('.ai-confirm-notes');
-      for (const p of prose) {
-        const row = document.createElement('div');
-        row.className = 'ai-confirm-note';
-        const key = document.createElement('span');
-        key.className = 'ai-confirm-note-key';
-        key.textContent = p.key;
-        const text = document.createElement('span');
-        text.className = 'ai-confirm-note-text';
-        text.textContent = p.text;
-        row.append(key, text);
-        notes.appendChild(row);
-      }
-      if (!prose.length) notes.remove();
-
-      const preview = previewArgs(rest);
-      const pre = card.querySelector('.ai-confirm-args');
-      if (preview) pre.textContent = preview; else pre.remove();
-
-      let settled = false;
-      const finish = (allowed) => {
-        if (settled) return;
-        settled = true;
-        this.pendingConfirms.delete(decide);
-        card.classList.add('done');
-        setTimeout(() => card.remove(), 180);
-        resolve(allowed);
-      };
-      // Registered so an aborted/failed turn can auto-deny a stale card.
-      const decide = (allowed) => finish(allowed);
-      this.pendingConfirms.add(decide);
-
-      card.querySelector('.ai-confirm-allow').addEventListener('click', () => finish(true));
-      card.querySelector('.ai-confirm-deny').addEventListener('click', () => finish(false));
-
-      this.messagesEl.appendChild(card);
-      this.scrollToBottom();
-      requestAnimationFrame(() => card.classList.remove('enter'));
-    });
-  }
-
-  /**
-   * Inline "Ask User Question" card, the AI's way of pausing a turn and
-   * asking the human for a decision/clarification. Mirrors Claude
-   * Code's `AskUserQuestion` tool: one prompt, an optional list of
-   * single- or multi-select options, plus an "Other" text field.
-   *
-   * Resolves with `{ answer, selected }` once the user submits, or with
-   * `null` if the turn is aborted before they answer (see
-   * resetTurnState, pendingAskUserQuestions is purged there).
-   *
-   * @param {object} params
-   * @param {string} params.question
-   * @param {Array<{label:string, description?:string}>} [params.options]
-   * @param {boolean} [params.multiSelect]
-   */
-  showAskUserQuestionInline({ question, options = [], multiSelect = false } = {}) {
-    if (!this.container) this.initialize();
-    return new Promise((resolve) => {
-      const card = document.createElement('div');
-      card.className = 'ai-ask-question enter';
-      const inputType = multiSelect ? 'checkbox' : 'radio';
-      const safeOptions = Array.isArray(options) ? options : [];
-      const optsHtml = safeOptions.map((opt, idx) => {
-        const label = escapeHtml(opt.label || `Option ${idx + 1}`);
-        const desc  = opt.description ? `<span class="ai-askq-opt-desc">${escapeHtml(opt.description)}</span>` : '';
-        return `
-          <label class="ai-askq-opt">
-            <input type="${inputType}" name="ai-askq-opt" value="${idx}">
-            <span class="ai-askq-opt-text">
-              <span class="ai-askq-opt-label">${label}</span>${desc}
-            </span>
-          </label>`;
-      }).join('');
-      card.innerHTML = `
-        <div class="ai-askq-head">
-          <i class="ph ph-question" aria-hidden="true"></i>
-          <span>Aurora Intelligence is asking</span>
-        </div>
-        <div class="ai-askq-question"></div>
-        <div class="ai-askq-options">${optsHtml}</div>
-        <div class="ai-askq-other">
-          <label class="ai-askq-other-label">Other / write your own answer</label>
-          <textarea class="ai-askq-other-input" rows="2"
-                    placeholder="${tr('ai.customAnswerPlaceholder')}"></textarea>
-        </div>
-        <div class="ai-askq-actions">
-          <button type="button" class="ai-askq-cancel">Cancel</button>
-          <button type="button" class="ai-askq-submit">Send answer</button>
-        </div>
-      `;
-      card.querySelector('.ai-askq-question').textContent = question;
-
-      let settled = false;
-      /**
-       * `record` leaves a permanent trace of the exchange in the chat. Without
-       * it the card just vanished: what was asked and what you picked survived
-       * only inside the tool chip's JSON, so a reopened chat lost the decision
-       * entirely, and a decision is usually the most re-readable thing in the
-       * whole conversation. Passed only for deliberate answers/dismissals; a
-       * turn aborted from elsewhere resolves without one, since "the turn died"
-       * is not a decision worth a record.
-       */
-      const finish = (payload, record = null) => {
-        if (settled) return;
-        settled = true;
-        this.pendingAskUserQuestions?.delete(decide);
-        if (record) {
-          this.messages.push(record);
-          // In place, where the card stood, before the card fades out.
-          this.messagesEl.insertBefore(this._renderQuestionRecord(record), card);
-        }
-        card.classList.add('done');
-        setTimeout(() => card.remove(), 180);
-        resolve(payload);
-      };
-      const decide = (val) => finish(val);
-      if (!this.pendingAskUserQuestions) this.pendingAskUserQuestions = new Set();
-      this.pendingAskUserQuestions.add(decide);
-
-      const submit = () => {
-        const otherText = card.querySelector('.ai-askq-other-input').value.trim();
-        const checked = Array.from(card.querySelectorAll('input[name="ai-askq-opt"]:checked'))
-          .map((el) => safeOptions[Number(el.value)]?.label).filter(Boolean);
-        // Resolution: if "Other" text is present we use that as the
-        // canonical answer (with the checked labels as supplementary
-        // context). Otherwise the selected labels form the answer.
-        let answer;
-        if (otherText) {
-          answer = checked.length
-            ? `${otherText} (also selected: ${checked.join(', ')})`
-            : otherText;
-        } else if (checked.length) {
-          answer = multiSelect ? checked.join(', ') : checked[0];
-        } else {
-          // Nothing selected and nothing typed, keep the card open and
-          // flash the textarea so the user knows we need an input.
-          card.classList.add('shake');
-          setTimeout(() => card.classList.remove('shake'), 320);
-          return;
-        }
-        finish({ answer, selected: checked },
-          { role: 'question', question, selected: checked, custom: otherText, cancelled: false });
-      };
-
-      card.querySelector('.ai-askq-submit').addEventListener('click', submit);
-      card.querySelector('.ai-askq-cancel').addEventListener('click', () => {
-        finish({ answer: '[user cancelled the question]', selected: [] },
-          { role: 'question', question, selected: [], custom: '', cancelled: true });
-      });
-      // Enter inside the textarea (without shift) also submits.
-      card.querySelector('.ai-askq-other-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
-      });
-
-      this.messagesEl.appendChild(card);
-      this.scrollToBottom();
-      requestAnimationFrame(() => card.classList.remove('enter'));
-    });
-  }
-
-  /**
-   * The permanent trace of one ask_user_question exchange: what was asked and
-   * what you picked. Rendered live in place of the card, and again from
-   * `this.messages` when the chat is reopened, same element either way, so the
-   * reloaded chat reads exactly like the live one.
-   *
-   * Display-only: `question` entries are filtered out of buildApiMessages. The
-   * model already learned the answer through the tool's return value, so
-   * sending this too would just say it twice.
-   *
-   * @param {{question?:string, selected?:string[], custom?:string, cancelled?:boolean}} entry
-   */
-  _renderQuestionRecord(entry) {
-    const el = document.createElement('div');
-    el.className = `ai-askq-record${entry.cancelled ? ' cancelled' : ''}`;
-
-    const head = document.createElement('div');
-    head.className = 'ai-askq-record-head';
-    const icon = document.createElement('i');
-    icon.className = entry.cancelled ? 'ph ph-x-circle' : 'ph ph-check-circle';
-    icon.setAttribute('aria-hidden', 'true');
-    const headText = document.createElement('span');
-    headText.textContent = entry.cancelled ? 'You dismissed a question' : 'You answered';
-    head.append(icon, headText);
-    el.appendChild(head);
-
-    const q = document.createElement('div');
-    q.className = 'ai-askq-record-q';
-    q.textContent = entry.question || '';   // model text — never markup
-    el.appendChild(q);
-
-    const selected = Array.isArray(entry.selected) ? entry.selected : [];
-    if (selected.length) {
-      const chips = document.createElement('div');
-      chips.className = 'ai-askq-record-chips';
-      for (const label of selected) {
-        const chip = document.createElement('span');
-        chip.className = 'ai-askq-record-chip';
-        const tick = document.createElement('i');
-        tick.className = 'ph ph-check';
-        tick.setAttribute('aria-hidden', 'true');
-        const text = document.createElement('span');
-        text.textContent = String(label);   // model text — never markup
-        chip.append(tick, text);
-        chips.appendChild(chip);
-      }
-      el.appendChild(chips);
-    }
-
-    if (entry.custom) {
-      const custom = document.createElement('div');
-      custom.className = 'ai-askq-record-custom';
-      custom.textContent = entry.custom;    // the user's own words
-      el.appendChild(custom);
-    }
-    return el;
-  }
+  /** O cartao de pergunta (ask_user_question), chamado pelo aurora_api; mora em js/ai/perguntas_inline.ts. */
+  showAskUserQuestionInline(params) { return perguntarAPessoa(this, params); }
 
   showEmptyState(show) {
     this.emptyStateEl.classList.toggle('hidden', !show);

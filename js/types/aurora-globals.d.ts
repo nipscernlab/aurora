@@ -203,6 +203,27 @@ interface AuroraGitAPI {
   ignored?(opts?: unknown): Promise<{ ok?: boolean; isRepo?: boolean; paths?: string[] } | null>;
 }
 
+/** Subset do window.aiAPI do preload (main/ipc/ai.js) que os .ts ja usam: as conversas gravadas. */
+interface AuroraAiAPI {
+  listConversations?(): Promise<{ chats?: import('../ai/chat_history.js').ConversaListada[] } | null | undefined>;
+  /** A conversa inteira, ou null quando nao existe. */
+  readConversation(id: string): Promise<ConversaGravada | null>;
+  saveConversation?(chat: ConversaGravada): Promise<unknown>;
+  renameConversation(id: string, title: string): Promise<unknown>;
+  deleteConversation(id: string): Promise<unknown>;
+}
+
+/** Uma conversa como main/ai/conversations.js a grava e le. */
+interface ConversaGravada {
+  id: string;
+  title?: string;
+  provider?: string | null;
+  model?: string | null;
+  createdAt?: number;
+  messages?: import('../ai/chat_history.js').MensagemDoChat[];
+  cumulativeTokens?: number;
+}
+
 declare global {
   /** O pedaco do TerminalManager (js/terminal/terminal_module.js) que os .ts usam. */
   interface AuroraTerminalManager {
@@ -224,6 +245,7 @@ declare global {
     /** Espelho do ProjectStore para quem ainda nao o importa (js/project/project_store.ts). */
     ProjectStore?: typeof import('../project/project_store.js').ProjectStore;
     gitAPI?: AuroraGitAPI;
+    aiAPI?: AuroraAiAPI;
     /** O cartao de "nenhum projeto" na arvore (js/tree/file_tree_manager.ts). */
     renderTreeEmptyState?: () => void;
     /** Os paineis do editor dividido (js/editor/split_editor.js), cada um com as suas abas. */

@@ -253,6 +253,7 @@ js/compilation/compilation_module.js
 js/wave/wave_config_manager.js
 js/ai/api_tutorial.js
 js/ai/chat_history.js
+js/ai/conversas_do_chat.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

@@ -15,15 +15,12 @@
  */
 
 import { motivoDe } from '../app/api_reply.js';
-import { showConfirm } from './dialog_manager.js';
 import { abrirAjudaDe } from './help_link.js';
-import { showCardNotification } from './notification.js';
 import { aiMarkSvg } from './ai_mark.js';
 import { constrainTerminalHeight, persistTerminalHeight, faixaDosPaineis, semAnimar } from '../utils/resize.js';
 // Mesma regra de tamanho da árvore de arquivos e do terminal.
 import { resolvePaneSize, maxLateralWidth, PANE } from '../utils/pane_size.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
-import { lerPaginasDoManual, montarBlocoTutorial, aberturaDoTutorial } from '../ai/api_tutorial.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
@@ -47,7 +44,10 @@ import {
 } from '../ai/manual_citation.js';
 import { decideToolPermission, previewArgs, splitArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
 import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
-import { chatListHtml, serializeMessagesForStorage } from '../ai/chat_history.js';
+import {
+  novaConversa, comecarTutorial, alternarHistorico, relerLista, cliqueNoHistorico,
+  apagarConversa, abrirConversa, gravarConversa,
+} from '../ai/conversas_do_chat.js';
 import { buildApiMessages, buildProjectContext } from '../ai/chat_turn.js';
 import {
   escapeHtml, renderMarkdown, highlightCodeBlocks,
@@ -3165,302 +3165,18 @@ class AIAssistantManager {
     return el;
   }
 
-  /**
-   * Start a fresh chat. Saves the current one first so it remains in
-   * the history sidebar, then clears every piece of in-memory state.
-   * Replaces the old `clearChat`, the button at the header now
-   * carries a "+" icon and is wired here.
-   */
-  async newChat() {
-    if (this.currentSessionId) return;        // never switch mid-stream
-    await this.persistCurrentChat();
-    this.messages = [];
-    this._citacoesDoTurno = null;
-    this.tutorialBlock = '';
-    this.messagesEl.innerHTML = '';
-    this._lastMsgRole = null;
-    if (this.chatEmptyHint) {
-      this.messagesEl.appendChild(this.chatEmptyHint);
-      this.chatEmptyHint.classList.remove('hidden');
-    }
-    this.cumulativeTokens = 0;
-    this.cacheLidos = 0;
-    this.cacheEscritos = 0;
-    this.updateTokenCounter();
-    this.runningChips = [];
-    this._toolGroup = null;
-    this._autoQueue = [];
-    this._autoChainCount = 0;
-    this._messageQueue = [];
-    this._renderQueue();
-    this.thinkingEl = null;
-    this.currentChatId = null;
-    this.currentChatTitle = '';
-    this.currentChatCreatedAt = 0;
-    this.refreshChatList();
-  }
+  /* ---------------- conversas ---------------- */
+  // O ciclo da conversa (nova, abrir, gravar, renomear, apagar, tutorial) mora
+  // em js/ai/conversas_do_chat.ts; o painel e o contexto.
 
-  /**
-   * O tutorial guiado da API (ver js/ai/api_tutorial.js).
-   *
-   * Uma conversa nova, com o bloco do tutorial no system prompt e a primeira
-   * mensagem ja enviada: a pessoa clica e a instrutora comeca. O bloco morre
-   * com a conversa (newChat o limpa), e uma conversa de tutorial reaberta do
-   * historico segue pelo que ja foi dito, sem o bloco.
-   */
-  async startTutorial() {
-    if (this.currentSessionId) {
-      showCardNotification(tr('ai.tutorial.busy'), 'warning', 4000, 'Aurora Intelligence');
-      return;
-    }
-    if (!window.aiAPI || !this.currentProvider) {
-      showCardNotification(tr('ai.tutorial.noProvider'), 'warning', 5000, 'Aurora Intelligence');
-      return;
-    }
-    await this.newChat();
-    const locale = (localStorage.getItem('aurora-locale') === 'en') ? 'en' : 'pt';
-    const manual = await lerPaginasDoManual(window.electronAPI);
-    this.tutorialBlock = montarBlocoTutorial(locale, manual);
-    this.inputEl.value = aberturaDoTutorial(locale);
-    await this.send();
-  }
-
-  /* ---------------- chat history ---------------- */
-
-  toggleHistory(force) {
-    const open = force === undefined ? !this.historyOpen : force;
-    this.historyOpen = open;
-    this.historyPopover.classList.toggle('hidden', !open);
-    this.historyBtn.classList.toggle('active', open);
-    if (open) this.refreshChatList();
-  }
-
-  async refreshChatList() {
-    if (window.aiAPI?.listConversations) {
-      try {
-        const r = await window.aiAPI.listConversations();
-        this.chatList = r?.chats || [];
-      } catch (_) { this.chatList = []; }
-    }
-    this.renderChatList();
-  }
-
-  renderChatList() {
-    if (!this.historyList) return;
-    // Pure list markup in chat_history.js; this method owns the popover element.
-    this.historyList.innerHTML = chatListHtml(this.chatList, this.currentChatId);
-  }
-
-  async handleHistoryClick(e) {
-    const item = e.target.closest('.ai-history-item');
-    if (!item) return;
-    const id = item.dataset.chatId;
-    const actBtn = e.target.closest('[data-action]');
-    if (actBtn) {
-      e.stopPropagation();
-      if (actBtn.dataset.action === 'delete') {
-        const yes = await showConfirm('Delete chat?', 'This conversation will be deleted permanently.', {
-          variant: 'warning', confirmLabel: 'Delete', danger: true,
-        });
-        if (yes) await this.deleteChat(id);
-      } else if (actBtn.dataset.action === 'rename') {
-        this.renameChatInline(item, id);
-      }
-      return;
-    }
-    // Anywhere else on the row: open the chat.
-    this.toggleHistory(false);
-    this.loadChat(id);
-  }
-
-  renameChatInline(itemEl, id) {
-    const titleEl = itemEl.querySelector('.ai-history-item-title');
-    if (!titleEl) return;
-    const oldTitle = titleEl.textContent;
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'ai-history-item-rename';
-    input.value = oldTitle;
-    titleEl.replaceWith(input);
-    input.focus();
-    input.select();
-    const finish = async (commit) => {
-      const newTitle = input.value.trim() || oldTitle;
-      const span = document.createElement('span');
-      span.className = 'ai-history-item-title';
-      span.textContent = newTitle;
-      if (input.parentNode) input.replaceWith(span);
-      if (commit && newTitle !== oldTitle) {
-        try { await window.aiAPI.renameConversation(id, newTitle); }
-        catch (_) { /* the list refresh below will reveal a failure */ }
-        if (id === this.currentChatId) this.currentChatTitle = newTitle;
-        this.refreshChatList();
-      }
-    };
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
-      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
-    });
-    input.addEventListener('blur', () => finish(true));
-  }
-
-  async deleteChat(id) {
-    // Smoothly animate the deleted card out instead of a full re-render, the
-    // History popover stays open the whole time. We drop the row from the
-    // in-memory list (and DOM) locally rather than calling refreshChatList(),
-    // which would re-fetch and rebuild the whole list (the abrupt snap).
-    const cardEl = this.historyList
-      ? Array.from(this.historyList.querySelectorAll('.ai-history-item'))
-          .find((n) => n.dataset.chatId === id)
-      : null;
-
-    const dropFromList = () => {
-      this.chatList = (this.chatList || []).filter((c) => c.id !== id);
-      if (this.historyList && !this.chatList.length) {
-        this.historyList.innerHTML = '<p class="ai-history-empty">No saved chats yet.</p>';
-      }
-    };
-
-    if (cardEl) this._animateHistoryItemOut(cardEl, dropFromList);
-    else dropFromList();
-
-    try { await window.aiAPI.deleteConversation(id); }
-    catch (_) { /* the card is already animating out; a later open reveals failure */ }
-
-    if (id === this.currentChatId) {
-      // The visible chat was deleted, reset to a fresh state.
-      this.currentChatId = null;
-      this.currentChatTitle = '';
-      this.currentChatCreatedAt = 0;
-      this.messages = [];
-      this.messagesEl.innerHTML = '';
-      if (this.chatEmptyHint) {
-        this.messagesEl.appendChild(this.chatEmptyHint);
-        this.chatEmptyHint.classList.remove('hidden');
-      }
-      this.cumulativeTokens = 0;
-      this.updateTokenCounter();
-    }
-  }
-
-  /**
-   * Collapse + fade a history row out, then remove it from the DOM and run
-   * `onDone`. Pins an explicit pixel height first so the CSS `height: 0`
-   * transition actually animates (you can't transition from `auto`).
-   */
-  _animateHistoryItemOut(el, onDone) {
-    el.style.height = el.offsetHeight + 'px';
-    void el.offsetHeight; // commit the start height before collapsing
-    el.classList.add('removing');
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      el.remove();
-      if (typeof onDone === 'function') onDone();
-    };
-    el.addEventListener('transitionend', (e) => {
-      if (e.propertyName === 'height' || e.propertyName === 'opacity') finish();
-    });
-    setTimeout(finish, 450); // fallback if transitionend never fires
-  }
-
-  async loadChat(id) {
-    if (this.currentSessionId) return;        // never switch mid-stream
-    if (id === this.currentChatId) return;
-    await this.persistCurrentChat();
-
-    let chat;
-    try { chat = await window.aiAPI.readConversation(id); }
-    catch (_) { chat = null; }
-    if (!chat) return;
-
-    this.currentChatId = chat.id;
-    this.currentChatTitle = chat.title || 'Untitled';
-    this.currentChatCreatedAt = chat.createdAt || Date.now();
-    this.messages = Array.isArray(chat.messages) ? chat.messages.slice() : [];
-    this.cumulativeTokens = Number(chat.cumulativeTokens) || 0;
-    this.updateTokenCounter();
-
-    // Switch provider if the saved chat used a different one (and it's
-    // still available). Falls back silently if not.
-    if (chat.provider && chat.provider !== this.currentProvider) {
-      if (this.providersConfigured && this.providersConfigured[chat.provider]) {
-        this.currentProvider = chat.provider;
-        this.applyProviderState();
-        const radio = this.mpProviders.querySelector(`input[name="ai-provider"][value="${chat.provider}"]`);
-        if (radio) radio.checked = true;
-      }
-    }
-
-    // Replay every message into the bubble stream.
-    this.messagesEl.innerHTML = '';
-    this._lastMsgRole = null;
-    if (this.chatEmptyHint) this.messagesEl.appendChild(this.chatEmptyHint);
-    if (this.chatEmptyHint) this.chatEmptyHint.classList.toggle('hidden', this.messages.length > 0);
-    // Consecutive tool calls are rebuilt into one collapsed "N actions"
-    // group, matching the live look so a reopened chat reads the same way.
-    let staticGroup = null;
-    const closeStaticGroup = () => {
-      if (!staticGroup) return;
-      this._finalizeToolGroup(staticGroup.el, staticGroup.summaryEl, staticGroup.total);
-      staticGroup = null;
-    };
-    for (const msg of this.messages) {
-      if (!msg || !msg.role) continue;
-      if (msg.role === 'tool') {
-        if (!staticGroup) {
-          staticGroup = this._createToolGroupEl();
-          staticGroup.total = 0;
-          this.messagesEl.appendChild(staticGroup.el);
-        }
-        staticGroup.body.appendChild(
-          this.appendStaticToolChip(msg.toolName, msg.status, msg.error, msg.args, msg.result),
-        );
-        staticGroup.total += 1;
-      } else if (msg.role === 'citation') {
-        // Sem este ramo a citacao cairia no teste de `typeof msg.content`
-        // abaixo, que e string, e sumiria calada ao reabrir a conversa.
-        closeStaticGroup();
-        this.messagesEl.appendChild(this._blocoDeCitacoes(msg.citacoes || []));
-      } else if (msg.role === 'question') {
-        // A question record has no `content`, so without this branch the
-        // `typeof msg.content === 'string'` test below drops it silently.
-        closeStaticGroup();
-        this.messagesEl.appendChild(this._renderQuestionRecord(msg));
-      } else if (typeof msg.content === 'string') {
-        closeStaticGroup();
-        const bubble = this.appendBubble(msg.role, msg.content);
-        // Restore the attachment chips (name/ext only, the payload was dropped)
-        // so a reopened message reads with context, not as an empty bubble.
-        if (Array.isArray(msg.attachments) && msg.attachments.length) {
-          this._renderBubbleAttachments(bubble, msg.attachments);
-        }
-      }
-    }
-    closeStaticGroup();
-    highlightCodeBlocks(this.messagesEl);
-    this.refreshChatList();
-  }
-
-  async persistCurrentChat() {
-    if (!this.currentChatId || !this.messages.length || !window.aiAPI?.saveConversation) return;
-    const providerInfo = (this.providersAvailable || []).find((p) => p.name === this.currentProvider);
-    try {
-      await window.aiAPI.saveConversation({
-        id: this.currentChatId,
-        title: this.currentChatTitle || 'Untitled',
-        provider: this.currentProvider,
-        model: providerInfo ? providerInfo.model : null,
-        createdAt: this.currentChatCreatedAt || Date.now(),
-        // Pure message-shaping (tool breadcrumb + lightweight attachment meta,
-        // payload dropped) lives in chat_history.js.
-        messages: serializeMessagesForStorage(this.messages),
-        cumulativeTokens: this.cumulativeTokens,
-      });
-    } catch (e) { console.warn('[ai-panel] persist failed:', e); }
-    this.refreshChatList();
-  }
+  newChat() { return novaConversa(this); }
+  startTutorial() { return comecarTutorial(this); }
+  toggleHistory(force) { alternarHistorico(this, force); }
+  refreshChatList() { return relerLista(this); }
+  handleHistoryClick(e) { return cliqueNoHistorico(this, e); }
+  deleteChat(id) { return apagarConversa(this, id); }
+  loadChat(id) { return abrirConversa(this, id); }
+  persistCurrentChat() { return gravarConversa(this); }
 
   /* ---------------- resize ---------------- */
 

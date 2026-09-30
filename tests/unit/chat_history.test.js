@@ -54,4 +54,15 @@ describe('serializeMessagesForStorage', () => {
         serializeMessagesForStorage(input);
         expect(input[0].attachments[0].dataUrl).toBe('d'); // original untouched
     });
+
+    it('citacao guarda pagina, titulo, trecho e versao, e deixa os indices de fora', () => {
+        const out = serializeMessagesForStorage([
+            { role: 'citation', citacoes: [{ pagina: 'p.md', titulo: 'P', trecho: 't', versao: 'v1', inicio: 3, fim: 9 }] },
+            { role: 'citation' },
+        ]);
+        expect(out).toEqual([
+            { role: 'citation', citacoes: [{ pagina: 'p.md', titulo: 'P', trecho: 't', versao: 'v1' }] },
+            { role: 'citation', citacoes: [] },
+        ]);
+    });
 });

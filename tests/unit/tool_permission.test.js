@@ -27,6 +27,10 @@ describe('decideToolPermission', () => {
 });
 
 describe('previewArgs', () => {
+    it('argumento que o JSON nao serializa (circular) cai no String()', () => {
+        const a = { x: 1 }; a.self = a;
+        expect(previewArgs(a)).toBe('[object Object]');
+    });
     it('returns empty for no args', () => {
         expect(previewArgs(null)).toBe('');
         expect(previewArgs({})).toBe('');

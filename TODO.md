@@ -2259,6 +2259,34 @@ A cadeia, nesta ordem:
 
         Depois, também corrigido: a onda do PRISM aberta na aba do Surfer
         levava os tradutores da última corrida do Wave.
+      - [ ] `ai_assistant_manager` (em curso desde 30/09): de 3679 para
+        3143 linhas. Escolhido por ser o maior `.js` e o que mais muda. Saíram
+        `conversas_do_chat.ts` (nova, abrir, gravar, renomear, apagar e o
+        tutorial guiado) e `perguntas_inline.ts` (os cartões de permissão e de
+        pergunta e o registro que fica no lugar). A classe fica com uma
+        delegação de uma linha por método que ela mesma chama, e com
+        `confirmToolCall` e `showAskUserQuestionInline` como portas do
+        `tool_runner` e do `aurora_api`. Os testes (`conversasDoChat`,
+        `perguntasInline`) entram pelos cliques e pelas portas públicas, sem
+        falso de método da instância, e foram rodados no `.js` antigo. Viraram
+        `.ts` antes: `api_tutorial`, `chat_history`, `tool_permission`; o
+        `window.aiAPI` ganhou tipo para os canais das conversas.
+
+        Defeitos corrigidos, cada um com o teste antes: o Escape do renomear
+        mostrava o nome descartado, e o `blur` que chega quando o campo sai do
+        DOM o gravava; a conversa era gravada antes de somar o uso do turno, e
+        o total no disco ficava um turno atrás.
+
+        Achados, ainda abertos: o teto total de 60000 caracteres do tutorial
+        nunca é alcançado (cinco temas de 12000); um item `null` numa conversa
+        gravada quebra o envio seguinte no `buildApiMessages` (só um arquivo
+        estragado produz isso); o `askUserQuestion` do `aurora_api` confere
+        `result == null`, que nunca acontece.
+
+        Próximos grupos, pelo tamanho descoberto: o layout do painel
+        (`toggle`, largura, `setupResize`, `setupTerminalCorner`), as
+        citações, os chips de ferramenta, a tarefa em segundo plano
+        (`runInBackground`) e o `attachListeners`.
       - [ ] E2E instável: `shell-terminal > navigates folders (cd persists,
         prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
         mudança do momento (o repetidor deu 3 verdes seguidas).

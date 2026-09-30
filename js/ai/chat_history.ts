@@ -1,4 +1,4 @@
-// chat_history.js: pure history helpers for the AI assistant, extracted from
+// chat_history.ts: pure history helpers for the AI assistant, extracted from
 // ai_assistant_manager.js (A2 god-file decomposition).
 //
 // Pure: no DOM, no instance state, no IPC. The class keeps the orchestration
@@ -9,17 +9,57 @@
 import { PROVIDER_META, formatTokens, relativeTime } from './ai_metadata.js';
 import { escapeHtml } from './chat_render.js';
 
+/** Uma linha da lista de conversas, como main/ai/conversations.js a devolve. */
+export interface ConversaListada {
+    id: string;
+    title?: string;
+    provider?: string;
+    updatedAt?: number | string | null;
+    cumulativeTokens?: number;
+}
+
+/** Um anexo de mensagem; na memoria leva o conteudo, gravado so os metadados. */
+export interface AnexoDaMensagem {
+    kind: string; name: string; mime?: string; size?: number | null; clipped?: boolean;
+    dataUrl?: string; text?: string;
+}
+
+/** Uma citacao do manual; `inicio` e `fim` so existem em memoria. */
+export interface CitacaoDaMensagem {
+    pagina?: string; titulo?: string; trecho?: string; versao?: string;
+    inicio?: number; fim?: number;
+}
+
+/**
+ * Uma mensagem da conversa, em memoria ou gravada. `role` decide os outros
+ * campos: 'tool' leva o rastro da ferramenta, 'citation' as citacoes, 'question'
+ * a pergunta respondida, e os demais o `content`.
+ */
+export interface MensagemDoChat {
+    role: string;
+    content?: unknown;
+    attachments?: AnexoDaMensagem[];
+    citacoes?: CitacaoDaMensagem[];
+    toolName?: string;
+    status?: string;
+    toolUseId?: string | null;
+    args?: unknown;
+    result?: unknown;
+    error?: string;
+    [campo: string]: unknown;
+}
+
 // Markup for the saved-conversations list in the history popover. `chatList` is
 // the saved-chat metadata; `currentChatId` highlights the open one.
-export function chatListHtml(chatList, currentChatId) {
+export function chatListHtml(chatList: ConversaListada[], currentChatId: string | null): string {
     if (!chatList.length) return '<p class="ai-history-empty">No saved chats yet.</p>';
     return chatList.map((c) => {
-        const meta = PROVIDER_META[c.provider] || {};
+        const meta: { icon?: string; label?: string } = PROVIDER_META[c.provider as string] || {};
         const icon = meta.icon || '';
         const providerLabel = meta.label || c.provider || '';
         const active = c.id === currentChatId ? ' active' : '';
         // G6: per-conversation token total at a glance (0 omitted).
-        const tok = c.cumulativeTokens > 0 ? ` · ${formatTokens(c.cumulativeTokens)} tok` : '';
+        const tok = (c.cumulativeTokens as number) > 0 ? ` · ${formatTokens(c.cumulativeTokens)} tok` : '';
         return `
         <div class="ai-history-item${active}" data-chat-id="${escapeHtml(c.id)}">
           ${icon ? `<img class="ai-history-item-icon" src="${icon}" alt="">` : '<span class="ai-history-item-icon-spacer"></span>'}
@@ -41,9 +81,9 @@ export function chatListHtml(chatList, currentChatId) {
 // keep content + lightweight attachment metadata only, the payload (image
 // base64 / file text) is dropped for performance. Pure: returns a new array,
 // never mutates the input.
-export function serializeMessagesForStorage(messages) {
+export function serializeMessagesForStorage(messages: MensagemDoChat[]): MensagemDoChat[] {
     return messages.map((m) => {
-        const entry = { role: m.role };
+        const entry: MensagemDoChat = { role: m.role };
         if (m.role === 'citation') {
             // O trecho e a razao de a citacao existir: sem ele, reabrir a
             // conversa deixaria so o nome da pagina, que e o que a assistente
@@ -72,7 +112,7 @@ export function serializeMessagesForStorage(messages) {
             entry.content = m.content;
             if (Array.isArray(m.attachments) && m.attachments.length) {
                 entry.attachments = m.attachments.map((a) => {
-                    const meta = { kind: a.kind, name: a.name };
+                    const meta: AnexoDaMensagem = { kind: a.kind, name: a.name };
                     if (a.mime) meta.mime = a.mime;
                     if (a.size != null) meta.size = a.size;
                     if (a.clipped) meta.clipped = true;

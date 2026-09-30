@@ -1,5 +1,5 @@
 /**
- * api_tutorial.js: o tutorial guiado da API da AURORA, com o manual por tras.
+ * api_tutorial.ts: o tutorial guiado da API da AURORA, com o manual por tras.
  *
  * O QUE E. Uma conversa da Aurora Intelligence que comeca com a assistente no
  * papel de instrutora: ela apresenta a API da AURORA, que sao as ferramentas
@@ -77,23 +77,39 @@ const TEMAS = [
 const MAX_POR_PAGINA = 12000;
 const MAX_TOTAL = 60000;
 
+/** Uma pagina do manual, como vai para o bloco. */
+export interface PaginaDoManual { titulo: string; caminho: string; texto: string }
+
+/** O que a leitura devolve: as paginas lidas e, quando parou, por que. */
+export interface ManualDoTutorial { paginas: PaginaDoManual[]; motivo: string }
+
+/** Os dois canais do manual (main/ipc/docs), na forma que chegam. */
+export interface CanaisDoManual {
+    docsBuscar?(tema: string, opts: { limite: number }): Promise<{
+        ok?: boolean; erro?: string; error?: string;
+        resultados?: Array<{ caminho?: string; titulo?: string } | null>;
+    } | null | undefined>;
+    docsLer?(caminho: string, opts: { limite: number }): Promise<{
+        ok?: boolean; texto?: string; titulo?: string; caminho?: string;
+    } | null | undefined>;
+}
+
 /**
  * Le do manual instalado as paginas mais proximas de cada tema.
  * Nunca lanca: o tutorial tem que comecar mesmo sem manual.
  *
- * @param {object} api window.electronAPI (docsBuscar, docsLer)
- * @returns {Promise<{ paginas: Array<{titulo:string, caminho:string, texto:string}>, motivo: string }>}
+ * @param api window.electronAPI (docsBuscar, docsLer)
  */
-export async function lerPaginasDoManual(api) {
-    const paginas = [];
-    const vistos = new Set();
+export async function lerPaginasDoManual(api: CanaisDoManual | null | undefined): Promise<ManualDoTutorial> {
+    const paginas: PaginaDoManual[] = [];
+    const vistos = new Set<string>();
     let total = 0;
     if (!api?.docsBuscar || !api?.docsLer) return { paginas, motivo: 'a busca no manual nao esta disponivel nesta janela' };
     for (const tema of TEMAS) {
         let r;
-        try { r = await api.docsBuscar(tema, { limite: 2 }); } catch (e) { return { paginas, motivo: `busca no manual falhou: ${e?.message || e}` }; }
+        try { r = await api.docsBuscar(tema, { limite: 2 }); } catch (e) { return { paginas, motivo: `busca no manual falhou: ${(e as { message?: string } | null)?.message || e}` }; }
         if (!r?.ok) return { paginas, motivo: r?.erro || r?.error || 'busca no manual respondeu sem dizer o erro' };
-        const primeiro = (r.resultados || []).find((x) => x && x.caminho && !vistos.has(x.caminho));
+        const primeiro = (r.resultados || []).find((x): x is { caminho: string; titulo?: string } => !!(x && x.caminho && !vistos.has(x.caminho)));
         if (!primeiro) continue;
         vistos.add(primeiro.caminho);
         let pag;
@@ -109,10 +125,8 @@ export async function lerPaginasDoManual(api) {
 
 /**
  * O bloco que vai para o system prompt da conversa de tutorial.
- * @param {'pt'|'en'} locale
- * @param {{ paginas: Array<{titulo:string, caminho:string, texto:string}>, motivo: string }} manual
  */
-export function montarBlocoTutorial(locale, manual) {
+export function montarBlocoTutorial(locale: 'pt' | 'en', manual: ManualDoTutorial): string {
     const pt = locale === 'pt';
     const partes = [];
     partes.push('\n\n=== TUTORIAL MODE: THE AURORA API ===\n');
@@ -160,7 +174,7 @@ export function montarBlocoTutorial(locale, manual) {
 }
 
 /** A primeira mensagem, que a pessoa nao precisa escrever. */
-export function aberturaDoTutorial(locale) {
+export function aberturaDoTutorial(locale: 'pt' | 'en'): string {
     return locale === 'pt'
         ? 'Quero um tutorial guiado da API da AURORA. Comece.'
         : 'I want a guided tutorial of the AURORA API. Begin.';

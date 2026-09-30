@@ -459,9 +459,7 @@ describe('renomear pela lista', () => {
     campo('c-1').value = 'descartado';
     tecla(campo('c-1'), 'Escape');
     await assentar();
-    // DEFEITO registrado como esta: o Escape nao grava, mas a linha mostra o
-    // nome descartado ate a lista ser relida.
-    expect(linha('c-1').querySelector('.ai-history-item-title').textContent).toBe('descartado');
+    expect(linha('c-1').querySelector('.ai-history-item-title').textContent).toBe('Filtro FIR');
     expect(api.renameConversation).not.toHaveBeenCalled();
 
     renomear('c-2');
@@ -474,6 +472,28 @@ describe('renomear pela lista', () => {
     tecla(campo('c-2'), 'Enter');
     await assentar();
     expect(api.renameConversation).not.toHaveBeenCalled();
+  });
+
+  it('o campo fecha uma vez so: o blur que chega depois do Enter ou do Escape nao faz nada', async () => {
+    // O campo sai do DOM com o foco nele, e o navegador pode disparar `blur`
+    // nessa hora. Sem a trava, o blur depois do Escape gravava o nome que a
+    // pessoa acabou de descartar.
+    await abrirLista();
+    renomear('c-1');
+    const esc = campo('c-1');
+    esc.value = 'descartado';
+    tecla(esc, 'Escape');
+    esc.dispatchEvent(new Event('blur'));
+    await assentar();
+    expect(api.renameConversation).not.toHaveBeenCalled();
+
+    renomear('c-2');
+    const ent = campo('c-2');
+    ent.value = 'Divisor 2';
+    tecla(ent, 'Enter');
+    ent.dispatchEvent(new Event('blur'));
+    await assentar();
+    expect(api.renameConversation).toHaveBeenCalledTimes(1);
   });
 
   it('perder o foco grava; a gravacao que falha ainda relê a lista', async () => {

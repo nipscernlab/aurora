@@ -199,8 +199,13 @@ function renomearNaLista(p: PainelDaConversa, itemEl: HTMLElement, id: string): 
   titleEl.replaceWith(input);
   input.focus();
   input.select();
+  // Fecha uma vez so. O campo sai do DOM com o foco nele, e o blur que o
+  // navegador dispara nessa hora gravaria o nome que o Escape descartou.
+  let fechado = false;
   const finish = async (commit: boolean) => {
-    const newTitle = input.value.trim() || oldTitle;
+    if (fechado) return;
+    fechado = true;
+    const newTitle = commit ? (input.value.trim() || oldTitle) : oldTitle;
     const span = document.createElement('span');
     span.className = 'ai-history-item-title';
     span.textContent = newTitle;

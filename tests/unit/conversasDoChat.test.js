@@ -316,18 +316,29 @@ describe('gravar a conversa', () => {
     await mandar('compila');
     responder('ok', { totalTokens: 77 });
 
-    // DEFEITO registrado como esta: o `finish` grava antes de somar o uso do
-    // turno, entao o total gravado fica um turno atras (0 aqui, nao 77).
     const s = api.chamadas.salvos.at(-1);
-    expect(painel.cumulativeTokens).toBe(77);
     expect(s).toMatchObject({
-      id: 'c-nova', title: 'compila', provider: 'anthropic', model: 'claude-x', cumulativeTokens: 0,
+      id: 'c-nova', title: 'compila', provider: 'anthropic', model: 'claude-x', cumulativeTokens: 77,
     });
     expect(typeof s.createdAt).toBe('number');
     expect(s.messages).toEqual([
       { role: 'user', content: 'compila' },
       { role: 'assistant', content: 'ok' },
     ]);
+  });
+
+  it('o total gravado ja inclui o uso do turno, tambem no finish que continua a sessao', async () => {
+    // Gravava antes de somar, e o total no disco ficava um turno atras: a
+    // conversa reaberta mostrava menos tokens do que tinha gasto.
+    await abrirPainel();
+    await mandar('compila');
+    const sid = api.chamadas.startChat.at(-1).sessionId;
+    api.emitir({ sessionId: sid, type: 'text-delta', delta: 'parte um' });
+    api.emitir({ sessionId: sid, type: 'finish', more: true, usage: { totalTokens: 30 } });
+    expect(api.chamadas.salvos.at(-1).cumulativeTokens).toBe(30);
+    api.emitir({ sessionId: sid, type: 'text-delta', delta: 'parte dois' });
+    api.emitir({ sessionId: sid, type: 'finish', usage: { totalTokens: 12 } });
+    expect(api.chamadas.salvos.at(-1).cumulativeTokens).toBe(42);
   });
 
   it('sem mensagens ou sem canal, nao grava; a gravacao que falha so avisa', async () => {

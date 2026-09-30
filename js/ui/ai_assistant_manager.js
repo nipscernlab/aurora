@@ -2116,14 +2116,15 @@ class AIAssistantManager {
         // que no meio da sessao sao legitimos.
         if (ev.more) {
           this._sealTurnText();
-          this.persistCurrentChat();
+          // O uso antes de gravar, senao o total no disco fica um turno atras.
           this.applyUsage(ev.usage);
+          this.persistCurrentChat();
           this._startNextSegment();
           this.showThinking(true);
           break;
         }
+        this.applyUsage(ev.usage);       // antes do commitTurn, que grava a conversa
         this.commitTurn();
-        this.applyUsage(ev.usage);
         this.setStreaming(false);
         // Pull the CLI's authoritative usage snapshot at the END of every
         // turn (not just when the model popover happens to be open) so the

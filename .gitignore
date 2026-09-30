@@ -53,7 +53,7 @@ components/PyLibs/
 # envelheceria em silencio a cada correcao de texto feita la.
 resources/docs/
 
-# Version manifest kept by scripts/verify-components.js — per-machine record of
+# Version manifest kept by scripts/verify-components.mts — per-machine record of
 # which toolchain tag is installed for each component, used to detect a version
 # bump on `npm install` / `npm run components:verify`. Never commit it.
 components/.aurora-versions.json

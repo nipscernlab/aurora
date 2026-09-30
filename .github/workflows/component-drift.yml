@@ -2,7 +2,7 @@ name: Deriva de componentes
 
 # Vigia os sete componentes que a AURORA baixa por tag fixada a mao dentro dos
 # `components/Scripts/download-*.js`. O dependabot cobre npm e github-actions e
-# nao alcanca nenhum deles; o `verify-components.js` compara a MAQUINA com o
+# nao alcanca nenhum deles; o `verify-components.mts` compara a MAQUINA com o
 # declarado, e nao o declarado com o upstream. Era o buraco por onde o fork do
 # Surfer ficou cinco versoes atras sem ninguem notar, em 10/08/2026.
 #

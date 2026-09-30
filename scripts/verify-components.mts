@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// @ts-check
 /**
- * verify-components.js: Aurora toolchain "doctor".
+ * verify-components.mts: Aurora toolchain "doctor".
  *
  * Verifica os EXECUTAVEIS instalados em components/ (verilator, os compiladores
  * YANC, gtkwave, surfer, verible, slang-server, clang-format) e, para cada
@@ -37,23 +36,27 @@
  * bump silencioso.
  *
  * USO
- *   node scripts/verify-components.js            # relatorio + prompts interativos
- *   node scripts/verify-components.js --report   # so relatorio, sem prompts
- *   node scripts/verify-components.js --json      # relatorio em JSON (sem prompts)
- *   node scripts/verify-components.js --yes       # baixa faltantes + upgrade, sem perguntar
- *   node scripts/verify-components.js --force-all # re-baixa TUDO (--force em todos)
- *   node scripts/verify-components.js --only yanc,surfer   # restringe aos componentes
- *   node scripts/verify-components.js --strict    # exit 1 se algo faltar (uso em CI)
+ *   node scripts/verify-components.mts            # relatorio + prompts interativos
+ *   node scripts/verify-components.mts --report   # so relatorio, sem prompts
+ *   node scripts/verify-components.mts --json      # relatorio em JSON (sem prompts)
+ *   node scripts/verify-components.mts --yes       # baixa faltantes + upgrade, sem perguntar
+ *   node scripts/verify-components.mts --force-all # re-baixa TUDO (--force em todos)
+ *   node scripts/verify-components.mts --only yanc,surfer   # restringe aos componentes
+ *   node scripts/verify-components.mts --strict    # exit 1 se algo faltar (uso em CI)
  *
  * Tambem exposto como `npm run components:verify`.
  */
 
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
-const { spawnSync } = require('child_process');
+import cp from 'node:child_process';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import readline from 'node:readline';
+import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = path.join(__dirname, '..');
+// Os download-*.js sao CommonJS e entram por require (ver COMO FUNCIONA acima).
+const carregarCjs = createRequire(import.meta.url);
+const REPO_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPTS_DIR = path.join(REPO_ROOT, 'components', 'Scripts');
 
 // Manifesto de versoes que o DOCTOR mantem: { key: tag_instalada }. Existe pra
@@ -63,18 +66,14 @@ const SCRIPTS_DIR = path.join(REPO_ROOT, 'components', 'Scripts');
 // a toolchain, o que e o certo (ai tudo re-baixa).
 const MANIFEST_FILE = path.join(REPO_ROOT, 'components', '.aurora-versions.json');
 
-function readManifest() {
+function readManifest(): Record<string, string> {
   try {
     return JSON.parse(fs.readFileSync(MANIFEST_FILE, 'utf8')) || {};
   } catch (_e) {
     return {};
   }
 }
-/**
- * @param {string} key
- * @param {string|null|undefined} tag
- */
-function writeManifestEntry(key, tag) {
+function writeManifestEntry(key: string, tag: string | null | undefined) {
   if (!key || !tag) return;
   const m = readManifest();
   if (m[key] === tag) return;
@@ -88,13 +87,13 @@ function writeManifestEntry(key, tag) {
 
 // ── ANSI (degrada pra vazio se nao for TTY) ───────────────────────────────────
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
-const c = (/** @type {string} */ code, /** @type {string} */ s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
-const bold = (/** @type {string} */ s) => c('1', s);
-const green = (/** @type {string} */ s) => c('32', s);
-const red = (/** @type {string} */ s) => c('31', s);
-const yellow = (/** @type {string} */ s) => c('33', s);
-const cyan = (/** @type {string} */ s) => c('36', s);
-const dim = (/** @type {string} */ s) => c('2', s);
+const c = (code: string, s: string) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
+const bold = (s: string) => c('1', s);
+const green = (s: string) => c('32', s);
+const red = (s: string) => c('31', s);
+const yellow = (s: string) => c('33', s);
+const cyan = (s: string) => c('36', s);
+const dim = (s: string) => c('2', s);
 
 // ── Manifesto dos componentes que instalam executaveis ────────────────────────
 // Cada entrada carrega o download-*.js correspondente e le dele:
@@ -103,12 +102,13 @@ const dim = (/** @type {string} */ s) => c('2', s);
 //   installedVer    -> versao gravada no disco, se o componente registrar (so YANC)
 //   extraNote       -> observacao de saude adicional (ex.: cocotb no toolchain)
 // So os download-*.js sao a fonte da verdade; aqui nao ha lista de .exe hardcoded.
-/**
- * @typedef {{ pinnedTag?: string|null, sentinel?: string|null, isPresent: () => boolean,
- *   installedVer?: string|null, extraNote?: string|null, unavailable?: string|null }} Info
- * @type {Array<{key:string,label:string,script:string,build:(m:any)=>Info}>}
- */
-const COMPONENTS = [
+interface Info {
+  pinnedTag?: string | null; sentinel?: string | null; isPresent: () => boolean;
+  installedVer?: string | null; extraNote?: string | null; unavailable?: string | null;
+}
+// Cada download-*.js exporta um formato proprio; o build de cada entrada sabe o seu.
+type ModuloDeDownload = any;
+const COMPONENTS: Array<{ key: string; label: string; script: string; build: (m: ModuloDeDownload) => Info }> = [
   {
     key: 'toolchain',
     label: 'Toolchain MSYS/mingw64 (verilator, iverilog, yosys, g++, python, cocotb)',
@@ -200,7 +200,7 @@ const COMPONENTS = [
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
-const has = (/** @type {string} */ f) => argv.includes(f);
+const has = (f: string) => argv.includes(f);
 const FLAG = {
   report: has('--report') || has('--check'),
   json: has('--json'),
@@ -211,8 +211,7 @@ const FLAG = {
   // tudo esta OK, pula em CI, e nunca falha o install (sempre exit 0).
   postinstall: has('--postinstall'),
 };
-/** @type {string[]|null} */
-let onlyKeys = null;
+let onlyKeys: string[] | null = null;
 {
   const i = argv.indexOf('--only');
   if (i !== -1 && argv[i + 1]) onlyKeys = argv[i + 1].split(',').map((s) => s.trim()).filter(Boolean);
@@ -220,26 +219,23 @@ let onlyKeys = null;
 
 // ── Coleta de status ──────────────────────────────────────────────────────────
 // status: 'ok' | 'missing' | 'outdated' | 'unavailable' | 'error'
-/**
- * @typedef {{
- *   key: string, label: string, script: string, scriptPath: string,
- *   pinnedTag?: string|null, sentinel?: string|null, extraNote?: string|null,
- *   installedVer?: string|null, recorded?: boolean,
- *   status?: 'ok'|'missing'|'outdated'|'unavailable'|'error',
- *   note?: string|null, needsSeed?: boolean, error?: string,
- * }} Row
- */
-function collect() {
-  const rows = [];
+interface Row {
+  key: string; label: string; script: string; scriptPath: string;
+  pinnedTag?: string | null; sentinel?: string | null; extraNote?: string | null;
+  installedVer?: string | null; recorded?: boolean;
+  status?: 'ok' | 'missing' | 'outdated' | 'unavailable' | 'error';
+  note?: string | null; needsSeed?: boolean; error?: string;
+}
+function collect(): Row[] {
+  const rows: Row[] = [];
   const manifest = readManifest();
   for (const comp of COMPONENTS) {
     if (onlyKeys && !onlyKeys.includes(comp.key)) continue;
     const scriptPath = path.join(SCRIPTS_DIR, comp.script);
-    /** @type {Row} */
-    const row = { key: comp.key, label: comp.label, script: comp.script, scriptPath };
+    const row: Row = { key: comp.key, label: comp.label, script: comp.script, scriptPath };
     try {
       // require seguro: o main() de cada download-*.js e gated por require.main.
-      const mod = require(scriptPath);
+      const mod = carregarCjs(scriptPath);
       const info = comp.build(mod);
       row.pinnedTag = info.pinnedTag || null;
       row.sentinel = info.sentinel || null;
@@ -282,8 +278,7 @@ function collect() {
   return rows;
 }
 
-/** @param {() => any} fn */
-function safe(fn) {
+function safe(fn: () => unknown) {
   try { return fn(); } catch (_e) { return false; }
 }
 
@@ -296,8 +291,7 @@ const BADGE = {
   error: red('[ERRO]'),
 };
 
-/** @param {Row} row */
-function versionCell(row) {
+function versionCell(row: Row) {
   if (row.status === 'error') return dim('—');
   const pinned = row.pinnedTag ? cyan(row.pinnedTag) : dim('n/d');
   if (row.installedVer && row.installedVer !== row.pinnedTag) {
@@ -308,14 +302,13 @@ function versionCell(row) {
   return pinned;
 }
 
-/** @param {Row[]} rows */
-function printReport(rows) {
+function printReport(rows: Row[]) {
   console.log('');
   console.log(bold('  Verificacao de componentes da AURORA'));
   console.log(dim('  ' + '─'.repeat(70)));
   for (const row of rows) {
     // O status e sempre definido ao coletar; o tipo o marca opcional so por causa do literal inicial.
-    console.log(`  ${BADGE[/** @type {keyof typeof BADGE} */ (row.status)]}  ${bold(row.key.padEnd(13))} ${versionCell(row)}`);
+    console.log(`  ${BADGE[row.status as keyof typeof BADGE]}  ${bold(row.key.padEnd(13))} ${versionCell(row)}`);
     console.log(`         ${dim(row.label)}`);
     if (row.status === 'missing') console.log(`         ${dim('sentinela ausente: ' + rel(row.sentinel))}`);
     if (row.status === 'error') console.log(`         ${red('erro ao ler modulo: ' + row.error)}`);
@@ -323,7 +316,7 @@ function printReport(rows) {
     if (row.extraNote) console.log(`         ${yellow('! ' + row.extraNote)}`);
   }
   console.log(dim('  ' + '─'.repeat(70)));
-  const n = (/** @type {string} */ s) => rows.filter((r) => r.status === s).length;
+  const n = (s: string) => rows.filter((r) => r.status === s).length;
   console.log(
     `  ${green(n('ok') + ' ok')}   ` +
     `${red(n('missing') + ' faltando')}   ` +
@@ -334,23 +327,18 @@ function printReport(rows) {
   console.log('');
 }
 
-/** @param {string|null|undefined} p */
-function rel(p) {
+function rel(p: string | null | undefined) {
   if (!p) return '(desconhecida)';
   return path.relative(REPO_ROOT, p).replace(/\\/g, '/');
 }
 
 // ── Execucao de um download-*.js ──────────────────────────────────────────────
-/**
- * @param {Row} row
- * @param {{ force: boolean }} opcoes
- */
-function runDownload(row, { force }) {
+function runDownload(row: Row, { force }: { force: boolean }) {
   const args = [row.scriptPath];
   if (force) args.push('--force');
   console.log('');
   console.log(bold(`  RUN   ${row.key}: node components/Scripts/${row.script}${force ? ' --force' : ''}`));
-  const res = spawnSync(process.execPath, args, { cwd: REPO_ROOT, stdio: 'inherit' });
+  const res = cp.spawnSync(process.execPath, args, { cwd: REPO_ROOT, stdio: 'inherit' });
   const okExit = res.status === 0;
   // Reavalia a sentinela apos rodar (os download-*.js saem 0 mesmo em falha de
   // rede pra nao travar o npm start, entao o exit code sozinho nao basta).
@@ -367,16 +355,11 @@ function runDownload(row, { force }) {
 }
 
 // ── Prompt interativo ─────────────────────────────────────────────────────────
-/**
- * @param {import('readline').Interface} rl
- * @param {string} question
- */
-function ask(rl, question) {
+function ask(rl: readline.Interface, question: string): Promise<string> {
   return new Promise((resolve) => rl.question(question, (a) => resolve(a.trim().toLowerCase())));
 }
 
-/** @param {Row[]} rows */
-async function interactive(rows) {
+async function interactive(rows: Row[]) {
   // Semeia o registro de versao dos presentes-sem-marcador (converge o manifesto
   // pra que bumps futuros sejam detectaveis), sem baixar nada.
   for (const row of rows.filter((r) => r.needsSeed)) writeManifestEntry(row.key, row.pinnedTag);
@@ -432,8 +415,7 @@ async function interactive(rows) {
 }
 
 // ── Modos nao-interativos ─────────────────────────────────────────────────────
-/** @param {Row[]} rows */
-function nonInteractive(rows) {
+function nonInteractive(rows: Row[]) {
   if (FLAG.forceAll) {
     for (const row of rows) {
       if (row.status === 'error' || row.status === 'unavailable') continue;

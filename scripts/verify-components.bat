@@ -19,14 +19,14 @@ where node >nul 2>nul
 if errorlevel 1 (
   echo.
   echo   [ERRO] Node.js nao encontrado no PATH.
-  echo   Instale o Node.js ^(>=18^) e tente de novo: https://nodejs.org
+  echo   Instale o Node.js ^(>=22.22, o que roda .mts^) e tente de novo: https://nodejs.org
   echo.
   popd
   pause
   exit /b 1
 )
 
-node "scripts\verify-components.js" %*
+node "scripts\verify-components.mts" %*
 set "RC=%ERRORLEVEL%"
 
 popd

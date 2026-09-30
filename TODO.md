@@ -2392,7 +2392,7 @@ formalmente, não consertado.
 - Testes de geometria E2E: a janela pede 1280 px e o Windows corta para o que
   couber no monitor. Medir a janela antes de suspeitar do código.
 - Máquina nova de desenvolvimento: `git pull`, `npm ci`,
-  `node scripts/verify-components.js --yes`. Conferência sem baixar nada:
+  `node scripts/verify-components.mts --yes`. Conferência sem baixar nada:
   `node scripts/check-component-drift.js`, que deve dizer "7 em dia". A pasta
   `components/` não é versionada, então um `git pull` traz os scripts mas não os
   binários.

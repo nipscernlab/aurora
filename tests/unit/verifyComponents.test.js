@@ -30,7 +30,7 @@ const req = createRequire(import.meta.url);
 /** As sequencias de cor do terminal (ESC [ ... m). */
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SCRIPT = path.join(RAIZ, 'scripts', 'verify-components.js');
+const SCRIPT = path.join(RAIZ, 'scripts', 'verify-components.mts');
 const SCRIPTS = path.join(RAIZ, 'components', 'Scripts');
 const MANIFESTO = path.join(RAIZ, 'components', '.aurora-versions.json');
 

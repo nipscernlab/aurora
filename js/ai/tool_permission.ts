@@ -1,4 +1,4 @@
-// tool_permission.js: pure tool-permission logic for the AI assistant,
+// tool_permission.ts: pure tool-permission logic for the AI assistant,
 // extracted from ai_assistant_manager.js (A2 god-file decomposition).
 //
 // Pure: no DOM, no instance state. The class keeps confirmToolCall (the public
@@ -9,6 +9,12 @@
 // Writes high-blast-radius enough to ALWAYS show the confirm card, even in
 // `allow` mode. set_command_override rewrites a toolchain command line (wide,
 // AI-driven surface) so it always gets an explicit human OK (V11).
+/** O que a decisao le de uma ferramenta (main/ai/tools.js). */
+export interface DefDaFerramenta { name: string; access?: string; description?: string }
+
+/** Um campo de prosa tirado dos argumentos, para ler como texto. */
+export interface ProsaDoArgumento { key: string; text: string }
+
 const ALWAYS_CONFIRM = new Set(['set_command_override']);
 
 // Pre-authorized tools, never routed through the blocking card. Renames are
@@ -21,7 +27,7 @@ const PRE_AUTHORIZED = new Set(['rename_project', 'rename_processor', 'get_renam
 // Decide a tool call's fate from the def + current permission mode. Returns
 // 'allow' (auto-approve, resolve true) or 'confirm' (show the inline card).
 // `allow` mode auto-approves everything; `writes` mode auto-approves reads.
-export function decideToolPermission(def, mode) {
+export function decideToolPermission(def: DefDaFerramenta | null | undefined, mode: string): 'allow' | 'confirm' {
     if (def && ALWAYS_CONFIRM.has(def.name)) return 'confirm';
     if (def && PRE_AUTHORIZED.has(def.name)) return 'allow';
     if (mode === 'allow') return 'allow';
@@ -47,9 +53,9 @@ const PROSE_CAP = 1000;
  * Non-string or blank prose fields fall through to `rest`, a `note: 42` is
  * data, whatever the schema says.
  */
-export function splitArgs(args) {
-    const prose = [];
-    const rest = {};
+export function splitArgs(args: unknown): { prose: ProsaDoArgumento[]; rest: Record<string, unknown> } {
+    const prose: ProsaDoArgumento[] = [];
+    const rest: Record<string, unknown> = {};
     if (!args || typeof args !== 'object') return { prose, rest };
     for (const [key, value] of Object.entries(args)) {
         if (PROSE_ARGS.has(key) && typeof value === 'string' && value.trim()) {
@@ -64,7 +70,7 @@ export function splitArgs(args) {
 
 // Pretty-print tool args for the confirm card / tool chip, capped at 500 chars.
 // Feed it splitArgs().rest, the prose fields render separately.
-export function previewArgs(args) {
+export function previewArgs(args: Record<string, unknown> | null | undefined): string {
     if (!args || Object.keys(args).length === 0) return '';
     let json;
     try { json = JSON.stringify(args, null, 2); }
@@ -74,7 +80,7 @@ export function previewArgs(args) {
 
 // Radio-option markup for the permission picker. `modes` is PERMISSION_MODES;
 // `currentMode` is the selected id. Labels/hints are trusted constants.
-export function permissionOptionsHtml(modes, currentMode) {
+export function permissionOptionsHtml(modes: ReadonlyArray<{ id: string; label: string; hint: string }>, currentMode: string): string {
     return modes.map((m) => `
       <label class="ai-mp-opt ai-mp-opt-perm">
         <input type="radio" name="ai-perm" value="${m.id}"${m.id === currentMode ? ' checked' : ''}>

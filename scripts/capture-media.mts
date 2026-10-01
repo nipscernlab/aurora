@@ -91,7 +91,7 @@ const TOMADAS: Record<string, string> = {
 // de porta aqui custa uma elaboracao que falha antes de qualquer sintese, e
 // o sintoma aparece longe, como uma janela do PRISM que nao abre. Conferir
 // sem abrir a aplicacao:
-//   iverilog -y components/HDL -tnull -s top_mediamovel <topo.v> <gerado.v>
+//   iverilog -y components/SAPHO -tnull -s top_mediamovel <topo.v> <gerado.v>
 //
 // Os comentarios DENTRO destes fontes ficam curtos de proposito: eles
 // aparecem no editor durante a captura, e uma parede de prosa e o que o

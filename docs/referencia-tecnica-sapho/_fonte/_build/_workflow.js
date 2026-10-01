@@ -119,7 +119,7 @@ electron-builder so faz target Windows/NSIS; YANC roda Win+Linux).`,
     id: '02-arquitetura-soft-processor-sapho', file: '02-arquitetura-soft-processor-sapho.tex',
     title: 'A arquitetura do soft-processor SAPHO',
     scope: `Documente o PROCESSADOR que o pipeline gera. FONTE DA VERDADE: os modulos Verilog em
-C:/Users/chrys/Documents/GitHub/yanc/HDL/ (core.v, ula.v, processor.v, instr_dec.v, addr_dec.v,
+C:/Users/chrys/Documents/GitHub/yanc/SAPHO/ (core.v, ula.v, processor.v, instr_dec.v, addr_dec.v,
 myFIFO.v) e o back-end que os emite (yanc/Compilers/ASMComp/Sources). Cubra: o estilo de arquitetura
 (leia o RTL e descreva: tipo de datapath, registradores/acumulador, memorias Harvard de programa e
 dados, larguras configuraveis); o conjunto de instrucoes / opcodes (procure tabelas de opcode em

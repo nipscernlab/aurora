@@ -17,7 +17,7 @@
  *
  * Entao a pasta sai do diretorio de instalacao e vai para o LOCALAPPDATA, que
  * o desinstalador nao toca. O instalador copia para la o que ele traz
- * (Scripts, bin, HDL), e o que o usuario baixou continua onde estava.
+ * (Scripts, bin, SAPHO), e o que o usuario baixou continua onde estava.
  *
  * LOCAL, e nao roaming: `app.getPath('userData')` cairia em `%APPDATA%`, que
  * em maquina de universidade com perfil roaming sincroniza pela rede a cada

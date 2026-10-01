@@ -255,6 +255,7 @@ describe('--report', () => {
     expect(s).toContain('sentinela ausente: components/teste-sentinela/toolchain');
     expect(s).toContain('! cocotb ausente (fluxo cocotb indisponivel)');
     expect(s).toMatch(/\[UPGRADE\]\s+yanc\s+v5\.5 → v5\.6/);
+    expect(s).toContain('YANC (compiladores C±/ASM/C++/App + SAPHO/Header/Macros)');
     expect(s).toMatch(/\[ OK \]\s+gtkwave\s+g1\n/);
     expect(s).toMatch(/\[N\/D \]\s+surfer\s+f1\n/);
     expect(s).toContain('nao publicado (build local; nada a baixar)');

@@ -14,7 +14,7 @@ describe('prism_labels', () => {
   });
 
   it('porta de leitura de memoria vira "mem read", mesmo com caminho absoluto no nome', () => {
-    const nome = 'memrd$\\mem$C:\\Users\\chrys\\Documents\\GitHub\\aurora\\components\\HDL\\processor.v:77$272';
+    const nome = 'memrd$\\mem$C:\\Users\\chrys\\Documents\\GitHub\\aurora\\components\\SAPHO\\processor.v:77$272';
     expect(isAutoName(nome)).toBe(true);
     expect(cellLabel(nome, '$memrd')).toBe('mem read');
     expect(cellLabel(nome, '$memrd_v2')).toBe('mem read');

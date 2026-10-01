@@ -211,6 +211,12 @@ interface AuroraAiAPI {
   listProviders(): Promise<{ providers?: Array<{ name: string; model?: string; defaultModel?: string }> } | null | undefined>;
   /** Quais provedores de API tem chave guardada. */
   getKeyStatus(): Promise<{ configured?: Record<string, boolean> } | null | undefined>;
+  /** Um id novo para a conversa que esta comecando. */
+  newConversationId?(): Promise<{ id?: string } | null | undefined>;
+  /** Interrompe o turno de uma sessao; o 'aborted' chega depois pelo stream. */
+  abortChat(sessionId: string): Promise<unknown>;
+  /** Entrega uma mensagem ao turno vivo (so o motor do Agent SDK tem o canal). */
+  pushChatMessage?(sessionId: string, text: string): Promise<{ ok?: boolean; data?: { accepted?: boolean } } | null | undefined>;
   /** Grava o modelo de um provedor de API; responde o modelo que valeu. */
   setModel?(provider: string, model: string): Promise<{ ok?: boolean; model?: string } | null | undefined>;
   listConversations?(): Promise<{ chats?: import('../ai/chat_history.js').ConversaListada[] } | null | undefined>;

@@ -18,3 +18,6 @@ export function listarPontos(): Promise<PontoDeRetorno[]>;
 
 /** Volta o projeto a um ponto, perguntando antes. Devolve se voltou. */
 export function voltarAoPonto(id: string, ponto?: PontoDeRetorno | null): Promise<boolean>;
+
+/** O rotulo do ponto marcado por um pedido: o comeco do texto, numa linha, cortado em `max`. */
+export function rotuloDoPedido(texto: string, max?: number): string;

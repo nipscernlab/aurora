@@ -35,6 +35,10 @@ import { mostrarPensando, mostrarDownloadDaCli, limparDownloadDaCli, somarUso, a
 import { receberPedaco, revelarSegmento, cancelarDesenho, selarTextoDoTurno } from '../ai/desenho_do_stream.js';
 import { ligarComposer, perguntarSobreSelecao } from '../ai/composer_do_chat.js';
 import { novoBalao, novoDivisor } from '../ai/baloes_do_chat.js';
+import {
+  enviar, enviarDaFilaAgora, interromperParaFalar, entregarAoVivo, seguimentoAceito,
+  devolverVivasAFila, escoarFila, desenharEspera,
+} from '../ai/envio_do_chat.js';
 import { ligarCliquesNaConversa } from '../ai/cliques_na_conversa.js';
 import { moldeDoPainel } from '../ai/molde_do_painel.js';
 import { stripToolCallArtifacts } from '../ai/tool_call_text.js';
@@ -42,14 +46,12 @@ import { abrirReferencia, abrirCaminhoDoChat } from '../ai/abrir_referencia.js';
 import { confiaEmLinksExternos, definirConfiancaEmLinks, confirmarLinkExterno } from '../ai/link_externo.js';
 import { adicionarArquivos, abrirImagem, desenharAnexos, desenharAnexosNaBolha, escaparHtml } from '../ai/anexos_do_chat.js';
 import { lerContextoDoTurno } from '../ai/contexto_do_turno.js';
-import { avisoDeAssinatura, desenharFila } from '../ai/fila_do_chat.js';
 import { confirmarFerramenta, perguntarAPessoa } from '../ai/perguntas_inline.js';
 import {
   novaConversa, comecarTutorial, alternarHistorico, relerLista, cliqueNoHistorico,
   apagarConversa, abrirConversa, gravarConversa, ligarHistorico,
 } from '../ai/conversas_do_chat.js';
 import { buildApiMessages, buildProjectContext } from '../ai/chat_turn.js';
-import { marcarPonto, rotuloDoPedido } from '../ai/rewind.js';
 import {
   CLAUDE_CODE_EFFORT, SUB_META, isSubProvider, STREAM_STALL_MS, STREAM_STALL_HARD_MS,
   readPermissionMode,
@@ -342,233 +344,18 @@ class AIAssistantManager {
   }
 
   /* ---------------- sending ---------------- */
+  // Mandar, entregar ao turno vivo, as duas filas de espera e o "enviar agora"
+  // moram em js/ai/envio_do_chat.ts; o painel e o contexto.
 
-  async send() {
-    if (!window.aiAPI || !this.currentProvider) return;
-    const text = this.inputEl.value.trim();
-    const atts = this.pendingAttachments.slice();
-    if (!text && atts.length === 0) return;
-
-    // Claude Code / ChatGPT talk to the user's subscription via a local
-    // CLI. If it isn't installed / signed in, fail fast with a clear
-    // notice (display-only bubble, not persisted) instead of a stream error.
-    if (isSubProvider(this.currentProvider)) {
-      const sm = SUB_META[this.currentProvider];
-      if (!this.subStatus[this.currentProvider]) await this.refreshSubStatus();
-      // B12: a CLI baixavel com login serve (js/ai/fila_do_chat.ts).
-      const aviso = avisoDeAssinatura(this.subStatus[this.currentProvider], sm);
-      if (aviso) {
-        this.appendBubble('assistant', aviso, false);
-        return;
-      }
-    }
-
-    // Capture + clear the composer immediately so the user can keep typing.
-    this.inputEl.value = '';
-    this.pendingAttachments = [];
-    this._renderAttachments();
-    this.autoGrowInput();
-
-    // A turn is already streaming. Preferred: push into the LIVE session so the
-    // model answers it without a re-dispatch. If this runner has no open input
-    // channel (everything but the Claude Agent SDK engine), fall back to the
-    // follow-up queue, which dispatches when the current turn ends.
-    if (this._isStreaming) {
-      if (await this._tryPushLive(text, atts)) return;
-      // Sem canal vivo (todo runner menos o Agent SDK) a mensagem espera na
-      // fila, que anda quando a resposta acaba. Cada item da fila tem um botao
-      // de enviar agora, que interrompe a resposta em curso (ela fica no
-      // historico ate onde chegou) e poe a mensagem na conversa na hora.
-      (this._messageQueue || (this._messageQueue = [])).push({ text, atts });
-      this._renderQueue();
-      return;
-    }
-    await this._submitUserMessage(text, atts);
-  }
-
-  /** Tira um item da fila e o envia agora, interrompendo a resposta em curso. */
-  async _enviarDaFilaAgora(i) {
-    const item = this._messageQueue && this._messageQueue.splice(i, 1)[0];
-    this._renderQueue();
-    if (!item) return;
-    if (this._isStreaming && !(await this._interromperParaFalar())) {
-      // Nao fechou: devolve ao inicio da fila em vez de perder a mensagem.
-      this._messageQueue.unshift(item);
-      this._renderQueue();
-      return;
-    }
-    await this._submitUserMessage(item.text, item.atts || []);
-  }
-
-  /**
-   * Interrompe a resposta em curso e espera o turno fechar, para a proxima
-   * mensagem do usuario entrar em ordem. Devolve false se o turno nao fechou
-   * em tempo (runner travado): quem chama cai na fila.
-   */
-  async _interromperParaFalar() {
-    const sid = this.currentSessionId;
-    if (!sid) return true;
-    try { await window.aiAPI.abortChat(sid); } catch (_) { /* o 'aborted' fecha do lado de la */ }
-    const limite = Date.now() + 3000;
-    while (this._isStreaming && this.currentSessionId === sid && Date.now() < limite) {
-      await new Promise((r) => setTimeout(r, 40));
-    }
-    if (this._isStreaming && this.currentSessionId === sid) {
-      // O runner nao respondeu ao abort: forca o fechamento, como o stop() faz.
-      this.showThinking(false);
-      this._closeToolGroup();
-      this.commitTurn();
-      this.resetTurnState();
-      this.setStreaming(false);
-    }
-    return !this._isStreaming;
-  }
-
-  /** Reveal the bottom aurora glow on the user's first message of the session,
-   *  then leave it lit. Idempotent via the in-memory flag, so reopening the panel
-   *  keeps the glow and only a fresh app start replays the reveal. */
-  _revealGlow() {
-    if (this._glowRevealed) return;
-    this._glowRevealed = true;
-    const glow = this.container?.querySelector('.ai-aurora-glow');
-    if (glow) glow.classList.add('revealed');
-  }
-
-  /** Append the user bubble, record the message, and dispatch its turn. Shared
-   *  by an immediate send and by draining a queued follow-up. */
-  async _submitUserMessage(text, atts) {
-    // First message of a new chat, assign an id, derive a title from the
-    // user's text, and mark this as the conversation we'll persist.
-    if (!this.currentChatId) {
-      try {
-        const r = await window.aiAPI.newConversationId?.();
-        this.currentChatId = (r && r.id) || `c-${Date.now()}`;
-      } catch (_) { this.currentChatId = `c-${Date.now()}`; }
-      this.currentChatTitle = text.replace(/\s+/g, ' ').trim().slice(0, 60) || 'New chat';
-      this.currentChatCreatedAt = Date.now();
-    }
-
-    // First real user message of the session lights the aurora glow (it rises
-    // from the bottom and brightens, then stays on). No-op after the first time.
-    this._revealGlow();
-
-    // Um ponto de restauracao ANTES de a IA encostar em qualquer arquivo. E o
-    // gesto que mais causa arrependimento no projeto de alguem, e o unico em
-    // que a pessoa nao viu o que ia acontecer antes de acontecer. Nao se
-    // espera por ele: marcar o instante nao pode atrasar o envio.
-    const idDaMensagem = `msg-${Date.now()}`;
-    marcarPonto({ motivo: 'pedido', rotulo: rotuloDoPedido(text), mensagemId: idDaMensagem });
-    const userBubble = this.appendBubble('user', text);
-    userBubble?.setAttribute('data-ponto', idDaMensagem);
-    if (atts.length) this._renderBubbleAttachments(userBubble, atts);
-    this.messages.push({ role: 'user', content: text, attachments: atts.length ? atts : undefined });
-    this._capMessages();
-    // A real user message breaks any autonomous follow-up chain.
-    this._autoChainCount = 0;
-
-    // A operacao vale para UM envio. Quem a marcou foi o botao da selecao
-    // logo antes de chamar send(); qualquer outro envio e turno livre, e um
-    // rotulo esquecido aqui daria esforco errado na mensagem seguinte.
-    const operacao = this._operacaoDoProximoEnvio || undefined;
-    this._operacaoDoProximoEnvio = null;
-
-    await this._dispatchTurn(operacao);
-  }
-
-  /**
-   * Try to hand a follow-up to the turn that is running right now, so the model
-   * sees it in-session instead of after a fresh dispatch. Returns true when the
-   * live turn took it, the caller then does NOT queue.
-   *
-   * Attachments deliberately never take this path: the live channel carries
-   * plain text, and an image has to ride the normal startChat payload.
-   */
-  async _tryPushLive(text, atts) {
-    if (!text || (atts && atts.length)) return false;
-    if (!window.aiAPI?.pushChatMessage || !this.currentSessionId) return false;
-    let accepted = false;
-    try {
-      const r = await window.aiAPI.pushChatMessage(this.currentSessionId, text);
-      accepted = !!(r && r.ok && r.data && r.data.accepted);
-    } catch (e) {
-      console.warn('[ai] live push failed — queueing instead:', e);
-      return false;
-    }
-    if (!accepted) return false;
-    // A mensagem esta com a sessao, mas a assistente ainda esta escrevendo a
-    // resposta anterior: quem decide QUANDO aceita-la e ela, e o main avisa no
-    // momento em que isso acontece (`follow-up-taken`). Ate la a mensagem
-    // aparece como ficha em espera, e nao como balao na conversa.
-    //
-    // Punha-la na conversa aqui era o defeito: o balao ia para o fim enquanto
-    // o texto continuava entrando na bolha de cima, entao a resposta parecia
-    // cortada no meio, e no historico a pergunta ficava ANTES da resposta que
-    // ela nem tinha interrompido.
-    (this._liveQueue || (this._liveQueue = [])).push(text);
-    this._renderQueue();
-    return true;
-  }
-
-  /**
-   * A assistente aceitou a mensagem que esperava: agora ela entra na conversa,
-   * no lugar certo da ordem, e a ficha de espera sai.
-   */
-  _followUpTaken(content) {
-    const texto = typeof content === 'string' ? content : '';
-    if (this._liveQueue && this._liveQueue.length) {
-      const i = this._liveQueue.indexOf(texto);
-      this._liveQueue.splice(i >= 0 ? i : 0, 1);
-      this._renderQueue();
-    }
-    if (!texto) return;
-    this.messages.push({ role: 'user', content: texto });
-    this.appendBubble('user', texto);
-    this.scrollToBottom();
-  }
-
-  /**
-   * O turno morreu (abortado ou com erro) e havia mensagem entregue a sessao
-   * que ela nunca chegou a aceitar. Ela volta para a fila deste lado, para o
-   * proximo turno leva-la: perder uma mensagem que a pessoa escreveu porque a
-   * sessao caiu seria o pior desfecho dos tres.
-   */
-  _devolverVivasAFila() {
-    const vivas = this._liveQueue || [];
-    if (!vivas.length) return;
-    this._liveQueue = [];
-    const fila = this._messageQueue || (this._messageQueue = []);
-    fila.unshift(...vivas.map((text) => ({ text, atts: [] })));
-    this._renderQueue();
-  }
-
-  /** Dispatch the next queued user follow-up, if any. Returns true if it did
-   *  (so the turn-end drain prefers a user message over an autonomous one). */
-  _drainMessageQueue() {
-    if (this._isStreaming) return false;
-    if (!this._messageQueue || !this._messageQueue.length) return false;
-    const { text, atts } = this._messageQueue.shift();
-    this._renderQueue();
-    this._submitUserMessage(text, atts); // async, fire-and-forget (sets streaming)
-    return true;
-  }
-
-  /**
-   * As fichas de espera acima do compositor.
-   *
-   * Sao duas esperas diferentes, e a diferenca importa para quem olha. As do
-   * `_liveQueue` ja foram entregues a sessao e so aguardam a assistente
-   * termina o que esta dizendo: nao ha o que cancelar nem o que apressar, e
-   * elas viram balao sozinhas quando ela as aceita. As do `_messageQueue`
-   * esperam do lado de ca, porque este motor nao tem canal aberto, e essas
-   * sim se cancelam e se apressam.
-   */
-  _renderQueue() {
-    if (!this.queueEl) return;
-    desenharFila(this.queueEl, this._liveQueue || [], this._messageQueue || [], {
-      aoCancelar: (i) => { this._messageQueue.splice(i, 1); this._renderQueue(); },
-      aoEnviarAgora: (i) => this._enviarDaFilaAgora(i),
-    });
-  }
+  send() { return enviar(this); }
+  _enviarDaFilaAgora(i) { return enviarDaFilaAgora(this, i); }
+  _interromperParaFalar() { return interromperParaFalar(this); }
+  _tryPushLive(text, atts) { return entregarAoVivo(this, text, atts); }
+  _followUpTaken(content) { seguimentoAceito(this, content); }
+  _devolverVivasAFila() { devolverVivasAFila(this); }
+  /** Despacha a proxima da fila; true se despachou (o fim do turno prefere a pessoa). */
+  _drainMessageQueue() { return escoarFila(this); }
+  _renderQueue() { desenharEspera(this); }
 
   /* ---------------- composer attachments (images + files) ---------------- */
   // Ler, desenhar e abrir em tela cheia moram em js/ai/anexos_do_chat.ts; o

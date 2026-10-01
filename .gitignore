@@ -266,6 +266,7 @@ js/ai/composer_do_chat.js
 js/ai/cliques_na_conversa.js
 js/ai/molde_do_painel.js
 js/ai/baloes_do_chat.js
+js/ai/envio_do_chat.js
 js/ai/tool_permission.js
 js/utils/pane_size.js
 js/ai/chat_scroll.js

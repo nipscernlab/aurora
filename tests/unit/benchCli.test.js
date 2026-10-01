@@ -34,7 +34,7 @@ const chamar = {
   // O .mts roda o main quando process.argv[1] e ele (o rodar() abaixo o poe).
   rodar: () => {
     vi.resetModules();
-    import(pathToFileURL(SCRIPT).href);
+    return import(pathToFileURL(SCRIPT).href);
   },
 };
 
@@ -296,7 +296,7 @@ describe('uma medicao', () => {
     mundo.janelaDemora = Infinity;
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout'] });
     process.argv = [argvOriginal[0], SCRIPT, '--seco', '--runs', '1'];
-    chamar.rodar();
+    await chamar.rodar();
     for (let i = 0; i < 80 && !exit.mock.calls.length; i++) await vi.advanceTimersByTimeAsync(1000);
     expect(erros.join('\n')).toContain('bench: Error: a janela principal (index.html) nao apareceu');
     expect(exit).toHaveBeenCalledWith(1);

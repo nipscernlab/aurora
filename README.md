@@ -29,7 +29,7 @@ collaboration with CERN. The project page is
 </p>
 
 The screenshot and the recordings below come from the running application,
-taken by [scripts/capture-media.js](scripts/capture-media.js) against a
+taken by [scripts/capture-media.mts](scripts/capture-media.mts) against a
 throwaway project it builds itself, so they can be retaken whenever the
 interface changes and none of them carries anyone's desktop.
 

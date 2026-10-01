@@ -34,7 +34,7 @@
 //   cmm_ms      compilacao C+- do processador de exemplo, so com --compilar.
 //
 // Cada repeticao sobe um perfil (user-data-dir) e um projeto descartaveis, os
-// mesmos do capture-media.js, para a medida nao depender do que a pessoa tem
+// mesmos do capture-media.mts, para a medida nao depender do que a pessoa tem
 // aberto. A linha gravada e a MEDIANA das repeticoes: uma repeticao com o
 // antivirus acordando no meio nao vira tendencia.
 //
@@ -50,10 +50,9 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { ElectronApplication } from 'playwright';
 
-import { writeProject } from './capture-media.js';
-
-// O playwright e o package.json entram por require: o playwright tarde, para a
-// falta dele virar mensagem e nao erro de import no topo.
+// O playwright, o package.json e o capture-media entram por require: o
+// playwright tarde, para a falta dele virar mensagem e nao erro de import no
+// topo; o capture-media porque o TypeScript nao importa caminho .mts.
 const carregarCjs = createRequire(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CSV_PADRAO = path.join(REPO_ROOT, 'docs', 'bench', 'medidas.csv');
@@ -139,6 +138,7 @@ async function esperarJanelaPrincipal(app: ElectronApplication, timeoutMs = 6000
 
 /** Uma repeticao completa; devolve as medidas dela. */
 async function medirUmaVez(electron: typeof import('playwright')._electron, opts: Opcoes) {
+  const { writeProject } = carregarCjs('./capture-media.mts') as typeof import('./capture-media.mjs');
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-bench-ud-'));
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-bench-prj-'));
   const projectDir = path.join(scratch, 'mediamovel');

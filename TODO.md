@@ -1125,7 +1125,7 @@ em outro lugar.
 ## 6. Profissionalizar o repositório
 
 - [x] ~~**`hero.png` do README.**~~ Feito em 11/08/2026 e já no README. Sai do
-      aplicativo de verdade pelo [scripts/capture-media.js](scripts/capture-media.js),
+      aplicativo de verdade pelo [scripts/capture-media.mts](scripts/capture-media.mts),
       que monta um projeto descartável com a média móvel do manual, abre a
       AURORA nele, expande o terminal e captura 1600x1000. É script e não
       PrtScn porque a foto precisa ser refeita a cada mudança de interface, e
@@ -1136,7 +1136,7 @@ em outro lugar.
       `split-editor.gif`, o `compile.gif` e o `prism.gif` estão no README, cada
       um ao lado do parágrafo que ilustra, e o `hero.png` foi refeito na
       interface de hoje. Os quatro somam 400 KB. Saem de
-      `node scripts/capture-media.js tudo`, que abre a aplicação de verdade
+      `node scripts/capture-media.mts tudo`, que abre a aplicação de verdade
       sobre um projeto que ele mesmo monta.
 
       O que custou, e que vale saber antes de mexer nisso de novo. A primeira

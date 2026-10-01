@@ -10,11 +10,11 @@
  * no repositorio. O projeto descartavel e escrito de verdade numa pasta
  * temporaria, como o script faz.
  */
-import Module, { createRequire, syncBuiltinESMExports } from 'node:module';
+import { createRequire, syncBuiltinESMExports } from 'node:module';
 import cp from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -25,25 +25,23 @@ syncBuiltinESMExports();
 
 const req = createRequire(import.meta.url);
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SCRIPT = path.join(RAIZ, 'scripts', 'capture-media.js');
+const SCRIPT = path.join(RAIZ, 'scripts', 'capture-media.mts');
 const MEDIA = path.join(RAIZ, 'docs', 'media');
 const DIST = path.join(RAIZ, 'dist', 'index.html');
 const PLAYWRIGHT = req.resolve('playwright');
 
 /** Os dois pontos que sabem como o script e carregado. */
 const chamar = {
+  // O .mts roda o main quando process.argv[1] e ele (o rodar() abaixo o poe).
   rodar: () => {
-    const mainOriginal = process.mainModule;
-    delete req.cache[SCRIPT];
-    try {
-      Module._load(SCRIPT, null, true);
-    } finally {
-      process.mainModule = mainOriginal;
-    }
+    vi.resetModules();
+    return import(pathToFileURL(SCRIPT).href);
   },
-  modulo: () => {
-    delete req.cache[SCRIPT];
-    return req(SCRIPT);
+  modulo: async () => {
+    vi.resetModules();
+    const argv = process.argv;
+    process.argv = [argv[0], 'outro-programa.js'];
+    try { return await import(pathToFileURL(SCRIPT).href); } finally { process.argv = argv; }
   },
 };
 
@@ -213,7 +211,7 @@ describe('a ajuda e a linha de comando', () => {
     for (const flag of ['--help', '-h']) {
       log = [];
       process.argv = [argvOriginal[0], SCRIPT, flag];
-      chamar.rodar();
+      await chamar.rodar();
       await new Promise((r) => setImmediate(r));
       expect(log[0]).toBe('capture-media: fotos e GIFs do README, tirados da aplicacao de verdade.\n');
       expect(log.join('\n')).toContain('  node scripts/capture-media.js [tomada...]\n');
@@ -277,7 +275,7 @@ describe('o hero, que e o padrao', () => {
   });
 
   it('o .spf do projeto descartavel aponta para o processador, o topo e o testbench', async () => {
-    const { writeProject } = chamar.modulo();
+    const { writeProject } = await chamar.modulo();
     const raiz = fs.mkdtempSync(path.join(req('os').tmpdir(), 'aurora-cm-'));
     try {
       const p = writeProject(raiz);
@@ -313,7 +311,7 @@ describe('o hero, que e o padrao', () => {
     mundo.janelaPrincipalDemora = Infinity;
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout'] });
     process.argv = [argvOriginal[0], SCRIPT];
-    chamar.rodar();
+    await chamar.rodar();
     for (let i = 0; i < 50 && !exit.mock.calls.length; i++) await vi.advanceTimersByTimeAsync(1000);
     expect(erros.join('\n')).toContain('capture-media: Error: Main window (index.html) did not appear.');
     expect(exit).toHaveBeenCalledWith(1);
@@ -408,14 +406,14 @@ describe('os GIFs', () => {
   });
 
   it('sem tempo para nenhum quadro, avisa e nao monta nada', async () => {
-    const { gravarGif } = chamar.modulo();
+    const { gravarGif } = await chamar.modulo();
     expect(await gravarGif(mundo.principal, 'vazio', { segundos: 0 })).toBe(null);
     expect(todoAviso()).toContain('capture-media: nenhum quadro capturado para vazio.');
     expect(spawnFalso).not.toHaveBeenCalled();
   });
 
-  it('temFfmpeg responde pela sonda', () => {
-    const { temFfmpeg } = chamar.modulo();
+  it('temFfmpeg responde pela sonda', async () => {
+    const { temFfmpeg } = await chamar.modulo();
     expect(temFfmpeg()).toBe(true);
     mundo.ffmpeg = false;
     expect(temFfmpeg()).toBe(false);
@@ -446,7 +444,7 @@ describe('o PRISM', () => {
     mundo.quebrados.add('#prismcomp');
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout'] });
     process.argv = [argvOriginal[0], SCRIPT, 'prism'];
-    chamar.rodar();
+    await chamar.rodar();
     for (let i = 0; i < 200 && !mundo.fechou; i++) await vi.advanceTimersByTimeAsync(1000);
     expect(gestos('clique').filter((g) => g[0] === '#prismcomp')).toHaveLength(4);
     expect(todoAviso()).toContain('capture-media: a janela do PRISM nao apareceu; prism.gif nao foi gravado.');
@@ -456,8 +454,8 @@ describe('o PRISM', () => {
 });
 
 describe('carregado como modulo', () => {
-  it('entrega as quatro funcoes e nao abre nada', () => {
-    const mod = chamar.modulo();
+  it('entrega as quatro funcoes e nao abre nada', async () => {
+    const mod = await chamar.modulo();
     expect(Object.keys(mod).sort()).toEqual(['gravarGif', 'temFfmpeg', 'tomadasPedidas', 'writeProject']);
     expect(mundo.lancamentos).toEqual([]);
   });

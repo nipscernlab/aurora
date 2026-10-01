@@ -1,14 +1,14 @@
-// capture-media.js: take the README's screenshots and GIFs from the real
+// capture-media.mts: take the README's screenshots and GIFs from the real
 // application.
 //
 // Maintainer tool, run by hand:
 //
-//   node scripts/capture-media.js                 hero.png (o padrao)
-//   node scripts/capture-media.js split-editor    split-editor.gif
-//   node scripts/capture-media.js compile         compile.gif
-//   node scripts/capture-media.js prism           prism.gif
-//   node scripts/capture-media.js tudo            todas as anteriores
-//   node scripts/capture-media.js --help
+//   node scripts/capture-media.mts                 hero.png (o padrao)
+//   node scripts/capture-media.mts split-editor    split-editor.gif
+//   node scripts/capture-media.mts compile         compile.gif
+//   node scripts/capture-media.mts prism           prism.gif
+//   node scripts/capture-media.mts tudo            todas as anteriores
+//   node scripts/capture-media.mts --help
 //
 // Nao esta em nenhum script do npm nem em workflow: abre uma janela de
 // verdade, toma dezenas de segundos e, no caso do compile, roda a toolchain.
@@ -48,11 +48,18 @@
 // screenshot of an empty editor sells nothing, and inventing plausible-looking
 // C± would put code in the README that no compiler ever accepted.
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+import cp from 'node:child_process';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import type { ElectronApplication, Page } from 'playwright';
 
-const REPO_ROOT = path.resolve(__dirname, '..');
+// O playwright e o package.json entram por require: o playwright tarde, para a
+// falta dele virar mensagem e nao erro de import no topo.
+const carregarCjs = createRequire(import.meta.url);
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(REPO_ROOT, 'docs', 'media');
 const FIXTURE_CMM = path.join(REPO_ROOT, 'tests', 'toolchain', 'fixtures', 'mediamovel.cmm');
 
@@ -66,7 +73,7 @@ const HEIGHT = 1000;
 const GIF_LARGURA = 900;
 const GIF_FPS = 8;
 
-const TOMADAS = {
+const TOMADAS: Record<string, string> = {
   hero: 'hero.png, a foto do editor com arvore e terminal',
   'split-editor': 'split-editor.gif, abrir o segundo painel e levar um arquivo para ele',
   compile: 'compile.gif, uma compilacao C+- de verdade enchendo o terminal',
@@ -95,10 +102,10 @@ const TESTBENCH_V = "`timescale 1ns/1ps\nmodule tb_mediamovel;\n  reg           
 
 /** Electron refuses to start in Node-only mode; strip it if the shell has it. */
 function cleanEnv() {
-  const out = {};
+  const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (k === 'ELECTRON_RUN_AS_NODE') continue;
-    out[k] = v;
+    out[k] = v as string;
   }
   // main/lifecycle.js holds a single-instance lock, so this would otherwise
   // fail whenever the maintainer has AURORA open, which, while working on
@@ -113,7 +120,7 @@ function cleanEnv() {
  * absolute because the app uses them verbatim, so it is generated here rather
  * than committed.
  */
-function writeProject(rootDir) {
+function writeProject(rootDir: string) {
   const softwareDir = path.join(rootDir, 'mediamovel', 'Software');
   const hardwareDir = path.join(rootDir, 'mediamovel', 'Hardware');
   const topDir = path.join(rootDir, 'TopLevel');
@@ -147,7 +154,7 @@ function writeProject(rootDir) {
       createdAt: new Date().toISOString(),
       lastModified: new Date().toISOString(),
       computerName: 'capture-media',
-      appVersion: require(path.join(REPO_ROOT, 'package.json')).version,
+      appVersion: carregarCjs(path.join(REPO_ROOT, 'package.json')).version,
       projectPath: rootDir,
     },
     structure: {
@@ -178,7 +185,7 @@ function writeProject(rootDir) {
 /** O ffmpeg existe nesta maquina? Ele nao e dependencia do projeto. */
 function temFfmpeg() {
   try {
-    const r = require('child_process').spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
+    const r = cp.spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
     return r.status === 0;
   } catch { return false; }
 }
@@ -196,7 +203,11 @@ function temFfmpeg() {
  * estoura, o que vier primeiro, para uma compilacao lenta nao virar um
  * arquivo de cem megabytes.
  */
-async function gravarGif(page, nome, { segundos = 12, fps = GIF_FPS, largura = GIF_LARGURA } = {}, durante) {
+async function gravarGif(
+  page: Page, nome: string,
+  { segundos = 12, fps = GIF_FPS, largura = GIF_LARGURA }: { segundos?: number; fps?: number; largura?: number } = {},
+  durante?: () => Promise<unknown>,
+) {
   const quadrosDir = fs.mkdtempSync(path.join(os.tmpdir(), `aurora-gif-${nome}-`));
   const intervalo = Math.round(1000 / fps);
   const comeco = Date.now();
@@ -246,12 +257,12 @@ async function gravarGif(page, nome, { segundos = 12, fps = GIF_FPS, largura = G
     console.warn(`  Os ${i} quadros ficaram em: ${quadrosDir}`);
     // O filtro carrega ';' e colchetes, que qualquer shell interpretaria, e o
     // caminho pode ter espaco: aspas em tudo que nao for flag simples.
-    const citar = (a) => (/^[A-Za-z0-9._:/\\-]+$/.test(a) ? a : `"${a}"`);
+    const citar = (a: string) => (/^[A-Za-z0-9._:/\\-]+$/.test(a) ? a : `"${a}"`);
     console.warn(`  Para montar depois:  ffmpeg ${args.map(citar).join(' ')}`);
     return null;
   }
 
-  const r = require('child_process').spawnSync('ffmpeg', args, { stdio: 'pipe' });
+  const r = cp.spawnSync('ffmpeg', args, { stdio: 'pipe' });
   if (r.status !== 0) {
     console.error(`capture-media: ffmpeg falhou ao montar ${nome}.gif; os quadros ficaram em ${quadrosDir}`);
     console.error(String(r.stderr || '').split('\n').slice(-6).join('\n'));
@@ -294,9 +305,9 @@ async function gravarGif(page, nome, { segundos = 12, fps = GIF_FPS, largura = G
  * vem junto do ffmpeg; sem ele, devolve null e quem chama segue sem a
  * conferencia, que e informativa e nao pode derrubar a captura.
  */
-function conferirGif(arquivo) {
+function conferirGif(arquivo: string) {
   try {
-    const r = require('child_process').spawnSync('ffprobe', [
+    const r = cp.spawnSync('ffprobe', [
       '-v', 'error', '-count_frames', '-select_streams', 'v:0',
       '-show_entries', 'stream=nb_read_frames,duration',
       '-of', 'default=nw=1:nk=0', arquivo,
@@ -311,7 +322,7 @@ function conferirGif(arquivo) {
 }
 
 /** A janela do PRISM, que nasce depois da sintese, em processo de renderer proprio. */
-async function esperarJanelaPrism(app, timeoutMs = 90_000) {
+async function esperarJanelaPrism(app: ElectronApplication, timeoutMs = 90_000) {
   const prazo = Date.now() + timeoutMs;
   while (Date.now() < prazo) {
     for (const w of app.windows()) {
@@ -323,7 +334,7 @@ async function esperarJanelaPrism(app, timeoutMs = 90_000) {
 }
 
 /** Quais tomadas foram pedidas na linha de comando. */
-function tomadasPedidas(argv) {
+function tomadasPedidas(argv: string[]) {
   const pedidos = argv.filter((a) => !a.startsWith('-'));
   if (!pedidos.length) return ['hero'];
   if (pedidos.includes('tudo')) return Object.keys(TOMADAS);
@@ -353,9 +364,9 @@ async function main() {
 
   // playwright is a devDependency; require lazily so the failure message is
   // about the tool, not about a missing module at the top of the file.
-  let electron;
+  let electron: typeof import('playwright')._electron | undefined;
   try {
-    ({ _electron: electron } = require('playwright'));
+    ({ _electron: electron } = carregarCjs('playwright'));
   } catch {
     console.error('capture-media: playwright is not installed. Run `npm install` first.');
     process.exit(1);
@@ -378,7 +389,7 @@ async function main() {
 
   console.log(`capture-media: tomadas pedidas: ${tomadas.join(', ')}`);
   console.log('capture-media: launching AURORA…');
-  const app = await electron.launch({
+  const app = await (electron as typeof import('playwright')._electron).launch({
     args: ['.', `--user-data-dir=${userDataDir}`, project.spfPath],
     cwd: REPO_ROOT,
     env: cleanEnv(),
@@ -388,7 +399,7 @@ async function main() {
   try {
     const page = await waitForMainWindow(app);
     await page.waitForFunction(
-      () => typeof window.monaco !== 'undefined' && !!document.getElementById('monaco-editor'),
+      () => typeof (window as unknown as { monaco?: unknown }).monaco !== 'undefined' && !!document.getElementById('monaco-editor'),
       null,
       { timeout: 30_000 },
     );
@@ -397,8 +408,12 @@ async function main() {
     // renderer's listener registration, and losing that race here means
     // screenshotting the welcome screen instead of a project.
     await page.evaluate(async (spf) => {
-      try { await window.electronAPI?.openProject?.(spf); } catch { /* already loaded */ }
-      await window.projectTreeManager?.refreshTree?.();
+      const w = window as unknown as {
+        electronAPI?: { openProject?(spf: string): Promise<unknown> };
+        projectTreeManager?: { refreshTree?(): Promise<unknown> };
+      };
+      try { await w.electronAPI?.openProject?.(spf); } catch { /* already loaded */ }
+      await w.projectTreeManager?.refreshTree?.();
     }, project.spfPath);
     await page.waitForSelector('.file-item, .verilog-file-item', { timeout: 45_000 });
 
@@ -470,7 +485,7 @@ async function main() {
       });
       // A sintese com Yosys leva o tempo que leva, e o PRISM so abre depois
       // dela. Em vez de apostar num numero, insiste: clica, espera, repete.
-      let prism = null;
+      let prism: Page | null = null;
       for (let tentativa = 0; tentativa < 4 && !prism; tentativa++) {
         await page.waitForTimeout(4000);
         await page.click('#prismcomp').catch(() => {});
@@ -516,9 +531,10 @@ async function main() {
 }
 
 /** Force the renderer viewport to an exact size, monitor be damned. */
-async function sizeWindow(app, width, height) {
+async function sizeWindow(app: ElectronApplication, width: number, height: number) {
   await app.evaluate(async ({ BrowserWindow }, size) => {
-    const w = BrowserWindow.getAllWindows().find((x) => x.getURL().includes('index.html'));
+    // getURL nao esta no tipo do BrowserWindow; a chamada e a mesma de antes.
+    const w = BrowserWindow.getAllWindows().find((x) => (x as unknown as { getURL(): string }).getURL().includes('index.html'))!;
     // setBounds on a maximised window is ignored by Windows, and AURORA
     // maximises itself on startup, so this has to come first.
     if (w.isMaximized()) w.unmaximize();
@@ -526,7 +542,7 @@ async function sizeWindow(app, width, height) {
   }, { width, height });
 }
 
-async function waitForMainWindow(app, timeoutMs = 40_000) {
+async function waitForMainWindow(app: ElectronApplication, timeoutMs = 40_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     for (const w of app.windows()) {
@@ -539,7 +555,7 @@ async function waitForMainWindow(app, timeoutMs = 40_000) {
 }
 
 /** Click a file in whichever tree is mounted, so the editor has content. */
-async function openInEditor(page, fileName) {
+async function openInEditor(page: Page, fileName: string) {
   const item = page.locator('.file-item, .verilog-file-item').filter({ hasText: fileName }).first();
   try {
     await item.waitFor({ state: 'visible', timeout: 10_000 });
@@ -551,9 +567,11 @@ async function openInEditor(page, fileName) {
 
 // Exportado para o arnes de verificacao exercitar a montagem do GIF sem abrir
 // a aplicacao: e a unica parte que depende de ferramenta externa.
-module.exports = { gravarGif, temFfmpeg, tomadasPedidas, writeProject };
+export { gravarGif, temFfmpeg, tomadasPedidas, writeProject };
 
-if (require.main === module) {
+// So roda quando chamado direto (`node scripts/capture-media.mts`); importado,
+// entrega as funcoes acima.
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   main().catch((err) => {
     console.error(`capture-media: ${err && err.stack ? err.stack : err}`);
     process.exit(1);

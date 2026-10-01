@@ -2314,14 +2314,24 @@ do teste vai antes e só com os arquivos dele (`git commit -- <arquivos>`); o da
 conversão é um commit comum do índice, sem listar o `.js`, senão o git grava
 o `.js` gerado.
 
-- [ ] **14.1 Os 22 erros da catraca, em 11 arquivos.** `main/ai/claude_code.js`
+- [ ] **14.1 Os 20 erros da catraca, em 9 arquivos (30/09).** `main/ai/claude_code.js`
       e `main/ai/codex_cli.js` (4 cada, os mesmos: campos do payload e do
       detect que o JSDoc não declara), `main/windows.js` (2), `main/ipc/project.js`
       (2), `main/exemplos/instalar.js` (2, que vêm do `structure` do
       `ProjectFile` inferido como `never[]` dentro do `project.js`: converter
       os dois juntos), `main/ipc/search_worker.js` (3, ver 14.2),
-      `main/ipc/prism.js`, `main/ipc/history.js`, `main/ipc/files.js`,
-      `main/ipc/surfer_tab.js` e `scripts/check-component-drift.js` (1 cada).
+      `main/ipc/history.js`, `main/ipc/files.js` e `main/ipc/surfer_tab.js`
+      (1 cada). Saíram o `main/ipc/prism` (28/09) e o
+      `scripts/check-component-drift`, que virou `.mts` em 30/09 junto com o
+      `verify-components`, o `capture-media`, o `bench`, o `main/paths` e o
+      `main/python/pylib_paths` (na limpeza das menções a `HDL/`). O erro do
+      `check-component-drift` era defeito: a mensagem de tag fora da família
+      lia um `r.family` que a linha nunca teve.
+
+      Achado no `capture-media`, ainda aberto: a pasta de quadros fica no temp
+      quando nenhum quadro é capturado, e as pastas de perfil e de projeto
+      ficam quando o lançamento do Electron falha (o `mkdtemp` vem antes do
+      `try`). O teste apaga as que o caso deixa.
 - [ ] **14.2 `search_worker.js` e `search_core.js` pedem outra estratégia.** Os
       dois não são módulos: o `main/ipc/search.js` lê os dois como texto e roda
       a concatenação num worker com `eval: true`. Convertidos como estão, o

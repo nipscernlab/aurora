@@ -7,7 +7,7 @@
  * (components/Packages/msys/mingw64/lib/python3.12/site-packages).
  *
  * Aquela pasta pertence a toolchain: ela e baixada pelo bootstrap, o
- * scripts/verify-components.js re-baixa por cima quando o componente esta
+ * scripts/verify-components.mts re-baixa por cima quando o componente esta
  * faltando ou desatualizado, e o components/Packages/ inteiro e gitignored
  * justamente por ser artefato derivado, descartavel. Instalar estado do usuario
  * la dentro daria dois problemas concretos:

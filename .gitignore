@@ -262,6 +262,8 @@ js/ai/chips_de_ferramenta.js
 js/ai/rolagem_do_chat.js
 js/ai/indicadores_do_turno.js
 js/ai/desenho_do_stream.js
+js/ai/composer_do_chat.js
+js/ai/cliques_na_conversa.js
 js/ai/tool_permission.js
 js/utils/pane_size.js
 js/ai/chat_scroll.js

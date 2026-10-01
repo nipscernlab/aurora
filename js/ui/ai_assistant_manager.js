@@ -20,20 +20,22 @@ import { aiMarkSvg } from './ai_mark.js';
 import { semAnimar } from '../utils/resize.js';
 import {
   aplicarLargura, larguraPermitida, aplicarAbertura, alternar, garantirAberto, reaplicarLimite,
-  ligarDivisorDeLargura, ligarCantoDoTerminal,
+  ligarDivisorDeLargura, ligarCantoDoTerminal, ligarReavaliacaoDaLargura,
 } from '../ai/layout_do_painel.js';
 import { correrEmSegundoPlano } from '../ai/tarefa_em_segundo_plano.js';
 import { lerVersaoDoManual, juntarCitacao, colherCitacaoDeFerramenta, registrarCitacoes } from '../ai/citacoes_do_chat.js';
 import {
   alternarPopover, desenharPermissoes, definirPermissao, atualizarProvedores, aplicarProvedor,
   escolherProvedor, definirEsforco, gravarModelo, atualizarEstadoDaAssinatura,
-  desenharEstadoDaAssinatura, desenharEstadoDoProvedor, atualizarUso, desenharUso,
+  desenharEstadoDaAssinatura, desenharEstadoDoProvedor, atualizarUso, desenharUso, ligarPopover,
 } from '../ai/provedores_do_painel.js';
 import { iniciarChip, terminarChip, fecharGrupo } from '../ai/chips_de_ferramenta.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { rolarAoFim, ligarRolagem } from '../ai/rolagem_do_chat.js';
 import { mostrarPensando, mostrarDownloadDaCli, limparDownloadDaCli, somarUso, atualizarContador } from '../ai/indicadores_do_turno.js';
 import { receberPedaco, revelarSegmento, cancelarDesenho, selarTextoDoTurno } from '../ai/desenho_do_stream.js';
+import { ligarComposer } from '../ai/composer_do_chat.js';
+import { ligarCliquesNaConversa } from '../ai/cliques_na_conversa.js';
 import { stripToolCallArtifacts } from '../ai/tool_call_text.js';
 import { abrirReferencia, abrirCaminhoDoChat } from '../ai/abrir_referencia.js';
 import { confiaEmLinksExternos, definirConfiancaEmLinks, confirmarLinkExterno } from '../ai/link_externo.js';
@@ -43,7 +45,7 @@ import { avisoDeAssinatura, desenharFila } from '../ai/fila_do_chat.js';
 import { confirmarFerramenta, perguntarAPessoa } from '../ai/perguntas_inline.js';
 import {
   novaConversa, comecarTutorial, alternarHistorico, relerLista, cliqueNoHistorico,
-  apagarConversa, abrirConversa, gravarConversa,
+  apagarConversa, abrirConversa, gravarConversa, ligarHistorico,
 } from '../ai/conversas_do_chat.js';
 import { buildApiMessages, buildProjectContext } from '../ai/chat_turn.js';
 import {
@@ -485,17 +487,6 @@ class AIAssistantManager {
     this.container.querySelector('#ai-help-btn')
       ?.addEventListener('click', () => abrirAjudaDe('aiPanelHelp'));
 
-    // Model / provider popover, opened from the composer chip.
-    this.modelChip.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleModelPopover();
-    });
-    this.modelPopover.addEventListener('click', (e) => e.stopPropagation());
-    document.addEventListener('click', () => this.toggleModelPopover(false));
-
-    // Re-sync providers whenever the AI settings panel changes model/key.
-    window.addEventListener('aurora-ai-settings-changed', () => this.refreshProviders());
-
     // A versao do manual, para carimbar as citacoes. Lida agora e RELIDA ao
     // voltar o foco: o manual se atualiza sozinho por manifesto, no meio da
     // sessao, e uma citacao carimbada com a versao velha mandaria o leitor
@@ -503,153 +494,13 @@ class AIAssistantManager {
     this._lerVersaoDoManual();
     window.addEventListener('focus', () => this._lerVersaoDoManual());
 
-    // Encolher a janela pode tornar invasiva uma largura que era legitima.
-    // Sem isto o painel so era reavaliado ao ser arrastado, entao bastava
-    // diminuir a janela para ele voltar a cobrir o terminal.
-    window.addEventListener('resize', () => {
-      if (this._reclampRaf) cancelAnimationFrame(this._reclampRaf);
-      this._reclampRaf = requestAnimationFrame(() => this.reclampWidth());
-    });
-
-    this.mpProviders.addEventListener('change', (e) => {
-      const radio = e.target.closest('input[name="ai-provider"]');
-      if (radio) this.selectProvider(radio.value);
-    });
-    this.mpPerms.addEventListener('change', (e) => {
-      const radio = e.target.closest('input[name="ai-perm"]');
-      if (radio) this.setPermissionMode(radio.value);
-    });
-
-    // Model id, committed on Enter / blur (API providers, free text).
-    this.modelInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); this.modelInput.blur(); }
-    });
-    this.modelInput.addEventListener('change', () => this.commitModel(this.modelInput.value));
-    this.modelResetBtn.addEventListener('click', () => {
-      const meta = this.providersAvailable.find((p) => p.name === this.currentProvider);
-      this.commitModel(meta?.defaultModel || '');
-    });
-
-    // Claude Code model presets (segmented control).
-    this.mpModelPresets.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-model]');
-      if (btn) this.commitModel(btn.dataset.model);
-    });
-
-    // Claude Code effort / reasoning depth (segmented control).
-    this.effortSeg.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-effort]');
-      if (btn) this.setClaudeCodeEffort(btn.dataset.effort);
-    });
-
-    // Subscription-provider status section, "Re-check" button.
-    this.ccStatusEl.addEventListener('click', (e) => {
-      if (e.target.closest('[data-cc-recheck]')) this.refreshSubStatus();
-    });
-
-    this.container.querySelector('#ai-mp-managekeys').addEventListener('click', () => {
-      this.toggleModelPopover(false);
-      document.getElementById('aurora-settings')?.click();
-      // Jump straight to the AI Assistant pane once the modal is up.
-      setTimeout(() => {
-        document.querySelector('.settings-nav-item[data-pane="ai"]')?.click();
-      }, 60);
-    });
-
-    // History popover, list of persisted chats + "New chat".
-    this.historyBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleHistory();
-    });
-    this.historyPopover.addEventListener('click', (e) => e.stopPropagation());
-    document.addEventListener('click', () => this.toggleHistory(false));
-    this.container.querySelector('#ai-history-new').addEventListener('click', () => {
-      this.toggleHistory(false);
-      this.newChat();
-    });
-    this.historyList.addEventListener('click', (e) => this.handleHistoryClick(e));
-
-    this.sendBtn.addEventListener('click', () => this.send());
-
-    // --- Composer attachments: button → picker, drag-drop, clipboard paste --
-    this.attachBtn?.addEventListener('click', () => this.attachInput?.click());
-    this.attachInput?.addEventListener('change', () => {
-      this._addFiles(this.attachInput.files);
-      this.attachInput.value = '';   // let the same file be picked again
-    });
-    const stopDrag = (e) => { e.preventDefault(); e.stopPropagation(); };
-    ['dragenter', 'dragover'].forEach((t) => this.composerEl?.addEventListener(t, (e) => {
-      if (e.dataTransfer?.types?.includes('Files')) { stopDrag(e); this.composerEl.classList.add('drag-over'); }
-    }));
-    ['dragleave', 'dragend', 'drop'].forEach((t) => this.composerEl?.addEventListener(t, (e) => {
-      stopDrag(e); this.composerEl.classList.remove('drag-over');
-    }));
-    this.composerEl?.addEventListener('drop', (e) => {
-      if (e.dataTransfer?.files?.length) this._addFiles(e.dataTransfer.files);
-    });
-    this.inputEl.addEventListener('paste', (e) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      const files = [];
-      for (const it of items) {
-        if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); }
-      }
-      if (files.length) { e.preventDefault(); this._addFiles(files); }
-    });
-    this.stopBtn.addEventListener('click', () => this.stop());
-    this.clearBtn.addEventListener('click', () => this.newChat());
-    this.tutorialBtn?.addEventListener('click', () => this.startTutorial());
-
-    // Enter sends, Shift+Enter inserts a newline.
-    // Enter is NOT gated on _isStreaming: send() itself decides between
-    // dispatching now and queueing (see the _messageQueue branch there), so
-    // gating here just made the follow-up queue unreachable from the keyboard:
-    // the whole point is that a running turn does not block the composer.
-    // sendBtn.disabled still guards the real blocker: no AI provider available.
-    this.inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        if (!this.sendBtn.disabled) this.send();
-      }
-    });
-
-    // Grow the composer with the text the user types (up to a cap, then
-    // scroll). Runs on every input event.
-    this.inputEl.addEventListener('input', () => this.autoGrowInput());
-
-    // External links in markdown bubbles. The anchor is just a sentinel:
-    // `data-href` carries the real URL. The model controls these URLs, so we
-    // show a redirect warning before handing anything to the OS browser.
-    this.messagesEl.addEventListener('click', (e) => {
-      const a = e.target.closest('a[data-href]');
-      if (!a) return;
-      e.preventDefault();
-      this._confirmExternalLink(a.getAttribute('data-href'));
-    });
-
-    // Absolute filesystem paths in chat: directory → Explorer, text/code file →
-    // open in Monaco, any other file → OS default app.
-    this.messagesEl.addEventListener('click', (e) => {
-      const p = e.target.closest('.ai-path');
-      if (!p) return;
-      e.preventDefault();
-      this._openChatPath(p.getAttribute('data-path'));
-    });
-
-    // Copy button on code blocks.
-    this.messagesEl.addEventListener('click', (e) => {
-      const btn = e.target.closest('.ai-code-copy');
-      if (!btn) return;
-      const code = btn.closest('.ai-code-block')?.querySelector('code');
-      if (!code) return;
-      navigator.clipboard.writeText(code.innerText).then(() => {
-        btn.innerHTML = '<i class="ph ph-check"></i>';
-        setTimeout(() => { btn.innerHTML = '<i class="ph ph-copy"></i>'; }, 2000);
-      }).catch(() => {});
-    });
-
-    // Rolagem inteligente: subir do fim solta a vista (js/ai/rolagem_do_chat.ts).
-    ligarRolagem(this);
+    // Cada grupo de controles e ligado pelo modulo que e dono dele.
+    ligarReavaliacaoDaLargura(this);   // layout_do_painel.ts
+    ligarPopover(this);                // provedores_do_painel.ts
+    ligarHistorico(this);              // conversas_do_chat.ts
+    ligarComposer(this);               // composer_do_chat.ts
+    ligarCliquesNaConversa(this.messagesEl);   // cliques_na_conversa.ts
+    ligarRolagem(this);                // rolagem_do_chat.ts
   }
 
   /* ---------------- model / provider popover ---------------- */

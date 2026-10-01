@@ -61,6 +61,9 @@ export interface PainelDaConversa {
   historyBtn: HTMLElement;
   historyList: HTMLElement | null;
   mpProviders: HTMLElement;
+  container: HTMLElement | null;
+  clearBtn: HTMLElement;
+  tutorialBtn: HTMLElement | null;
 
   send(): Promise<unknown>;
   updateTokenCounter(): void;
@@ -377,4 +380,24 @@ export async function gravarConversa(p: PainelDaConversa): Promise<void> {
     });
   } catch (e) { console.warn('[ai-panel] persist failed:', e); }
   relerLista(p);
+}
+
+/**
+ * Liga o historico e a conversa nova: o botao que abre a lista, clicar fora que
+ * a fecha, o "Novo" da lista, as linhas, o "+" do cabecalho e o tutorial.
+ */
+export function ligarHistorico(p: PainelDaConversa): void {
+  p.historyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    alternarHistorico(p);
+  });
+  p.historyPopover.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', () => alternarHistorico(p, false));
+  (p.container as HTMLElement).querySelector('#ai-history-new')?.addEventListener('click', () => {
+    alternarHistorico(p, false);
+    novaConversa(p);
+  });
+  (p.historyList as HTMLElement).addEventListener('click', (e) => cliqueNoHistorico(p, e));
+  p.clearBtn.addEventListener('click', () => novaConversa(p));
+  p.tutorialBtn?.addEventListener('click', () => comecarTutorial(p));
 }

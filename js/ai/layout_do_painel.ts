@@ -20,6 +20,7 @@ export interface PainelDoLayout {
   initialize(): void;
   refreshProviders(): Promise<unknown>;
   refreshChatList(): unknown;
+  _reclampRaf?: number | null;
 }
 
 const CHAVE_LARGURA = 'aurora-ai-panel-width';
@@ -292,4 +293,16 @@ export function ligarCantoDoTerminal(p: PainelDoLayout): void {
   ro.observe(terminalContainer);
   window.addEventListener('resize', schedulePosition);
   position();
+}
+
+/**
+ * Encolher a janela pode tornar invasiva uma largura que era legitima. Sem
+ * isto o painel so era reavaliado ao ser arrastado, e bastava diminuir a
+ * janela para ele voltar a cobrir o terminal. Um quadro por rajada de resize.
+ */
+export function ligarReavaliacaoDaLargura(p: PainelDoLayout): void {
+  window.addEventListener('resize', () => {
+    if (p._reclampRaf) cancelAnimationFrame(p._reclampRaf);
+    p._reclampRaf = requestAnimationFrame(() => reaplicarLimite(p));
+  });
 }

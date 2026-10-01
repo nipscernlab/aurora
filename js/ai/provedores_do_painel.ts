@@ -54,6 +54,9 @@ export interface PainelDosProvedores {
   sendBtn: HTMLButtonElement;
   inputEl: HTMLTextAreaElement;
 
+  modelResetBtn: HTMLElement;
+  container: HTMLElement | null;
+
   showEmptyState(show: boolean): void;
   appendDivider(text: string): HTMLElement | null;
 }
@@ -377,4 +380,67 @@ export function desenharUso(p: PainelDosProvedores): void {
   } else if (hint) {
     hint.remove();
   }
+}
+
+/**
+ * Liga os controles do popover: o chip que o abre, clicar fora que o fecha, os
+ * radios de provedor e de permissao, o campo e os botoes de modelo, o esforco,
+ * o "conferir de novo" da assinatura e o atalho para as chaves nas
+ * Configuracoes. Mudar a chave ou o modelo nas Configuracoes rele os provedores.
+ */
+export function ligarPopover(p: PainelDosProvedores): void {
+  p.modelChip.addEventListener('click', (e) => {
+    e.stopPropagation();
+    alternarPopover(p);
+  });
+  p.modelPopover.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', () => alternarPopover(p, false));
+
+  window.addEventListener('aurora-ai-settings-changed', () => atualizarProvedores(p));
+
+  p.mpProviders.addEventListener('change', (e) => {
+    const radio = (e.target as Element).closest<HTMLInputElement>('input[name="ai-provider"]');
+    if (radio) escolherProvedor(p, radio.value);
+  });
+  p.mpPerms.addEventListener('change', (e) => {
+    const radio = (e.target as Element).closest<HTMLInputElement>('input[name="ai-perm"]');
+    if (radio) definirPermissao(p, radio.value);
+  });
+
+  // O modelo de um provedor de API, em texto livre, grava no Enter ou ao sair.
+  const campo = p.modelInput as HTMLInputElement;
+  campo.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); campo.blur(); }
+  });
+  campo.addEventListener('change', () => gravarModelo(p, campo.value));
+  p.modelResetBtn.addEventListener('click', () => {
+    const meta = p.providersAvailable.find((e) => e.name === p.currentProvider);
+    gravarModelo(p, meta?.defaultModel || '');
+  });
+
+  // Os botoes de modelo das assinaturas.
+  p.mpModelPresets.addEventListener('click', (e) => {
+    const btn = (e.target as Element).closest<HTMLElement>('button[data-model]');
+    if (btn) gravarModelo(p, btn.dataset.model as string);
+  });
+
+  // O esforco (controle segmentado).
+  p.effortSeg.addEventListener('click', (e) => {
+    const btn = (e.target as Element).closest<HTMLElement>('button[data-effort]');
+    if (btn) definirEsforco(p, btn.dataset.effort as string);
+  });
+
+  // O "conferir de novo" da linha de estado da assinatura.
+  (p.ccStatusEl as HTMLElement).addEventListener('click', (e) => {
+    if ((e.target as Element).closest('[data-cc-recheck]')) atualizarEstadoDaAssinatura(p);
+  });
+
+  (p.container as HTMLElement).querySelector('#ai-mp-managekeys')?.addEventListener('click', () => {
+    alternarPopover(p, false);
+    document.getElementById('aurora-settings')?.click();
+    // Direto para o painel de IA quando o modal estiver de pe.
+    setTimeout(() => {
+      document.querySelector<HTMLElement>('.settings-nav-item[data-pane="ai"]')?.click();
+    }, 60);
+  });
 }

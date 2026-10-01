@@ -32,7 +32,7 @@ vi.mock('../../js/ai/abrir_referencia.js', () => ({
 import { aiAssistantManager } from '../../js/ui/ai_assistant_manager.js';
 import { abrirAjudaDe } from '../../js/ui/help_link.js';
 import { confirmarLinkExterno } from '../../js/ai/link_externo.js';
-import { abrirCaminhoDoChat } from '../../js/ai/abrir_referencia.js';
+import { abrirCaminhoDoChat, abrirReferencia } from '../../js/ai/abrir_referencia.js';
 import { ProjectStore } from '../../js/project/project_store.js';
 
 const AIAssistantManager = aiAssistantManager.constructor;
@@ -91,6 +91,14 @@ afterEach(() => {
 });
 
 describe('o resto do painel', () => {
+  it('montar de novo nao cria um segundo painel', async () => {
+    await abrir();
+    const primeiro = painel.container;
+    painel.initialize();
+    expect(painel.container).toBe(primeiro);
+    expect(document.querySelectorAll('.ai-assistant-container')).toHaveLength(1);
+  });
+
   it('o botao de ajuda abre o capitulo do painel', async () => {
     await abrir();
     clicar(painel.container.querySelector('#ai-help-btn'));
@@ -330,6 +338,23 @@ describe('os cliques na conversa', () => {
     const el = await comHtml('<span class="ai-path" data-path="C:/proj/a.v">C:/proj/a.v</span>');
     clicar(el.querySelector('.ai-path'));
     expect(abrirCaminhoDoChat).toHaveBeenCalledWith('C:/proj/a.v');
+  });
+
+  it('referencia a arquivo abre o arquivo, na linha quando ela veio', async () => {
+    const el = await comHtml('<span class="ai-file-ref" data-file="top.v" data-line="12">top.v:12</span><span class="ai-file-ref" data-file="a.cmm">a.cmm</span>');
+    const ev = new MouseEvent('click', { bubbles: true, cancelable: true });
+    el.querySelector('[data-line]').dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(abrirReferencia).toHaveBeenLastCalledWith('top.v', 12);
+    clicar(el.querySelectorAll('.ai-file-ref')[1]);
+    expect(abrirReferencia).toHaveBeenLastCalledWith('a.cmm', null);
+  });
+
+  it('a imagem anexada abre em tamanho cheio', async () => {
+    const el = await comHtml('<img class="ai-att-thumb-lg" src="data:image/png;base64,AA" alt="foto">');
+    clicar(el.querySelector('img'));
+    const caixa = document.querySelector('.ai-lightbox');
+    expect(caixa).toBeTruthy();
   });
 
   it('clique em texto comum nao faz nada', async () => {

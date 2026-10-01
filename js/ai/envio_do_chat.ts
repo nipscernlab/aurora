@@ -14,6 +14,7 @@
  */
 
 import type { MensagemDoChat } from './chat_history.js';
+import type { Anexo } from './chat_attachments.js';
 import { SUB_META, isSubProvider } from './ai_metadata.js';
 import { avisoDeAssinatura, desenharFila, type ItemDaFila } from './fila_do_chat.js';
 import { marcarPonto, rotuloDoPedido } from './rewind.js';
@@ -48,7 +49,7 @@ export interface PainelDoEnvio {
   resetTurnState(): void;
   _closeToolGroup(): void;
   _renderAttachments(): void;
-  _renderBubbleAttachments(bubble: HTMLElement, atts: unknown[]): void;
+  _renderBubbleAttachments(bubble: HTMLElement, atts: Anexo[]): void;
   _capMessages(): void;
   _dispatchTurn(operacao?: string): Promise<unknown>;
 }
@@ -162,7 +163,7 @@ async function submeterMensagem(p: PainelDoEnvio, text: string, atts: unknown[])
   marcarPonto({ motivo: 'pedido', rotulo: rotuloDoPedido(text), mensagemId: idDaMensagem });
   const userBubble = p.appendBubble('user', text);
   userBubble?.setAttribute('data-ponto', idDaMensagem);
-  if (atts.length) p._renderBubbleAttachments(userBubble, atts);
+  if (atts.length) p._renderBubbleAttachments(userBubble, atts as Anexo[]);
   p.messages.push({ role: 'user', content: text, attachments: atts.length ? atts as MensagemDoChat['attachments'] : undefined });
   p._capMessages();
   // Uma mensagem de verdade quebra a corrente de turnos autonomos.

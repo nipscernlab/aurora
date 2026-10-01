@@ -18,6 +18,7 @@ import { showCardNotification } from '../ui/notification.js';
 import { lerPaginasDoManual, montarBlocoTutorial, aberturaDoTutorial } from './api_tutorial.js';
 import { chatListHtml, serializeMessagesForStorage, type ConversaListada, type MensagemDoChat } from './chat_history.js';
 import { highlightCodeBlocks } from './chat_render.js';
+import type { Anexo } from './chat_attachments.js';
 import { desenharRegistroDaPergunta, type RegistroDaPergunta } from './perguntas_inline.js';
 import { desenharBlocoDeCitacoes } from './citacoes_do_chat.js';
 import { criarGrupoDeFerramentas, finalizarGrupo, chipEstatico, type GrupoDeFerramentas } from './chips_de_ferramenta.js';
@@ -36,8 +37,8 @@ export interface PainelDaConversa {
   currentChatTitle: string;
   currentChatCreatedAt: number;
   cumulativeTokens: number;
-  cacheLidos: number;
-  cacheEscritos: number;
+  cacheLidos?: number;
+  cacheEscritos?: number;
   tutorialBlock: string;
   _citacoesDoTurno: unknown;
   _lastMsgRole: string | null;
@@ -70,7 +71,7 @@ export interface PainelDaConversa {
   applyProviderState(): void;
   _renderQueue(): void;
   appendBubble(role: string, content: string): HTMLElement;
-  _renderBubbleAttachments(bubble: HTMLElement, atts: unknown[]): void;
+  _renderBubbleAttachments(bubble: HTMLElement, atts: Anexo[]): void;
 }
 
 /** A dica de conversa vazia de volta, sozinha na area de mensagens. */
@@ -353,7 +354,7 @@ export async function abrirConversa(p: PainelDaConversa, id: string): Promise<vo
       // Restore the attachment chips (name/ext only, the payload was dropped)
       // so a reopened message reads with context, not as an empty bubble.
       if (Array.isArray(msg.attachments) && msg.attachments.length) {
-        p._renderBubbleAttachments(bubble, msg.attachments);
+        p._renderBubbleAttachments(bubble, msg.attachments as Anexo[]);
       }
     }
   }

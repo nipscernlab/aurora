@@ -1,5 +1,5 @@
 /**
- * ai_assistant_manager.js: Aurora Intelligence side panel.
+ * ai_assistant_manager.ts: Aurora Intelligence side panel.
  *
  * Replaces the previous `<webview>`-based wrapper. The panel now talks
  * directly to a Vercel-AI-SDK-driven backend via `window.aiAPI`:
@@ -59,20 +59,140 @@ import {
  *  Chat manager
  * ========================================================== */
 
+import type { MensagemDoChat, ConversaListada } from '../ai/chat_history.js';
+import type { CitacaoDoManual } from '../ai/manual_citation.js';
+import type { EntradaDeProvedor, RelatorioDeUso } from '../ai/ai_metadata.js';
+import type { EstadoDaCli } from '../ai/estado_do_provedor.js';
+import type { GrupoDeFerramentas, ChipEmVoo } from '../ai/chips_de_ferramenta.js';
+import type { ItemDaFila } from '../ai/fila_do_chat.js';
+import type { RespostaDaPergunta } from '../ai/perguntas_inline.js';
+import type { Anexo } from '../ai/chat_attachments.js';
+
+/**
+ * Os elementos nascem vazios e o initialize os preenche. Declarados com o tipo
+ * de depois da montagem, porque e assim que o resto do painel e os modulos de
+ * js/ai os usam; o NADA e o `null` de antes, tipado para caber em qualquer
+ * campo, entao em tempo de execucao nada muda.
+ */
+const NADA = null as never;
+
+/** Os parametros de uma funcao de modulo depois do contexto (o painel), que a delegacao repassa. */
+type Resto<F> = F extends (p: never, ...resto: infer R) => unknown ? R : never;
+
 class AIAssistantManager {
+  // ── elementos (preenchidos no initialize) ──
+  container: HTMLElement | null;
+  providerSelect: HTMLElement | null;
+  providerIcon: HTMLImageElement;
+  messagesEl: HTMLElement;
+  emptyStateEl: HTMLElement;
+  inputEl: HTMLTextAreaElement;
+  declare composerEl: HTMLElement | null;
+  sendBtn: HTMLButtonElement;
+  stopBtn: HTMLButtonElement;
+  clearBtn: HTMLButtonElement;
+  declare tutorialBtn: HTMLElement | null;
+  declare attachBtn: HTMLElement | null;
+  declare attachInput: HTMLInputElement | null;
+  declare attachmentsEl: HTMLElement | null;
+  declare queueEl: HTMLElement | null;
+  tokenCounter: HTMLElement;
+  declare chatEmptyHint: HTMLElement | null;
+  declare modelChip: HTMLElement;
+  declare modelChipIcon: HTMLImageElement;
+  declare modelChipName: HTMLElement;
+  declare modelPopover: HTMLElement;
+  declare mpProviders: HTMLElement;
+  declare mpPerms: HTMLElement;
+  declare modelInput: HTMLInputElement | null;
+  declare modelResetBtn: HTMLElement;
+  declare mpModelApi: HTMLElement;
+  declare mpModelPresets: HTMLElement;
+  declare mpUsage: HTMLElement;
+  declare usageBars: HTMLElement | null;
+  declare usagePlan: HTMLElement;
+  declare ccStatusEl: HTMLElement | null;
+  declare effortSection: HTMLElement | null;
+  declare effortSeg: HTMLElement;
+  declare ccSections: NodeListOf<Element>;
+  declare historyBtn: HTMLElement;
+  declare historyPopover: HTMLElement;
+  declare historyList: HTMLElement | null;
+  thinkingEl: HTMLElement | null;
+  declare cliDownloadEl?: HTMLElement | null;
+
+  // ── conversa ──
+  messages: MensagemDoChat[];
+  pendingAttachments: Anexo[];
+  currentChatId: string | null;
+  currentChatTitle: string;
+  currentChatCreatedAt: number;
+  historyOpen: boolean;
+  chatList: ConversaListada[];
+  cumulativeTokens: number;
+  declare cacheLidos?: number;
+  declare cacheEscritos?: number;
+  declare tutorialBlock: string;
+  declare _citacoesDoTurno: CitacaoDoManual[] | null;
+  declare _versaoDoManual?: string;
+
+  // ── provedor ──
+  currentProvider: string | null;
+  providersAvailable: EntradaDeProvedor[];
+  providersConfigured: Record<string, boolean>;
+  declare claudeCodeEntry?: EntradaDeProvedor;
+  declare chatgptEntry?: EntradaDeProvedor;
+  permissionMode: string;
+  claudeCodeEffort: string;
+  modelPopoverOpen: boolean;
+  subStatus: Record<string, EstadoDaCli | null>;
+  subUsage: Record<string, RelatorioDeUso | null>;
+
+  // ── turno e stream ──
+  currentSessionId: string | null;
+  currentAssistantContentEl: HTMLElement | null;
+  segmentBuffer: string;
+  turnText: string;
+  _committedTurnLen: number;
+  declare _revealLength: number;
+  declare _streamFlush?: boolean;
+  declare _streamRenderRaf?: number | null;
+  declare _streamRenderTimer?: ReturnType<typeof setTimeout> | null;
+  runningChips: ChipEmVoo[];
+  declare _toolGroup: (GrupoDeFerramentas & { total: number }) | null;
+  declare hadToolCalls: boolean;
+  _lastMsgRole: string | null;
+  declare _isStreaming: boolean;
+  declare _lastEventAt?: number;
+  declare _streamWatchdog?: ReturnType<typeof setInterval> | null;
+  unsubChatEvent: (() => void) | null;
+  _autoQueue: Array<{ content: string; label: string; operacao: string | null }> = [];
+  declare _autoChainCount: number;
+  declare _messageQueue: ItemDaFila[];
+  declare _liveQueue: string[];
+  declare _operacaoDoProximoEnvio: string | null;
+  pendingConfirms: Set<(allowed: boolean) => void>;
+  pendingAskUserQuestions?: Set<(r: RespostaDaPergunta) => void>;
+
+  // ── tela ──
+  stickToBottom: boolean;
+  declare _scrollRaf?: number | null;
+  declare _reclampRaf?: number | null;
+  _glowRevealed: boolean;
+
   constructor() {
     this.container = null;
     this.providerSelect = null;
-    this.providerIcon = null;
-    this.messagesEl = null;
-    this.emptyStateEl = null;
-    this.inputEl = null;
-    this.sendBtn = null;
+    this.providerIcon = NADA;
+    this.messagesEl = NADA;
+    this.emptyStateEl = NADA;
+    this.inputEl = NADA;
+    this.sendBtn = NADA;
     /** Pending composer attachments: { id, kind:'image'|'file', name, mime, size, dataUrl?, text? }. */
     this.pendingAttachments = [];
-    this.stopBtn = null;
-    this.clearBtn = null;
-    this.tokenCounter = null;
+    this.stopBtn = NADA;
+    this.clearBtn = NADA;
+    this.tokenCounter = NADA;
 
     this.messages = [];              // [{ role:'user'|'assistant', content }]
     // The bottom "aurora glow" starts OFF and reveals on the user's first
@@ -95,7 +215,7 @@ class AIAssistantManager {
     this.unsubChatEvent = null;
 
     // Tool permission gate.
-    this.permissionMode = readPermissionMode();
+    this.permissionMode = readPermissionMode() as string;
     this.modelPopoverOpen = false;
     this.pendingConfirms = new Set();   // resolve fns of open confirmation cards
 
@@ -106,7 +226,7 @@ class AIAssistantManager {
     this.claudeCodeEffort = '';         // '' | low | medium | high | xhigh | max
     try {
       const e = localStorage.getItem('aurora-ai-cc-effort');
-      if (CLAUDE_CODE_EFFORT.some((x) => x.id === e)) this.claudeCodeEffort = e;
+      if (CLAUDE_CODE_EFFORT.some((x) => x.id === e)) this.claudeCodeEffort = e as string;
     } catch (_) { /* default '' */ }
 
     // Persistent chat history.
@@ -129,7 +249,7 @@ class AIAssistantManager {
   // em js/ai/rolagem_do_chat.ts.
 
   /** Vai ao fim se a pessoa nao subiu para ler; `force` volta a acompanhar. */
-  scrollToBottom(force = false) { rolarAoFim(this, force); }
+  scrollToBottom(...a: Resto<typeof rolarAoFim>) { rolarAoFim(this, ...a); }
 
   /* ---------------- layout ---------------- */
   // A largura, abrir e fechar, e os dois arrastadores moram em
@@ -137,10 +257,10 @@ class AIAssistantManager {
 
   toggle() { alternar(this); }
   /** Unico lugar que aplica a largura e o estado que anda com ela. */
-  _aplicarLargura(w) { aplicarLargura(this, w); }
+  _aplicarLargura(...a: Resto<typeof aplicarLargura>) { aplicarLargura(this, ...a); }
   /** A regra de tamanho do painel (o E2E de layout a chama pela instancia). */
-  _larguraPermitida(desejado) { return larguraPermitida(desejado); }
-  _applyOpenWidth(opening) { aplicarAbertura(this, opening); }
+  _larguraPermitida(...a: Parameters<typeof larguraPermitida>) { return larguraPermitida(...a); }
+  _applyOpenWidth(...a: Resto<typeof aplicarAbertura>) { aplicarAbertura(this, ...a); }
   /** Bring the panel up if it isn't already open (idempotent). */
   ensureOpen() { garantirAberto(this); }
   reclampWidth() { reaplicarLimite(this); }
@@ -150,7 +270,7 @@ class AIAssistantManager {
    * `send`, o pedido sai na hora. Porta do window.AuroraAPI.ai.askAboutSelection;
    * mora em js/ai/composer_do_chat.ts.
    */
-  askAboutSelection(pedido) { perguntarSobreSelecao(this, pedido); }
+  askAboutSelection(...a: Resto<typeof perguntarSobreSelecao>) { perguntarSobreSelecao(this, ...a); }
 
   initialize() {
     // Idempotente de proposito. Sem esta guarda, uma segunda chamada criava um
@@ -187,49 +307,49 @@ class AIAssistantManager {
     // acende o trilho da direita ja no arranque.
     this._aplicarLargura(0);
 
-    this.providerIcon  = this.container.querySelector('#ai-provider-icon');
-    this.messagesEl    = this.container.querySelector('#ai-messages');
-    this.emptyStateEl  = this.container.querySelector('#ai-empty-state');
-    this.inputEl       = this.container.querySelector('#ai-input');
-    this.composerEl    = this.container.querySelector('#ai-composer');
-    this.sendBtn       = this.container.querySelector('#ai-send-btn');
-    this.attachBtn     = this.container.querySelector('#ai-attach-btn');
-    this.attachInput   = this.container.querySelector('#ai-attach-input');
-    this.attachmentsEl = this.container.querySelector('#ai-attachments');
-    this.queueEl       = this.container.querySelector('#ai-msg-queue');
+    this.providerIcon  = this.container.querySelector('#ai-provider-icon') as HTMLImageElement;
+    this.messagesEl    = this.container.querySelector('#ai-messages') as HTMLElement;
+    this.emptyStateEl  = this.container.querySelector('#ai-empty-state') as HTMLElement;
+    this.inputEl       = this.container.querySelector('#ai-input') as HTMLTextAreaElement;
+    this.composerEl    = this.container.querySelector('#ai-composer') as HTMLElement;
+    this.sendBtn       = this.container.querySelector('#ai-send-btn') as HTMLButtonElement;
+    this.attachBtn     = this.container.querySelector('#ai-attach-btn') as HTMLElement;
+    this.attachInput   = this.container.querySelector('#ai-attach-input') as HTMLInputElement;
+    this.attachmentsEl = this.container.querySelector('#ai-attachments') as HTMLElement;
+    this.queueEl       = this.container.querySelector('#ai-msg-queue') as HTMLElement;
     this._messageQueue = [];
-    this.stopBtn       = this.container.querySelector('#ai-stop-btn');
-    this.clearBtn      = this.container.querySelector('#ai-clear-btn');
-    this.tutorialBtn   = this.container.querySelector('#ai-tutorial-btn');
-    this.tokenCounter  = this.container.querySelector('#ai-token-counter');
+    this.stopBtn       = this.container.querySelector('#ai-stop-btn') as HTMLButtonElement;
+    this.clearBtn      = this.container.querySelector('#ai-clear-btn') as HTMLButtonElement;
+    this.tutorialBtn   = this.container.querySelector('#ai-tutorial-btn') as HTMLElement;
+    this.tokenCounter  = this.container.querySelector('#ai-token-counter') as HTMLElement;
 
     // Model / provider chip + popover.
-    this.modelChip     = this.container.querySelector('#ai-model-chip');
-    this.modelChipIcon = this.container.querySelector('#ai-model-chip-icon');
-    this.modelChipName = this.container.querySelector('#ai-model-chip-name');
-    this.modelPopover  = this.container.querySelector('#ai-model-popover');
-    this.mpProviders   = this.container.querySelector('#ai-mp-providers');
-    this.mpPerms       = this.container.querySelector('#ai-mp-perms');
-    this.modelInput    = this.container.querySelector('#ai-model-input');
-    this.modelResetBtn = this.container.querySelector('#ai-model-reset');
-    this.mpModelApi    = this.container.querySelector('#ai-mp-model-api');
-    this.mpModelPresets= this.container.querySelector('#ai-mp-model-presets');
-    this.mpUsage       = this.container.querySelector('#ai-mp-usage');
-    this.usageBars     = this.container.querySelector('#ai-usage-bars');
-    this.usagePlan     = this.container.querySelector('#ai-usage-plan');
-    this.ccStatusEl    = this.container.querySelector('#ai-mp-cc-status');
-    this.effortSection = this.container.querySelector('#ai-mp-effort-section');
-    this.effortSeg     = this.container.querySelector('#ai-mp-effort');
-    this.ccSections    = this.container.querySelectorAll('.ai-mp-cc');
+    this.modelChip     = this.container.querySelector('#ai-model-chip') as HTMLElement;
+    this.modelChipIcon = this.container.querySelector('#ai-model-chip-icon') as HTMLImageElement;
+    this.modelChipName = this.container.querySelector('#ai-model-chip-name') as HTMLElement;
+    this.modelPopover  = this.container.querySelector('#ai-model-popover') as HTMLElement;
+    this.mpProviders   = this.container.querySelector('#ai-mp-providers') as HTMLElement;
+    this.mpPerms       = this.container.querySelector('#ai-mp-perms') as HTMLElement;
+    this.modelInput    = this.container.querySelector('#ai-model-input') as HTMLInputElement;
+    this.modelResetBtn = this.container.querySelector('#ai-model-reset') as HTMLElement;
+    this.mpModelApi    = this.container.querySelector('#ai-mp-model-api') as HTMLElement;
+    this.mpModelPresets= this.container.querySelector('#ai-mp-model-presets') as HTMLElement;
+    this.mpUsage       = this.container.querySelector('#ai-mp-usage') as HTMLElement;
+    this.usageBars     = this.container.querySelector('#ai-usage-bars') as HTMLElement;
+    this.usagePlan     = this.container.querySelector('#ai-usage-plan') as HTMLElement;
+    this.ccStatusEl    = this.container.querySelector('#ai-mp-cc-status') as HTMLElement;
+    this.effortSection = this.container.querySelector('#ai-mp-effort-section') as HTMLElement;
+    this.effortSeg     = this.container.querySelector('#ai-mp-effort') as HTMLElement;
+    this.ccSections    = this.container.querySelectorAll('.ai-mp-cc') as NodeListOf<Element>;
 
-    this.historyBtn        = this.container.querySelector('#ai-history-btn');
-    this.historyPopover    = this.container.querySelector('#ai-history-popover');
-    this.historyList       = this.container.querySelector('#ai-history-list');
-    this.chatEmptyHint     = this.container.querySelector('#ai-chat-empty-hint');
+    this.historyBtn        = this.container.querySelector('#ai-history-btn') as HTMLElement;
+    this.historyPopover    = this.container.querySelector('#ai-history-popover') as HTMLElement;
+    this.historyList       = this.container.querySelector('#ai-history-list') as HTMLElement;
+    this.chatEmptyHint     = this.container.querySelector('#ai-chat-empty-hint') as HTMLElement;
 
     this.buildPermissionOptions();
     this.attachListeners();
-    ligarDivisorDeLargura(this, this.container.querySelector('.ai-resize-handle'), this.container);
+    ligarDivisorDeLargura(this, this.container.querySelector('.ai-resize-handle') as HTMLElement, this.container);
     ligarCantoDoTerminal(this);
 
     // v3 layout: width = 0 means closed, width > 0 means open. CSS
@@ -253,8 +373,9 @@ class AIAssistantManager {
   }
 
   attachListeners() {
-    this.container.querySelector('.ai-hbtn-close').addEventListener('click', () => this.toggle());
-    this.container.querySelector('#ai-help-btn')
+    const container = this.container as HTMLElement;
+    (container.querySelector('.ai-hbtn-close') as HTMLElement).addEventListener('click', () => this.toggle());
+    container.querySelector('#ai-help-btn')
       ?.addEventListener('click', () => abrirAjudaDe('aiPanelHelp'));
 
     // A versao do manual, para carimbar as citacoes. Lida agora e RELIDA ao
@@ -277,17 +398,17 @@ class AIAssistantManager {
   // O popover de provedor e modelo, o esforco, a permissao, a linha de estado
   // e o uso moram em js/ai/provedores_do_painel.ts; o painel e o contexto.
 
-  toggleModelPopover(force) { alternarPopover(this, force); }
+  toggleModelPopover(...a: Resto<typeof alternarPopover>) { alternarPopover(this, ...a); }
   buildPermissionOptions() { desenharPermissoes(this); }
-  setPermissionMode(mode) { definirPermissao(this, mode); }
+  setPermissionMode(...a: Resto<typeof definirPermissao>) { definirPermissao(this, ...a); }
   refreshProviders() { return atualizarProvedores(this); }
   /** Reflect the active provider across the icon, chip, controls and usage. */
   applyProviderState() { aplicarProvedor(this); }
   /** Switch the active provider (from a radio change in the popover). */
-  selectProvider(name) { escolherProvedor(this, name); }
-  setClaudeCodeEffort(id) { definirEsforco(this, id); }
+  selectProvider(...a: Resto<typeof escolherProvedor>) { escolherProvedor(this, ...a); }
+  setClaudeCodeEffort(...a: Resto<typeof definirEsforco>) { definirEsforco(this, ...a); }
   /** Persist a model id for the active provider and refresh the chip. */
-  commitModel(value) { return gravarModelo(this, value); }
+  commitModel(...a: Resto<typeof gravarModelo>) { return gravarModelo(this, ...a); }
   refreshSubStatus() { return atualizarEstadoDaAssinatura(this); }
   renderSubStatus() { desenharEstadoDaAssinatura(this); }
   renderProviderStatus() { desenharEstadoDoProvedor(this); }
@@ -300,12 +421,12 @@ class AIAssistantManager {
   // O aviso antes de abrir link externo mora em js/ai/link_externo.ts.
   _getTrustExternalLinks() { return confiaEmLinksExternos(); }
 
-  _setTrustExternalLinks(v) { definirConfiancaEmLinks(v); }
+  _setTrustExternalLinks(...a: Parameters<typeof definirConfiancaEmLinks>) { definirConfiancaEmLinks(...a); }
 
-  _confirmExternalLink(url) { confirmarLinkExterno(url); }
+  _confirmExternalLink(...a: Parameters<typeof confirmarLinkExterno>) { confirmarLinkExterno(...a); }
 
   /** Um caminho absoluto clicado na conversa (js/ai/abrir_referencia.ts). */
-  async _openChatPath(rawPath) { await abrirCaminhoDoChat(rawPath); }
+  async _openChatPath(...a: Parameters<typeof abrirCaminhoDoChat>) { await abrirCaminhoDoChat(...a); }
 
   /* ---------------- tool permission gate ---------------- */
 
@@ -313,7 +434,7 @@ class AIAssistantManager {
    * A ferramenta pode rodar? Chamado pelo tool_runner antes de cada uma. O
    * cartao de permissao mora em js/ai/perguntas_inline.ts.
    */
-  confirmToolCall(def, args) { return confirmarFerramenta(this, def, args); }
+  confirmToolCall(...a: Resto<typeof confirmarFerramenta>) { return confirmarFerramenta(this, ...a); }
 
   /**
    * Runaway guard for memory hygiene: a single never-ending conversation must
@@ -331,9 +452,9 @@ class AIAssistantManager {
   }
 
   /** O cartao de pergunta (ask_user_question), chamado pelo aurora_api; mora em js/ai/perguntas_inline.ts. */
-  showAskUserQuestionInline(params) { return perguntarAPessoa(this, params); }
+  showAskUserQuestionInline(...a: Resto<typeof perguntarAPessoa>) { return perguntarAPessoa(this, ...a); }
 
-  showEmptyState(show) {
+  showEmptyState(show: boolean) {
     this.emptyStateEl.classList.toggle('hidden', !show);
     this.messagesEl.classList.toggle('hidden', show);
     if (!show && this.chatEmptyHint) {
@@ -346,10 +467,10 @@ class AIAssistantManager {
   // moram em js/ai/envio_do_chat.ts; o painel e o contexto.
 
   send() { return enviar(this); }
-  _enviarDaFilaAgora(i) { return enviarDaFilaAgora(this, i); }
+  _enviarDaFilaAgora(...a: Resto<typeof enviarDaFilaAgora>) { return enviarDaFilaAgora(this, ...a); }
   _interromperParaFalar() { return interromperParaFalar(this); }
-  _tryPushLive(text, atts) { return entregarAoVivo(this, text, atts); }
-  _followUpTaken(content) { seguimentoAceito(this, content); }
+  _tryPushLive(...a: Resto<typeof entregarAoVivo>) { return entregarAoVivo(this, ...a); }
+  _followUpTaken(...a: Resto<typeof seguimentoAceito>) { seguimentoAceito(this, ...a); }
   _devolverVivasAFila() { devolverVivasAFila(this); }
   /** Despacha a proxima da fila; true se despachou (o fim do turno prefere a pessoa). */
   _drainMessageQueue() { return escoarFila(this); }
@@ -360,18 +481,18 @@ class AIAssistantManager {
   // painel guarda a lista pendente e a faixa do composer.
 
   /** Read dropped / picked / pasted files into pendingAttachments, then render. */
-  async _addFiles(fileList) {
+  async _addFiles(fileList: Parameters<typeof adicionarArquivos>[1]) {
     await adicionarArquivos(this.pendingAttachments, fileList,
-      (texto) => this.appendBubble('assistant', texto, false));
+      (texto) => this.appendBubble('assistant', texto, false as unknown as Parameters<typeof novoBalao>[3]));
     this._renderAttachments();
   }
 
-  _removeAttachment(id) {
+  _removeAttachment(id: string) {
     this.pendingAttachments = this.pendingAttachments.filter((a) => a.id !== id);
     this._renderAttachments();
   }
 
-  _escAtt(s) { return escaparHtml(s); }
+  _escAtt(...a: Parameters<typeof escaparHtml>) { return escaparHtml(...a); }
 
   /** Render the preview chips row above the composer. */
   _renderAttachments() {
@@ -380,10 +501,10 @@ class AIAssistantManager {
   }
 
   /** Render a read-only attachments strip inside a sent user bubble. */
-  _renderBubbleAttachments(bubble, atts) { desenharAnexosNaBolha(bubble, atts); }
+  _renderBubbleAttachments(...a: Parameters<typeof desenharAnexosNaBolha>) { desenharAnexosNaBolha(...a); }
 
   /** Full-size image viewer for an attached chat image. */
-  _openImageLightbox(src, alt) { abrirImagem(src, alt); }
+  _openImageLightbox(...a: Parameters<typeof abrirImagem>) { abrirImagem(...a); }
 
   /**
    * Shared turn dispatcher used by send() (a real user message) and
@@ -396,9 +517,8 @@ class AIAssistantManager {
    * main traduz isso em esforco de raciocinio (main/ai/effort_policy.js).
    * Ausente, vale o que a pessoa escolheu na interface.
    *
-   * @param {string} [operacao]
    */
-  _dispatchTurn(operacao) { return despacharTurno(this, operacao); }
+  _dispatchTurn(...a: Resto<typeof despacharTurno>) { return despacharTurno(this, ...a); }
 
   /* ---------------- autonomous turns (Phase E) ---------------- */
 
@@ -412,7 +532,7 @@ class AIAssistantManager {
    * that turn ends (see setStreaming → _drainAutoQueue). A safety cap stops
    * runaway self-chaining.
    */
-  autoContinue(content, opcoes) { continuarSozinho(this, content, opcoes); }
+  autoContinue(...a: Resto<typeof continuarSozinho>) { continuarSozinho(this, ...a); }
 
   _drainAutoQueue() { escoarAutonomos(this); }
 
@@ -421,7 +541,7 @@ class AIAssistantManager {
    * a assistente continua sozinha com o resultado. Porta do aurora_api
    * (ai.runInBackground); mora em js/ai/tarefa_em_segundo_plano.ts.
    */
-  runInBackground(pedido) { return correrEmSegundoPlano(this, pedido); }
+  runInBackground(...a: Resto<typeof correrEmSegundoPlano>) { return correrEmSegundoPlano(this, ...a); }
 
   stop() { return parar(this); }
 
@@ -439,13 +559,13 @@ class AIAssistantManager {
    */
   _recoverFromStall() { recuperarDoSilencio(this); }
 
-  handleChatEvent(ev) { tratarEvento(this, ev); }
+  handleChatEvent(...a: Resto<typeof tratarEvento>) { tratarEvento(this, ...a); }
 
   /* ---------------- streaming text segments ---------------- */
   // O texto aparecendo por quadro, a maquina de escrever, o fecho de cada
   // segmento e o selo do turno moram em js/ai/desenho_do_stream.ts.
 
-  appendDelta(delta) { receberPedaco(this, delta); }
+  appendDelta(...a: Resto<typeof receberPedaco>) { receberPedaco(this, ...a); }
   _revealSegment() { revelarSegmento(this); }
   _cancelarFrameDoStream() { cancelarDesenho(this); }
   /** Reveal the last segment, store it, tidy the DOM: commitTurn minus the teardown. */
@@ -453,7 +573,7 @@ class AIAssistantManager {
 
   commitTurn() { fecharTurno(this); }
 
-  failTurn(message) { falharTurno(this, message); }
+  failTurn(...a: Resto<typeof falharTurno>) { falharTurno(this, ...a); }
 
   /**
    * Re-arm the render accumulators for the NEXT in-session turn, after
@@ -477,18 +597,18 @@ class AIAssistantManager {
   // O grupo "N actions", os chips ao vivo e o chip da conversa reaberta moram
   // em js/ai/chips_de_ferramenta.ts; o painel e o contexto.
 
-  startToolChip(toolName, args, toolUseId) { iniciarChip(this, toolName, args, toolUseId); }
-  finishToolChip(toolName, result, toolUseId) { terminarChip(this, toolName, result, toolUseId); }
+  startToolChip(...a: Resto<typeof iniciarChip>) { iniciarChip(this, ...a); }
+  finishToolChip(...a: Resto<typeof terminarChip>) { terminarChip(this, ...a); }
   _closeToolGroup() { fecharGrupo(this); }
 
   /* ---------------- indicadores do turno ---------------- */
   // A palavra de pensando, o aviso de download da CLI e o contador de tokens
   // moram em js/ai/indicadores_do_turno.ts.
 
-  showThinking(show) { mostrarPensando(this, show); }
-  _renderCliDownload(ev) { mostrarDownloadDaCli(this, ev); }
+  showThinking(...a: Resto<typeof mostrarPensando>) { mostrarPensando(this, ...a); }
+  _renderCliDownload(...a: Resto<typeof mostrarDownloadDaCli>) { mostrarDownloadDaCli(this, ...a); }
   _clearCliDownload() { limparDownloadDaCli(this); }
-  applyUsage(usage) { somarUso(this, usage); }
+  applyUsage(...a: Resto<typeof somarUso>) { somarUso(this, ...a); }
   /** Refresh the compact composer token pill and (if open) the usage bars. */
   updateTokenCounter() { atualizarContador(this); }
 
@@ -509,13 +629,13 @@ class AIAssistantManager {
     el.style.height = (el.value ? Math.min(el.scrollHeight, 200) : 0) + 'px';
   }
 
-  setStreaming(streaming) { definirTransmissao(this, streaming); }
+  setStreaming(...a: Resto<typeof definirTransmissao>) { definirTransmissao(this, ...a); }
 
   /* ---------------- bubbles / clear ---------------- */
   // Os baloes, o voltar ao ponto e o divisor moram em js/ai/baloes_do_chat.ts.
 
-  appendBubble(role, content, opcoes) { return novoBalao(this, role, content, opcoes); }
-  appendDivider(text) { return novoDivisor(this, text); }
+  appendBubble(...a: Resto<typeof novoBalao>) { return novoBalao(this, ...a); }
+  appendDivider(...a: Resto<typeof novoDivisor>) { return novoDivisor(this, ...a); }
 
   /* ---------------- conversas ---------------- */
   // O ciclo da conversa (nova, abrir, gravar, renomear, apagar, tutorial) mora
@@ -523,14 +643,14 @@ class AIAssistantManager {
 
   newChat() { return novaConversa(this); }
   refreshChatList() { return relerLista(this); }
-  deleteChat(id) { return apagarConversa(this, id); }
-  loadChat(id) { return abrirConversa(this, id); }
+  deleteChat(...a: Resto<typeof apagarConversa>) { return apagarConversa(this, ...a); }
+  loadChat(...a: Resto<typeof abrirConversa>) { return abrirConversa(this, ...a); }
   persistCurrentChat() { return gravarConversa(this); }
 
   /* ---------------- clickable file references ---------------- */
 
   /** Abre um arquivo citado na resposta, na linha se ela veio (js/ai/abrir_referencia.ts). */
-  async openFileRef(fileName, line) {
+  async openFileRef(fileName: string, line?: number | null) {
     await abrirReferencia(fileName, line);
   }
 }
@@ -539,5 +659,5 @@ const aiAssistantManager = new AIAssistantManager();
 // Expose on window so AuroraAPI (which lives in a sibling module) can
 // reach back into the panel to show inline confirm / ask-question
 // cards without creating a circular import.
-try { window.aiAssistantManager = aiAssistantManager; } catch (_) { /* ignore */ }
+try { (window as unknown as { aiAssistantManager: AIAssistantManager }).aiAssistantManager = aiAssistantManager; } catch (_) { /* ignore */ }
 export { aiAssistantManager };

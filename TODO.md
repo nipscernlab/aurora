@@ -2259,8 +2259,8 @@ A cadeia, nesta ordem:
 
         Depois, também corrigido: a onda do PRISM aberta na aba do Surfer
         levava os tradutores da última corrida do Wave.
-      - [ ] `ai_assistant_manager` (em curso desde 30/09): de 3679 para
-        1477 linhas. Escolhido por ser o maior `.js` e o que mais muda. Saíram
+      - [x] `ai_assistant_manager` (30/09 a 02/10): de 3679 linhas `.js`
+        para 543 `.ts`, com 21 módulos em `js/ai/`. Escolhido por ser o maior `.js` e o que mais muda. Saíram
         `conversas_do_chat.ts` (nova, abrir, gravar, renomear, apagar e o
         tutorial guiado), `perguntas_inline.ts` (os cartões de permissão e de
         pergunta e o registro que fica no lugar), `layout_do_painel.ts`
@@ -2303,11 +2303,24 @@ A cadeia, nesta ordem:
         E2E `ai-panel-layout` chama pela instância (`_larguraPermitida`,
         `_aplicarLargura`) ficam.
 
-        O que sobra na classe: o molde HTML do `initialize` (~270 linhas), os
-        balões (`appendBubble`, `appendDivider`, `_voltarAoPontoDaBolha`,
-        `askAboutSelection`) e o núcleo do turno (`send`, filas, `_dispatchTurn`,
-        `handleChatEvent`, `failTurn`, `resetTurnState`, cão de guarda), que o
-        `aiTurnFlow` cobre. Depois disso, converter o resto inteiro.
+        Em 02/10 saíram também `molde_do_painel.ts` (o HTML, idêntico byte a
+        byte ao de antes), `baloes_do_chat.ts`, `envio_do_chat.ts` (mandar, o
+        turno vivo e as duas filas), `turno_do_chat.ts` (despacho, turnos
+        autônomos, Stop, cão de guarda e o fim do turno) e
+        `eventos_do_stream.ts` (cada pacote do stream). O turno saiu por
+        transformação mecânica, método a método, sem mudar o corpo. A classe
+        ficou com o construtor, a montagem e delegações de uma linha, e virou
+        `.ts`: os campos declarados com o tipo de depois da montagem (os que o
+        construtor não preenche como `declare`, sem valor inicial), as
+        delegações repassando os argumentos com o tipo da função do módulo.
+        Com isso o compilador confere que o painel cumpre o contrato de cada
+        módulo, e achou duas interfaces erradas (os anexos no envio e na
+        conversa, e o cache de tokens, que pode ainda não existir). Viraram
+        `.ts` antes: `chat_scroll`, `tool_call_text`, `ai_mark` e `chat_turn`.
+        Saíram três delegações sem chamador (`startTutorial`, `toggleHistory`,
+        `handleHistoryClick`). Ficam delegações que só os testes chamam
+        (`_escAtt`, `_getTrustExternalLinks` e afins), a porta deles para as
+        funções dos módulos.
 
         Achados de 01/10, abertos: o `_streamFlush` é lido e zerado no desenho
         do stream, mas nada o liga (o comentário diz que o fim do turno o

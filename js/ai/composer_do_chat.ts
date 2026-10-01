@@ -75,3 +75,80 @@ export function ligarComposer(p: PainelDoComposer): void {
   // O campo cresce com o texto (ate um teto, depois rola).
   p.inputEl.addEventListener('input', () => p.autoGrowInput());
 }
+
+/** O que o "perguntar sobre a selecao" usa do painel. */
+export interface PainelDaSelecao {
+  inputEl: HTMLTextAreaElement | null;
+  _isStreaming?: boolean;
+  _operacaoDoProximoEnvio?: string | null;
+  ensureOpen(): void;
+  autoGrowInput?(): void;
+  send(): unknown;
+}
+
+/** O pedido do botao de estrela do editor (window.AuroraAPI.ai.askAboutSelection). */
+export interface PedidoSobreSelecao {
+  code?: string; language?: string; filePath?: string;
+  lineStart?: number; lineEnd?: number; intent?: string; send?: boolean;
+}
+
+const INTENT_LEAD: Record<string, string> = {
+  explain: 'Explain what this code does',
+  fix: 'Find and fix any bugs in this code',
+  improve: 'Improve and refactor this code',
+  comment: 'Add clear, concise comments to this code',
+  doc: 'Write documentation for this code',
+};
+
+// Do botao para a operacao, e dai para o esforco. A regra e o RACIOCINIO que a
+// tarefa exige, e nao o nome do botao: explicar, comentar e documentar sao a
+// mesma leitura local de um trecho que ja esta na tela. `fix` e o oposto, exige
+// simular a execucao e comparar hipoteses. `improve` fica de fora de proposito:
+// vale o esforco que a pessoa escolheu na interface.
+const OPERACAO_DO_INTENT: Record<string, string> = {
+  explain: 'comentar',
+  comment: 'comentar',
+  doc: 'comentar',
+  fix: 'acharErros',
+};
+
+/**
+ * Abre o painel e poe no composer o trecho que a pessoa selecionou no editor,
+ * citado, com o arquivo e as linhas. Com uma intencao e `send`, o pedido sai na
+ * hora; sem intencao, o cursor fica no comeco para a pessoa escrever a
+ * pergunta em cima do trecho. Texto ja digitado no composer nao e apagado.
+ */
+export function perguntarSobreSelecao(
+  p: PainelDaSelecao,
+  { code = '', language = '', filePath = '', lineStart = 0, lineEnd = 0, intent = '', send = false }: PedidoSobreSelecao = {},
+): void {
+  const snippet = String(code || '').replace(/\s+$/, '');
+  if (!snippet) return;
+  p.ensureOpen();
+  /* v8 ignore next */ // ensureOpen monta o painel, e com ele o campo
+  if (!p.inputEl) return;
+  const input = p.inputEl;
+
+  const fileName = filePath ? String(filePath).split(/[\\/]/).pop() : '';
+  const lineRef = lineStart && lineEnd
+    ? (lineStart === lineEnd ? `line ${lineStart}` : `lines ${lineStart}–${lineEnd}`)
+    : '';
+  const where = fileName
+    ? `\`${fileName}\`${lineRef ? ` (${lineRef})` : ''}`
+    : (lineRef || 'the selection');
+
+  const lead = INTENT_LEAD[intent] || '';
+  const fence = '```' + (language || '');
+  const body = `${lead ? lead + ' ' : ''}from ${where}:\n\n${fence}\n${snippet}\n\`\`\`\n`;
+
+  const existing = input.value;
+  input.value = existing && !send ? `${existing.replace(/\s*$/, '')}\n\n${body}` : body;
+  p.autoGrowInput?.();
+  input.focus();
+  if (lead && send && !p._isStreaming) {
+    p._operacaoDoProximoEnvio = OPERACAO_DO_INTENT[intent] || null;
+    p.send();
+  } else if (!lead) {
+    try { input.setSelectionRange(0, 0); } catch (_) { /* ainda sem foco */ }
+  }
+}

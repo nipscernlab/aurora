@@ -33,7 +33,8 @@ import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { rolarAoFim, ligarRolagem } from '../ai/rolagem_do_chat.js';
 import { mostrarPensando, mostrarDownloadDaCli, limparDownloadDaCli, somarUso, atualizarContador } from '../ai/indicadores_do_turno.js';
 import { receberPedaco, revelarSegmento, cancelarDesenho, selarTextoDoTurno } from '../ai/desenho_do_stream.js';
-import { ligarComposer } from '../ai/composer_do_chat.js';
+import { ligarComposer, perguntarSobreSelecao } from '../ai/composer_do_chat.js';
+import { novoBalao, novoDivisor } from '../ai/baloes_do_chat.js';
 import { ligarCliquesNaConversa } from '../ai/cliques_na_conversa.js';
 import { moldeDoPainel } from '../ai/molde_do_painel.js';
 import { stripToolCallArtifacts } from '../ai/tool_call_text.js';
@@ -48,11 +49,7 @@ import {
   apagarConversa, abrirConversa, gravarConversa, ligarHistorico,
 } from '../ai/conversas_do_chat.js';
 import { buildApiMessages, buildProjectContext } from '../ai/chat_turn.js';
-import {
-  renderMarkdown, highlightCodeBlocks,
-  linkifyFileRefs,
-} from '../ai/chat_render.js';
-import { marcarPonto, rotuloDoPedido, voltarAoPonto, listarPontos } from '../ai/rewind.js';
+import { marcarPonto, rotuloDoPedido } from '../ai/rewind.js';
 import {
   CLAUDE_CODE_EFFORT, SUB_META, isSubProvider, STREAM_STALL_MS, STREAM_STALL_HARD_MS,
   readPermissionMode,
@@ -149,66 +146,11 @@ class AIAssistantManager {
   reclampWidth() { reaplicarLimite(this); }
 
   /**
-   * Public entry for the Monaco selection "star": open the panel and seed the
-   * composer with a snippet the user highlighted, so they can ask the AI about
-   * that exact passage. With a concrete `intent` ('explain'|'fix'|'improve'|
-   * 'comment'|'doc') and `send:true`, the message is dispatched immediately;
-   * otherwise the composer is just pre-filled and focused for the user to type.
-   *
-   * Reached via window.AuroraAPI.ai.askAboutSelection(...).
+   * O trecho selecionado no editor entra no composer, citado; com intencao e
+   * `send`, o pedido sai na hora. Porta do window.AuroraAPI.ai.askAboutSelection;
+   * mora em js/ai/composer_do_chat.ts.
    */
-  askAboutSelection({ code = '', language = '', filePath = '', lineStart = 0, lineEnd = 0, intent = '', send = false } = {}) {
-    const snippet = String(code || '').replace(/\s+$/, '');
-    if (!snippet) return;
-    this.ensureOpen();
-    if (!this.inputEl) return;
-
-    const fileName = filePath ? String(filePath).split(/[\\/]/).pop() : '';
-    const lineRef = lineStart && lineEnd
-      ? (lineStart === lineEnd ? `line ${lineStart}` : `lines ${lineStart}–${lineEnd}`)
-      : '';
-    const where = fileName
-      ? `\`${fileName}\`${lineRef ? ` (${lineRef})` : ''}`
-      : (lineRef || 'the selection');
-
-    const INTENT_LEAD = {
-      explain: 'Explain what this code does',
-      fix: 'Find and fix any bugs in this code',
-      improve: 'Improve and refactor this code',
-      comment: 'Add clear, concise comments to this code',
-      doc: 'Write documentation for this code',
-    };
-    // Do botao para a operacao, e dai para o esforco. A regra e o RACIOCINIO
-    // que a tarefa exige, e nao o nome do botao: explicar, comentar e
-    // documentar sao a mesma leitura local de um trecho que ja esta na tela,
-    // e caem na mesma linha da tabela. `fix` e o oposto, exige simular a
-    // execucao e comparar hipoteses. `improve` fica de fora de proposito: nao
-    // esta na tabela, entao vale o que a pessoa escolheu na interface, que e
-    // melhor do que inventarmos um esforco para quem paga a conta.
-    const OPERACAO_DO_INTENT = {
-      explain: 'comentar',
-      comment: 'comentar',
-      doc: 'comentar',
-      fix: 'acharErros',
-    };
-    const lead = INTENT_LEAD[intent] || '';
-    const fence = '```' + (language || '');
-    const body = `${lead ? lead + ' ' : ''}from ${where}:\n\n${fence}\n${snippet}\n\`\`\`\n`;
-
-    // Don't clobber a half-typed message the user already has in the composer.
-    const existing = this.inputEl.value;
-    this.inputEl.value = existing && !send ? `${existing.replace(/\s*$/, '')}\n\n${body}` : body;
-    this.autoGrowInput?.();
-    this.inputEl.focus();
-    if (lead && send && !this._isStreaming) {
-      this._operacaoDoProximoEnvio = OPERACAO_DO_INTENT[intent] || null;
-      this.send();
-    } else if (!lead) {
-      // Free-form "Ask…": leave the cursor at the very start so the user types
-      // their question above the quoted snippet.
-      try { this.inputEl.setSelectionRange(0, 0); } catch (_) { /* not focusable yet */ }
-    }
-  }
+  askAboutSelection(pedido) { perguntarSobreSelecao(this, pedido); }
 
   initialize() {
     // Idempotente de proposito. Sem esta guarda, uma segunda chamada criava um
@@ -1173,108 +1115,11 @@ class AIAssistantManager {
     }
   }
 
-  /**
-   * Volta o codigo ao instante em que aquela mensagem foi enviada.
-   *
-   * A bolha carrega o id da mensagem; o ponto e procurado por ele. Uma bolha
-   * de conversa carregada do disco (sem ponto, ou com ponto ja podado) nao
-   * pode oferecer um botao que nao faz nada, entao ela diz que nao ha ponto em
-   * vez de fingir.
-   */
-  async _voltarAoPontoDaBolha(el) {
-    const id = el?.getAttribute?.('data-ponto');
-    const pontos = await listarPontos();
-    const ponto = id ? pontos.find((p) => p.mensagemId === id) : null;
-    if (!ponto) {
-      try {
-        window.showNotification?.(
-          (window.t && window.t('rewind.noPoint') !== 'rewind.noPoint')
-            ? window.t('rewind.noPoint')
-            : 'No restore point for this message.',
-          'info', 4000, 'rewind');
-      } catch { /* sem notificacao */ }
-      return;
-    }
-    await voltarAoPonto(ponto.id);
-  }
-
   /* ---------------- bubbles / clear ---------------- */
+  // Os baloes, o voltar ao ponto e o divisor moram em js/ai/baloes_do_chat.ts.
 
-  appendBubble(role, content, { error = false } = {}) {
-    if (this.chatEmptyHint) this.chatEmptyHint.classList.add('hidden');
-    const el = document.createElement('div');
-    el.className = `ai-message ai-msg-${role}${error ? ' error' : ''}`;
-    const label = role === 'user' ? 'You' : 'Aurora Intelligence';
-    // Collapse the role label across a run of consecutive assistant bubbles.
-    // A single turn streams as several segments split by tool calls, and a
-    // background-task chain adds more, labelling every one produced the wall
-    // of repeated "AURORA INTELLIGENCE" headers. Show it once per assistant
-    // group; user messages, dividers and background-task chips reset the run
-    // (they clear _lastMsgRole) so the label reappears for the next section.
-    const showLabel = !(role === 'assistant' && this._lastMsgRole === 'assistant');
-    el.innerHTML = `
-      ${showLabel ? `<div class="ai-msg-role">${label}</div>` : ''}
-      <div class="ai-msg-content"></div>
-    `;
-    // So na bolha do usuario: o ponto foi marcado quando ELA foi enviada, e
-    // voltar significa desfazer o que veio depois dela. Na bolha da resposta o
-    // botao nao teria um instante proprio para apontar.
-    if (role === 'user') {
-      const voltar = document.createElement('button');
-      voltar.className = 'ai-msg-rewind';
-      voltar.type = 'button';
-      voltar.innerHTML = '<i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>';
-      const dica = (window.t && window.t('rewind.toHere') !== 'rewind.toHere')
-        ? window.t('rewind.toHere') : 'Rewind code to here';
-      voltar.title = dica;
-      voltar.setAttribute('aria-label', dica);
-      voltar.addEventListener('click', () => this._voltarAoPontoDaBolha(el));
-      el.appendChild(voltar);
-    }
-    const contentEl = el.querySelector('.ai-msg-content');
-    if (content) {
-      // Render markdown for BOTH roles. The user's own message goes through the
-      // same safe (HTML-escaped) renderer, so a fenced ```code``` block they
-      // paste shows as a real, syntax-highlighted code block, and inline
-      // `code`/file paths render, instead of raw backticks. Parity with the
-      // assistant bubble; the .ai-msg-user style still sets it apart visually.
-      contentEl.innerHTML = renderMarkdown(content);
-      highlightCodeBlocks(contentEl);
-      linkifyFileRefs(contentEl);
-    }
-    this.messagesEl.appendChild(el);
-    this._lastMsgRole = role;
-    // The user just sent a message: force-stick to the bottom even if
-    // they had been reading scrollback. For an assistant bubble we only
-    // follow if they're already at the bottom.
-    this.scrollToBottom(role === 'user');
-    return el;
-  }
-
-  /**
-   * Inline log divider, a hairline with centered text, in the style of
-   * Claude's VS Code extension when the active model changes. Used for
-   * ephemeral, non-conversational notes (model switched, etc.). NOT
-   * pushed to `this.messages` so the model never sees them and they
-   * don't persist into saved chats.
-   */
-  appendDivider(text) {
-    if (!this.messagesEl) return null;
-    if (this.chatEmptyHint) this.chatEmptyHint.classList.add('hidden');
-    const el = document.createElement('div');
-    el.className = 'ai-divider';
-    el.setAttribute('role', 'separator');
-    const span = document.createElement('span');
-    span.className = 'ai-divider-text';
-    span.textContent = text;
-    el.appendChild(span);
-    this.messagesEl.appendChild(el);
-    // A divider is a visual section break, let the next assistant bubble
-    // re-show its label.
-    this._lastMsgRole = null;
-    this.scrollToBottom();
-    return el;
-  }
+  appendBubble(role, content, opcoes) { return novoBalao(this, role, content, opcoes); }
+  appendDivider(text) { return novoDivisor(this, text); }
 
   /* ---------------- conversas ---------------- */
   // O ciclo da conversa (nova, abrir, gravar, renomear, apagar, tutorial) mora

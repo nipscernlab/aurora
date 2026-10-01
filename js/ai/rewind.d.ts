@@ -9,3 +9,12 @@
 
 /** Abre um ponto de retorno. Melhor esforco: falha vira null, sem lancar. */
 export function marcarPonto(meta?: Record<string, unknown>): Promise<unknown>;
+
+/** Um ponto de retorno gravado; `mensagemId` liga o ponto a mensagem que o marcou. */
+export interface PontoDeRetorno { id: string; mensagemId?: string; [campo: string]: unknown }
+
+/** Os pontos gravados, do mais recente para o mais antigo. Falha vira lista vazia. */
+export function listarPontos(): Promise<PontoDeRetorno[]>;
+
+/** Volta o projeto a um ponto, perguntando antes. Devolve se voltou. */
+export function voltarAoPonto(id: string, ponto?: PontoDeRetorno | null): Promise<boolean>;

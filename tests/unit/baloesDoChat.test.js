@@ -144,6 +144,9 @@ describe('perguntar sobre a selecao', () => {
     await abrir();
     painel.askAboutSelection({ code: 'a', filePath: 'b.v', lineStart: 7, lineEnd: 7 });
     expect(painel.inputEl.value).toContain('from `b.v` (line 7):');
+    painel.inputEl.value = '';
+    painel.askAboutSelection({ code: 'a', filePath: 'C:\\proj\\hw\\topo.v' });   // caminho do Windows
+    expect(painel.inputEl.value.startsWith('from `topo.v`:')).toBe(true);
     painel.inputEl.value = 'minha duvida   ';
     painel.askAboutSelection({ code: 'c', lineStart: 1, lineEnd: 2 });
     expect(painel.inputEl.value).toBe('minha duvida\n\nfrom lines 1–2:\n\n```\nc\n```\n');

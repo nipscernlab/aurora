@@ -2071,6 +2071,30 @@ sai quando ela acabar.
 
 ## 13. Desmacarronar o código (plano de 25/09/2026)
 
+**Ponto de retomada (02/10/2026).** Feitos: `compilation_module` (27/09) e
+`ai_assistant_manager` (02/10, 3679 linhas `.js` para 543 `.ts` e 21 módulos
+em `js/ai/`, detalhe no 13.3). A limpeza das menções a `HDL/` também está
+feita (`cb2399a4`); no próximo release do yanc a única mudança é subir o
+`YANC_TAG` em `components/Scripts/download-yanc.js`. Próximo gigante, pela
+medição: `js/git/git_panel.js` (2105 linhas), depois `js/tabs/tab_manager.js`
+(1986) e `js/editor/monaco_editor.js` (1685). O método que funcionou: teste de
+caracterização entrando pelo que a pessoa e os outros módulos chamam, sem
+espião de método da instância, rodado no `.js` antigo; extração por
+responsabilidade, com o painel como contexto; E2E com
+`npm run test:e2e:repete -- 2` antes de cada push, sem encadear o push no
+mesmo comando do teste.
+
+Em aberto desta etapa, nenhum bloqueia: o `_streamFlush` que nada liga
+(`desenho_do_stream.ts`); o teto de 60000 caracteres do tutorial que nunca é
+alcançado; um item `null` numa conversa gravada quebra o envio seguinte; o
+`askUserQuestion` do `aurora_api` confere um `null` que não chega; o
+`capture-media` deixa pastas no temp quando nenhum quadro é capturado ou o
+Electron não abre (14.1). Instabilidades com nome: `componentesIpc > saida
+com erro` e, sob carga, `edit-flow > clicking a .v file...` e `split-pane >
+opens tree file...` (13.3). Há um `git stash` antigo na main
+(`stash@{0}`, de f6be55e6, 28/09) que não é desta etapa: conferir antes de
+apagar.
+
 O diagnóstico, medido e não suposto. O emaranhado não está nos `import`: o
 renderer tem 208 módulos e um único par que se importa em roda
 (`js/tree/standard_tree_crud.js` e `js/tree/standard_tree_render.js`). Está em

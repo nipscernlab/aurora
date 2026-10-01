@@ -1,4 +1,4 @@
-// chat_turn.js: pure request-shaping for an AI chat turn, extracted from
+// chat_turn.ts: pure request-shaping for an AI chat turn, extracted from
 // ai_assistant_manager.js (A2 god-file decomposition).
 //
 // No DOM, no IPC, no instance state. The class keeps _dispatchTurn (session id,
@@ -16,14 +16,19 @@
 //              volta o que ele mesmo acabou de citar, pagando de novo pelo
 //              mesmo texto. A pagina inteira, quando ele precisa dela, volta
 //              como documento pelo main/ai/citacoes.js, e nao por aqui.
+import type { AnexoDaMensagem, MensagemDoChat } from './chat_history.js';
+
 const DISPLAY_ONLY_ROLES = new Set(['tool', 'question', 'citation']);
+
+/** Uma mensagem como vai para o modelo: papel, texto e, quando ha, os anexos copiados. */
+export interface MensagemParaApi { role: string; content: unknown; attachments?: AnexoDaMensagem[] }
 
 // Build the messages array sent to the model: drop display-only entries, and
 // CLONE each attachment so the post-send memory-hygiene strip (which deletes
 // `dataUrl` from the STORED history) can't also wipe the payload out of what we
 // are sending this turn.
-export function buildApiMessages(messages) {
-    const mapped = messages
+export function buildApiMessages(messages: MensagemDoChat[]): MensagemParaApi[] {
+    const mapped: MensagemParaApi[] = messages
         .filter((m) => !DISPLAY_ONLY_ROLES.has(m.role))
         .map((m) => (m.attachments && m.attachments.length
             ? { role: m.role, content: m.content, attachments: m.attachments.map((a) => ({ ...a })) }
@@ -33,7 +38,7 @@ export function buildApiMessages(messages) {
     // reproduces the live layout. But the Anthropic API, and others, require
     // roles to ALTERNATE, so merge adjacent same-role messages back into one
     // before sending. Alternating histories are unaffected (no adjacency).
-    const out = [];
+    const out: MensagemParaApi[] = [];
     for (const m of mapped) {
         const prev = out[out.length - 1];
         if (prev && prev.role === m.role) {
@@ -61,9 +66,8 @@ const MEMORY_BUDGET = 6000;
  * waste on the common path. It also sits AFTER the static SYSTEM_PROMPT, which
  * is what keeps the big cacheable prefix stable while this part varies.
  *
- * @param {Array<{name:string, content:string}>} memories
  */
-function buildMemoryBlock(memories) {
+function buildMemoryBlock(memories: Array<{ name: string; content: string; }>) {
     if (!Array.isArray(memories) || memories.length === 0) return '';
     let out = `\nPROJECT MEMORY — facts you were told to remember about THIS project (<root>/.aurora/memory/).\n` +
               `They are already here; do NOT call list_memories just to read them. If one contradicts what you\n` +
@@ -95,9 +99,8 @@ function buildMemoryBlock(memories) {
  * Only the missing ones are listed. Naming the installed ones every turn would
  * cost tokens on the common path to say nothing.
  *
- * @param {Array<{nome:string, resumo:string, instalado:boolean}>} componentes
  */
-function buildComponentsBlock(componentes) {
+function buildComponentsBlock(componentes: Array<{ nome: string; resumo: string; instalado: boolean; }>) {
     if (!Array.isArray(componentes)) return '';
     const missing = componentes.filter((c) => c && !c.instalado);
     if (missing.length === 0) return '';
@@ -111,7 +114,12 @@ function buildComponentsBlock(componentes) {
 // project paths every turn saves the model a get_current_project tool-call and
 // stops it hallucinating paths from earlier projects; rebuilt each turn so
 // switching projects mid-chat just works. (Text is model-facing, keep verbatim.)
-export function buildProjectContext(projectPath, spfPath, memories, componentes) {
+export function buildProjectContext(
+    projectPath: string | null | undefined,
+    spfPath: string | null | undefined,
+    memories: Parameters<typeof buildMemoryBlock>[0],
+    componentes: Parameters<typeof buildComponentsBlock>[0],
+): string {
     return (projectPath
         ? `\n\nACTIVE AURORA PROJECT — single source of truth, refreshed every turn:\n` +
           `  project_root: ${projectPath}\n` +

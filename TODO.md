@@ -2091,9 +2091,7 @@ alcançado; um item `null` numa conversa gravada quebra o envio seguinte; o
 `capture-media` deixa pastas no temp quando nenhum quadro é capturado ou o
 Electron não abre (14.1). Instabilidades com nome: `componentesIpc > saida
 com erro` e, sob carga, `edit-flow > clicking a .v file...` e `split-pane >
-opens tree file...` (13.3). Há um `git stash` antigo na main
-(`stash@{0}`, de f6be55e6, 28/09) que não é desta etapa: conferir antes de
-apagar.
+opens tree file...` (13.3).
 
 O diagnóstico, medido e não suposto. O emaranhado não está nos `import`: o
 renderer tem 208 módulos e um único par que se importa em roda

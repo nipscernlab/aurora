@@ -8,28 +8,28 @@
  * do GitHub, lista de pacotes do GitLab). Os download-*.js sao falsos, no cache
  * do require nativo, para a tag fixada ser a do caso.
  */
-import Module, { createRequire } from 'node:module';
+import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const req = createRequire(import.meta.url);
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SCRIPT = path.join(RAIZ, 'scripts', 'check-component-drift.js');
+const SCRIPT = path.join(RAIZ, 'scripts', 'check-component-drift.mts');
 const SCRIPTS = path.join(RAIZ, 'components', 'Scripts');
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
 
 /** O unico ponto que sabe como o script e rodado como programa. */
 const chamar = {
-  rodar: () => {
-    const mainOriginal = process.mainModule;
-    delete req.cache[SCRIPT];
-    try {
-      Module._load(SCRIPT, null, true);
-    } finally {
-      process.mainModule = mainOriginal;
-    }
+  // O .mts roda o main quando process.argv[1] e ele (o rodar() abaixo o poe).
+  rodar: async () => {
+    vi.resetModules();
+    await import(pathToFileURL(SCRIPT).href);
+  },
+  comoModulo: async () => {
+    vi.resetModules();
+    return import(pathToFileURL(SCRIPT).href);
   },
 };
 
@@ -102,7 +102,7 @@ async function rodar(args = [], { tty = false, env = {} } = {}) {
   delete process.env.NO_COLOR;
   Object.assign(process.env, env);
   Object.defineProperty(process.stdout, 'isTTY', { value: tty, configurable: true, writable: true });
-  chamar.rodar();
+  await chamar.rodar();
   for (let i = 0; i < 30; i++) await new Promise((r) => setImmediate(r));
 }
 
@@ -265,10 +265,9 @@ describe('a saida do processo', () => {
     expect(exit).toHaveBeenCalledWith(2);
   });
 
-  it('carregado como modulo, nao roda nada', () => {
+  it('carregado como modulo, nao roda nada', async () => {
     fixar({});
-    delete req.cache[SCRIPT];
-    const mod = req(SCRIPT);
+    const mod = await chamar.comoModulo();
     expect(Object.keys(mod).sort()).toEqual(['COMPONENTS', 'evaluate', 'renderMarkdown']);
     expect(fetch).not.toHaveBeenCalled();
     expect(log).toEqual([]);

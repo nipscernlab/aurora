@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// @ts-check
 /**
- * check-component-drift.js: descobre quando um componente fixado ficou para
+ * check-component-drift.mts: descobre quando um componente fixado ficou para
  * trás do que o upstream já publicou.
  *
  * POR QUE ISTO EXISTE
@@ -46,27 +45,27 @@
  * aberta, atualizada enquanto houver deriva e fechada sozinha quando não houver.
  *
  * Uso:
- *   node scripts/check-component-drift.js
- *   node scripts/check-component-drift.js --json
- *   node scripts/check-component-drift.js --only surfer,yanc
- *   node scripts/check-component-drift.js --fail-on-drift   # sai 1 se houver
+ *   node scripts/check-component-drift.mts
+ *   node scripts/check-component-drift.mts --json
+ *   node scripts/check-component-drift.mts --only surfer,yanc
+ *   node scripts/check-component-drift.mts --fail-on-drift   # sai 1 se houver
  */
 
-'use strict';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const path = require('path');
-
-const REPO_ROOT = path.join(__dirname, '..');
+// Os download-*.js sao CommonJS: a tag fixada sai deles por require.
+const carregarCjs = createRequire(import.meta.url);
+const REPO_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPTS_DIR = path.join(REPO_ROOT, 'components', 'Scripts');
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Núcleo puro. É o que o teste exercita, sem rede, sem disco.
  * ──────────────────────────────────────────────────────────────────────── */
 
-/**
- * @typedef {{ tag: string, date?: string }} Published
- * @typedef {'ok'|'behind'|'absent'|'unknown'|'bad-family'} DriftStatus
- */
+export interface Published { tag: string; date?: string }
+export type DriftStatus = 'ok' | 'behind' | 'absent' | 'unknown' | 'bad-family';
 
 /**
  * Decide o estado de um componente a partir da tag fixada e da lista publicada.
@@ -86,12 +85,10 @@ const SCRIPTS_DIR = path.join(REPO_ROOT, 'components', 'Scripts');
  *                  mais grave que estar atrás, porque o bootstrap vai falhar.
  *   'ok'        , a fixada é a mais nova da família.
  *   'behind'    , está atrás, e `behind` diz por quantas.
- *
- * @param {{ pinned: string, family: RegExp, published: Published[] }} input
- * @returns {{ status: DriftStatus, latest: string|null, latestDate: string|null, behind: number }}
  */
-function evaluate({ pinned, family, published }) {
-  const nothing = { latest: /** @type {string|null} */ (null), latestDate: /** @type {string|null} */ (null), behind: 0 };
+function evaluate({ pinned, family, published }: { pinned: string | null | undefined; family: RegExp; published: Published[] | null | undefined }):
+  { status: DriftStatus; latest: string | null; latestDate: string | null; behind: number } {
+  const nothing = { latest: null as string | null, latestDate: null as string | null, behind: 0 };
 
   if (!pinned || !family.test(pinned)) {
     return { status: 'bad-family', ...nothing };
@@ -116,8 +113,12 @@ function evaluate({ pinned, family, published }) {
  * sendo a fonte única. Este arquivo só sabe onde procurar o que foi publicado.
  * ──────────────────────────────────────────────────────────────────────── */
 
-/** @type {Array<{key:string,label:string,ours:boolean,script:string,tagOf:(m:any)=>string|null,family:RegExp,upstream:any}>} */
-const COMPONENTS = [
+/** De onde vem a lista publicada de um componente. */
+interface Upstream { kind: string; repo?: string; project?: number; name?: string }
+
+// Cada download-*.js exporta um formato proprio; o tagOf de cada entrada sabe o seu.
+type ModuloDeDownload = any;
+const COMPONENTS: Array<{ key: string; label: string; ours: boolean; script: string; tagOf: (m: ModuloDeDownload) => string | null; family: RegExp; upstream: Upstream }> = [
   {
     key: 'toolchain',
     label: 'Toolchain MSYS/mingw64',
@@ -194,33 +195,25 @@ const COMPONENTS = [
 
 const UA = 'aurora-component-drift';
 
-/**
- * @param {string} url
- * @param {Record<string, string>} [headers]
- */
-async function getJson(url, headers = {}) {
+async function getJson(url: string, headers: Record<string, string> = {}) {
   const res = await fetch(url, { headers: { 'User-Agent': UA, ...headers } });
   if (!res.ok) throw new Error(`HTTP ${res.status} em ${url}`);
   return res.json();
 }
 
-/**
- * @param {{ kind: string, repo?: string, project?: string, name?: string }} upstream
- * @returns {Promise<Published[]>} mais novas primeiro
- */
-async function fetchPublished(upstream) {
+/** A lista publicada, das mais novas para as mais velhas. */
+async function fetchPublished(upstream: Upstream): Promise<Published[]> {
   if (upstream.kind === 'github-releases') {
     // Sem `/releases/latest`: ele ignora pre-release, e o bundle da toolchain e
     // publicado exatamente assim. A lista traz tudo, ja da mais nova pra mais
     // velha. O token, quando existe, so sobe o limite de requisicoes.
-    /** @type {Record<string, string>} */
-    const headers = { Accept: 'application/vnd.github+json' };
+    const headers: Record<string, string> = { Accept: 'application/vnd.github+json' };
     const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
     if (token) headers.Authorization = `Bearer ${token}`;
     const rel = await getJson(`https://api.github.com/repos/${upstream.repo}/releases?per_page=30`, headers);
     return (Array.isArray(rel) ? rel : [])
-      .filter((r) => !r.draft)
-      .map((r) => ({ tag: r.tag_name, date: (r.published_at || r.created_at || '').slice(0, 10) }));
+      .filter((r: { draft?: boolean }) => !r.draft)
+      .map((r: { tag_name: string; published_at?: string | null; created_at?: string | null }) => ({ tag: r.tag_name, date: (r.published_at || r.created_at || '').slice(0, 10) }));
   }
 
   if (upstream.kind === 'gitlab-packages') {
@@ -228,8 +221,8 @@ async function fetchPublished(upstream) {
       + '/packages?package_type=generic&order_by=created_at&sort=desc&per_page=50';
     const pkgs = await getJson(url);
     return (Array.isArray(pkgs) ? pkgs : [])
-      .filter((p) => !upstream.name || p.name === upstream.name)
-      .map((p) => ({ tag: p.version, date: (p.created_at || '').slice(0, 10) }));
+      .filter((p: { name?: string }) => !upstream.name || p.name === upstream.name)
+      .map((p: { version: string; created_at?: string | null }) => ({ tag: p.version, date: (p.created_at || '').slice(0, 10) }));
   }
 
   throw new Error(`fonte desconhecida: ${upstream.kind}`);
@@ -240,8 +233,8 @@ async function fetchPublished(upstream) {
  * ──────────────────────────────────────────────────────────────────────── */
 
 const argv = process.argv.slice(2);
-const has = (/** @type {string} */ f) => argv.includes(f);
-const valueOf = (/** @type {string} */ f) => {
+const has = (f: string) => argv.includes(f);
+const valueOf = (f: string) => {
   const i = argv.indexOf(f);
   return i >= 0 && argv[i + 1] ? argv[i + 1] : null;
 };
@@ -253,29 +246,28 @@ const FLAG = {
 };
 
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
-const c = (/** @type {string} */ code, /** @type {string} */ s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
-const bold = (/** @type {string} */ s) => c('1', s);
-const green = (/** @type {string} */ s) => c('32', s);
-const red = (/** @type {string} */ s) => c('31', s);
-const yellow = (/** @type {string} */ s) => c('33', s);
-const dim = (/** @type {string} */ s) => c('2', s);
+const c = (code: string, s: string) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
+const bold = (s: string) => c('1', s);
+const green = (s: string) => c('32', s);
+const red = (s: string) => c('31', s);
+const yellow = (s: string) => c('33', s);
+const dim = (s: string) => c('2', s);
 
-/** @param {(typeof COMPONENTS)[number]} comp */
-async function inspect(comp) {
+async function inspect(comp: (typeof COMPONENTS)[number]) {
   const row = {
     key: comp.key,
     label: comp.label,
     ours: comp.ours,
-    pinned: /** @type {string|null} */ (null),
-    latest: /** @type {string|null} */ (null),
-    latestDate: /** @type {string|null} */ (null),
+    pinned: null as string | null,
+    latest: null as string | null,
+    latestDate: null as string | null,
     behind: 0,
-    status: /** @type {DriftStatus|'error'} */ ('unknown'),
-    error: /** @type {string|null} */ (null),
+    status: 'unknown' as DriftStatus | 'error',
+    error: null as string | null,
   };
 
   try {
-    const mod = require(path.join(SCRIPTS_DIR, comp.script));
+    const mod = carregarCjs(path.join(SCRIPTS_DIR, comp.script));
     row.pinned = comp.tagOf(mod);
   } catch (e) {
     row.status = 'error';
@@ -310,9 +302,10 @@ async function inspect(comp) {
   return row;
 }
 
-/** @param {Awaited<ReturnType<typeof inspect>>[]} rows */
-function render(rows) {
-  const LABEL = {
+type Linha = Awaited<ReturnType<typeof inspect>>;
+
+function render(rows: Linha[]) {
+  const LABEL: Record<string, string> = {
     ok: green('[ EM DIA ]'),
     behind: yellow('[ ATRAS  ]'),
     absent: red('[ SUMIU  ]'),
@@ -337,7 +330,7 @@ function render(rows) {
       console.log(`            fixado ${bold(String(r.pinned))} NAO esta publicado; o mais novo e ${r.latest}`);
       console.log('            o bootstrap vai falhar em maquina limpa');
     } else if (r.status === 'bad-family') {
-      console.log(`            a tag fixada ${r.pinned} nao casa com ${r.family || 'a familia declarada'}`);
+      console.log(`            a tag fixada ${r.pinned} nao casa com ${(r as { family?: unknown }).family || 'a familia declarada'}`);
       console.log('            e bug de configuracao do check-component-drift.js, nao deriva');
     } else if (r.status === 'error' || r.status === 'unknown') {
       console.log(`            ${r.error || 'sem base de comparacao'}`);
@@ -363,10 +356,9 @@ function render(rows) {
  * Corpo da issue que o workflow mantém. Fica aqui, e não no YAML, porque quem
  * mexe no que é reportado é quem mexe nesta tabela, e YAML com lógica dentro é
  * onde erro de formatação passa despercebido.
- * @param {Awaited<ReturnType<typeof inspect>>[]} rows
  */
-function renderMarkdown(rows) {
-  const out = [];
+function renderMarkdown(rows: Linha[]) {
+  const out: string[] = [];
   const problems = rows.filter((r) => r.status === 'behind' || r.status === 'absent' || r.status === 'bad-family');
 
   out.push('Gerado por `scripts/check-component-drift.js`, do workflow semanal.');
@@ -413,7 +405,7 @@ async function main() {
     ? COMPONENTS.filter((c2) => FLAG.only.includes(c2.key))
     : COMPONENTS;
 
-  const rows = [];
+  const rows: Linha[] = [];
   for (const comp of wanted) rows.push(await inspect(comp));
 
   if (FLAG.json) {
@@ -430,11 +422,13 @@ async function main() {
   if (FLAG.failOnDrift && drifted) process.exit(1);
 }
 
-if (require.main === module) {
+// So roda quando chamado direto (`node scripts/check-component-drift.mts`);
+// importado, entrega as funcoes.
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   main().catch((e) => {
     console.error(`[drift] falhou: ${e instanceof Error ? e.stack : String(e)}`);
     process.exit(2);
   });
 }
 
-module.exports = { evaluate, renderMarkdown, COMPONENTS };
+export { evaluate, renderMarkdown, COMPONENTS };

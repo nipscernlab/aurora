@@ -31,10 +31,10 @@ import {
   COMPONENTES, obter, estaInstalado, mensagemDeAusencia,
   diagnosticar, listar, definirRaizParaTestes,
 } from '../../main/components/registry.js';
+import { COMPONENTS as DERIVA } from '../../scripts/check-component-drift.mts';
 import { createRequire } from 'node:module';
 
 const criarRequire = createRequire(import.meta.url);
-const { COMPONENTS: DERIVA } = criarRequire('../../scripts/check-component-drift.js');
 const { NOME_PADRAO } = criarRequire('../../components/Scripts/lib/version_stamp.js');
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -218,7 +218,7 @@ describe('versao: o catalogo e o instalador fixam a MESMA tag', () => {
   // O painel diz "atualizacao disponivel" comparando o carimbo que o
   // instalador gravou com a `versao` daqui. Se alguem subir a tag num lado so,
   // ou o painel pede atualizacao para sempre, ou nunca pede. O guarda de deriva
-  // (scripts/check-component-drift.js) ja sabe ler a tag de cada script; e a
+  // (scripts/check-component-drift.mts) ja sabe ler a tag de cada script; e a
   // mesma leitura que amarra os dois lados aqui.
   const CHAVE_DA_DERIVA = { toolchain: 'msys' };
 

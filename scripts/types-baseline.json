@@ -29,8 +29,5 @@
   "main/windows.js": {
     "TS2339": 1,
     "TS2345": 1
-  },
-  "scripts/check-component-drift.js": {
-    "TS2339": 1
   }
 }

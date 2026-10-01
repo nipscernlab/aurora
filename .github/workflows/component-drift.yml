@@ -51,7 +51,7 @@ jobs:
           # repositorio publico funciona sem ele, ate o limite por IP acabar.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node scripts/check-component-drift.js --markdown --fail-on-drift > corpo.md && rc=0 || rc=$?
+          node scripts/check-component-drift.mts --markdown --fail-on-drift > corpo.md && rc=0 || rc=$?
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
           cat corpo.md
 
@@ -60,7 +60,7 @@ jobs:
       - name: O proprio guarda quebrou
         if: steps.drift.outputs.rc == '2'
         run: |
-          echo "::error::check-component-drift.js falhou. Veja o log acima."
+          echo "::error::check-component-drift.mts falhou. Veja o log acima."
           exit 1
 
       - name: Abrir, atualizar ou fechar a issue

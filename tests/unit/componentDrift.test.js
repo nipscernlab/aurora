@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'node:module';
 
-const require = createRequire(import.meta.url);
-const { evaluate, COMPONENTS } = require('../../scripts/check-component-drift.js');
+import { evaluate, COMPONENTS } from '../../scripts/check-component-drift.mts';
 
-// O decisor do guarda de deriva (scripts/check-component-drift.js). A rede fica
+const require = createRequire(import.meta.url);
+
+// O decisor do guarda de deriva (scripts/check-component-drift.mts). A rede fica
 // de fora de proposito: o que precisa de teste e a leitura da lista publicada,
 // porque um erro ali nao aparece como falha, aparece como silencio, que foi
 // exatamente como o Surfer ficou cinco versoes atras sem ninguem ver.

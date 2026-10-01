@@ -2393,7 +2393,7 @@ formalmente, não consertado.
   couber no monitor. Medir a janela antes de suspeitar do código.
 - Máquina nova de desenvolvimento: `git pull`, `npm ci`,
   `node scripts/verify-components.mts --yes`. Conferência sem baixar nada:
-  `node scripts/check-component-drift.js`, que deve dizer "7 em dia". A pasta
+  `node scripts/check-component-drift.mts`, que deve dizer "7 em dia". A pasta
   `components/` não é versionada, então um `git pull` traz os scripts mas não os
   binários.
 - O barramento de eventos da AuroraAPI não tem nenhum assinante, e o comentário

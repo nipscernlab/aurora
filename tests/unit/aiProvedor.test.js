@@ -303,10 +303,12 @@ describe('uso da assinatura', () => {
   it('trocar de provedor enquanto a sonda roda nao desenha o uso do outro', async () => {
     await abrir();
     painel.selectProvider('claude-code');
-    const spy = vi.spyOn(painel, 'renderUsage');
+    // Uma marca no lugar das barras: desenhar o uso as apagaria. Espiar o
+    // metodo nao serviria, porque o desenho nao passa pela instancia.
+    painel.usageBars.innerHTML = '<i id="marca"></i>';
     api.getClaudeCodeUsage = vi.fn(async () => { painel.currentProvider = 'anthropic'; return { usage: null }; });
     await painel.refreshSubUsage();
-    expect(spy).not.toHaveBeenCalled();
+    expect(painel.usageBars.querySelector('#marca')).toBeTruthy();
   });
 });
 

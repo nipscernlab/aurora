@@ -33,7 +33,8 @@ import { iniciarChip, terminarChip, fecharGrupo } from '../ai/chips_de_ferrament
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { rolarAoFim, ligarRolagem } from '../ai/rolagem_do_chat.js';
 import { mostrarPensando, mostrarDownloadDaCli, limparDownloadDaCli, somarUso, atualizarContador } from '../ai/indicadores_do_turno.js';
-import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
+import { receberPedaco, revelarSegmento, cancelarDesenho, selarTextoDoTurno } from '../ai/desenho_do_stream.js';
+import { stripToolCallArtifacts } from '../ai/tool_call_text.js';
 import { abrirReferencia, abrirCaminhoDoChat } from '../ai/abrir_referencia.js';
 import { confiaEmLinksExternos, definirConfiancaEmLinks, confirmarLinkExterno } from '../ai/link_externo.js';
 import { adicionarArquivos, abrirImagem, desenharAnexos, desenharAnexosNaBolha, escaparHtml } from '../ai/anexos_do_chat.js';
@@ -1338,241 +1339,14 @@ class AIAssistantManager {
   }
 
   /* ---------------- streaming text segments ---------------- */
+  // O texto aparecendo por quadro, a maquina de escrever, o fecho de cada
+  // segmento e o selo do turno moram em js/ai/desenho_do_stream.ts.
 
-  appendDelta(delta) {
-    if (!delta) return;
-    // Text resuming after a run of tools closes that batch (tidy summary).
-    this._closeToolGroup();
-    // O texto flui conforme chega. Houve uma epoca de "acumula e revela no
-    // fim", porque re-renderizar markdown a cada token tremia e o codigo so
-    // ganhava realce no final. O que resolve as duas coisas nao e represar a
-    // resposta, e sim renderizar POR FRAME (um rAF junta os tokens do frame),
-    // com a maquina de escrever suavizando os blocos grandes das CLIs, e
-    // deixar o realce de codigo e os links para a passada final, em
-    // _revealSegment. Ver uma resposta aparecer inteira do nada era pior do
-    // que qualquer tremor.
-    this.segmentBuffer += delta;
-    this.turnText += delta;
-    if (!this._revealLength) this.showThinking(true);
-    this._scheduleStreamRender();
-  }
-
-  /**
-   * Render the accumulated segment in full, once: strip tool-call artefacts,
-   * render markdown, syntax-highlight code, then play a quick staggered fade-in
-   * on the blocks. Called at each segment boundary (tool call / finish), so the
-   * user waits with the thinking dots and then the answer flows in cleanly.
-   */
-  _revealSegment() {
-    // A passada final do segmento: cancela o frame pendente, renderiza o texto
-    // inteiro sem a maquina de escrever, e so agora faz o que custa caro e
-    // nao pode ser feito por frame: realce de codigo e links de arquivo.
-    this._cancelarFrameDoStream();
-    const buf = this.segmentBuffer || '';
-    const displayText = (mayHaveToolArtifacts(buf) ? stripToolCallArtifacts(buf) : buf).trim();
-
-    if (!displayText) {
-      // Pure tool-call artifact / whitespace, never leave an empty bubble.
-      if (this.currentAssistantContentEl) {
-        this.currentAssistantContentEl.closest('.ai-message')?.remove();
-        this.currentAssistantContentEl = null;
-      }
-      this._revealLength = 0;
-      return;
-    }
-
-    this.showThinking(false);
-    const nadaMostrado = !this.currentAssistantContentEl || !(this._revealLength > 0);
-    if (!this.currentAssistantContentEl) {
-      const bubble = this.appendBubble('assistant', '');
-      this.currentAssistantContentEl = bubble.querySelector('.ai-msg-content');
-    }
-    this.currentAssistantContentEl.innerHTML = renderMarkdown(displayText);
-    highlightCodeBlocks(this.currentAssistantContentEl);
-    linkifyFileRefs(this.currentAssistantContentEl);
-    // A cascata so quando o texto NAO estava na tela (segmento que chegou
-    // inteiro de uma vez); animar de novo o que ja se leu e tremor.
-    if (nadaMostrado) this._applyRevealCascade(this.currentAssistantContentEl);
-    this._revealLength = 0;
-    this.scrollToBottom();
-  }
-
-  /** Quick staggered fade-in over the rendered blocks of a revealed segment. */
-  _applyRevealCascade(el) {
-    if (!el) return;
-    const kids = Array.from(el.children);
-    kids.forEach((k, i) => {
-      k.classList.add('ai-reveal-block');
-      k.style.animationDelay = `${Math.min(i * 45, 360)}ms`;
-    });
-  }
-
-  /** Queue a streaming re-render on the next frame (idempotent per frame). */
-  _scheduleStreamRender() {
-    if (this._streamRenderRaf) return;
-    // rAF junta os tokens de um frame, mas numa janela ao fundo o Electron o
-    // estrangula (medido: o texto parava em 10 de 66 caracteres); um
-    // temporizador curto e a alternativa, e o primeiro dos dois que disparar
-    // cancela o outro.
-    const rodar = () => {
-      this._cancelarFrameDoStream();
-      this._renderStreamingBubble();
-    };
-    this._streamRenderRaf = requestAnimationFrame(rodar);
-    this._streamRenderTimer = setTimeout(rodar, 40);
-  }
-
-  _cancelarFrameDoStream() {
-    if (this._streamRenderRaf) { cancelAnimationFrame(this._streamRenderRaf); this._streamRenderRaf = null; }
-    if (this._streamRenderTimer) { clearTimeout(this._streamRenderTimer); this._streamRenderTimer = null; }
-  }
-
-  /** Render the accumulated stream buffer with the fade-reveal suffix. */
-  _renderStreamingBubble() {
-    // Strip tool-call artefacts that some models (Llama/Qwen) emit as inline
-    // text (see tool_call_text.js). mayHaveToolArtifacts skips the three
-    // full-buffer scans on the common case (no markers, Claude & most models),
-    // so a long well-behaved response pays nothing; result is identical.
-    const buf = this.segmentBuffer;
-    const displayText = (mayHaveToolArtifacts(buf) ? stripToolCallArtifacts(buf) : buf).trim();
-    // If stripping removes everything and the buffer looks like a tool-call
-    // JSON being streamed token-by-token, render empty rather than flashing
-    // raw JSON at the user (the tool chip will appear shortly).
-    const looksLikeToolArtifact = !displayText &&
-      /^\s*[⺀-鿿]*\s*\{/.test(this.segmentBuffer) &&
-      /"name"\s*:/.test(this.segmentBuffer);
-    // Use the cleaned + trimmed text only. The old `|| this.segmentBuffer`
-    // fallback meant a segment that trimmed to empty (whitespace, or a fully
-    // stripped tool-call artifact) still rendered the raw buffer, creating an
-    // empty assistant bubble whose top/bottom borders showed as a pair of
-    // faint hairlines ("várias linhas" between real answers). With displayText
-    // alone, such segments yield '' and the block below drops the bubble.
-    // Real prose (even containing "<" or "{") always survives in displayText.
-    const sourceText = looksLikeToolArtifact ? '' : displayText;
-
-    if (!sourceText) {
-      // Nothing visible yet (segment is pure tool-call artifact / whitespace,
-      // or it just stripped down to empty as a streamed <tool_call> block
-      // completed). Drop any bubble we optimistically created so no empty
-      // "Aurora Intelligence" bar is left behind; the tool chip carries the
-      // information instead.
-      if (this.currentAssistantContentEl) {
-        this.currentAssistantContentEl.closest('.ai-message')?.remove();
-        this.currentAssistantContentEl = null;
-        this._revealLength = 0;
-      }
-      return;
-    }
-
-    // Real text is about to render, retire the "thinking…" dots NOW (not on
-    // the first raw delta in handleChatEvent), so the dots stay on screen
-    // continuously until the first words appear, with no blank gap between.
-    this.showThinking(false);
-
-    // Create the segment bubble lazily, now that there is real text to show.
-    if (!this.currentAssistantContentEl) {
-      const bubble = this.appendBubble('assistant', '');
-      this.currentAssistantContentEl = bubble.querySelector('.ai-msg-content');
-    }
-
-    // Fade reveal: re-render the bubble, then wrap any characters that
-    // weren't visible last frame in <span.ai-fade-reveal> so they animate
-    // from soft purple → normal. We mark the boundary in the source text
-    // BEFORE markdown rendering so the span surrounds whole tokens, not
-    // partial HTML tags.
-    // Typewriter reveal: advance a cursor toward the buffered text a fraction at
-    // a time, so a large provider chunk (CLI bridges deliver big blocks) flows
-    // in smoothly instead of dumping all at once. _revealLength doubles as the
-    // cursor (chars shown so far); the fade animates the slice revealed this
-    // frame. On finish, _streamFlush forces the whole thing to show at once.
-    const prevShown = Math.min(this._revealLength || 0, sourceText.length);
-    let shown;
-    if (this._streamFlush || prevShown >= sourceText.length) {
-      shown = sourceText.length;
-    } else {
-      const gap = sourceText.length - prevShown;
-      shown = Math.min(sourceText.length, prevShown + Math.max(2, Math.ceil(gap * 0.16)));
-    }
-    this._streamFlush = false;
-    this.currentAssistantContentEl.innerHTML = this._renderWithReveal(sourceText.slice(0, shown), prevShown);
-    this._revealLength = shown;
-    this.scrollToBottom();
-    // Keep revealing the buffered tail on the next frames even if no new delta
-    // arrives, until the cursor catches up to everything received so far.
-    if (shown < sourceText.length) this._scheduleStreamRender();
-  }
-
-  /**
-   * Render markdown with a fade-reveal span around the suffix that begins
-   * at `revealOffset`. The marker is dropped into the source text via a
-   * PUA sentinel pair so it survives escapeHtml() and renderMarkdown's
-   * paragraph/list splitting; afterwards we swap the sentinels for the
-   * real <span class="ai-fade-reveal"> tags.
-   */
-  _renderWithReveal(text, revealOffset) {
-    if (!text) return '';
-    if (revealOffset <= 0 || revealOffset >= text.length) return renderMarkdown(text);
-    // Use a sentinel that's safe across markdown rules (paragraphs,
-    // lists, code-fences …). PUA U+E040/U+E041 stay literal everywhere.
-    const OPEN  = 'AI_REVEAL_OPEN';
-    const CLOSE = 'AI_REVEAL_CLOSE';
-    const head = text.slice(0, revealOffset);
-    const tail = text.slice(revealOffset);
-    // Don't slice through a code fence, if the head ends inside an open
-    // ```, drop the reveal so we don't poison the highlighter. Renders
-    // without animation in that case; the next delta re-tries.
-    const openFences = (head.match(/```/g) || []).length;
-    if (openFences % 2 !== 0) return renderMarkdown(text);
-    const marked = `${head}${OPEN}${tail}${CLOSE}`;
-    let html = renderMarkdown(marked);
-    // The sentinels survived rendering, convert to real spans, and
-    // accept stray openings that happen to land inside attributes by
-    // simply stripping any unmatched pair.
-    html = html.split(OPEN).join('<span class="ai-fade-reveal">');
-    html = html.split(CLOSE).join('</span>');
-    return html;
-  }
-
-  /**
-   * Seal what the turn produced: reveal the last segment, store it, tidy the
-   * DOM. Everything commitTurn does EXCEPT the turn-ending teardown.
-   *
-   * It is separate because the `more` path needs exactly this half and must
-   * NOT get the other one. See handleChatEvent's `finish` case.
-   */
-  _sealTurnText() {
-    // Collapse the final tool batch so a finished turn reads clean.
-    this._closeToolGroup();
-    // Reveal the final segment in full (markdown + syntax highlight + fade
-    // cascade). Any in-flight stream-render frame is cancelled first.
-    this._cancelarFrameDoStream();
-    this._revealSegment();
-    // Persist only the FINAL segment (text produced after the last tool call);
-    // any earlier segments were already stored at their tool-call boundaries
-    // above. Strip XML tool-call artifacts before storing, they confuse models
-    // on subsequent turns.
-    const cleanText = stripToolCallArtifacts(
-      this.turnText.slice(this._committedTurnLen || 0)).trim();
-    if (cleanText) {
-      this.messages.push({ role: 'assistant', content: cleanText });
-    }
-    if (this.currentAssistantContentEl) {
-      highlightCodeBlocks(this.currentAssistantContentEl);
-      linkifyFileRefs(this.currentAssistantContentEl);
-    }
-
-    // If the model called tools but never generated a text explanation
-    // (common with some Ollama models), show a prompt so the user knows
-    // the turn is over and can ask a follow-up.
-    if (!cleanText && this.hadToolCalls) {
-      this.appendBubble('assistant', '_All actions completed. Ask a follow-up if you want details._');
-    }
-
-    // Backstop: drop any assistant bubble that ended up with no visible
-    // content, so a stray empty segment never lingers as the faint pair of
-    // top/bottom-border hairlines between real answers.
-    this._pruneEmptyBubbles();
-  }
+  appendDelta(delta) { receberPedaco(this, delta); }
+  _revealSegment() { revelarSegmento(this); }
+  _cancelarFrameDoStream() { cancelarDesenho(this); }
+  /** Reveal the last segment, store it, tidy the DOM: commitTurn minus the teardown. */
+  _sealTurnText() { selarTextoDoTurno(this); }
 
   commitTurn() {
     this._sealTurnText();
@@ -1582,21 +1356,6 @@ class AIAssistantManager {
     this.resetTurnState();
     // Auto-save the conversation after every turn.
     this.persistCurrentChat();
-  }
-
-  /**
-   * Remove assistant bubbles whose content is visually empty (no text and no
-   * element children, so image/code-only bubbles are preserved). Defensive
-   * cleanup against empty "hairline" bars; the lazy creation in
-   * _renderStreamingBubble already avoids creating them in the common case.
-   */
-  _pruneEmptyBubbles() {
-    if (!this.messagesEl) return;
-    for (const content of this.messagesEl.querySelectorAll('.ai-msg-assistant .ai-msg-content')) {
-      if (!content.firstElementChild && !content.textContent.trim()) {
-        content.closest('.ai-message')?.remove();
-      }
-    }
   }
 
   failTurn(message) {

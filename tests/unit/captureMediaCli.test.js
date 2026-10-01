@@ -61,6 +61,10 @@ let erros;
 let exit;
 const argvOriginal = process.argv;
 const playwrightOriginal = req.cache[PLAYWRIGHT];
+const TMP = req('os').tmpdir();
+/** As pastas temporarias do script: o caso apaga as que criou (algumas o script deixa, ver o TODO). */
+const pastasDoScript = () => new Set(fs.readdirSync(TMP).filter((n) => /^aurora-(capture|gif)-/.test(n)));
+let pastasAntes;
 
 /** Uma pagina do Playwright falsa; `quebrados` sao os seletores cujo clique falha. */
 function paginaFalsa(url, gestos) {
@@ -151,6 +155,7 @@ function app() {
 }
 
 beforeEach(() => {
+  pastasAntes = pastasDoScript();
   mundo = mundoPadrao();
   log = []; avisos = []; erros = [];
   const playwright = {
@@ -188,6 +193,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  for (const n of pastasDoScript()) if (!pastasAntes.has(n)) fs.rmSync(path.join(TMP, n), { recursive: true, force: true });
   process.argv = argvOriginal;
   if (playwrightOriginal) req.cache[PLAYWRIGHT] = playwrightOriginal; else delete req.cache[PLAYWRIGHT];
 });

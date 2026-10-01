@@ -2260,10 +2260,16 @@ A cadeia, nesta ordem:
         Depois, também corrigido: a onda do PRISM aberta na aba do Surfer
         levava os tradutores da última corrida do Wave.
       - [ ] `ai_assistant_manager` (em curso desde 30/09): de 3679 para
-        3143 linhas. Escolhido por ser o maior `.js` e o que mais muda. Saíram
+        2065 linhas. Escolhido por ser o maior `.js` e o que mais muda. Saíram
         `conversas_do_chat.ts` (nova, abrir, gravar, renomear, apagar e o
-        tutorial guiado) e `perguntas_inline.ts` (os cartões de permissão e de
-        pergunta e o registro que fica no lugar). A classe fica com uma
+        tutorial guiado), `perguntas_inline.ts` (os cartões de permissão e de
+        pergunta e o registro que fica no lugar), `layout_do_painel.ts`
+        (largura, abrir e fechar, o divisor e o canto do terminal),
+        `tarefa_em_segundo_plano.ts` (`runInBackground` e o chip de estado),
+        `citacoes_do_chat.ts` (os dois caminhos de chegada, o carimbo da versão,
+        o bloco e o clique na página), `provedores_do_painel.ts` (o popover de
+        provedor e modelo, esforço, permissão, estado e uso) e
+        `chips_de_ferramenta.ts` (o grupo "N actions" e os chips). A classe fica com uma
         delegação de uma linha por método que ela mesma chama, e com
         `confirmToolCall` e `showAskUserQuestionInline` como portas do
         `tool_runner` e do `aurora_api`. Os testes (`conversasDoChat`,
@@ -2283,10 +2289,21 @@ A cadeia, nesta ordem:
         estragado produz isso); o `askUserQuestion` do `aurora_api` confere
         `result == null`, que nunca acontece.
 
-        Próximos grupos, pelo tamanho descoberto: o layout do painel
-        (`toggle`, largura, `setupResize`, `setupTerminalCorner`), as
-        citações, os chips de ferramenta, a tarefa em segundo plano
-        (`runInBackground`) e o `attachListeners`.
+        Também no caminho: `pane_size` virou `.ts`, o `resize.js` ganhou um
+        `.d.ts` (cinco exportações), o `window.AuroraAPI` e o `window.aiAPI`
+        ganharam tipo para o que os módulos novos leem, saiu o
+        `_corpoDoResultado` (sem chamador), e o caso do `aiProvedor` que
+        espiava `renderUsage` passou a conferir o DOM. As duas delegações que o
+        E2E `ai-panel-layout` chama pela instância (`_larguraPermitida`,
+        `_aplicarLargura`) ficam.
+
+        O que sobra na classe, por ordem: o `attachListeners` (o maior trecho
+        descoberto, ~75 linhas), o desenho do stream (`appendDelta`,
+        `_renderStreamingBubble`, `_renderWithReveal`, a revelação em cascata),
+        a rolagem (`scrollToBottom`, `smoothScrollToBottom`, a dica de voltar ao
+        fim), o aviso de download da CLI, e o núcleo do turno (`send`,
+        `_dispatchTurn`, `handleChatEvent`, filas, cão de guarda), que o
+        `aiTurnFlow` cobre. Depois disso, converter o resto inteiro.
       - [ ] E2E instável: `shell-terminal > navigates folders (cd persists,
         prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
         mudança do momento (o repetidor deu 3 verdes seguidas).

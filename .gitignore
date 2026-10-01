@@ -264,6 +264,7 @@ js/ai/indicadores_do_turno.js
 js/ai/tool_permission.js
 js/utils/pane_size.js
 js/ai/chat_scroll.js
+js/ai/tool_call_text.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

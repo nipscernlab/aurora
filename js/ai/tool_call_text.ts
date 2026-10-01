@@ -1,4 +1,4 @@
-// tool_call_text.js: strip inline tool-call artefacts from model output,
+// tool_call_text.ts: strip inline tool-call artefacts from model output,
 // extracted from ai_assistant_manager.js (A2 god-file decomposition). Some
 // models (Llama/Qwen) emit tool calls as inline TEXT, XML <tool_call>/
 // <function_calls>/<invoke> blocks, Qwen-style {"name":...,"arguments":...}
@@ -10,13 +10,13 @@
 // false, stripToolCallArtifacts is a guaranteed no-op, so streaming callers
 // skip three full-buffer regex scans per frame (the common case, Claude and
 // most models never emit these artefacts).
-export function mayHaveToolArtifacts(text) {
+export function mayHaveToolArtifacts(text: string): boolean {
   return text.indexOf('<') !== -1 || text.indexOf('{"name"') !== -1;
 }
 
 // Remove COMPLETE tool-call artefacts only, so a half-streamed tag is left
 // intact rather than permanently corrupting the buffer.
-export function stripToolCallArtifacts(text) {
+export function stripToolCallArtifacts(text: string): string {
   return text
       .replace(/<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g, '')
       .replace(/[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g, '')

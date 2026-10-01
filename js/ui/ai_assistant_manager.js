@@ -32,6 +32,7 @@ import {
 import { iniciarChip, terminarChip, fecharGrupo } from '../ai/chips_de_ferramenta.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { rolarAoFim, ligarRolagem } from '../ai/rolagem_do_chat.js';
+import { mostrarPensando, mostrarDownloadDaCli, limparDownloadDaCli, somarUso, atualizarContador } from '../ai/indicadores_do_turno.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
 import { abrirReferencia, abrirCaminhoDoChat } from '../ai/abrir_referencia.js';
 import { confiaEmLinksExternos, definirConfiancaEmLinks, confirmarLinkExterno } from '../ai/link_externo.js';
@@ -45,13 +46,13 @@ import {
 } from '../ai/conversas_do_chat.js';
 import { buildApiMessages, buildProjectContext } from '../ai/chat_turn.js';
 import {
-  escapeHtml, renderMarkdown, highlightCodeBlocks,
+  renderMarkdown, highlightCodeBlocks,
   linkifyFileRefs,
 } from '../ai/chat_render.js';
 import { marcarPonto, rotuloDoPedido, voltarAoPonto, listarPontos } from '../ai/rewind.js';
 import {
   CLAUDE_CODE_EFFORT, SUB_META, isSubProvider, STREAM_STALL_MS, STREAM_STALL_HARD_MS,
-  formatTokens, readPermissionMode,
+  readPermissionMode,
 } from '../ai/ai_metadata.js';
 
 /* ============================================================
@@ -1690,123 +1691,16 @@ class AIAssistantManager {
   finishToolChip(toolName, result, toolUseId) { terminarChip(this, toolName, result, toolUseId); }
   _closeToolGroup() { fecharGrupo(this); }
 
-  /* ---------------- thinking indicator ---------------- */
+  /* ---------------- indicadores do turno ---------------- */
+  // A palavra de pensando, o aviso de download da CLI e o contador de tokens
+  // moram em js/ai/indicadores_do_turno.ts.
 
-  showThinking(show) {
-    if (show && !this.thinkingEl) {
-      const words = [
-        'Descombobulating', 'Reticulating splines', 'Calibrating flux',
-        'Summoning quarks', 'Consulting the oracle', 'Defragmenting neurons',
-        'Reverse-engineering vibes', 'Untangling spaghetti', 'Overclocking brain cells',
-        'Pondering the imponderables', 'Aligning the qubits', 'Polishing the silicon',
-        'Sweet-talking the compiler', 'Negotiating with yanc', 'Routing the nets',
-        'Charging the flux capacitor', 'Counting to NUBITS', 'Folding the bitstream',
-        'Tuning the oscillators', 'Herding the electrons', 'Waxing the waveforms',
-        'Compiling confidence', 'Synthesizing brilliance', 'Asking the rubber duck',
-        'Dividing by NUGAIN', 'Probing the testbench', 'Warming up the ALU',
-        'Annealing the lattice', 'Sampling the aurora', 'Buffering inspiration',
-        'Convincing the linter', 'Greasing the pipeline',
-      ];
-      const word = words[Math.floor(Math.random() * words.length)];
-      const el = document.createElement('div');
-      el.className = 'ai-thinking-wrap';
-      // The funny word and the three loading dots share one line; the dots
-      // read as the trailing ellipsis (so no literal "…" is appended).
-      el.innerHTML =
-        `<em class="ai-thinking-word">${word}</em>` +
-        '<span class="ai-thinking-dots"><span></span><span></span><span></span></span>';
-      this.messagesEl.appendChild(el);
-      this.scrollToBottom();
-      this.thinkingEl = el;
-    } else if (!show && this.thinkingEl) {
-      this.thinkingEl.remove();
-      this.thinkingEl = null;
-    }
-  }
-
-  /**
-   * Transient status while a subscription CLI is fetched on first use (B12).
-   * Reuses the thinking-indicator chrome; display-only, never persisted. The
-   * `done` phase (and any turn end) tears it down via _clearCliDownload.
-   */
-  _renderCliDownload(ev) {
-    if (!ev || ev.phase === 'done') {
-      this._clearCliDownload();
-      if (ev && ev.phase === 'done') {
-        // The CLI just finished installing. Bridge the spawn/first-token gap
-        // with the thinking indicator so the panel doesn't look frozen right
-        // after a long download, and refresh the status row so it flips off
-        // "Downloads on first message" to the resolved version/plan.
-        this.showThinking(true);
-        this.refreshSubStatus?.();
-      }
-      return;
-    }
-    this.showThinking(false); // the funny "thinking" word would fight this row
-    // Recreate if missing OR detached (a chat switch/clear wipes messagesEl,
-    // leaving a stale ref that would otherwise render progress off-DOM).
-    if (!this.cliDownloadEl || !this.cliDownloadEl.isConnected) {
-      const el = document.createElement('div');
-      el.className = 'ai-thinking-wrap ai-cli-download';
-      this.messagesEl.appendChild(el);
-      this.cliDownloadEl = el;
-    }
-    const cli = ev.cli || 'AI CLI';
-    let label;
-    if (ev.phase === 'verify') label = `Verifying ${cli}…`;
-    else if (ev.phase === 'extract') label = `Installing ${cli}…`;
-    else {
-      const mb = (n) => (Number(n || 0) / 1e6).toFixed(0);
-      const size = ev.total > 0 ? ` · ${mb(ev.received)}/${mb(ev.total)} MB` : '';
-      label = `Downloading ${cli} (first use)… ${ev.pct || 0}%${size}`;
-    }
-    this.cliDownloadEl.innerHTML =
-      `<em class="ai-thinking-word">${escapeHtml(label)}</em>` +
-      '<span class="ai-thinking-dots"><span></span><span></span><span></span></span>';
-    this.scrollToBottom();
-  }
-
-  _clearCliDownload() {
-    if (this.cliDownloadEl) {
-      this.cliDownloadEl.remove();
-      this.cliDownloadEl = null;
-    }
-  }
-
-  applyUsage(usage) {
-    if (!usage) return;
-    // Vercel AI SDK v6 surfaces `totalTokens` (sometimes `inputTokens`
-    // + `outputTokens`). Be defensive about both shapes.
-    const total = usage.totalTokens ??
-      ((usage.inputTokens ?? usage.promptTokens ?? 0) +
-       (usage.outputTokens ?? usage.completionTokens ?? 0));
-    if (total > 0) {
-      this.cumulativeTokens += total;
-    }
-    // O que veio do cache custou um decimo: contado a parte, para o titulo do
-    // contador dizer quanto da conversa foi de graca.
-    const cache = usage.cacheAurora;
-    if (cache && (cache.lidos || cache.escritos)) {
-      this.cacheLidos = (this.cacheLidos || 0) + (cache.lidos || 0);
-      this.cacheEscritos = (this.cacheEscritos || 0) + (cache.escritos || 0);
-    }
-    if (total > 0 || cache) this.updateTokenCounter();
-  }
-
+  showThinking(show) { mostrarPensando(this, show); }
+  _renderCliDownload(ev) { mostrarDownloadDaCli(this, ev); }
+  _clearCliDownload() { limparDownloadDaCli(this); }
+  applyUsage(usage) { somarUso(this, usage); }
   /** Refresh the compact composer token pill and (if open) the usage bars. */
-  updateTokenCounter() {
-    this.tokenCounter.textContent = formatTokens(this.cumulativeTokens);
-    const doCache = this.cacheLidos
-      ? ` (${this.cacheLidos.toLocaleString()} read from the prompt cache at a tenth of the price)`
-      : '';
-    this.tokenCounter.title = `${this.cumulativeTokens.toLocaleString()} tokens this conversation${doCache}`;
-    // Refresh the usage section live for any subscription provider whose
-    // popover is open, the per-turn `applyUsage()` may have ticked the
-    // CLI-reported session counter forward.
-    if (isSubProvider(this.currentProvider) && this.modelPopoverOpen) {
-      this.refreshSubUsage();
-    }
-  }
+  updateTokenCounter() { atualizarContador(this); }
 
   /**
    * Grow the textarea to fit its content (up to ~10 lines, then scroll).

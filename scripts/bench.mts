@@ -1,4 +1,4 @@
-// bench.js: mede a AURORA de verdade e guarda uma linha por medicao em
+// bench.mts: mede a AURORA de verdade e guarda uma linha por medicao em
 // docs/bench/medidas.csv, com o commit medido. Serve para responder, a cada
 // correcao ou atualizacao, "ficou mais rapido ou mais leve?" com numero, e
 // para o paper, onde a frase "a interface abre em X ms" precisa de origem.
@@ -7,10 +7,10 @@
 // janela de verdade e leva perto de um minuto por repeticao):
 //
 //   npm run bench                       tres repeticoes, mediana, anexa ao CSV
-//   node scripts/bench.js --runs 5      mais repeticoes
-//   node scripts/bench.js --nota "antes do refreshTree novo"
-//   node scripts/bench.js --seco        mede e imprime, nao grava no CSV
-//   node scripts/bench.js --compilar    inclui a compilacao C+- (precisa da toolchain)
+//   node scripts/bench.mts --runs 5      mais repeticoes
+//   node scripts/bench.mts --nota "antes do refreshTree novo"
+//   node scripts/bench.mts --seco        mede e imprime, nao grava no CSV
+//   node scripts/bench.mts --compilar    inclui a compilacao C+- (precisa da toolchain)
 //
 // O que e medido, e por que estas e nao outras:
 //
@@ -42,19 +42,36 @@
 // SAPHO_SKIP_SINGLE_INSTANCE e de --user-data-dir proprio, senao a segunda
 // instancia esbarra no bloqueio de instancia unica e sai calada.
 
-// Os globais abaixo so existem dentro de page.evaluate, que roda no renderer.
-/* global window, document */
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFileSync } = require('child_process');
+import cp from 'node:child_process';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import type { ElectronApplication } from 'playwright';
 
-const REPO_ROOT = path.resolve(__dirname, '..');
+import { writeProject } from './capture-media.js';
+
+// O playwright e o package.json entram por require: o playwright tarde, para a
+// falta dele virar mensagem e nao erro de import no topo.
+const carregarCjs = createRequire(import.meta.url);
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CSV_PADRAO = path.join(REPO_ROOT, 'docs', 'bench', 'medidas.csv');
 const COLUNAS = ['data', 'commit', 'versao', 'runs', 'boot_ms', 'projeto_ms', 'editor_ms', 'diag_ms', 'heap_mb', 'nos_dom', 'ws_mb', 'dist_kb', 'cmm_ms', 'nota'];
 
-function argumentos(argv) {
-  const opts = { runs: 3, nota: '', seco: false, compilar: false, out: CSV_PADRAO };
+/** As opcoes da linha de comando. */
+interface Opcoes { runs: number; nota: string; seco: boolean; compilar: boolean; out: string; ajuda?: boolean }
+
+/** O que o renderer da AURORA expoe e o bench le, dentro de page.evaluate. */
+interface JanelaDoApp {
+  monaco: { editor: { getModels(): Array<{ uri: { path: string } }>; getModelMarkers(f: { owner: string }): unknown[] } };
+  electronAPI?: { openProject?(spf: string): Promise<unknown> };
+  projectTreeManager?: { refreshTree?(): Promise<unknown> };
+}
+const janela = () => window as unknown as JanelaDoApp;
+
+function argumentos(argv: string[]): Opcoes {
+  const opts: Opcoes = { runs: 3, nota: '', seco: false, compilar: false, out: CSV_PADRAO };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--runs') {
@@ -74,15 +91,15 @@ function argumentos(argv) {
 }
 
 function cleanEnv() {
-  const out = {};
-  for (const [k, v] of Object.entries(process.env)) if (k !== 'ELECTRON_RUN_AS_NODE') out[k] = v;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) if (k !== 'ELECTRON_RUN_AS_NODE') out[k] = v as string;
   out.SAPHO_SKIP_SINGLE_INSTANCE = '1';
   return out;
 }
 
 /** Mediana de uma lista de numeros, ignorando o que nao e numero finito. */
-function mediana(valores) {
-  const v = valores.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+function mediana(valores: unknown[]): number {
+  const v = (valores.filter((x) => Number.isFinite(x)) as number[]).sort((a, b) => a - b);
   if (!v.length) return NaN;
   const m = Math.floor(v.length / 2);
   return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
@@ -99,19 +116,19 @@ function tamanhoDoDist() {
 
 function commitAtual() {
   try {
-    const hash = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: REPO_ROOT, encoding: 'utf8' }).trim();
-    const sujo = execFileSync('git', ['status', '--porcelain'], { cwd: REPO_ROOT, encoding: 'utf8' }).trim();
+    const hash = cp.execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: REPO_ROOT, encoding: 'utf8' }).trim();
+    const sujo = cp.execFileSync('git', ['status', '--porcelain'], { cwd: REPO_ROOT, encoding: 'utf8' }).trim();
     return sujo ? `${hash}+` : hash; // o "+" avisa que havia mudanca nao commitada
   } catch { return 'desconhecido'; }
 }
 
 /** Campo de CSV: aspas quando precisa, aspas internas dobradas. */
-function campo(v) {
+function campo(v: unknown): string {
   const s = v === undefined || v === null || (typeof v === 'number' && !Number.isFinite(v)) ? '' : String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-async function esperarJanelaPrincipal(app, timeoutMs = 60000) {
+async function esperarJanelaPrincipal(app: ElectronApplication, timeoutMs = 60000) {
   const fim = Date.now() + timeoutMs;
   while (Date.now() < fim) {
     for (const w of app.windows()) if (/[\\/]index\.html$/.test(w.url())) return w;
@@ -121,36 +138,35 @@ async function esperarJanelaPrincipal(app, timeoutMs = 60000) {
 }
 
 /** Uma repeticao completa; devolve as medidas dela. */
-async function medirUmaVez(electron, opts) {
-  const { writeProject } = require('./capture-media');
+async function medirUmaVez(electron: typeof import('playwright')._electron, opts: Opcoes) {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-bench-ud-'));
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-bench-prj-'));
   const projectDir = path.join(scratch, 'mediamovel');
   fs.mkdirSync(projectDir, { recursive: true });
   const projeto = writeProject(projectDir);
-  const m = {};
+  const m: Record<string, number> = {};
 
   const t0 = Date.now();
   const app = await electron.launch({ args: ['.', `--user-data-dir=${userDataDir}`], cwd: REPO_ROOT, env: cleanEnv(), timeout: 90000 });
   try {
     const page = await esperarJanelaPrincipal(app);
-    await page.waitForFunction(() => typeof window.monaco !== 'undefined' && !!document.getElementById('monaco-editor'), null, { timeout: 60000 });
+    await page.waitForFunction(() => typeof janela().monaco !== 'undefined' && !!document.getElementById('monaco-editor'), null, { timeout: 60000 });
     m.boot_ms = Date.now() - t0;
 
     const t1 = Date.now();
-    await page.evaluate(async (spf) => { await window.electronAPI?.openProject?.(spf); await window.projectTreeManager?.refreshTree?.(); }, projeto.spfPath);
+    await page.evaluate(async (spf) => { await janela().electronAPI?.openProject?.(spf); await janela().projectTreeManager?.refreshTree?.(); }, projeto.spfPath);
     await page.waitForSelector('.file-item, .verilog-file-item', { timeout: 60000 });
     m.projeto_ms = Date.now() - t1;
 
     const t2 = Date.now();
     await page.locator('.file-item, .verilog-file-item').filter({ hasText: 'mediamovel.cmm' }).first().click();
-    await page.waitForFunction(() => window.monaco.editor.getModels().some((x) => /mediamovel\.cmm$/i.test(x.uri.path)), null, { timeout: 30000 });
+    await page.waitForFunction(() => janela().monaco.editor.getModels().some((x) => /mediamovel\.cmm$/i.test(x.uri.path)), null, { timeout: 30000 });
     m.editor_ms = Date.now() - t2;
 
     const t3 = Date.now();
     await page.locator('.file-item, .verilog-file-item').filter({ hasText: 'top_mediamovel.v' }).first().click();
     try {
-      await page.waitForFunction(() => window.monaco.editor.getModelMarkers({ owner: 'slang' }).length > 0, null, { timeout: 20000 });
+      await page.waitForFunction(() => janela().monaco.editor.getModelMarkers({ owner: 'slang' }).length > 0, null, { timeout: 20000 });
       m.diag_ms = Date.now() - t3;
     } catch { m.diag_ms = NaN; } // slang ausente ou projeto sem diagnostico
 
@@ -160,20 +176,24 @@ async function medirUmaVez(electron, opts) {
       // click esperava um botao desabilitado ate o timeout, e cmm_ms nunca
       // foi medido.
       await page.locator('.file-item, .verilog-file-item').filter({ hasText: 'mediamovel.cmm' }).first().click();
-      await page.waitForFunction(() => { const b = document.getElementById('cmmcomp'); return !!b && !b.disabled; }, null, { timeout: 15000 });
+      await page.waitForFunction(() => { const b = document.getElementById('cmmcomp') as HTMLButtonElement | null; return !!b && !b.disabled; }, null, { timeout: 15000 });
       const t4 = Date.now();
       await page.click('#cmmcomp');
       try {
-        await page.waitForFunction(() => /(Sucesso|Success|conclu|Compila[cç][aã]o finalizada)/i.test((document.getElementById('terminal-tcmm') || {}).innerText || ''), null, { timeout: 180000 });
+        await page.waitForFunction(() => /(Sucesso|Success|conclu|Compila[cç][aã]o finalizada)/i.test(((document.getElementById('terminal-tcmm') || {}) as { innerText?: string }).innerText || ''), null, { timeout: 180000 });
         m.cmm_ms = Date.now() - t4;
       } catch { m.cmm_ms = NaN; }
     }
 
     await page.waitForTimeout(2000); // deixa observers e relayouts assentarem
-    const r = await page.evaluate(() => ({
-      heap_mb: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : NaN,
+    const r = await page.evaluate(() => {
+      // performance.memory e do Chromium, fora do padrao e do lib do TypeScript.
+      const memoria = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+      return {
+      heap_mb: memoria ? Math.round(memoria.usedJSHeapSize / 1048576) : NaN,
       nos_dom: document.querySelectorAll('*').length,
-    }));
+      };
+    });
     Object.assign(m, r);
     m.ws_mb = await app.evaluate(({ app: a }) => Math.round(a.getAppMetrics().reduce((s, p) => s + (p.memory ? p.memory.workingSetSize : 0), 0) / 1024));
   } finally {
@@ -193,25 +213,25 @@ function ajuda() {
 async function main() {
   const opts = argumentos(process.argv.slice(2));
   if (opts.ajuda) { ajuda(); return; }
-  let electron;
-  try { ({ _electron: electron } = require('playwright')); }
+  let electron: typeof import('playwright')._electron | undefined;
+  try { ({ _electron: electron } = carregarCjs('playwright')); }
   catch { console.error('bench: playwright nao esta instalado. Rode `npm install` primeiro.'); process.exit(1); }
   if (!fs.existsSync(path.join(REPO_ROOT, 'dist', 'index.html'))) {
     console.error('bench: dist/index.html nao existe. Rode `npm run build:renderer` primeiro, senao mede o bundle velho.');
     process.exit(1);
   }
 
-  const versao = require(path.join(REPO_ROOT, 'package.json')).version;
+  const versao = carregarCjs(path.join(REPO_ROOT, 'package.json')).version;
   const commit = commitAtual();
   console.log(`bench: ${opts.runs} repeticao(oes) em ${commit} (v${versao})`);
-  const repeticoes = [];
+  const repeticoes: Array<Record<string, number>> = [];
   for (let i = 0; i < opts.runs; i++) {
-    const m = await medirUmaVez(electron, opts);
+    const m = await medirUmaVez(electron as typeof import('playwright')._electron, opts);
     repeticoes.push(m);
     console.log(`  #${i + 1}: boot ${m.boot_ms} ms, projeto ${m.projeto_ms} ms, editor ${m.editor_ms} ms, diag ${Number.isFinite(m.diag_ms) ? m.diag_ms + ' ms' : 'n/d'}, heap ${m.heap_mb} MB, dom ${m.nos_dom}, ws ${m.ws_mb} MB${opts.compilar ? `, cmm ${m.cmm_ms} ms` : ''}`);
   }
 
-  const linha = {
+  const linha: Record<string, string | number> = {
     data: new Date().toISOString().slice(0, 16).replace('T', ' '),
     commit,
     versao,
@@ -234,8 +254,10 @@ async function main() {
   console.log(`\nbench: linha anexada em ${path.relative(REPO_ROOT, opts.out)}`);
 }
 
-module.exports = { mediana, campo, argumentos, COLUNAS };
+export { mediana, campo, argumentos, COLUNAS };
 
-if (require.main === module) {
+// So roda quando chamado direto (`node scripts/bench.mts`); importado, entrega
+// as pecas puras.
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   main().catch((err) => { console.error(`bench: ${err && err.stack ? err.stack : err}`); process.exit(1); });
 }

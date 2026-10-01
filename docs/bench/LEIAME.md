@@ -1,7 +1,7 @@
 # Medidas de desempenho
 
 O arquivo `medidas.csv` guarda uma linha por medicao da AURORA, gerada por
-`npm run bench` (o script e `scripts/bench.js`, e o cabecalho dele explica
+`npm run bench` (o script e `scripts/bench.mts`, e o cabecalho dele explica
 cada coluna e o porque de cada uma). A ideia e simples: a cada correcao ou
 atualizacao que possa mexer em tempo ou memoria, roda-se o bench antes e
 depois, e a diferenca fica registrada com o commit medido. Na hora de escrever

@@ -8,12 +8,12 @@
  * O CSV vai sempre para uma pasta temporaria (--out) ou nao e gravado (--seco),
  * para nunca tocar o docs/bench/medidas.csv do repositorio.
  */
-import Module, { createRequire, syncBuiltinESMExports } from 'node:module';
+import { createRequire, syncBuiltinESMExports } from 'node:module';
 import cp from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,21 +24,17 @@ syncBuiltinESMExports();
 
 const req = createRequire(import.meta.url);
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SCRIPT = path.join(RAIZ, 'scripts', 'bench.js');
+const SCRIPT = path.join(RAIZ, 'scripts', 'bench.mts');
 const DIST = path.join(RAIZ, 'dist', 'index.html');
 const ASSETS = path.join(RAIZ, 'dist', 'assets');
 const PLAYWRIGHT = req.resolve('playwright');
 
 /** O unico ponto que sabe como o script e rodado como programa. */
 const chamar = {
+  // O .mts roda o main quando process.argv[1] e ele (o rodar() abaixo o poe).
   rodar: () => {
-    const mainOriginal = process.mainModule;
-    delete req.cache[SCRIPT];
-    try {
-      Module._load(SCRIPT, null, true);
-    } finally {
-      process.mainModule = mainOriginal;
-    }
+    vi.resetModules();
+    import(pathToFileURL(SCRIPT).href);
   },
 };
 

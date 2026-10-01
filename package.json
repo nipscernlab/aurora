@@ -36,7 +36,7 @@
     "deadcode": "node scripts/deadcode.mts",
     "deadcode:all": "knip --no-config-hints",
     "typecheck": "node scripts/check-types.js",
-    "bench": "node scripts/bench.js",
+    "bench": "node scripts/bench.mts",
     "rules:sync": "node scripts/sync-sapho-rules.mts",
     "components:verify": "node scripts/verify-components.mts",
     "postinstall": "node scripts/verify-components.mts --postinstall",

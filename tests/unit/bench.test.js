@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createRequire } from 'node:module';
 
-const require = createRequire(import.meta.url);
-const { mediana, campo, argumentos, COLUNAS } = require('../../scripts/bench.js');
+import { mediana, campo, argumentos, COLUNAS } from '../../scripts/bench.mts';
 
 // O bench so vale se a linha que ele grava for comparavel com a anterior. As
 // tres pecas puras que decidem isso ficam provadas aqui: a mediana que resiste

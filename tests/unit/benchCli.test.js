@@ -186,7 +186,7 @@ describe('ajuda e quedas', () => {
   it('--help imprime o uso e o CSV padrao', async () => {
     await rodar(['--help']);
     expect(log[0]).toBe('bench: mede boot, abertura de projeto, editor, LSP, memoria e bundle da AURORA e anexa ao CSV.\n');
-    expect(log[1]).toBe('  node scripts/bench.js [--runs N] [--nota texto] [--seco] [--compilar] [--out arquivo.csv]');
+    expect(log[1]).toBe('  node scripts/bench.mts [--runs N] [--nota texto] [--seco] [--compilar] [--out arquivo.csv]');
     expect(log[2]).toBe(`  CSV padrao: ${path.join('docs', 'bench', 'medidas.csv')}`);
     expect(mundo.lancamentos).toEqual([]);
   });

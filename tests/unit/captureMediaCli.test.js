@@ -214,7 +214,7 @@ describe('a ajuda e a linha de comando', () => {
       await chamar.rodar();
       await new Promise((r) => setImmediate(r));
       expect(log[0]).toBe('capture-media: fotos e GIFs do README, tirados da aplicacao de verdade.\n');
-      expect(log.join('\n')).toContain('  node scripts/capture-media.js [tomada...]\n');
+      expect(log.join('\n')).toContain('  node scripts/capture-media.mts [tomada...]\n');
       expect(log.join('\n')).toContain('  prism          prism.gif, a sintese e o esquematico do PRISM');
       expect(log.join('\n')).toContain('  tudo           todas as anteriores\n');
       expect(log.join('\n')).toContain('O GIF precisa do ffmpeg no PATH; sem ele, os quadros ficam no disco.');

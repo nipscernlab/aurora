@@ -206,7 +206,7 @@ async function medirUmaVez(electron: typeof import('playwright')._electron, opts
 
 function ajuda() {
   console.log('bench: mede boot, abertura de projeto, editor, LSP, memoria e bundle da AURORA e anexa ao CSV.\n');
-  console.log('  node scripts/bench.js [--runs N] [--nota texto] [--seco] [--compilar] [--out arquivo.csv]');
+  console.log('  node scripts/bench.mts [--runs N] [--nota texto] [--seco] [--compilar] [--out arquivo.csv]');
   console.log(`  CSV padrao: ${path.relative(REPO_ROOT, CSV_PADRAO)}`);
 }
 

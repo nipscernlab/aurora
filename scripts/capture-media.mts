@@ -349,7 +349,7 @@ function tomadasPedidas(argv: string[]) {
 
 function ajuda() {
   console.log('capture-media: fotos e GIFs do README, tirados da aplicacao de verdade.\n');
-  console.log('  node scripts/capture-media.js [tomada...]\n');
+  console.log('  node scripts/capture-media.mts [tomada...]\n');
   for (const [nome, oque] of Object.entries(TOMADAS)) console.log(`  ${nome.padEnd(14)} ${oque}`);
   console.log(`  ${'tudo'.padEnd(14)} todas as anteriores\n`);
   console.log('  Sem argumento, tira so o hero.png.');

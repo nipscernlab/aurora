@@ -1,5 +1,5 @@
 /**
- * ai_mark.js: o desenho do símbolo da Aurora Intelligence.
+ * ai_mark.ts: o desenho do símbolo da Aurora Intelligence.
  *
  * Duas estrelas de quatro pontas — uma grande em cima à esquerda, uma pequena
  * embaixo à direita. É o glifo que o mercado inteiro usa para dizer "IA", e o
@@ -18,12 +18,12 @@
 
 /**
  * Uma estrela de quatro pontas como comando de path SVG.
- * @param {number} cx centro X
- * @param {number} cy centro Y
- * @param {number} r  raio (centro até a ponta)
- * @returns {string} o `d` de um <path> fechado
+ * @param cx centro X
+ * @param cy centro Y
+ * @param r  raio (centro até a ponta)
+ * @returns o `d` de um <path> fechado
  */
-function fourPointStar(cx, cy, r) {
+function fourPointStar(cx: number, cy: number, r: number): string {
   const k = r * 0.22;             // controle: quanto menor, mais afiada a ponta
   const n = (cy - r).toFixed(2);  // ponta norte
   const s = (cy + r).toFixed(2);  // ponta sul
@@ -53,10 +53,9 @@ const SMALL = fourPointStar(18.6, 18.6, 4.4);
  * O símbolo como string de SVG, pronto para entrar num template literal.
  * Decorativo por padrão (aria-hidden): onde ele for a única coisa dentro de um
  * botão, quem chama deve rotular o BOTÃO com aria-label, não o desenho.
- * @param {string} [extraClass] classes adicionais no <svg>
- * @returns {string}
+ * @param [extraClass] classes adicionais no <svg>
  */
-export function aiMarkSvg(extraClass = '') {
+export function aiMarkSvg(extraClass: string = ''): string {
   const cls = extraClass ? `ai-mark ${extraClass}` : 'ai-mark';
   return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">`
     + `<path d="${BIG}"/><path d="${SMALL}"/></svg>`;

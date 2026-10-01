@@ -14,7 +14,11 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 const req = createRequire(import.meta.url);
 
+// `app` declarado e vazio: o main/paths.ts le `app` do electron, e o mock do
+// vitest lanca ao ler um nome que a fabrica nao devolveu. Vazio e o "fora do
+// Electron" que o paths ja trata.
 const electronFalso = vi.hoisted(() => ({
+  app: undefined,
   ipcMain: { handle: (canal, fn) => { globalThis.__tsHandlers.set(canal, fn); } },
 }));
 const handlers = new Map();

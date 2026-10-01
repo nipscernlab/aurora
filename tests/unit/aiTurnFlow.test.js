@@ -817,7 +817,10 @@ describe('envio e fila: os cantos', () => {
     await abrirPainel();
     await mandar('primeira');
     await mandar('segunda');
-    vi.spyOn(painel, '_interromperParaFalar').mockResolvedValue(false);
+    // Outro turno assume a sessao enquanto o painel espera a interrupcao: o
+    // painel segue transmitindo, a interrupcao nao fechou o que ela pediu, e a
+    // mensagem nao pode entrar no meio do turno alheio.
+    api.abortChat = vi.fn(async () => { painel.currentSessionId = 'outro-turno'; return { ok: true }; });
     await painel._enviarDaFilaAgora(0);
     expect(painel._messageQueue.map((m) => m.text)).toEqual(['segunda']);
     expect(api.startChat).toHaveBeenCalledTimes(1);

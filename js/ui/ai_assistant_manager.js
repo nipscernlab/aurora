@@ -49,8 +49,7 @@ import { confiaEmLinksExternos, definirConfiancaEmLinks, confirmarLinkExterno } 
 import { adicionarArquivos, abrirImagem, desenharAnexos, desenharAnexosNaBolha, escaparHtml } from '../ai/anexos_do_chat.js';
 import { confirmarFerramenta, perguntarAPessoa } from '../ai/perguntas_inline.js';
 import {
-  novaConversa, comecarTutorial, alternarHistorico, relerLista, cliqueNoHistorico,
-  apagarConversa, abrirConversa, gravarConversa, ligarHistorico,
+  novaConversa, relerLista, apagarConversa, abrirConversa, gravarConversa, ligarHistorico,
 } from '../ai/conversas_do_chat.js';
 import {
   CLAUDE_CODE_EFFORT, readPermissionMode,
@@ -523,10 +522,7 @@ class AIAssistantManager {
   // em js/ai/conversas_do_chat.ts; o painel e o contexto.
 
   newChat() { return novaConversa(this); }
-  startTutorial() { return comecarTutorial(this); }
-  toggleHistory(force) { alternarHistorico(this, force); }
   refreshChatList() { return relerLista(this); }
-  handleHistoryClick(e) { return cliqueNoHistorico(this, e); }
   deleteChat(id) { return apagarConversa(this, id); }
   loadChat(id) { return abrirConversa(this, id); }
   persistCurrentChat() { return gravarConversa(this); }

@@ -29,15 +29,10 @@ import {
   escolherProvedor, definirEsforco, gravarModelo, atualizarEstadoDaAssinatura,
   desenharEstadoDaAssinatura, desenharEstadoDoProvedor, atualizarUso, desenharUso,
 } from '../ai/provedores_do_painel.js';
+import { iniciarChip, terminarChip, fecharGrupo } from '../ai/chips_de_ferramenta.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
-import {
-    formatArgsForTitle,
-    formatToolTooltip,
-    prettyToolName,
-    summariseResult,
-} from '../ai/tool_chip_text.js';
 import { abrirReferencia, abrirCaminhoDoChat } from '../ai/abrir_referencia.js';
 import { confiaEmLinksExternos, definirConfiancaEmLinks, confirmarLinkExterno } from '../ai/link_externo.js';
 import { adicionarArquivos, abrirImagem, desenharAnexos, desenharAnexosNaBolha, escaparHtml } from '../ai/anexos_do_chat.js';
@@ -1780,215 +1775,12 @@ class AIAssistantManager {
   }
 
   /* ---------------- tool chips ---------------- */
+  // O grupo "N actions", os chips ao vivo e o chip da conversa reaberta moram
+  // em js/ai/chips_de_ferramenta.ts; o painel e o contexto.
 
-  /**
-   * A run of consecutive tool calls is wrapped in one collapsible group so a
-   * busy turn doesn't flood the chat with chips ("poluído de informações").
-   * The group is created lazily on the first chip of a batch; a text segment
-   * or the turn ending closes it (and collapses multi-step batches to a tidy
-   * "N actions" summary the user can expand).
-   */
-  /**
-   * Build a tool-group shell, `{ el, body, summaryEl }`, with the
-   * expand/collapse header wired up. Shared by the live group
-   * (_ensureToolGroup) and the static group rebuilt when replaying a saved
-   * chat, so both render the identical "N actions" collapsible bubble.
-   */
-  _createToolGroupEl() {
-    const el = document.createElement('div');
-    el.className = 'ai-tool-group';
-    el.innerHTML = `
-      <button class="ai-tool-group-head" type="button" aria-expanded="true">
-        <i class="ph ph-caret-down ai-tool-group-caret" aria-hidden="true"></i>
-        <i class="ph ph-wrench ai-tool-group-icon" aria-hidden="true"></i>
-        <span class="ai-tool-group-summary">Working…</span>
-      </button>
-      <div class="ai-tool-group-body"></div>`;
-    const head = el.querySelector('.ai-tool-group-head');
-    head.addEventListener('click', () => {
-      const collapsed = el.classList.toggle('collapsed');
-      head.setAttribute('aria-expanded', String(!collapsed));
-    });
-    return {
-      el,
-      body: el.querySelector('.ai-tool-group-body'),
-      summaryEl: el.querySelector('.ai-tool-group-summary'),
-    };
-  }
-
-  _ensureToolGroup() {
-    if (this._toolGroup && this._toolGroup.el.isConnected) return this._toolGroup;
-    const parts = this._createToolGroupEl();
-    this.messagesEl.appendChild(parts.el);
-    this._toolGroup = { ...parts, total: 0 };
-    return this._toolGroup;
-  }
-
-  /** Human-friendly form of a tool name for the group header (chips keep the
-   *  raw mono name). "get_terminal_output" → "get terminal output". */
-  /** O texto do chip mora em js/ai/tool_chip_text.ts, que e puro e tem teste. */
-  _prettyToolName(name) { return prettyToolName(name); }
-
-  /**
-   * Live header. While a chip is spinning it names WHAT is running so the
-   * user can see the current action at a glance, "Running get terminal
-   * output…" (or "Running N actions…" when several run in parallel). Idle →
-   * "N actions".
-   */
-  _refreshToolGroupSummary() {
-    const g = this._toolGroup;
-    if (!g) return;
-    const running = this.runningChips.filter((c) => g.body.contains(c.el));
-    if (running.length === 1) {
-      g.summaryEl.textContent = `Running ${this._prettyToolName(running[running.length - 1].toolName)}…`;
-    } else if (running.length > 1) {
-      g.summaryEl.textContent = `Running ${running.length} actions…`;
-    } else {
-      g.summaryEl.textContent = `${g.total} action${g.total === 1 ? '' : 's'}`;
-    }
-  }
-
-  /**
-   * Finalise the current batch: swap the wrench for a check and collapse the
-   * whole sequence into its own bubble, even a single action, so a finished
-   * turn reads as a tidy, modern "N actions" pill the user can expand.
-   */
-  _closeToolGroup() {
-    const g = this._toolGroup;
-    if (!g) return;
-    this._finalizeToolGroup(g.el, g.summaryEl, g.total);
-    this._toolGroup = null;
-  }
-
-  /**
-   * Collapse a finished tool batch into its tidy "N actions" pill: set the
-   * summary, pick a green check or a red cross depending on whether any chip
-   * failed/was denied, and collapse it (even a single action). Shared by the
-   * live group (_closeToolGroup) and the static group rebuilt on chat replay
-   * so both look identical.
-   */
-  _finalizeToolGroup(el, summaryEl, total) {
-    if (summaryEl) summaryEl.textContent = `${total} action${total === 1 ? '' : 's'}`;
-    const failed = el.querySelector(
-      '.ai-tool-group-body .ai-tool-chip.failed, .ai-tool-group-body .ai-tool-chip.denied',
-    );
-    const icon = el.querySelector('.ai-tool-group-icon');
-    if (icon) icon.className = `ph ${failed ? 'ph-x-circle' : 'ph-check-circle'} ai-tool-group-icon`;
-    el.classList.add('done');
-    el.classList.toggle('has-failure', !!failed);
-    if (total >= 1) {
-      el.classList.add('collapsed');
-      el.querySelector('.ai-tool-group-head')?.setAttribute('aria-expanded', 'false');
-    }
-  }
-
-  startToolChip(toolName, args, toolUseId) {
-    const name = toolName || 'tool';
-    const chip = document.createElement('div');
-    chip.className = 'ai-tool-chip running';
-    chip.innerHTML = `
-      <i class="ph ph-circle-notch ai-tool-spin" aria-hidden="true"></i>
-      <span class="ai-tool-name"></span>
-      <span class="ai-tool-status">running…</span>
-    `;
-    chip.querySelector('.ai-tool-name').textContent = name;
-    // Args go into the chip's title so users can inspect the inputs
-    // by hovering, useful for diagnosing model behaviour without
-    // bloating the visible chip. Long args are clipped at 800 chars.
-    if (args && Object.keys(args).length) {
-      const argText = this._formatArgsForTitle(args);
-      if (argText) chip.title = argText;
-    }
-    const group = this._ensureToolGroup();
-    group.body.appendChild(chip);
-    group.total += 1;
-    this.scrollToBottom();
-    this.runningChips.push({ toolUseId: toolUseId || null, toolName: name, args, el: chip });
-    this._refreshToolGroupSummary();
-  }
-
-  finishToolChip(toolName, result, toolUseId) {
-    const name = toolName || 'tool';
-    // Prefer matching by toolUseId (carried end-to-end from the
-    // provider/CLI), without it, two parallel calls to the same tool
-    // would collide on toolName and one chip would stay spinning
-    // forever. Fall back to name-match for legacy events without ids.
-    let idx = -1;
-    if (toolUseId) {
-      idx = this.runningChips.findIndex((c) => c.toolUseId === toolUseId);
-    }
-    if (idx < 0) {
-      idx = this.runningChips.findIndex((c) => c.toolName === name);
-    }
-    if (idx < 0) {
-      // No chip matched (already finished, or an id/name mismatch). Nothing to
-      // close, but log it: an unmatched result is how a chip can be left
-      // spinning, which the watchdog hard-ceiling now reaps as a backstop.
-      console.warn('[ai] tool-result with no matching running chip:', name, toolUseId);
-      return;
-    }
-    const running = this.runningChips.splice(idx, 1)[0];
-    const { el, args } = running;
-    const ok = !(result && result.ok === false);
-    const denied = !ok && /denied/i.test((result && result.error) || '');
-    const statusStr = ok ? 'done' : (denied ? 'denied' : 'failed');
-    el.classList.remove('running');
-    el.classList.add(statusStr);
-    const icon = el.querySelector('i');
-    const statusEl = el.querySelector('.ai-tool-status');
-    if (icon) icon.className = ok ? 'ph ph-check-circle' : (denied ? 'ph ph-prohibit' : 'ph ph-x-circle');
-    if (statusEl) statusEl.textContent = statusStr;
-    // Tooltip now shows args + result preview together.
-    const tooltip = this._formatToolTooltip(args, result);
-    if (tooltip) el.title = tooltip;
-
-    // Persist the tool call in the messages array so it survives
-    // into the saved chat and can be replayed when history is opened.
-    // Args + a result preview are saved so the user can later inspect
-    // exactly what each call did even after the model context is gone.
-    const entry = {
-      role: 'tool',
-      toolName: name,
-      status: statusStr,
-      toolUseId: toolUseId || running.toolUseId || null,
-      args: args || null,
-      result: this._summariseResult(result),
-    };
-    if (!ok && result?.error) entry.error = result.error;
-    this.messages.push(entry);
-    this._refreshToolGroupSummary();
-  }
-
-  _formatArgsForTitle(args) { return formatArgsForTitle(args); }
-
-  _formatToolTooltip(args, result) { return formatToolTooltip(args, result); }
-
-  _summariseResult(result) { return summariseResult(result); }
-
-  /**
-   * Builds a completed tool chip with no animation, used when replaying
-   * saved conversations from history. The chip shows the final status
-   * (done / failed / denied) and a tooltip with args + result. Returns the
-   * element so the caller can drop it into the replay's collapsed group.
-   */
-  appendStaticToolChip(toolName, status, error, args, result) {
-    const chip = document.createElement('div');
-    chip.className = `ai-tool-chip ${status || 'done'}`;
-    const iconClass = status === 'done'   ? 'ph ph-check-circle'
-                    : status === 'denied' ? 'ph ph-prohibit'
-                                          : 'ph ph-x-circle';
-    chip.innerHTML = `
-      <i class="${iconClass}" aria-hidden="true"></i>
-      <span class="ai-tool-name"></span>
-      <span class="ai-tool-status"></span>
-    `;
-    chip.querySelector('.ai-tool-name').textContent = toolName || 'tool';
-    chip.querySelector('.ai-tool-status').textContent = status || 'done';
-    const tooltip = this._formatToolTooltip(args, result) ||
-                    (error ? `error: ${error}` : '');
-    if (tooltip) chip.title = tooltip;
-    return chip;
-  }
+  startToolChip(toolName, args, toolUseId) { iniciarChip(this, toolName, args, toolUseId); }
+  finishToolChip(toolName, result, toolUseId) { terminarChip(this, toolName, result, toolUseId); }
+  _closeToolGroup() { fecharGrupo(this); }
 
   /* ---------------- thinking indicator ---------------- */
 

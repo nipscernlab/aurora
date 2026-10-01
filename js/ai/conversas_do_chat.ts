@@ -20,15 +20,13 @@ import { chatListHtml, serializeMessagesForStorage, type ConversaListada, type M
 import { highlightCodeBlocks } from './chat_render.js';
 import { desenharRegistroDaPergunta, type RegistroDaPergunta } from './perguntas_inline.js';
 import { desenharBlocoDeCitacoes } from './citacoes_do_chat.js';
+import { criarGrupoDeFerramentas, finalizarGrupo, chipEstatico, type GrupoDeFerramentas } from './chips_de_ferramenta.js';
 
 const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
 /** Os canais das conversas gravadas (window.aiAPI) e a conversa como eles a leem. */
 type CanaisDaConversa = NonNullable<Window['aiAPI']>;
 type ConversaGravada = NonNullable<Awaited<ReturnType<CanaisDaConversa['readConversation']>>>;
-
-/** Um grupo de ferramentas montado pelo painel. */
-interface GrupoDeFerramentas { el: HTMLElement; body: HTMLElement; summaryEl: HTMLElement }
 
 /** O que o ciclo le e escreve do painel (js/ui/ai_assistant_manager.js). */
 export interface PainelDaConversa {
@@ -68,9 +66,6 @@ export interface PainelDaConversa {
   updateTokenCounter(): void;
   applyProviderState(): void;
   _renderQueue(): void;
-  _createToolGroupEl(): GrupoDeFerramentas;
-  _finalizeToolGroup(el: HTMLElement, summaryEl: HTMLElement, total: number): void;
-  appendStaticToolChip(toolName?: string, status?: string, error?: string, args?: unknown, result?: unknown): HTMLElement;
   appendBubble(role: string, content: string): HTMLElement;
   _renderBubbleAttachments(bubble: HTMLElement, atts: unknown[]): void;
 }
@@ -325,18 +320,18 @@ export async function abrirConversa(p: PainelDaConversa, id: string): Promise<vo
   let staticGroup: (GrupoDeFerramentas & { total: number }) | null = null;
   const closeStaticGroup = () => {
     if (!staticGroup) return;
-    p._finalizeToolGroup(staticGroup.el, staticGroup.summaryEl, staticGroup.total);
+    finalizarGrupo(staticGroup.el, staticGroup.summaryEl, staticGroup.total);
     staticGroup = null;
   };
   for (const msg of p.messages) {
     if (!msg || !msg.role) continue;
     if (msg.role === 'tool') {
       if (!staticGroup) {
-        staticGroup = { ...p._createToolGroupEl(), total: 0 };
+        staticGroup = { ...criarGrupoDeFerramentas(), total: 0 };
         p.messagesEl.appendChild(staticGroup.el);
       }
       staticGroup.body.appendChild(
-        p.appendStaticToolChip(msg.toolName, msg.status, msg.error, msg.args, msg.result),
+        chipEstatico(msg.toolName, msg.status, msg.error, msg.args, msg.result),
       );
       staticGroup.total += 1;
     } else if (msg.role === 'citation') {

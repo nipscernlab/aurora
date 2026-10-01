@@ -259,6 +259,7 @@ js/ai/tarefa_em_segundo_plano.js
 js/ai/citacoes_do_chat.js
 js/ai/provedores_do_painel.js
 js/ai/chips_de_ferramenta.js
+js/ai/rolagem_do_chat.js
 js/ai/tool_permission.js
 js/utils/pane_size.js
 js/ai/chat_scroll.js

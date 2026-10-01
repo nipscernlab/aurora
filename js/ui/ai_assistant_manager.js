@@ -31,7 +31,7 @@ import {
 } from '../ai/provedores_do_painel.js';
 import { iniciarChip, terminarChip, fecharGrupo } from '../ai/chips_de_ferramenta.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
-import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
+import { rolarAoFim, ligarRolagem } from '../ai/rolagem_do_chat.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
 import { abrirReferencia, abrirCaminhoDoChat } from '../ai/abrir_referencia.js';
 import { confiaEmLinksExternos, definirConfiancaEmLinks, confirmarLinkExterno } from '../ai/link_externo.js';
@@ -123,58 +123,12 @@ class AIAssistantManager {
     this.stickToBottom = true;
   }
 
-  /** Distance in px the viewport may sit above the bottom and still count as "at the bottom". */
-  get _bottomThresholdPx() { return 32; }
+  /* ---------------- rolagem ---------------- */
+  // Acompanhar o fim, soltar quando a pessoa sobe e o "Jump to latest" moram
+  // em js/ai/rolagem_do_chat.ts.
 
-  _isAtBottom() {
-    // Pure geometry in chat_scroll.js; this class owns the element + state.
-    return isAtBottom(this.messagesEl, this._bottomThresholdPx);
-  }
-
-  /**
-   * Scroll to the bottom IF the user hasn't scrolled away. Called from
-   * every place that previously did `messagesEl.scrollTop = scrollHeight`
-   * unconditionally. When `force` is true (e.g. the user just sent a
-   * message) we re-stick regardless of where they were.
-   */
-  scrollToBottom(force = false) {
-    if (!this.messagesEl) return;
-    if (force) this.stickToBottom = true;
-    if (this.stickToBottom) {
-      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
-    }
-  }
-
-  /**
-   * Glide to the bottom with ease-in-out (accelerate then decelerate), used by
-   * the "Jump to latest" pill so the jump feels deliberate, not a hard snap.
-   * Re-targets the bottom each frame so it still lands if the stream is growing.
-   * (The per-token auto-scroll stays instant via scrollToBottom, smoothing it
-   * would visibly lag behind the text.)
-   */
-  smoothScrollToBottom() {
-    const el = this.messagesEl;
-    if (!el) return;
-    this.stickToBottom = true;
-    if (this._scrollRaf) cancelAnimationFrame(this._scrollRaf);
-    const start = el.scrollTop;
-    const dist = (el.scrollHeight - el.clientHeight) - start;
-    if (dist <= 2) { el.scrollTop = el.scrollHeight; return; }
-    const dur = smoothScrollDuration(dist);
-    const t0 = performance.now();
-    const step = (now) => {
-      const p = Math.min(1, (now - t0) / dur);
-      const target = el.scrollHeight - el.clientHeight;   // re-target growing content
-      el.scrollTop = start + (target - start) * easeInOutCubic(p);
-      if (p < 1) {
-        this._scrollRaf = requestAnimationFrame(step);
-      } else {
-        this._scrollRaf = null;
-        el.scrollTop = el.scrollHeight - el.clientHeight;
-      }
-    };
-    this._scrollRaf = requestAnimationFrame(step);
-  }
+  /** Vai ao fim se a pessoa nao subiu para ler; `force` volta a acompanhar. */
+  scrollToBottom(force = false) { rolarAoFim(this, force); }
 
   /* ---------------- layout ---------------- */
   // A largura, abrir e fechar, e os dois arrastadores moram em
@@ -692,54 +646,8 @@ class AIAssistantManager {
       }).catch(() => {});
     });
 
-    // Smart auto-scroll. We treat the scrollbar as the user's "I'm
-    // reading earlier messages" signal: the moment they scroll up from
-    // the bottom we stop pinning the viewport so new tokens don't yank
-    // them down. Returning to the bottom re-arms the pin.
-    // Wheel / touch events scroll the same element so a single scroll
-    // listener catches every input modality.
-    this.messagesEl.addEventListener('scroll', () => {
-      const atBottom = this._isAtBottom();
-      if (this.stickToBottom !== atBottom) {
-        this.stickToBottom = atBottom;
-        this._toggleResumeScrollHint(!atBottom);
-      }
-    }, { passive: true });
-  }
-
-  /**
-   * Floating "Jump to latest" pill, shown while the user is reading above
-   * the live edge. The element is created once and kept in the DOM; we just
-   * toggle `.visible`, so it fades both in and out via CSS (instant
-   * `.remove()` used to make it pop out abruptly). Clicking it jumps to the
-   * bottom AND hides it immediately, relying on the scroll handler to hide
-   * it failed because `scrollToBottom(true)` had already set
-   * `stickToBottom = true`, so the handler's `stickToBottom !== atBottom`
-   * guard short-circuited and the pill stayed up.
-   */
-  _toggleResumeScrollHint(show) {
-    if (!this.container) return;
-    let pill = this.container.querySelector('.ai-scroll-resume');
-    if (show) {
-      if (!pill) {
-        pill = document.createElement('button');
-        pill.type = 'button';
-        pill.className = 'ai-scroll-resume';
-        pill.innerHTML = '<i class="ph ph-arrow-down"></i><span>Jump to latest</span>';
-        pill.addEventListener('click', () => {
-          this.smoothScrollToBottom();
-          this._toggleResumeScrollHint(false);
-        });
-        // Anchor inside .ai-assistant-content so it floats above the
-        // messages but below the composer.
-        this.messagesEl.parentElement.appendChild(pill);
-        // Force a reflow so adding `.visible` on the same tick animates.
-        void pill.offsetWidth;
-      }
-      pill.classList.add('visible');
-    } else if (pill) {
-      pill.classList.remove('visible');
-    }
+    // Rolagem inteligente: subir do fim solta a vista (js/ai/rolagem_do_chat.ts).
+    ligarRolagem(this);
   }
 
   /* ---------------- model / provider popover ---------------- */

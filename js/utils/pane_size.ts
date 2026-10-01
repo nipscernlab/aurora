@@ -1,5 +1,5 @@
 /**
- * pane_size.js: a regra de tamanho dos painéis redimensionáveis, no
+ * pane_size.ts: a regra de tamanho dos painéis redimensionáveis, no
  * comportamento do VS Code.
  *
  * O que o VS Code faz, e que a AURORA não fazia: arrastando, o painel encolhe
@@ -20,14 +20,13 @@
  * Resolve a largura (ou altura) final de um painel a partir do que o arrasto
  * pediu.
  *
- * @param {number} desejado tamanho cru que o arrasto produziu, podendo ser
+ * @param desejado tamanho cru que o arrasto produziu, podendo ser
  *   negativo quando o usuário força para além da borda
- * @param {{min: number, collapseAt: number, max: number}} limites
  *   `min` é onde o arrasto encosta; `collapseAt` é o ponto além do qual
  *   colapsa; `max` é o teto já descontado dos vizinhos
- * @returns {number} 0 quando colapsa, senão um valor entre `min` e `max`
+ * @returns 0 quando colapsa, senão um valor entre `min` e `max`
  */
-export function resolvePaneSize(desejado, { min, collapseAt, max }) {
+export function resolvePaneSize(desejado: number, { min, collapseAt, max }: { min: number; collapseAt: number; max: number; }): number {
   const d = Number(desejado);
   if (!Number.isFinite(d)) return min;
   // Forçar além do limiar colapsa. Este é o comportamento do VS Code e o que
@@ -41,13 +40,12 @@ export function resolvePaneSize(desejado, { min, collapseAt, max }) {
  * Teto de um painel lateral: o que sobra da janela depois do painel do outro
  * lado e do mínimo que o editor precisa para continuar utilizável.
  *
- * @param {number} larguraJanela
- * @param {number} larguraVizinho largura atual do painel do outro lado
- * @param {number} minEditor espaço mínimo reservado para a área central
- * @param {number} minProprio piso do próprio painel, para o teto nunca ficar
+ * @param larguraVizinho largura atual do painel do outro lado
+ * @param minEditor espaço mínimo reservado para a área central
+ * @param minProprio piso do próprio painel, para o teto nunca ficar
  *   abaixo dele em janela pequena
  */
-export function maxLateralWidth(larguraJanela, larguraVizinho, minEditor, minProprio) {
+export function maxLateralWidth(larguraJanela: number, larguraVizinho: number, minEditor: number, minProprio: number) {
   const sobra = Number(larguraJanela) - Number(larguraVizinho || 0) - Number(minEditor);
   return Math.max(Number(minProprio), sobra);
 }
@@ -63,14 +61,14 @@ export function maxLateralWidth(larguraJanela, larguraVizinho, minEditor, minPro
  * ferramentas e barra de estado de cabeça, e errar por um pixel ali vira folga
  * que o divisor nunca alcança.
  *
- * @param {number} alturaFaixa altura do container que o editor e o terminal
+ * @param alturaFaixa altura do container que o editor e o terminal
  *   dividem
- * @param {number} alturaDivisor altura do resizer entre os dois
- * @param {number} minEditor espaço mínimo reservado para o editor
- * @param {number} minProprio piso do próprio terminal, para o teto nunca ficar
+ * @param alturaDivisor altura do resizer entre os dois
+ * @param minEditor espaço mínimo reservado para o editor
+ * @param minProprio piso do próprio terminal, para o teto nunca ficar
  *   abaixo dele em janela baixa
  */
-export function maxTerminalHeight(alturaFaixa, alturaDivisor, minEditor, minProprio) {
+export function maxTerminalHeight(alturaFaixa: number, alturaDivisor: number, minEditor: number, minProprio: number) {
   const sobra = Number(alturaFaixa) - Number(alturaDivisor || 0) - Number(minEditor);
   return Math.max(Number(minProprio), sobra);
 }

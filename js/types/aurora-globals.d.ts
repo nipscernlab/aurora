@@ -207,6 +207,12 @@ interface AuroraGitAPI {
 
 /** Subset do window.aiAPI do preload (main/ipc/ai.js) que os .ts ja usam: as conversas gravadas. */
 interface AuroraAiAPI {
+  /** Os provedores de API conhecidos, com o modelo de cada um. */
+  listProviders(): Promise<{ providers?: Array<{ name: string; model?: string; defaultModel?: string }> } | null | undefined>;
+  /** Quais provedores de API tem chave guardada. */
+  getKeyStatus(): Promise<{ configured?: Record<string, boolean> } | null | undefined>;
+  /** Grava o modelo de um provedor de API; responde o modelo que valeu. */
+  setModel?(provider: string, model: string): Promise<{ ok?: boolean; model?: string } | null | undefined>;
   listConversations?(): Promise<{ chats?: import('../ai/chat_history.js').ConversaListada[] } | null | undefined>;
   /** A conversa inteira, ou null quando nao existe. */
   readConversation(id: string): Promise<ConversaGravada | null>;

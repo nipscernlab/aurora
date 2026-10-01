@@ -24,6 +24,11 @@ import {
 } from '../ai/layout_do_painel.js';
 import { correrEmSegundoPlano } from '../ai/tarefa_em_segundo_plano.js';
 import { lerVersaoDoManual, juntarCitacao, colherCitacaoDeFerramenta, registrarCitacoes } from '../ai/citacoes_do_chat.js';
+import {
+  alternarPopover, desenharPermissoes, definirPermissao, atualizarProvedores, aplicarProvedor,
+  escolherProvedor, definirEsforco, gravarModelo, atualizarEstadoDaAssinatura,
+  desenharEstadoDaAssinatura, desenharEstadoDoProvedor, atualizarUso, desenharUso,
+} from '../ai/provedores_do_painel.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
@@ -35,13 +40,10 @@ import {
 } from '../ai/tool_chip_text.js';
 import { abrirReferencia, abrirCaminhoDoChat } from '../ai/abrir_referencia.js';
 import { confiaEmLinksExternos, definirConfiancaEmLinks, confirmarLinkExterno } from '../ai/link_externo.js';
-import { estadoDaAssinatura, estadoDoProvedor } from '../ai/estado_do_provedor.js';
 import { adicionarArquivos, abrirImagem, desenharAnexos, desenharAnexosNaBolha, escaparHtml } from '../ai/anexos_do_chat.js';
 import { lerContextoDoTurno } from '../ai/contexto_do_turno.js';
 import { avisoDeAssinatura, desenharFila } from '../ai/fila_do_chat.js';
-import { permissionOptionsHtml } from '../ai/tool_permission.js';
 import { confirmarFerramenta, perguntarAPessoa } from '../ai/perguntas_inline.js';
-import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
 import {
   novaConversa, comecarTutorial, alternarHistorico, relerLista, cliqueNoHistorico,
   apagarConversa, abrirConversa, gravarConversa,
@@ -53,10 +55,8 @@ import {
 } from '../ai/chat_render.js';
 import { marcarPonto, rotuloDoPedido, voltarAoPonto, listarPontos } from '../ai/rewind.js';
 import {
-  PROVIDER_META, CLAUDE_CODE_PROVIDER, CLAUDE_CODE_EFFORT, CHATGPT_PROVIDER, CHATGPT_MODELS,
-  SUB_META, isSubProvider, STREAM_STALL_MS, STREAM_STALL_HARD_MS,
-  shortModelName, formatTokens, usageRowHTML, usageRows, formatPlanLabel,
-  PERMISSION_STORE_KEY, PERMISSION_MODES, readPermissionMode,
+  CLAUDE_CODE_EFFORT, SUB_META, isSubProvider, STREAM_STALL_MS, STREAM_STALL_HARD_MS,
+  formatTokens, readPermissionMode,
 } from '../ai/ai_metadata.js';
 
 /* ============================================================
@@ -748,308 +748,28 @@ class AIAssistantManager {
   }
 
   /* ---------------- model / provider popover ---------------- */
+  // O popover de provedor e modelo, o esforco, a permissao, a linha de estado
+  // e o uso moram em js/ai/provedores_do_painel.ts; o painel e o contexto.
 
-  toggleModelPopover(force) {
-    const open = force === undefined ? !this.modelPopoverOpen : force;
-    this.modelPopoverOpen = open;
-    this.modelPopover.classList.toggle('hidden', !open);
-    this.modelChip.classList.toggle('active', open);
-    if (open && isSubProvider(this.currentProvider)) this.refreshSubUsage();
-  }
+  toggleModelPopover(force) { alternarPopover(this, force); }
+  buildPermissionOptions() { desenharPermissoes(this); }
+  setPermissionMode(mode) { definirPermissao(this, mode); }
+  refreshProviders() { return atualizarProvedores(this); }
+  /** Reflect the active provider across the icon, chip, controls and usage. */
+  applyProviderState() { aplicarProvedor(this); }
+  /** Switch the active provider (from a radio change in the popover). */
+  selectProvider(name) { escolherProvedor(this, name); }
+  setClaudeCodeEffort(id) { definirEsforco(this, id); }
+  /** Persist a model id for the active provider and refresh the chip. */
+  commitModel(value) { return gravarModelo(this, value); }
+  refreshSubStatus() { return atualizarEstadoDaAssinatura(this); }
+  renderSubStatus() { desenharEstadoDaAssinatura(this); }
+  renderProviderStatus() { desenharEstadoDoProvedor(this); }
+  refreshSubUsage() { return atualizarUso(this); }
+  renderUsage() { desenharUso(this); }
 
-  buildPermissionOptions() {
-    this.mpPerms.innerHTML = permissionOptionsHtml(PERMISSION_MODES, this.permissionMode);
-  }
-
-  setPermissionMode(mode) {
-    if (!PERMISSION_MODES.some((m) => m.id === mode)) return;
-    this.permissionMode = mode;
-    try { localStorage.setItem(PERMISSION_STORE_KEY, mode); }
-    catch (_) { /* persistence is best-effort */ }
-  }
-
-  /**
-   * A versao do manual instalado, lida uma vez e guardada.
-   *
-   * Guardada porque quem a usa () tem de ser sincrono, e
-   * relida quando a janela volta ao foco porque o manual se atualiza sozinho
-   * por manifesto, no meio da sessao.
-   */
   /** A versao do manual, para carimbar as citacoes (js/ai/citacoes_do_chat.ts). */
   _lerVersaoDoManual() { return lerVersaoDoManual(this); }
-
-  async refreshProviders() {
-    if (!window.aiAPI) {
-      this.showEmptyState(true);
-      this.sendBtn.disabled = true;
-      this.inputEl.disabled = true;
-      return;
-    }
-
-    let providers = [];
-    try {
-      const r = await window.aiAPI.listProviders();
-      const s = await window.aiAPI.getKeyStatus();
-      providers = r?.providers || [];
-      this.providersConfigured = s?.configured || {};
-    } catch (e) {
-      console.warn('[ai-panel] refreshProviders failed:', e);
-      providers = [];
-      this.providersConfigured = {};
-    }
-
-    // Claude Code and ChatGPT are synthetic, always-available providers
-    // (subscription auth, no API key). Their model is persisted locally,
-    // not by the backend.
-    if (!this.claudeCodeEntry) {
-      this.claudeCodeEntry = { ...CLAUDE_CODE_PROVIDER };
-      try {
-        const saved = localStorage.getItem(SUB_META['claude-code'].modelStoreKey);
-        if (saved) this.claudeCodeEntry.model = saved;
-      } catch (_) { /* ignore */ }
-    }
-    if (!this.chatgptEntry) {
-      this.chatgptEntry = { ...CHATGPT_PROVIDER };
-      try {
-        const key = SUB_META['chatgpt'].modelStoreKey;
-        const saved = localStorage.getItem(key);
-        // Drop any previously-saved id that is no longer a valid preset.
-        // Earlier versions offered `gpt-5` and `gpt-5-codex`, both fail
-        // on ChatGPT-subscription auth with "model is not supported when
-        // using Codex with a ChatGPT account". Falling back to "default"
-        // avoids a stream error on the very first turn after the upgrade.
-        if (saved && CHATGPT_MODELS.some((m) => m.id === saved)) {
-          this.chatgptEntry.model = saved;
-        } else if (saved) {
-          localStorage.removeItem(key);
-          this.chatgptEntry.model = 'default';
-        }
-      } catch (_) { /* ignore */ }
-    }
-    this.providersConfigured['claude-code'] = true;
-    this.providersConfigured['chatgpt'] = true;
-
-    const apiUsable = providers.filter((p) => this.providersConfigured[p.name]);
-    this.providersAvailable = [this.claudeCodeEntry, this.chatgptEntry, ...apiUsable];
-
-    this.showEmptyState(false);
-    this.sendBtn.disabled = false;
-    this.inputEl.disabled = false;
-
-    // Keep the current selection if still valid; otherwise prefer a
-    // configured API provider, falling back to Claude Code.
-    if (!this.currentProvider ||
-        !this.providersAvailable.some((p) => p.name === this.currentProvider)) {
-      this.currentProvider = apiUsable[0]?.name || 'claude-code';
-    }
-
-    this.renderProviderOptions();
-    this.applyProviderState();
-  }
-
-  renderProviderOptions() {
-    // Pure markup in provider_view.js; this method owns the popover element.
-    this.mpProviders.innerHTML = providerOptionsHtml(this.providersAvailable, this.currentProvider);
-  }
-
-  /** Reflect the active provider across the icon, chip, controls and usage. */
-  applyProviderState() {
-    const meta = PROVIDER_META[this.currentProvider] || {};
-    const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
-    const isSub = !!meta.subscription;
-
-    if (meta.icon) this.providerIcon.src = meta.icon;
-    this.updateModelChip();
-    if (this.modelInput) this.modelInput.value = entry?.model || '';
-
-    // Effort / usage sections stay subscription-only, they have no
-    // analog for API providers.
-    this.ccSections.forEach((el) => el.classList.toggle('hidden', !isSub));
-    // Effort shows for any bridge with hasEffort, Claude Code (--effort)
-    // and Codex (-c model_reasoning_effort) share the same segmented control.
-    const sm = SUB_META[this.currentProvider];
-    // A API da Anthropic aceita o mesmo esforco que as CLIs, entao o controle
-    // aparece para ela tambem (o main so o envia aos modelos que o suportam).
-    const temEsforco = (sm && sm.hasEffort) || this.currentProvider === 'anthropic';
-    if (this.effortSection) {
-      this.effortSection.classList.toggle('hidden', !temEsforco);
-    }
-
-    this.renderModelControls();
-    if (temEsforco && !isSub) this.renderEffort();
-    if (isSub) {
-      if (sm && sm.hasEffort) this.renderEffort();
-      this.refreshSubStatus();
-      this.refreshSubUsage();
-    } else {
-      // API provider, status row is generated synchronously from the
-      // already-loaded providersConfigured map.
-      this.renderProviderStatus();
-    }
-  }
-
-  /** Switch the active provider (from a radio change in the popover). */
-  selectProvider(name) {
-    if (name === this.currentProvider) return;
-    this.currentProvider = name;
-    this.applyProviderState();
-    this.logModelChange();
-    // Choosing an AI is the last thing the user wants from the popover:
-    // close it so they land straight back on the composer.
-    this.toggleModelPopover(false);
-  }
-
-  /**
-   * Print a `--- Modelo: <provider> · <model> ---` divider into the
-   * messages list. Called whenever the user changes the provider or the
-   * model, gives a clear in-chat marker of which model produced which
-   * answers, in the style of Claude's VS Code extension.
-   */
-  logModelChange() {
-    const meta = PROVIDER_META[this.currentProvider] || {};
-    const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
-    const label = meta.label || this.currentProvider || 'Model';
-    const model = faithfulModelName(entry, this.currentProvider);
-    const el = this.appendDivider(model ? `Modelo: ${label} · ${model}` : `Modelo: ${label}`);
-    // Render this marker with a flowing sine wave instead of flat rules.
-    el?.classList.add('ai-divider-wave');
-  }
-
-  /**
-   * The model name to show in the switch marker, faithful to what the
-   * user actually picked. For the subscription CLIs that means the chosen
-   * preset label (Default / Sonnet / Opus / Haiku); for API providers it's
-   * the real model id (lightly shortened), falling back to the provider's
-   * default model so the marker is never blank.
-   */
-  /** Model picker: free-text input for API providers, presets for the CLIs. */
-  renderModelControls() {
-    const sm = SUB_META[this.currentProvider];
-    this.mpModelApi.classList.toggle('hidden', !!sm);
-    this.mpModelPresets.classList.toggle('hidden', !sm);
-    if (sm) {
-      const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
-      const active = entry?.model || 'default';
-      this.mpModelPresets.innerHTML = modelPresetsHtml(sm.models, active);
-    }
-  }
-
-  /** Effort / reasoning-depth segmented control (Claude Code only). */
-  renderEffort() {
-    this.effortSeg.innerHTML = CLAUDE_CODE_EFFORT.map((e) =>
-      `<button type="button" data-effort="${e.id}" class="ai-seg-btn${
-        e.id === this.claudeCodeEffort ? ' active' : ''}">${e.label}</button>`).join('');
-  }
-
-  setClaudeCodeEffort(id) {
-    if (!CLAUDE_CODE_EFFORT.some((e) => e.id === id)) return;
-    this.claudeCodeEffort = id;
-    try { localStorage.setItem('aurora-ai-cc-effort', id); }
-    catch (_) { /* best-effort */ }
-    this.renderEffort();
-  }
-
-  /** Persist a model id for the active provider and refresh the chip. */
-  async commitModel(value) {
-    const v = (value || '').trim();
-    const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
-    const before = entry?.model || '';
-
-    const sm = SUB_META[this.currentProvider];
-    if (sm) {
-      const model = v || 'default';
-      if (entry) entry.model = model;
-      try { localStorage.setItem(sm.modelStoreKey, model); }
-      catch (_) { /* best-effort */ }
-      this.renderModelControls();
-      this.updateModelChip();
-      if (model !== before) this.logModelChange();
-      return;
-    }
-
-    try {
-      const r = await window.aiAPI.setModel(this.currentProvider, v);
-      if (r && r.ok) {
-        if (entry) entry.model = r.model || '';
-        if (this.modelInput) this.modelInput.value = r.model || '';
-      }
-    } catch (_) { /* leave the field as the user typed it */ }
-    this.updateModelChip();
-    this.renderProviderOptions();   // refresh the per-provider model hint
-    if ((entry?.model || '') !== before) this.logModelChange();
-  }
-
-  /** Refresh the composer chip, provider icon + short model name. */
-  updateModelChip() {
-    const meta = PROVIDER_META[this.currentProvider] || {};
-    const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
-    if (meta.icon) this.modelChipIcon.src = meta.icon;
-
-    const short = shortModelName(entry?.model);
-    this.modelChipName.textContent = short || meta.label || this.currentProvider || 'Model';
-    this.modelChip.title = entry?.model
-      ? `${meta.label || this.currentProvider} · ${entry.model}`
-      : `${meta.label || this.currentProvider} — switch model or provider`;
-  }
-
-  /* ---------------- subscription provider: connection status ---------------- */
-
-  /** Probe the active subscription CLI's install + login status. */
-  async refreshSubStatus() {
-    const provider = this.currentProvider;
-    const sm = SUB_META[provider];
-    if (!sm) return;
-    let status = null;
-    try {
-      const r = await window.aiAPI?.[sm.statusApi]?.();
-      status = r?.status || null;
-    } catch (_) { /* treat as not installed */ }
-    this.subStatus[provider] = status;
-    // The user may have switched providers while the probe was in flight.
-    if (this.currentProvider === provider) this.renderSubStatus();
-  }
-
-  /** A linha de estado da assinatura (js/ai/estado_do_provedor.ts). */
-  renderSubStatus() {
-    if (!this.ccStatusEl) return;
-    const sm = SUB_META[this.currentProvider];
-    if (!sm) return;
-    const { state, html } = estadoDaAssinatura(
-      this.subStatus[this.currentProvider], sm, PROVIDER_META[this.currentProvider] || {});
-    this.ccStatusEl.dataset.state = state;
-    this.ccStatusEl.innerHTML = html;
-  }
-
-  /** A linha de estado de um provedor de API (js/ai/estado_do_provedor.ts). */
-  renderProviderStatus() {
-    if (!this.ccStatusEl) return;
-    const provider = this.currentProvider;
-    const { state, html } = estadoDoProvedor(
-      provider,
-      PROVIDER_META[provider] || {},
-      this.providersAvailable.find((p) => p.name === provider),
-      !!(this.providersConfigured && this.providersConfigured[provider]),
-    );
-    this.ccStatusEl.dataset.state = state;
-    this.ccStatusEl.innerHTML = html;
-  }
-
-  /** True when the active subscription CLI is installed and signed in. */
-
-  /* ---------------- subscription provider: usage ---------------- */
-
-  async refreshSubUsage() {
-    const provider = this.currentProvider;
-    const sm = SUB_META[provider];
-    if (!sm) return;
-    let usage = null;
-    try {
-      const r = await window.aiAPI?.[sm.usageApi]?.();
-      usage = r?.usage || null;
-    } catch (_) { /* leave usage null */ }
-    this.subUsage[provider] = usage;
-    if (this.currentProvider === provider) this.renderUsage();
-  }
 
   // O aviso antes de abrir link externo mora em js/ai/link_externo.ts.
   _getTrustExternalLinks() { return confiaEmLinksExternos(); }
@@ -1060,39 +780,6 @@ class AIAssistantManager {
 
   /** Um caminho absoluto clicado na conversa (js/ai/abrir_referencia.ts). */
   async _openChatPath(rawPath) { await abrirCaminhoDoChat(rawPath); }
-
-  renderUsage() {
-    if (!this.usageBars) return;
-    const u = this.subUsage[this.currentProvider];
-
-    this.usagePlan.textContent = u?.plan ? `${formatPlanLabel(u.plan)} plan` : '';
-
-    // A decisao (recorte da utilizacao, limiar de cor, segundo contra
-    // milissegundo no resetsAt) vive em ai_metadata.usageRows, com teste;
-    // aqui fica so o desenho.
-    this.usageBars.innerHTML = usageRows(u)
-      .map((l) => usageRowHTML(l.label, l.icon, l.valText, l.sev, l.pct))
-      .join('');
-
-    const windows = Array.isArray(u?.windows) ? u.windows : [];
-    let hint = this.mpUsage.querySelector('.ai-usage-hint');
-    if (!windows.length) {
-      // Codex's CLI exposes only a session token tally, never rate-limit
-      // windows, so the "appears after your first message" copy was wrong
-      // there forever. Tell each provider the truth.
-      const text = this.currentProvider === 'chatgpt'
-        ? 'The Codex CLI reports only this session’s token tally, not ChatGPT plan limits.'
-        : 'Plan limits appear here after your first message.';
-      if (!hint) {
-        hint = document.createElement('p');
-        hint.className = 'ai-usage-hint';
-        this.mpUsage.appendChild(hint);
-      }
-      hint.textContent = text;
-    } else if (hint) {
-      hint.remove();
-    }
-  }
 
   /* ---------------- tool permission gate ---------------- */
 

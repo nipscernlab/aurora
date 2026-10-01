@@ -255,6 +255,7 @@ js/ai/chat_history.js
 js/ai/conversas_do_chat.js
 js/ai/perguntas_inline.js
 js/ai/layout_do_painel.js
+js/ai/tarefa_em_segundo_plano.js
 js/ai/tool_permission.js
 js/utils/pane_size.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)

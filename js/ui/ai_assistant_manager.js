@@ -22,6 +22,7 @@ import {
   aplicarLargura, larguraPermitida, aplicarAbertura, alternar, garantirAberto, reaplicarLimite,
   ligarDivisorDeLargura, ligarCantoDoTerminal,
 } from '../ai/layout_do_painel.js';
+import { correrEmSegundoPlano } from '../ai/tarefa_em_segundo_plano.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
@@ -1545,111 +1546,11 @@ class AIAssistantManager {
   }
 
   /**
-   * Kick off a long task in the background and return immediately, so the
-   * current turn can end. When the task finishes, the assistant auto-continues
-   * with the result (autoContinue). Backs window.AuroraAPI.ai.runInBackground.
-   *
-   * @param {{task:'compile_all'|'compile_step', step?:string, note?:string}} p
-   * @returns {{ok:boolean, data?:object, error?:string}}
+   * Comeca uma compilacao em segundo plano e devolve na hora; quando ela acaba,
+   * a assistente continua sozinha com o resultado. Porta do aurora_api
+   * (ai.runInBackground); mora em js/ai/tarefa_em_segundo_plano.ts.
    */
-  runInBackground({ task, step, note } = {}) {
-    const api = window.AuroraAPI;
-    if (!api || !api.compile) return { ok: false, error: 'AuroraAPI.compile unavailable' };
-    let job;
-    if (task === 'compile_all') job = api.compile.compileAll();
-    else if (task === 'compile_step') {
-      if (!step) return { ok: false, error: 'compile_step requires a step' };
-      job = api.compile.compileStep(step);
-    } else {
-      return { ok: false, error: `unknown background task: ${task}` };
-    }
-
-    const taskId = `bg-${Date.now().toString(36)}`;
-    const label = task === 'compile_step' ? `compile ${step}` : 'compile all';
-    // Pin the conversation this task belongs to, if the user switches chats
-    // before it finishes, we must NOT inject the follow-up into the new one.
-    const originChatId = this.currentChatId;
-    this._renderBgTask(taskId, `Running ${label} in the background…`, 'running');
-
-    const stillSameChat = () => this.currentChatId === originChatId;
-
-    Promise.resolve(job).then(async (res) => {
-      // Cancelar nao e terminar. O fluxo de compilacao trata o cancelamento
-      // por dentro (mostra o cartao amigavel e volta normalmente), entao a
-      // promessa aqui RESOLVE, e a tarefa era relatada ao modelo como
-      // "finished". Ele entao resumia um resultado que nao existe, ou saia
-      // investigando por que a onda nao abriu. `runStatus` ja sabe a diferenca;
-      // faltava perguntar antes de dar a noticia.
-      let cancelada = false;
-      try {
-        const st = await api.compile?.runStatus?.();
-        cancelada = !!(st && st.ok && st.data && st.data.cancelled);
-      } catch (_) { /* sem resposta, segue pelo desfecho da promessa */ }
-      const okJob = !cancelada && !(res && res.ok === false);
-      if (!stillSameChat()) return;   // user moved on — drop the auto-continue
-      if (cancelada) {
-        this._renderBgTask(taskId, `${label} cancelled`, 'failed');
-        this.autoContinue(
-          `[AUTONOMOUS BACKGROUND TASK] "${label}" (${taskId}) was CANCELLED by the user `
-          + 'before it finished. Nothing ran to completion, so there is no result to report. '
-          + 'Do not retry on your own: acknowledge briefly and ask what they want to do next.',
-          { label: `Background task: ${label} cancelled` },
-        );
-        return;
-      }
-      // Pull the compiler terminals for context so the follow-up turn can
-      // actually report what happened.
-      let terminals = '';
-      try {
-        const t = await api.terminal?.getAll?.();
-        if (t && t.ok && t.data) terminals = JSON.stringify(t.data).slice(0, 4000);
-      } catch (_) { /* terminals are best-effort context */ }
-      this._renderBgTask(taskId, `${label} ${okJob ? 'finished' : 'failed'}`, okJob ? 'done' : 'failed');
-      const status = okJob ? 'completed' : `failed: ${res?.error?.message || motivoDe(res, 'unknown error')}`;
-      this.autoContinue(
-        `[AUTONOMOUS BACKGROUND TASK] "${label}" (${taskId}) ${status}.\n\n` +
-        (note ? `Original intent: ${note}\n\n` : '') +
-        `Relevant terminal output (truncated):\n${terminals || '(none captured)'}\n\n` +
-        `Summarise the outcome for the user concisely, and decide whether any follow-up action is warranted.`,
-        {
-          label: `Background task: ${label} ${okJob ? 'finished' : 'failed'}`,
-          // Passou e falhou NAO sao a mesma tarefa. Passou e resumir uma saida
-          // que ja veio pronta. Falhou e inferir a causa de um erro do C+-, que
-          // nao esta na mensagem: `i` e reservado por ser a unidade imaginaria,
-          // array nao vai como parametro de funcao, array global nao aceita
-          // inicializacao direta. Nada disso aparece no texto do erro.
-          operacao: okJob ? 'posCompilacaoOk' : 'posCompilacaoFalha',
-        },
-      );
-    }).catch((e) => {
-      if (!stillSameChat()) return;
-      this._renderBgTask(taskId, `${label} errored`, 'failed');
-      this.autoContinue(
-        `[AUTONOMOUS BACKGROUND TASK] "${label}" (${taskId}) threw: ${e?.message || e}. Report this to the user.`,
-        { label: `Background task: ${label} errored` },
-      );
-    });
-
-    return { ok: true, data: { taskId, status: 'started', task: label } };
-  }
-
-  /** Render (or update) the inline status chip for a background task. */
-  _renderBgTask(taskId, text, state) {
-    let el = this.messagesEl.querySelector(`.ai-bgtask[data-task-id="${taskId}"]`);
-    if (!el) {
-      el = document.createElement('div');
-      el.className = 'ai-bgtask';
-      el.dataset.taskId = taskId;
-      el.innerHTML = '<i class="ph ai-bgtask-icon" aria-hidden="true"></i><span class="ai-bgtask-text"></span>';
-      this.messagesEl.appendChild(el);
-    }
-    el.classList.remove('running', 'done', 'failed');
-    el.classList.add(state);
-    const icon = el.querySelector('.ai-bgtask-icon');
-    if (icon) icon.className = `ph ai-bgtask-icon ${state === 'done' ? 'ph-check-circle' : state === 'failed' ? 'ph-x-circle' : 'ph-circle-notch ai-tool-spin'}`;
-    el.querySelector('.ai-bgtask-text').textContent = text;
-    this.scrollToBottom();
-  }
+  runInBackground(pedido) { return correrEmSegundoPlano(this, pedido); }
 
   async stop() {
     if (!this.currentSessionId || !window.aiAPI) return;

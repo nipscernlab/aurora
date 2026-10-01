@@ -138,7 +138,7 @@ describe('o relatorio no terminal', () => {
     expect(s).toContain('fixado v0.7.0-nips.2 NAO esta publicado; o mais novo e v0.7.0-nips.7');
     expect(s).toContain('o bootstrap vai falhar em maquina limpa');
     expect(s).toMatch(/\[ CONFIG \] {2}verible {7}terceiro/);
-    expect(s).toContain('a tag fixada nao-casa nao casa com a familia declarada');
+    expect(s).toContain('a tag fixada nao-casa nao casa com /^v\\d/');
     expect(s).toContain('e bug de configuracao do check-component-drift.mts, nao deriva');
     expect(s).toContain(`HTTP 403 em ${gh('hudson-trading/slang-server')}`);
     expect(s).toMatch(/\[ {3}\? {4}\] {2}clang-format/);

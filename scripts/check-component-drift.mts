@@ -330,7 +330,7 @@ function render(rows: Linha[]) {
       console.log(`            fixado ${bold(String(r.pinned))} NAO esta publicado; o mais novo e ${r.latest}`);
       console.log('            o bootstrap vai falhar em maquina limpa');
     } else if (r.status === 'bad-family') {
-      console.log(`            a tag fixada ${r.pinned} nao casa com ${(r as { family?: unknown }).family || 'a familia declarada'}`);
+      console.log(`            a tag fixada ${r.pinned} nao casa com ${COMPONENTS.find((comp) => comp.key === r.key)?.family || 'a familia declarada'}`);
       console.log('            e bug de configuracao do check-component-drift.mts, nao deriva');
     } else if (r.status === 'error' || r.status === 'unknown') {
       console.log(`            ${r.error || 'sem base de comparacao'}`);

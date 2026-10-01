@@ -2260,7 +2260,7 @@ A cadeia, nesta ordem:
         Depois, também corrigido: a onda do PRISM aberta na aba do Surfer
         levava os tradutores da última corrida do Wave.
       - [ ] `ai_assistant_manager` (em curso desde 30/09): de 3679 para
-        2065 linhas. Escolhido por ser o maior `.js` e o que mais muda. Saíram
+        1477 linhas. Escolhido por ser o maior `.js` e o que mais muda. Saíram
         `conversas_do_chat.ts` (nova, abrir, gravar, renomear, apagar e o
         tutorial guiado), `perguntas_inline.ts` (os cartões de permissão e de
         pergunta e o registro que fica no lugar), `layout_do_painel.ts`
@@ -2269,7 +2269,13 @@ A cadeia, nesta ordem:
         `citacoes_do_chat.ts` (os dois caminhos de chegada, o carimbo da versão,
         o bloco e o clique na página), `provedores_do_painel.ts` (o popover de
         provedor e modelo, esforço, permissão, estado e uso) e
-        `chips_de_ferramenta.ts` (o grupo "N actions" e os chips). A classe fica com uma
+        `chips_de_ferramenta.ts` (o grupo "N actions" e os chips),
+        `rolagem_do_chat.ts` (acompanhar o fim e o "Jump to latest"),
+        `indicadores_do_turno.ts` (pensando, download da CLI, contador de
+        tokens), `desenho_do_stream.ts` (a máquina de escrever por quadro, o
+        fecho do segmento e o selo do turno), e o `attachListeners` dividido
+        pelos donos de cada controle, com `composer_do_chat.ts` e
+        `cliques_na_conversa.ts` novos. A classe fica com uma
         delegação de uma linha por método que ela mesma chama, e com
         `confirmToolCall` e `showAskUserQuestionInline` como portas do
         `tool_runner` e do `aurora_api`. Os testes (`conversasDoChat`,
@@ -2297,13 +2303,21 @@ A cadeia, nesta ordem:
         E2E `ai-panel-layout` chama pela instância (`_larguraPermitida`,
         `_aplicarLargura`) ficam.
 
-        O que sobra na classe, por ordem: o `attachListeners` (o maior trecho
-        descoberto, ~75 linhas), o desenho do stream (`appendDelta`,
-        `_renderStreamingBubble`, `_renderWithReveal`, a revelação em cascata),
-        a rolagem (`scrollToBottom`, `smoothScrollToBottom`, a dica de voltar ao
-        fim), o aviso de download da CLI, e o núcleo do turno (`send`,
-        `_dispatchTurn`, `handleChatEvent`, filas, cão de guarda), que o
+        O que sobra na classe: o molde HTML do `initialize` (~270 linhas), os
+        balões (`appendBubble`, `appendDivider`, `_voltarAoPontoDaBolha`,
+        `askAboutSelection`) e o núcleo do turno (`send`, filas, `_dispatchTurn`,
+        `handleChatEvent`, `failTurn`, `resetTurnState`, cão de guarda), que o
         `aiTurnFlow` cobre. Depois disso, converter o resto inteiro.
+
+        Achados de 01/10, abertos: o `_streamFlush` é lido e zerado no desenho
+        do stream, mas nada o liga (o comentário diz que o fim do turno o
+        ligaria). Instabilidades, por nome: o `componentesIpc > saida com erro`
+        falhou 1 vez em 3 rodadas da suíte (a ordem das linhas de saída do
+        instalador); sob carga, o `edit-flow > clicking a .v file opens an
+        editable Monaco buffer` e o `split-pane > opens tree file in the
+        focused split pane` estouram a espera de 15 s pela aba (o mesmo commit
+        deu 4 verdes seguidas depois, e o painel de IA nem monta nesses
+        testes). O `fetcherTimeout` dependia da rede e foi corrigido.
       - [ ] E2E instável: `shell-terminal > navigates folders (cd persists,
         prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
         mudança do momento (o repetidor deu 3 verdes seguidas).

@@ -127,7 +127,9 @@ interface AuroraElectronAPI {
   docsStatus?(): Promise<unknown>;
   /** Abre um capitulo do manual na janela propria da documentacao. */
   docsOpenHelp?(pagina: string, opcoes?: Record<string, unknown>):
-    Promise<{ ok: boolean } | undefined>;
+    Promise<{ ok: boolean; motivo?: string; versao?: string } | undefined>;
+  /** Se o realce do trecho pedido no docsOpenHelp achou a frase na pagina. */
+  docsRealceDesfecho?(): Promise<{ achou?: boolean; motivo?: string } | null | undefined>;
   /** Abre uma URL no navegador do sistema. Recusa `file://` de proposito. */
   openExternal?(url: string): Promise<unknown>;
   getAppVersion?(): Promise<string>;
@@ -337,6 +339,8 @@ declare global {
     getYancLang?: () => string;
     /** i18n do renderer; os modulos usam o shim `tr()`, que cai na chave se ela nao tiver subido. */
     t?: (chave: string, params?: Record<string, unknown>) => string;
+    /** Traduz os `data-i18n` de um pedaco do DOM (js/i18n). */
+    i18nApplyDOM?: (el: Element) => void;
     /** De js/compilation/cancelamento.ts: o .exe morto pelo Cancelar reporta a morte como falha propria. */
     isCompilationCanceled?: () => boolean;
     /** A pagina do PRISM se publica para o preload e para os testes. */

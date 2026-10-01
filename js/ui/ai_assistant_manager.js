@@ -23,6 +23,7 @@ import {
   ligarDivisorDeLargura, ligarCantoDoTerminal,
 } from '../ai/layout_do_painel.js';
 import { correrEmSegundoPlano } from '../ai/tarefa_em_segundo_plano.js';
+import { lerVersaoDoManual, juntarCitacao, colherCitacaoDeFerramenta, registrarCitacoes } from '../ai/citacoes_do_chat.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
@@ -38,11 +39,6 @@ import { estadoDaAssinatura, estadoDoProvedor } from '../ai/estado_do_provedor.j
 import { adicionarArquivos, abrirImagem, desenharAnexos, desenharAnexosNaBolha, escaparHtml } from '../ai/anexos_do_chat.js';
 import { lerContextoDoTurno } from '../ai/contexto_do_turno.js';
 import { avisoDeAssinatura, desenharFila } from '../ai/fila_do_chat.js';
-import {
-    citacaoDeResultado,
-    citacaoJaEsta,
-    corpoDoResultado,
-} from '../ai/manual_citation.js';
 import { permissionOptionsHtml } from '../ai/tool_permission.js';
 import { confirmarFerramenta, perguntarAPessoa } from '../ai/perguntas_inline.js';
 import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
@@ -779,12 +775,8 @@ class AIAssistantManager {
    * relida quando a janela volta ao foco porque o manual se atualiza sozinho
    * por manifesto, no meio da sessao.
    */
-  async _lerVersaoDoManual() {
-    try {
-      const st = await window.electronAPI?.docsStatus?.();
-      this._versaoDoManual = (st && st.version) || '';
-    } catch (_) { this._versaoDoManual = ''; }
-  }
+  /** A versao do manual, para carimbar as citacoes (js/ai/citacoes_do_chat.ts). */
+  _lerVersaoDoManual() { return lerVersaoDoManual(this); }
 
   async refreshProviders() {
     if (!window.aiAPI) {
@@ -1670,7 +1662,7 @@ class AIAssistantManager {
         // qualquer, e vira linha no mesmo bloco que a citacao nativa da API.
         // Os dois caminhos convergem aqui de proposito: quem le a resposta nao
         // deve precisar saber por qual provedor ela veio.
-        this._colherCitacaoDeFerramenta(ev.toolName, ev.result);
+        colherCitacaoDeFerramenta(this, ev.toolName, ev.result);
         break;
       case 'finish':
         this._clearCliDownload();
@@ -1714,15 +1706,8 @@ class AIAssistantManager {
         // acabou de dizer, com o indice do caractere. Junta-se aqui e desenha
         // de uma vez no fim do turno: desenhar a cada chegada faria o bloco
         // crescer por baixo do texto enquanto a pessoa ainda le.
-        if (ev.citacao) {
-          if (!this._citacoesDoTurno) this._citacoesDoTurno = [];
-          // A mesma frase pode vir citada duas vezes se o modelo a usar em
-          // duas afirmacoes. Uma linha por frase, nao por uso.
-          const ja = this._citacoesDoTurno.some(
-            (c) => c.pagina === ev.citacao.pagina && c.trecho === ev.citacao.trecho,
-          );
-          if (!ja) this._citacoesDoTurno.push(ev.citacao);
-        }
+        // A mesma frase citada duas vezes fica uma linha so (citacoes_do_chat.ts).
+        if (ev.citacao) juntarCitacao(this, ev.citacao);
         break;
       case 'tool-rejected':
         // Uma chamada de ferramenta que a IA escreveu como texto e que NAO
@@ -2002,181 +1987,10 @@ class AIAssistantManager {
     this._sealTurnText();
     // As citacoes vao DEPOIS do texto selado: elas sustentam o que ficou
     // escrito, entao aparecem embaixo dele, e nao no meio.
-    this._registrarCitacoes();
+    registrarCitacoes(this);
     this.resetTurnState();
     // Auto-save the conversation after every turn.
     this.persistCurrentChat();
-  }
-
-  /**
-   * Fecha as citacoes do turno: guarda no historico e desenha.
-   *
-   * Entram na conversa como um registro de papel `citation`, que
-   * `buildApiMessages` filtra (js/ai/chat_turn.js): e para a pessoa conferir,
-   * nao para o modelo reler o que ele mesmo citou.
-   */
-  _registrarCitacoes() {
-    const lista = this._citacoesDoTurno || [];
-    this._citacoesDoTurno = null;
-    if (!lista.length) return;
-    // Carimba a versao do manual instalado. Ela nao serve para hoje: serve para
-    // daqui a um mes, quando alguem reabrir esta conversa, clicar na citacao e a
-    // frase nao estiver mais la. Sem a versao aquilo e um link morto; com ela, e
-    // "esta citacao e do manual 6.4.2".
-    //
-    // SINCRONO de proposito, por um valor guardado. `commitTurn` nao espera
-    // por este metodo, e ele empurra a citacao para `this.messages` antes de
-    // `persistCurrentChat` rodar. Buscar a versao por IPC aqui tornaria o metodo
-    // assincrono, e o push cairia DEPOIS da gravacao: a citacao apareceria na
-    // tela e sumiria ao reabrir a conversa.
-    const versao = this._versaoDoManual;
-    if (versao) for (const c of lista) c.versao = versao;
-    this.messages.push({ role: 'citation', citacoes: lista });
-    this.messagesEl.appendChild(this._blocoDeCitacoes(lista));
-    this.scrollToBottom?.();
-  }
-
-  /**
-   * A citacao que veio da ferramenta `cite_manual`.
-   *
-   * A regra, inclusive as duas formas em que o nome e o resultado chegam,
-   * mora em js/ai/manual_citation.ts, que e puro e tem teste. Aqui fica so
-   * a lista do turno, que e estado desta classe.
-   */
-  _colherCitacaoDeFerramenta(toolName, resultado) {
-    const c = citacaoDeResultado(toolName, resultado, this._versaoDoManual);
-    if (!c) return;     // recusada: o modelo e quem fica sabendo
-    if (!this._citacoesDoTurno) this._citacoesDoTurno = [];
-    if (citacaoJaEsta(this._citacoesDoTurno, c)) return;
-    this._citacoesDoTurno.push(c);
-  }
-
-  _corpoDoResultado(resultado) { return corpoDoResultado(resultado); }
-
-  /**
-   * Diz ao leitor por que o clique nao levou ao ponto, quando nao levou.
-   *
-   * O MANUAL MUDA SOZINHO: ele vive em repositorio proprio e se atualiza por
-   * manifesto, sem esperar release da AURORA. Uma citacao de uma conversa de
-   * semana passada pode apontar para uma frase que foi reescrita ou para uma
-   * pagina que foi renomeada. Sem explicacao, o clique nao faz nada visivel e o
-   * leitor conclui que a assistente inventou a citacao, que e exatamente o
-   * oposto do que ela existe para fazer.
-   *
-   * So fala quando ha o que falar. Achou a frase, nao aparece nada.
-   */
-  async _explicarCitacao(item, c, resposta) {
-    let chave = null;
-    let versao = resposta && resposta.versao;
-    if (resposta && resposta.ok === false) {
-      chave = resposta.motivo === 'manual-ausente'
-        ? 'ai.citations.manualMissing'
-        : 'ai.citations.pageGone';
-    } else {
-      // A pagina abriu; o realce e assincrono, entao o desfecho se pergunta
-      // depois. `achou` falso aqui quer dizer que a pagina esta la e a frase
-      // nao: o caso classico de manual atualizado.
-      let d = null;
-      try { d = await window.electronAPI?.docsRealceDesfecho?.(); } catch (_) { /* sem resposta */ }
-      if (d && d.achou === false && d.motivo === 'trecho-ausente') chave = 'ai.citations.textGone';
-    }
-    const anterior = item.querySelector('.ai-citacao-nota');
-    if (anterior) anterior.remove();
-    if (!chave) return;
-
-    const nota = document.createElement('p');
-    nota.className = 'ai-citacao-nota';
-    nota.setAttribute('data-i18n', chave);
-    nota.textContent = chave;
-    item.appendChild(nota);
-    window.i18nApplyDOM?.(nota);
-    // A versao vai DEPOIS da traducao, senao o applyDOM a apagaria ao reescrever
-    // o texto da chave.
-    if (versao) nota.textContent = `${nota.textContent} (${versao})`;
-  }
-
-  /**
-   * O bloco que fica embaixo da resposta: o titulo da pagina e a frase citada.
-   *
-   * POR QUE A FRASE FICA A VISTA, e nao atras de um hover. Hover nao existe no
-   * toque, nao sobrevive a um print e esconde justamente o que a coisa toda
-   * existe para revelar. Frase comprida e cortada por CSS e abre no botao.
-   *
-   * POR QUE NAO MARCADOR SOBRESCRITO no meio da prosa: a resposta e texto
-   * corrido em portugues, e numero sobrescrito ali le como artigo academico.
-   *
-   * Clicar no titulo abre o manual naquela pagina. E o gesto todo: a pessoa
-   * sai da resposta e cai no texto de verdade, que e onde ela confere.
-   */
-  _blocoDeCitacoes(lista) {
-    const bloco = document.createElement('div');
-    bloco.className = 'ai-citacoes';
-
-    const titulo = document.createElement('div');
-    titulo.className = 'ai-citacoes-head';
-    titulo.setAttribute('data-i18n', 'ai.citations.head');
-    titulo.textContent = 'From the manual';
-    bloco.appendChild(titulo);
-
-    for (const c of lista) {
-      const item = document.createElement('div');
-      item.className = 'ai-citacao';
-
-      const pagina = document.createElement('button');
-      pagina.type = 'button';
-      pagina.className = 'ai-citacao-pagina';
-      pagina.textContent = c.titulo || c.pagina;
-      pagina.title = c.pagina || '';
-      pagina.addEventListener('click', async () => {
-        // `docs:open-help` monta o caminho a partir da pasta do manual e ja
-        // recusa caminho para fora dela (main/ipc/docs.js), entao a pagina que
-        // veio da API atravessa a mesma guarda que a da interface.
-        //
-        // O TRECHO vai junto: a janela o procura na pagina, rola ate ele e o
-        // realca. Sem isso o clique abriria no topo e o leitor teria de cacar,
-        // numa pagina de 5.550 caracteres, a frase que acabou de ler aqui.
-        try {
-          const r = await window.electronAPI?.docsOpenHelp?.(c.pagina, { trecho: c.trecho });
-          this._explicarCitacao(item, c, r);
-        } catch (e) {
-          console.warn('[ai] nao consegui abrir o manual:', e);
-        }
-      });
-      item.appendChild(pagina);
-
-      const trecho = document.createElement('p');
-      trecho.className = 'ai-citacao-trecho';
-      trecho.textContent = c.trecho || '';
-      item.appendChild(trecho);
-
-      // O botao de expandir so aparece quando a frase REALMENTE nao coube.
-      // Botao que aparece sempre e clicado a toa, e num trecho de uma linha
-      // ele nao faria nada.
-      const mais = document.createElement('button');
-      mais.type = 'button';
-      mais.className = 'ai-citacao-mais hidden';
-      mais.setAttribute('data-i18n', 'ai.citations.expand');
-      mais.textContent = 'Expand';
-      mais.addEventListener('click', () => {
-        const aberto = item.classList.toggle('aberta');
-        mais.setAttribute('data-i18n', aberto ? 'ai.citations.collapse' : 'ai.citations.expand');
-        mais.textContent = aberto ? 'Collapse' : 'Expand';
-        window.i18nApplyDOM?.(mais);
-      });
-      item.appendChild(mais);
-
-      // A medida so vale depois de o elemento estar no documento e pintado.
-      requestAnimationFrame(() => {
-        if (trecho.scrollHeight > trecho.clientHeight + 1) mais.classList.remove('hidden');
-      });
-
-      bloco.appendChild(item);
-    }
-
-    // Traduzido na HORA DE MOSTRAR, e nao ao criar: quem troca o idioma com a
-    // conversa aberta veria o bloco congelado no idioma de antes.
-    window.i18nApplyDOM?.(bloco);
-    return bloco;
   }
 
   /**

@@ -19,6 +19,7 @@ import { lerPaginasDoManual, montarBlocoTutorial, aberturaDoTutorial } from './a
 import { chatListHtml, serializeMessagesForStorage, type ConversaListada, type MensagemDoChat } from './chat_history.js';
 import { highlightCodeBlocks } from './chat_render.js';
 import { desenharRegistroDaPergunta, type RegistroDaPergunta } from './perguntas_inline.js';
+import { desenharBlocoDeCitacoes } from './citacoes_do_chat.js';
 
 const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
@@ -72,7 +73,6 @@ export interface PainelDaConversa {
   appendStaticToolChip(toolName?: string, status?: string, error?: string, args?: unknown, result?: unknown): HTMLElement;
   appendBubble(role: string, content: string): HTMLElement;
   _renderBubbleAttachments(bubble: HTMLElement, atts: unknown[]): void;
-  _blocoDeCitacoes(lista: unknown[]): HTMLElement;
 }
 
 /** A dica de conversa vazia de volta, sozinha na area de mensagens. */
@@ -343,7 +343,7 @@ export async function abrirConversa(p: PainelDaConversa, id: string): Promise<vo
       // Sem este ramo a citacao cairia no teste de `typeof msg.content`
       // abaixo, que e string, e sumiria calada ao reabrir a conversa.
       closeStaticGroup();
-      p.messagesEl.appendChild(p._blocoDeCitacoes(msg.citacoes || []));
+      p.messagesEl.appendChild(desenharBlocoDeCitacoes(msg.citacoes || []));
     } else if (msg.role === 'question') {
       // A question record has no `content`, so without this branch the
       // `typeof msg.content === 'string'` test below drops it silently.

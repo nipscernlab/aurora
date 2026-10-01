@@ -211,6 +211,10 @@ interface AuroraAiAPI {
   listProviders(): Promise<{ providers?: Array<{ name: string; model?: string; defaultModel?: string }> } | null | undefined>;
   /** Quais provedores de API tem chave guardada. */
   getKeyStatus(): Promise<{ configured?: Record<string, boolean> } | null | undefined>;
+  /** Assina os pacotes do stream do chat; devolve quem desassina. */
+  onChatEvent(cb: (ev: import('../ai/turno_do_chat.js').PacoteDoStream) => void): () => void;
+  /** Abre o turno; o trabalho chega depois, pacote a pacote, no onChatEvent. */
+  startChat(payload: Record<string, unknown>): Promise<{ ok?: boolean; error?: string } | null | undefined>;
   /** Um id novo para a conversa que esta comecando. */
   newConversationId?(): Promise<{ id?: string } | null | undefined>;
   /** Interrompe o turno de uma sessao; o 'aborted' chega depois pelo stream. */

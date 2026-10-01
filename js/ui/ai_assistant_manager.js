@@ -14,7 +14,6 @@
  * Delete operate on those files (see `main/ai/conversations.js`).
  */
 
-import { motivoDe } from '../app/api_reply.js';
 import { abrirAjudaDe } from './help_link.js';
 import { semAnimar } from '../utils/resize.js';
 import {
@@ -22,14 +21,13 @@ import {
   ligarDivisorDeLargura, ligarCantoDoTerminal, ligarReavaliacaoDaLargura,
 } from '../ai/layout_do_painel.js';
 import { correrEmSegundoPlano } from '../ai/tarefa_em_segundo_plano.js';
-import { lerVersaoDoManual, juntarCitacao, colherCitacaoDeFerramenta, registrarCitacoes } from '../ai/citacoes_do_chat.js';
+import { lerVersaoDoManual } from '../ai/citacoes_do_chat.js';
 import {
   alternarPopover, desenharPermissoes, definirPermissao, atualizarProvedores, aplicarProvedor,
   escolherProvedor, definirEsforco, gravarModelo, atualizarEstadoDaAssinatura,
   desenharEstadoDaAssinatura, desenharEstadoDoProvedor, atualizarUso, desenharUso, ligarPopover,
 } from '../ai/provedores_do_painel.js';
 import { iniciarChip, terminarChip, fecharGrupo } from '../ai/chips_de_ferramenta.js';
-import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { rolarAoFim, ligarRolagem } from '../ai/rolagem_do_chat.js';
 import { mostrarPensando, mostrarDownloadDaCli, limparDownloadDaCli, somarUso, atualizarContador } from '../ai/indicadores_do_turno.js';
 import { receberPedaco, revelarSegmento, cancelarDesenho, selarTextoDoTurno } from '../ai/desenho_do_stream.js';
@@ -39,22 +37,23 @@ import {
   enviar, enviarDaFilaAgora, interromperParaFalar, entregarAoVivo, seguimentoAceito,
   devolverVivasAFila, escoarFila, desenharEspera,
 } from '../ai/envio_do_chat.js';
+import {
+  despacharTurno, continuarSozinho, escoarAutonomos, parar, armarCaoDeGuarda, desarmarCaoDeGuarda,
+  recuperarDoSilencio, fecharTurno, falharTurno, proximoSegmento, zerarTurno, definirTransmissao,
+} from '../ai/turno_do_chat.js';
+import { tratarEvento } from '../ai/eventos_do_stream.js';
 import { ligarCliquesNaConversa } from '../ai/cliques_na_conversa.js';
 import { moldeDoPainel } from '../ai/molde_do_painel.js';
-import { stripToolCallArtifacts } from '../ai/tool_call_text.js';
 import { abrirReferencia, abrirCaminhoDoChat } from '../ai/abrir_referencia.js';
 import { confiaEmLinksExternos, definirConfiancaEmLinks, confirmarLinkExterno } from '../ai/link_externo.js';
 import { adicionarArquivos, abrirImagem, desenharAnexos, desenharAnexosNaBolha, escaparHtml } from '../ai/anexos_do_chat.js';
-import { lerContextoDoTurno } from '../ai/contexto_do_turno.js';
 import { confirmarFerramenta, perguntarAPessoa } from '../ai/perguntas_inline.js';
 import {
   novaConversa, comecarTutorial, alternarHistorico, relerLista, cliqueNoHistorico,
   apagarConversa, abrirConversa, gravarConversa, ligarHistorico,
 } from '../ai/conversas_do_chat.js';
-import { buildApiMessages, buildProjectContext } from '../ai/chat_turn.js';
 import {
-  CLAUDE_CODE_EFFORT, SUB_META, isSubProvider, STREAM_STALL_MS, STREAM_STALL_HARD_MS,
-  readPermissionMode,
+  CLAUDE_CODE_EFFORT, readPermissionMode,
 } from '../ai/ai_metadata.js';
 
 /* ============================================================
@@ -400,93 +399,7 @@ class AIAssistantManager {
    *
    * @param {string} [operacao]
    */
-  async _dispatchTurn(operacao) {
-    // Assistant output is built lazily: text segments and tool chips
-    // append in arrival order, so a turn reads top-to-bottom even when
-    // the model interleaves "explain → call a tool → explain".
-    this.turnText = '';
-    this.segmentBuffer = '';
-    this.currentAssistantContentEl = null;
-    this.runningChips = [];
-    this._toolGroup = null;
-    // New turn → allow exactly one "Aurora Intelligence" label at the top of
-    // this turn's first assistant bubble (later segments in the turn collapse).
-    this._lastMsgRole = null;
-    this.showThinking(true);
-
-    // Subscribe lazily so we never miss the first packet, startChat
-    // fires the work detached on main.
-    if (!this.unsubChatEvent) {
-      this.unsubChatEvent = window.aiAPI.onChatEvent((ev) => this.handleChatEvent(ev));
-    }
-
-    this.currentSessionId = (crypto.randomUUID && crypto.randomUUID()) ||
-      `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    this.setStreaming(true);
-
-    // Tool-type entries are display-only records; filter them before sending to
-    // the model. Attachments are cloned (chat_turn.js) so the memory-hygiene
-    // strip below can't wipe the payload out of what we're about to send.
-    const apiMessages = buildApiMessages(this.messages);
-
-    // Memory hygiene: the base64 dataUrls are now safely COPIED into apiMessages
-    // for this turn, strip them from the stored history so they are NOT resent
-    // on every subsequent turn (images up to 8 MB would accumulate and be
-    // re-uploaded N times). Keep name/mime/size/kind for display; drop the payload.
-    for (const m of this.messages) {
-      if (m.attachments) {
-        for (const a of m.attachments) delete a.dataUrl;
-      }
-    }
-
-    const isSub = isSubProvider(this.currentProvider);
-    const subEntry = this.providersAvailable.find((p) => p.name === this.currentProvider);
-
-    // O caminho do projeto, as memorias e os componentes ausentes, relidos a
-    // cada turno (js/ai/contexto_do_turno.ts diz por que).
-    const { projectPath, spfPath, memories, componentes } = await lerContextoDoTurno();
-    // Os dois vao SEPARADOS para o main, e nao concatenados como antes.
-    //
-    // O SYSTEM_PROMPT nao muda dentro de uma versao; o contexto do projeto e
-    // relido do disco a cada turno de proposito (a pessoa pode trocar de
-    // projeto, salvar memoria ou instalar componente no meio da conversa).
-    // Juntos num blob so, a marca de cache da Anthropic cobria os dois, e
-    // mudar 251 tokens de contexto jogava fora 10,4 mil estaveis. Quem decide
-    // o que fazer com a separacao e cada runner: o caminho de API poe a marca
-    // entre os dois, as CLIs juntam de novo (main/ai/prompt_cache.js).
-    const systemPrompt = SYSTEM_PROMPT;
-    const systemContext = buildProjectContext(projectPath, spfPath, memories, componentes);
-    // O bloco do tutorial vai SEPARADO, e nao mais colado no fim do contexto.
-    //
-    // Ele nao muda do primeiro ao ultimo turno da conversa de tutorial, e o
-    // contexto do projeto muda a cada turno. Colados, o bloco inteiro era
-    // reescrito toda vez, sem cache: medido em 13/09/2026, 36.423 caracteres de
-    // paginas do manual (mais 37.424 de manifesto de ferramentas, que saiu por
-    // ser copia do que o modelo ja recebe). Separado, ele leva marca propria de
-    // uma hora e e lido do cache nos turnos seguintes.
-    const systemFixo = this.tutorialBlock || undefined;
-
-    try {
-      const r = await window.aiAPI.startChat({
-        sessionId: this.currentSessionId,
-        conversationId: this.currentChatId,
-        provider: this.currentProvider,
-        modelId: isSub ? (subEntry?.model || 'default') : undefined,
-        messages: apiMessages,
-        system: systemPrompt,
-        systemContext,
-        systemFixo,
-        // Shared effort selection, sent to any bridge that declares
-        // hasEffort (Claude Code --effort; Codex -c model_reasoning_effort).
-        effort: (SUB_META[this.currentProvider]?.hasEffort || this.currentProvider === 'anthropic') ? this.claudeCodeEffort : undefined,
-        operacao,
-        permission: this.permissionMode,
-      });
-      if (r && r.ok === false) this.failTurn(motivoDe(r, 'Failed to start chat'));
-    } catch (e) {
-      this.failTurn(e?.message || String(e));
-    }
-  }
+  _dispatchTurn(operacao) { return despacharTurno(this, operacao); }
 
   /* ---------------- autonomous turns (Phase E) ---------------- */
 
@@ -500,42 +413,9 @@ class AIAssistantManager {
    * that turn ends (see setStreaming → _drainAutoQueue). A safety cap stops
    * runaway self-chaining.
    */
-  autoContinue(content, { label = 'Autonomous follow-up', operacao = null } = {}) {
-    if (!content || !this.currentProvider || !this.currentChatId) return;
-    if (!this._autoQueue) this._autoQueue = [];
-    // A operacao viaja NA FILA, e nao num campo do objeto: entre enfileirar e
-    // despachar pode entrar outro turno, e um campo unico entregaria o rotulo
-    // de uma tarefa ao seguinte.
-    this._autoQueue.push({ content, label, operacao });
-    if (!this._isStreaming) this._drainAutoQueue();
-  }
+  autoContinue(content, opcoes) { continuarSozinho(this, content, opcoes); }
 
-  _drainAutoQueue() {
-    if (this._isStreaming) return;                 // wait for the live turn
-    if (!this._autoQueue || !this._autoQueue.length) return;
-    // Runaway guard: never let the assistant self-chain more than a handful of
-    // turns without a human in the loop.
-    this._autoChainCount = (this._autoChainCount || 0) + 1;
-    if (this._autoChainCount > 5) {
-      this._autoQueue = [];
-      this.appendBubble('assistant',
-        '_Paused autonomous follow-ups (chain limit reached). Send a message to continue._',
-        { error: true });
-      return;
-    }
-    const { content, label, operacao } = this._autoQueue.shift();
-    // Subtle marker bubble (not a normal user message visually).
-    if (this.chatEmptyHint) this.chatEmptyHint.classList.add('hidden');
-    const note = document.createElement('div');
-    note.className = 'ai-auto-note';
-    note.innerHTML = '<i class="ph ph-arrows-clockwise" aria-hidden="true"></i><span></span>';
-    note.querySelector('span').textContent = label;
-    this.messagesEl.appendChild(note);
-    // The synthetic message goes into the model context as a user turn.
-    this.messages.push({ role: 'user', content });
-    this._capMessages();
-    this._dispatchTurn(operacao || undefined);
-  }
+  _drainAutoQueue() { escoarAutonomos(this); }
 
   /**
    * Comeca uma compilacao em segundo plano e devolve na hora; quando ela acaba,
@@ -544,59 +424,13 @@ class AIAssistantManager {
    */
   runInBackground(pedido) { return correrEmSegundoPlano(this, pedido); }
 
-  async stop() {
-    if (!this.currentSessionId || !window.aiAPI) return;
-    // An explicit stop cancels pending follow-ups too, otherwise the queue
-    // would auto-drain (dispatch the next) the moment the abort lands. Vale
-    // para as duas esperas: quem manda parar nao quer que a proxima saia
-    // sozinha logo em seguida.
-    this._messageQueue = [];
-    this._liveQueue = [];
-    this._renderQueue();
-    const sid = this.currentSessionId;
-    try { await window.aiAPI.abortChat(sid); }
-    catch (_) { /* the stream side reports back via 'aborted' */ }
-    // Safety net: if the backend never delivers a terminal event (a wedged
-    // CLI process), force the UI back to idle so the composer is never stuck
-    // spinning. Guarded on sid so we don't clobber a turn the user restarted.
-    setTimeout(() => {
-      if (this._isStreaming && this.currentSessionId === sid) {
-        this.showThinking(false);
-        this._closeToolGroup();
-        this.resetTurnState();
-        this.setStreaming(false);
-      }
-    }, 2000);
-  }
+  stop() { return parar(this); }
 
   /* ---------------- stream watchdog (anti-freeze) ---------------- */
 
-  _armStreamWatchdog() {
-    this._disarmStreamWatchdog();
-    this._lastEventAt = Date.now();
-    this._streamWatchdog = setInterval(() => {
-      if (!this._isStreaming) return;
-      const idle = Date.now() - (this._lastEventAt || 0);
-      // Never reap while a human is mid-answer on an ask/confirm card, those
-      // are open for as long as the user takes.
-      if (this.pendingAskUserQuestions && this.pendingAskUserQuestions.size) return;
-      if (this.pendingConfirms && this.pendingConfirms.size) return;
-      // A running tool chip normally blocks recovery (a real tool can take
-      // minutes), but only up to the hard ceiling, past that the chip is stuck
-      // and must not be able to suppress the rescue forever.
-      if (this.runningChips.length && idle <= STREAM_STALL_HARD_MS) return;
-      if (idle > STREAM_STALL_MS) {
-        this._recoverFromStall();
-      }
-    }, 15000);
-  }
+  _armStreamWatchdog() { armarCaoDeGuarda(this); }
 
-  _disarmStreamWatchdog() {
-    if (this._streamWatchdog) {
-      clearInterval(this._streamWatchdog);
-      this._streamWatchdog = null;
-    }
-  }
+  _disarmStreamWatchdog() { desarmarCaoDeGuarda(this); }
 
   /**
    * Self-heal a turn that went silent with nothing pending, the "a conversa
@@ -604,147 +438,9 @@ class AIAssistantManager {
    * composer to idle so the user is never stranded. The notice is display-only
    * (not persisted into the model context).
    */
-  _recoverFromStall() {
-    const sid = this.currentSessionId;
-    try { if (sid) window.aiAPI?.abortChat?.(sid); } catch (_) { /* best-effort */ }
-    this.showThinking(false);
-    this._closeToolGroup();
-    this.appendBubble('assistant',
-      '_The assistant stopped responding, so the turn was reset. Send another message to continue._',
-      { error: true });
-    this.resetTurnState();
-    this.setStreaming(false);
-  }
+  _recoverFromStall() { recuperarDoSilencio(this); }
 
-  handleChatEvent(ev) {
-    if (!ev || ev.sessionId !== this.currentSessionId) return;
-    // Watchdog liveness: any packet from the active turn proves it's alive.
-    this._lastEventAt = Date.now();
-    switch (ev.type) {
-      case 'cli-download':
-        // B12: a subscription CLI is being fetched on first use. Display-only,
-        // transient status, never persisted into the conversation.
-        this._renderCliDownload(ev);
-        break;
-      case 'text-delta':
-        // Do NOT hide the thinking dots here. A delta can be whitespace or a
-        // stripped tool-call artifact that produces no bubble yet, so hiding
-        // on the first raw delta left a blank gap (dots gone, no text). The
-        // dots are retired inside _renderStreamingBubble the instant real
-        // text actually lands on screen.
-        this.appendDelta(ev.delta || '');
-        break;
-      case 'tool-call':
-        // Reveal whatever text the model produced BEFORE this tool call, then
-        // start a fresh segment below the chip.
-        this._revealSegment();
-        // Persist that pre-tool prose as its OWN assistant message, interleaved
-        // with the tool entry, instead of dumping the whole turn's text after
-        // the tool group at commitTurn. This makes a reloaded chat reproduce the
-        // live layout (seg1 → [actions] → seg2). buildApiMessages re-merges
-        // adjacent assistant messages so the API still sees alternating roles.
-        {
-          const seg = stripToolCallArtifacts(
-            this.turnText.slice(this._committedTurnLen || 0)).trim();
-          if (seg) this.messages.push({ role: 'assistant', content: seg });
-          this._committedTurnLen = this.turnText.length;
-        }
-        this.showThinking(false);
-        this.hadToolCalls = true;
-        this.startToolChip(ev.toolName, ev.args, ev.toolUseId);
-        this.currentAssistantContentEl = null;
-        this.segmentBuffer = '';
-        this._revealLength = 0;
-        break;
-      case 'tool-result':
-        this.finishToolChip(ev.toolName, ev.result, ev.toolUseId);
-        // Uma citacao VERIFICADA e um resultado de ferramenta como outro
-        // qualquer, e vira linha no mesmo bloco que a citacao nativa da API.
-        // Os dois caminhos convergem aqui de proposito: quem le a resposta nao
-        // deve precisar saber por qual provedor ela veio.
-        colherCitacaoDeFerramenta(this, ev.toolName, ev.result);
-        break;
-      case 'finish':
-        this._clearCliDownload();
-        this.showThinking(false);
-        // `more` = a follow-up the user pushed mid-turn is already queued inside
-        // the CLI and answers next, in this same session. Seal this segment but
-        // stay streaming: ending the turn here would drain the renderer queue on
-        // top of the CLI's own, double-dispatching, and would flip the composer
-        // back to Send while the model is still working.
-        //
-        // SELAR, e nao encerrar. Este ramo chamava `commitTurn()` antes de
-        // olhar o `more`, e o commitTurn passa por `resetTurnState()`, que
-        // ZERA o `currentSessionId`. Como o `handleChatEvent` descarta todo
-        // pacote cuja sessao nao bate, a resposta do follow-up chegava e era
-        // jogada fora inteira: o painel ficava nos pontinhos ate o cao de
-        // guarda matar o turno tres minutos depois. Era exatamente o que o
-        // comentario do `_startNextSegment` dizia estar evitando, e nao
-        // evitava, porque quem zerava vinha ANTES dele. O reset tambem
-        // auto-nega os cartoes de confirmacao e cancela as perguntas abertas,
-        // que no meio da sessao sao legitimos.
-        if (ev.more) {
-          this._sealTurnText();
-          // O uso antes de gravar, senao o total no disco fica um turno atras.
-          this.applyUsage(ev.usage);
-          this.persistCurrentChat();
-          this._startNextSegment();
-          this.showThinking(true);
-          break;
-        }
-        this.applyUsage(ev.usage);       // antes do commitTurn, que grava a conversa
-        this.commitTurn();
-        this.setStreaming(false);
-        // Pull the CLI's authoritative usage snapshot at the END of every
-        // turn (not just when the model popover happens to be open) so the
-        // Subscription usage bars and plan limits reflect reality the next
-        // time the user looks, this is what fixes "usage never updates".
-        if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
-        break;
-      case 'citation':
-        // O trecho REAL da pagina do manual que sustenta o que a assistente
-        // acabou de dizer, com o indice do caractere. Junta-se aqui e desenha
-        // de uma vez no fim do turno: desenhar a cada chegada faria o bloco
-        // crescer por baixo do texto enquanto a pessoa ainda le.
-        // A mesma frase citada duas vezes fica uma linha so (citacoes_do_chat.ts).
-        if (ev.citacao) juntarCitacao(this, ev.citacao);
-        break;
-      case 'tool-rejected':
-        // Uma chamada de ferramenta que a IA escreveu como texto e que NAO
-        // passou pelo esquema da propria ferramenta. Vai para o TCMD, que e o
-        // painel de shell, e nao para um dos terminais de compilacao: nada foi
-        // compilado, o que houve foi um pedido malformado.
-        //
-        // Antes isto era silencio: a chamada sumia num catch e a pessoa via a
-        // assistente "nao fazer nada", sem pista nenhuma do motivo.
-        try {
-          window.initializeGlobalTerminalManager?.()?.appendToTerminal?.(
-            'tcmd', ev.message, 'warning',
-          );
-        } catch (e) {
-          console.warn('[ai] nao consegui escrever a recusa no terminal:', e);
-        }
-        break;
-      case 'follow-up-taken':
-        // A assistente terminou o que estava dizendo e pegou a mensagem que
-        // esperava: agora ela entra na conversa, depois da resposta anterior.
-        this._followUpTaken(ev.content);
-        break;
-      case 'aborted':
-        this._clearCliDownload();
-        this.showThinking(false);
-        this.commitTurn();
-        this.setStreaming(false);
-        this._devolverVivasAFila();
-        if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
-        break;
-      case 'error':
-        this._clearCliDownload();
-        this.failTurn(ev.message || 'Unknown error');
-        this._devolverVivasAFila();
-        break;
-    }
-  }
+  handleChatEvent(ev) { tratarEvento(this, ev); }
 
   /* ---------------- streaming text segments ---------------- */
   // O texto aparecendo por quadro, a maquina de escrever, o fecho de cada
@@ -756,43 +452,9 @@ class AIAssistantManager {
   /** Reveal the last segment, store it, tidy the DOM: commitTurn minus the teardown. */
   _sealTurnText() { selarTextoDoTurno(this); }
 
-  commitTurn() {
-    this._sealTurnText();
-    // As citacoes vao DEPOIS do texto selado: elas sustentam o que ficou
-    // escrito, entao aparecem embaixo dele, e nao no meio.
-    registrarCitacoes(this);
-    this.resetTurnState();
-    // Auto-save the conversation after every turn.
-    this.persistCurrentChat();
-  }
+  commitTurn() { fecharTurno(this); }
 
-  failTurn(message) {
-    this.showThinking(false);
-    this._closeToolGroup();
-    this.appendBubble('assistant', `Error: ${message}`, { error: true });
-    // Mark in-flight chips as failed in DOM and persist them, args
-    // are kept so the saved transcript still shows what was attempted.
-    for (const running of this.runningChips) {
-      const { toolName, toolUseId, args, el } = running;
-      el.classList.remove('running');
-      el.classList.add('failed');
-      const statusEl = el.querySelector('.ai-tool-status');
-      if (statusEl) statusEl.textContent = 'failed';
-      const icon = el.querySelector('i');
-      if (icon) icon.className = 'ph ph-x-circle';
-      this.messages.push({
-        role: 'tool',
-        toolName,
-        status: 'failed',
-        toolUseId: toolUseId || null,
-        args: args || null,
-        error: message,
-      });
-    }
-    this.persistCurrentChat();
-    this.resetTurnState();
-    this.setStreaming(false);
-  }
+  failTurn(message) { falharTurno(this, message); }
 
   /**
    * Re-arm the render accumulators for the NEXT in-session turn, after
@@ -808,47 +470,9 @@ class AIAssistantManager {
    * which are perfectly legitimate mid-session. Keep all of that; reset only
    * what draws the next assistant bubble.
    */
-  _startNextSegment() {
-    this._cancelarFrameDoStream();
-    this.currentAssistantContentEl = null;   // next delta opens a fresh bubble
-    this.segmentBuffer = '';
-    this.turnText = '';
-    this._committedTurnLen = 0;
-    this._revealLength = 0;
-    this._toolGroup = null;                  // next tool call opens a new group
-    this.runningChips = [];
-    this.hadToolCalls = false;
-  }
+  _startNextSegment() { proximoSegmento(this); }
 
-  resetTurnState() {
-    // Tear down the CLI-download status row here too, this is the chokepoint
-    // every turn-ending path runs through (stop()'s safety net, the stall
-    // watchdog, failTurn), so a download interrupted by Stop/stall can't leave
-    // an orphaned "Downloading…" row behind.
-    this._clearCliDownload();
-    this._cancelarFrameDoStream();
-    this.currentAssistantContentEl = null;
-    this.segmentBuffer = '';
-    this.turnText = '';
-    this._committedTurnLen = 0;   // reset the per-turn "already stored" cursor
-    this._revealLength = 0;
-    this.currentSessionId = null;
-    this.runningChips = [];
-    this._toolGroup = null;
-    this.hadToolCalls = false;
-    // Auto-deny any confirmation cards still open when the turn ends
-    // (e.g. the user hit Stop while a card was waiting).
-    for (const decide of this.pendingConfirms) decide(false);
-    this.pendingConfirms.clear();
-    // Same for any open Ask-User-Question cards, resolve them as
-    // cancelled so the awaiting tool call doesn't hang forever.
-    if (this.pendingAskUserQuestions) {
-      for (const decide of this.pendingAskUserQuestions) {
-        decide({ answer: '[turn aborted before user answered]', selected: [] });
-      }
-      this.pendingAskUserQuestions.clear();
-    }
-  }
+  resetTurnState() { zerarTurno(this); }
 
   /* ---------------- tool chips ---------------- */
   // O grupo "N actions", os chips ao vivo e o chip da conversa reaberta moram
@@ -886,21 +510,7 @@ class AIAssistantManager {
     el.style.height = (el.value ? Math.min(el.scrollHeight, 200) : 0) + 'px';
   }
 
-  setStreaming(streaming) {
-    this._isStreaming = streaming;
-    this.sendBtn.classList.toggle('hidden', streaming);
-    this.stopBtn.classList.toggle('hidden', !streaming);
-    // Keep textarea enabled so the user can compose their next message
-    // while generation is running; Enter-to-send is blocked by _isStreaming.
-    this.clearBtn.disabled = streaming;
-    if (streaming) this._armStreamWatchdog();
-    else {
-      this._disarmStreamWatchdog();
-      // A turn just ended, dispatch a queued USER follow-up first (explicit
-      // intent), else an autonomous one.
-      if (!this._drainMessageQueue()) this._drainAutoQueue();
-    }
-  }
+  setStreaming(streaming) { definirTransmissao(this, streaming); }
 
   /* ---------------- bubbles / clear ---------------- */
   // Os baloes, o voltar ao ponto e o divisor moram em js/ai/baloes_do_chat.ts.

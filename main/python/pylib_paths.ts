@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * pylib_paths.js: onde as bibliotecas Python instaladas moram.
+ * pylib_paths.ts: onde as bibliotecas Python instaladas moram.
  *
  * A DECISAO E O MOTIVO
  * --------------------
@@ -31,10 +30,12 @@
  * igual ao de um site-packages, sem tocar no do bundle.
  */
 
-'use strict';
+import path from 'node:path';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
 
-const path = require('path');
-const fs = require('fs');
+const requireTarde = createRequire(__filename);
+
 
 /**
  * Raiz de tudo que o instalador de bibliotecas possui.
@@ -47,7 +48,7 @@ const fs = require('fs');
 function pylibRoot() {
   if (process.env.AURORA_PYLIBS_ROOT) return process.env.AURORA_PYLIBS_ROOT;
   // require tardio: fora do Electron (testes, scripts) o modulo nem carrega.
-  const { componentsPath } = require('../paths');
+  const { componentsPath } = requireTarde('../paths');
   return path.join(componentsPath, 'PyLibs');
 }
 
@@ -94,7 +95,7 @@ function bundleSitePackages() {
 
   let componentsPath;
   try {
-    ({ componentsPath } = require('../paths'));
+    ({ componentsPath } = requireTarde('../paths'));
   } catch (_) {
     return '';
   }
@@ -146,12 +147,4 @@ function sitePthFile() {
   return sp ? path.join(sp, 'aurora-pylibs.pth') : '';
 }
 
-module.exports = {
-  pylibRoot,
-  pylibSite,
-  manifestFile,
-  stagingDir,
-  ensureDirs,
-  bundleSitePackages,
-  sitePthFile,
-};
+export { pylibRoot, pylibSite, manifestFile, stagingDir, ensureDirs, bundleSitePackages, sitePthFile };

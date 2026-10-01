@@ -7,7 +7,7 @@
  *
  * A AURORA baixa sete componentes por tag fixada à mão dentro dos
  * `components/Scripts/download-*.js`. Nada olhava o outro lado: o dependabot
- * cobre npm e github-actions, e o `verify-components.js` sabe dizer se ESTA
+ * cobre npm e github-actions, e o `verify-components.mts` sabe dizer se ESTA
  * MÁQUINA está diferente do declarado, mas não se o declarado está velho.
  *
  * O buraco foi medido em 10/08/2026. O fork do Surfer estava pinado na
@@ -331,7 +331,7 @@ function render(rows: Linha[]) {
       console.log('            o bootstrap vai falhar em maquina limpa');
     } else if (r.status === 'bad-family') {
       console.log(`            a tag fixada ${r.pinned} nao casa com ${(r as { family?: unknown }).family || 'a familia declarada'}`);
-      console.log('            e bug de configuracao do check-component-drift.js, nao deriva');
+      console.log('            e bug de configuracao do check-component-drift.mts, nao deriva');
     } else if (r.status === 'error' || r.status === 'unknown') {
       console.log(`            ${r.error || 'sem base de comparacao'}`);
     } else {
@@ -361,11 +361,11 @@ function renderMarkdown(rows: Linha[]) {
   const out: string[] = [];
   const problems = rows.filter((r) => r.status === 'behind' || r.status === 'absent' || r.status === 'bad-family');
 
-  out.push('Gerado por `scripts/check-component-drift.js`, do workflow semanal.');
+  out.push('Gerado por `scripts/check-component-drift.mts`, do workflow semanal.');
   out.push('');
   out.push('A tag fixada de cada componente vive no `components/Scripts/download-*.js`,');
   out.push('que continua sendo a fonte única. Para subir: nova tag, novo `sha256` quando');
-  out.push('o script verifica hash, e `node scripts/verify-components.js --only <chave>`');
+  out.push('o script verifica hash, e `node scripts/verify-components.mts --only <chave>`');
   out.push('para provar na máquina antes de comitar.');
   out.push('');
 

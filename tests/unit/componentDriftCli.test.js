@@ -139,7 +139,7 @@ describe('o relatorio no terminal', () => {
     expect(s).toContain('o bootstrap vai falhar em maquina limpa');
     expect(s).toMatch(/\[ CONFIG \] {2}verible {7}terceiro/);
     expect(s).toContain('a tag fixada nao-casa nao casa com a familia declarada');
-    expect(s).toContain('e bug de configuracao do check-component-drift.js, nao deriva');
+    expect(s).toContain('e bug de configuracao do check-component-drift.mts, nao deriva');
     expect(s).toContain(`HTTP 403 em ${gh('hudson-trading/slang-server')}`);
     expect(s).toMatch(/\[ {3}\? {4}\] {2}clang-format/);
     expect(s).toContain('sem base de comparacao');
@@ -218,7 +218,8 @@ describe('--markdown, o corpo da issue', () => {
     mundoMisturado();
     await rodar(['--markdown']);
     const md = log.join('\n');
-    expect(md).toContain('Gerado por `scripts/check-component-drift.js`, do workflow semanal.');
+    expect(md).toContain('Gerado por `scripts/check-component-drift.mts`, do workflow semanal.');
+    expect(md).toContain('o script verifica hash, e `node scripts/verify-components.mts --only <chave>`');
     expect(md).toContain('| nosso | `toolchain` | `msys-v2` | `msys-v3` | 1 atrás (2026-09-20) |');
     expect(md).toContain('| nosso | `yanc` | `v5.4` | `v5.6` | 2 atrás (sem data) |');
     expect(md).toContain('| nosso | `surfer` | `v0.7.0-nips.2` | `v0.7.0-nips.7` | fixado NÃO está publicado — bootstrap falha em máquina limpa |');

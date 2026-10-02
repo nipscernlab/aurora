@@ -268,6 +268,8 @@
       "languageCmm": "C± (.cmm)",
       "languageCpp": "C++ (.cpp)",
       "languageCppHint": "Em C++ só o nome e a quantidade de portas vão para o fonte, como #pragma yanc. O formato numérico e as pilhas usam os padrões do próprio front end C++.",
+      "autoStacks": "Deixar o compilador dimensionar as pilhas",
+      "autoStacksHint": "Tira #NDSTAC e #SDEPTH do cabeçalho, e o compilador calcula a profundidade que cada pilha precisa ter para o programa.",
       "sectionFormat": "Formato Numérico",
       "totalBits": "Total de Bits",
       "totalBitsTooltip": "Total de Bits deve ser igual a Bits da Mantissa + Bits do Expoente + 1",

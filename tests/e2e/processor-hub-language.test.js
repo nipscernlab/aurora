@@ -216,3 +216,113 @@ describe('Aurora E2E — o seletor de linguagem do Processor Hub', () => {
         expect(voltou.grupoApagado).toBe(false);
     });
 });
+
+// A caixa "o compilador calcula as pilhas". Marcada, o cabecalho do .cmm sai
+// sem #NDSTAC e #SDEPTH e o asmcomp do yanc calcula a profundidade de cada
+// pilha pelo programa; o que vai para o disco esta coberto em
+// tests/unit/processorTemplate.test.js. Aqui fica o formulario.
+describe('Aurora E2E — as pilhas calculadas pelo compilador, no Processor Hub', () => {
+    /** @type {import('playwright').ElectronApplication} */
+    let app;
+    /** @type {import('playwright').Page} */
+    let window;
+    let userDataDir;
+
+    const PILHAS = ['dataStackSize', 'instructionStackSize'];
+
+    async function marcarAuto(marcado) {
+        await window.evaluate((v) => {
+            const caixa = document.getElementById('autoStackSizes');
+            caixa.checked = v;
+            caixa.dispatchEvent(new Event('change', { bubbles: true }));
+        }, marcado);
+    }
+
+    beforeAll(async () => {
+        userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-e2e-hub-pilhas-'));
+        app = await electron.launch({
+            args: ['.', `--user-data-dir=${userDataDir}`],
+            cwd: REPO_ROOT,
+            env: { ...stripElectronNodeMode(process.env), SAPHO_SKIP_SINGLE_INSTANCE: '1' },
+            timeout: 30_000,
+        });
+        window = await waitForMainWindow(app);
+        await window.waitForLoadState('load');
+        await window.waitForFunction(
+            () => !!document.getElementById('languageCmm') && !!document.getElementById('nBits'),
+            null, { timeout: 15_000 },
+        );
+    }, 90_000);
+
+    afterAll(async () => {
+        try { await app?.close(); } catch (_) { /* ja morreu */ }
+        try { fs.rmSync(userDataDir, { recursive: true, force: true }); } catch (_) { /* ignore */ }
+    });
+
+    it('comeca desmarcada, com as duas pilhas abertas e os valores de sempre', async () => {
+        const caixa = await window.evaluate(() => {
+            const el = document.getElementById('autoStackSizes');
+            return el ? { checked: el.checked, disabled: el.disabled } : null;
+        });
+        expect(caixa).toEqual({ checked: false, disabled: false });
+
+        const campos = await estadoDosCampos(window, PILHAS);
+        for (const id of PILHAS) {
+            expect(campos[id].disabled, id).toBe(false);
+            expect(campos[id].value, id).toBe('5');
+        }
+    });
+
+    it('marcada, as duas pilhas ficam vazias e desabilitadas, e o Gerar continua vivo', async () => {
+        await window.evaluate(() => {
+            const nome = document.getElementById('processorName');
+            nome.value = 'proc_auto';
+            nome.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await marcarAuto(true);
+
+        const campos = await estadoDosCampos(window, PILHAS);
+        for (const id of PILHAS) {
+            expect(campos[id].disabled, `${id} devia estar desabilitado`).toBe(true);
+            expect(campos[id].value, `${id} nao devia mostrar numero`).toBe('');
+            expect(campos[id].grupoApagado, `${id} devia estar apagado`).toBe(true);
+        }
+        // O resto do formato numerico continua valendo.
+        expect((await estadoDosCampos(window, ['nBits'])).nBits.disabled).toBe(false);
+
+        const gerarVivo = await window.evaluate(
+            () => !document.getElementById('generateProcessor').disabled,
+        );
+        expect(gerarVivo).toBe(true);
+    });
+
+    it('em C++ a caixa fica desabilitada, e de volta ao C+- as pilhas seguem com o compilador', async () => {
+        await escolherLinguagem(window, 'languageCpp');
+        expect(await window.evaluate(() => document.getElementById('autoStackSizes').disabled)).toBe(true);
+        // Em C++ os campos mostram o padrao do cppcomp, como antes.
+        expect((await estadoDosCampos(window, ['dataStackSize'])).dataStackSize.value).toBe('128');
+
+        await escolherLinguagem(window, 'languageCmm');
+        expect(await window.evaluate(() => document.getElementById('autoStackSizes').disabled)).toBe(false);
+        const campos = await estadoDosCampos(window, PILHAS);
+        for (const id of PILHAS) {
+            expect(campos[id].disabled, id).toBe(true);
+            expect(campos[id].value, id).toBe('');
+        }
+    });
+
+    it('desmarcada, as pilhas voltam com o que a pessoa tinha digitado', async () => {
+        await marcarAuto(false);
+        await window.evaluate(() => {
+            const el = document.getElementById('dataStackSize');
+            el.value = '9';
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await marcarAuto(true);
+        await marcarAuto(false);
+
+        const campos = await estadoDosCampos(window, PILHAS);
+        expect(campos.dataStackSize).toEqual({ disabled: false, value: '9', grupoApagado: false });
+        expect(campos.instructionStackSize.value).toBe('5');
+    });
+});

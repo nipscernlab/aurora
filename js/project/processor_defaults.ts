@@ -81,13 +81,29 @@ export const PADROES_DO_CPPCOMP = Object.freeze({
   instructionStackSize: 128,
 });
 
-/** O fonte C+-: as nove diretivas do cabecalho e um main vazio. */
+/**
+ * Uma pilha sem valor: ausente, vazia ou NaN (o `parseInt('')` do formulario).
+ * Zero e valor, e quem recusa e o yanc.
+ */
+const semValor = (v: ParametrosDoProcessador['dataStackSize'] | null): boolean =>
+  v === undefined || v === null || v === '' || Number.isNaN(Number(v));
+
+/**
+ * A linha de uma pilha, ou nada. Sem `#NDSTAC` ou `#SDEPTH` no fonte, o
+ * asmcomp do yanc calcula a profundidade daquela pilha pelo programa (yanc
+ * 4be1f88, depois do v5.6; ate o v5.6 ele assumia 128).
+ */
+const linhaDaPilha = (diretiva: string, v: ParametrosDoProcessador['dataStackSize'] | null): string =>
+  (semValor(v) ? '' : `${diretiva} ${v}\n`);
+
+/**
+ * O fonte C+-: as diretivas do cabecalho e um main vazio. Sao nove, ou sete
+ * quando as pilhas ficam para o compilador calcular.
+ */
 export function cmmTemplate(p: ParametrosDoProcessador): string {
   return `#PRNAME ${p.processorName}
 #NUBITS ${p.nBits}
-#NDSTAC ${p.dataStackSize}
-#SDEPTH ${p.instructionStackSize}
-#NUIOIN ${p.inputPorts}
+${linhaDaPilha('#NDSTAC', p.dataStackSize)}${linhaDaPilha('#SDEPTH', p.instructionStackSize)}#NUIOIN ${p.inputPorts}
 #NUIOOU ${p.outputPorts}
 #NBMANT ${p.nbMantissa}
 #NBEXPO ${p.nbExponent}

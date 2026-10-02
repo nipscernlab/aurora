@@ -43,6 +43,52 @@ void main()
     });
 });
 
+describe('cmmTemplate: pilha sem valor fica de fora do cabecalho', () => {
+    // Sem #NDSTAC ou #SDEPTH no fonte, o asmcomp do yanc calcula a
+    // profundidade daquela pilha pelo programa (yanc 4be1f88). O Processor
+    // Hub pede isso deixando as duas pilhas sem valor, e a API da IA, que
+    // aceita os campos opcionais, cai no mesmo caminho em vez de escrever
+    // `#NDSTAC undefined`.
+    const SEM_PILHAS = { ...P, dataStackSize: undefined, instructionStackSize: undefined };
+
+    it('sem as duas, o cabecalho perde as duas linhas e mais nada', () => {
+        expect(cmmTemplate(SEM_PILHAS)).toBe(`#PRNAME procTest_00
+#NUBITS 23
+#NUIOIN 2
+#NUIOOU 3
+#NBMANT 16
+#NBEXPO 6
+#NUGAIN 128
+
+void main()
+{
+    // Øk. Você criou um processador em C±, mas e agora?
+}`);
+    });
+
+    it('cada pilha decide a sua linha', () => {
+        const soDados = cmmTemplate({ ...P, instructionStackSize: undefined });
+        expect(soDados).toContain('#NDSTAC 5');
+        expect(soDados).not.toContain('#SDEPTH');
+
+        const soInstrucao = cmmTemplate({ ...P, dataStackSize: undefined });
+        expect(soInstrucao).toContain('#SDEPTH 5');
+        expect(soInstrucao).not.toContain('#NDSTAC');
+    });
+
+    it('vazio, null e NaN contam como sem valor', () => {
+        for (const vazio of ['', null, NaN]) {
+            const fonte = cmmTemplate({ ...P, dataStackSize: vazio, instructionStackSize: vazio });
+            expect(fonte, String(vazio)).not.toMatch(/#NDSTAC|#SDEPTH/);
+            expect(fonte, String(vazio)).not.toMatch(/undefined|null|NaN/);
+        }
+    });
+
+    it('zero continua sendo valor, para o yanc recusar e nao a Aurora sumir com ele', () => {
+        expect(cmmTemplate({ ...P, dataStackSize: 0 })).toContain('#NDSTAC 0');
+    });
+});
+
 describe('cppTemplate: o mesmo dito em pragma', () => {
     it('traz prname e as duas portas, e nada alem', () => {
         expect(cppTemplate(P)).toBe(`#pragma yanc prname procTest_00

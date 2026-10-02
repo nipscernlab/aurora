@@ -1220,6 +1220,17 @@
             <i class="ph ph-stack" aria-hidden="true"></i>
             <span data-i18n="modal.processorHub.sectionStacks">Stacks &amp; Ports</span>
           </h3>
+          <!-- Marcada, o cabecalho do .cmm sai sem #NDSTAC e #SDEPTH e o yanc
+               calcula a profundidade de cada pilha pelo programa. So vale em
+               C+-; em C++ as pilhas ja sao do cppcomp. Quem muda o estado e o
+               js/processors/processor_hub.ts. -->
+          <div class="form-group full-width">
+            <label class="radio-option">
+              <input type="checkbox" id="autoStackSizes" name="autoStackSizes" />
+              <span data-i18n="modal.processorHub.autoStacks">Let the compiler size the stacks</span>
+            </label>
+            <small class="form-hint" data-i18n="modal.processorHub.autoStacksHint">Leaves #NDSTAC and #SDEPTH out of the header, and the compiler works out how deep each stack must be for the program.</small>
+          </div>
           <div class="form-cols-2">
             <div class="form-group">
               <label for="instructionStackSize" class="form-label" data-i18n="modal.processorHub.instructionStack">Instruction Stack Size</label>

@@ -50,6 +50,10 @@ export const processadoresDoProjeto = {
    * ignorados, porque o cppcomp assume o float de precisao simples sozinho.
    * A linguagem tambem vai para a entrada do processador no .spf, e e ela
    * que tira a ambiguidade quando ha um .cmm e um .cpp com o mesmo nome.
+   *
+   * Em C+-, `dataStackSize` ou `instructionStackSize` omitido tira a
+   * diretiva daquela pilha do cabecalho, e o yanc calcula a profundidade
+   * pelo programa (ver cmmTemplate em js/project/processor_defaults.ts).
    */
   async createProcessor(config: { processorName?: string; [k: string]: unknown } | null | undefined) {
     const root = ProjectStore.getProjectPath();

@@ -158,6 +158,18 @@ which is how a failed publish is retried. Releases publish to
 development happens. The updater reads the same place, so the two cannot
 disagree.
 
+The release pull request is opened by the workflow token, so CI does not run on
+it and the required check blocks the merge. Close and reopen it from a
+maintainer account: that runs CI on it, and the merge then goes through without
+bypassing branch protection.
+
+Aurora Intelligence only knows what `js/ai/system_prompt.ts`,
+`resources/sapho_rules.json` and the tool descriptions tell it. When a release
+moves `YANC_TAG`, run `npm run rules:sync` against that yanc and reread the
+prompt's claims about directives and defaults; a test pins them to the tag and
+fails until you do. After publishing, go through `docs/gabarito-ia.md` in the
+installed app: the tests check the text the model receives, not what it answers.
+
 The toolchain bundle lives in its own pre-release rather than in the source tree,
 and only needs a new one when the bundled binaries actually change.
 

@@ -93,8 +93,10 @@ const semValor = (v: ParametrosDoProcessador['dataStackSize'] | null): boolean =
 
 /**
  * A linha de uma pilha, ou nada. Sem `#NDSTAC` ou `#SDEPTH` no fonte, o
- * asmcomp do yanc calcula a profundidade daquela pilha pelo programa (yanc
- * 4be1f88, depois do v5.6; ate o v5.6 ele assumia 128).
+ * asmcomp do yanc calcula a profundidade daquela pilha pelo programa: o pico
+ * de uso + 1, no minimo 2, em C+- e em C++ (desde o yanc v5.7; ate o v5.6 ele
+ * assumia 128). Com recursao em C++ continua 128, e com #PRACA a conta soma o
+ * pico da interrupcao ao do programa; ali vale declarar a diretiva a mao.
  */
 const linhaDaPilha = (diretiva: string, v: ParametrosDoProcessador['dataStackSize'] | null): string =>
   (semValor(v) ? '' : `${diretiva} ${v}\n`);

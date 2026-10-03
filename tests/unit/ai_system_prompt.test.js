@@ -150,14 +150,24 @@ describe('as pilhas ficam com o compilador', () => {
     });
 
     it('os padroes citados sao os do yanc que o instalador baixa', () => {
-        // Numeros de Compilers/ASMComp/Sources/eval.c no v5.6. Quando o
-        // YANC_TAG mudar, este caso cai de proposito: reconfira os padroes e o
-        // que uma pilha omitida vale (no v5.6, 128; depois do yanc 4be1f88,
-        // calculada pelo programa) e atualize o prompt e este teste juntos.
-        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v5.6');
+        // Numeros de Compilers/ASMComp/Sources/eval.c, iguais no v5.6 e no
+        // v5.7. Quando o YANC_TAG mudar, este caso cai de proposito: reconfira
+        // os padroes e o que uma pilha omitida vale, e atualize o prompt, o
+        // docs/gabarito-ia.md e este teste juntos.
+        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v5.7');
         expect(SYSTEM_PROMPT).toContain('NUBITS 32, NBMANT 23, NBEXPO 8');
         expect(SYSTEM_PROMPT).toContain('NUGAIN 128, FFTSIZ 3');
-        expect(SYSTEM_PROMPT).toContain('an omitted stack depth is 128');
+        // v5.7: omitida, a profundidade sai do programa (pico + 1, minimo 2).
+        expect(SYSTEM_PROMPT).toContain('an omitted stack depth is worked out from the program');
+        expect(SYSTEM_PROMPT).not.toContain('an omitted stack depth is 128');
+    });
+
+    it('diz quando ainda vale declarar a pilha: recursao em C++ e #PRACA', () => {
+        // Com recursao em C++ a conta nao fecha e fica 128, com aviso; com
+        // #PRACA a conta soma o pico da interrupcao ao do programa.
+        expect(SYSTEM_PROMPT).toContain('recursion in C++ keeps 128');
+        expect(SYSTEM_PROMPT).toContain('#PRACA');
+        expect(SYSTEM_PROMPT).toMatch(/2 x peak \+ 1/);
     });
 });
 
@@ -165,5 +175,25 @@ describe('quem mantem a Aurora', () => {
     it('e o Prof. Luciano; o Arthur nao mexe mais nela', () => {
         expect(SYSTEM_PROMPT).toContain('maintained by Prof. Luciano');
         expect(SYSTEM_PROMPT).not.toContain('Arthur Araujo Martins');
+    });
+});
+
+// O que o yanc v5.7 mudou no que o modelo deve dizer (yanc/CHANGELOG, v5.7).
+describe('o yanc v5.7', () => {
+    it('recursao em C+- e erro de compilacao, e o caminho e o C++', () => {
+        // Antes compilava e dava resultado errado: cada variavel local tem
+        // endereco fixo. A mensagem real: "Erro na linha N: a funcao 'fact'
+        // chama ela mesma (fact -> fact). Recursao nao rola em C+-. ..."
+        expect(SYSTEM_PROMPT).toContain('Recursion is a COMPILE ERROR in C±');
+        expect(SYSTEM_PROMPT).toContain('chama ela mesma');
+    });
+
+    it('codigo morto sai do .asm e do hardware, com uma linha Info', () => {
+        expect(SYSTEM_PROMPT).toContain('unreachable instructions removed');
+    });
+
+    it('no C++, memcpy e memset contam palavras, e ponteiro de funcao compila', () => {
+        expect(SYSTEM_PROMPT).toContain('memcpy/memset count WORDS');
+        expect(SYSTEM_PROMPT).toContain('int (*fp)(int) = f;');
     });
 });

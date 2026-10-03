@@ -156,3 +156,29 @@ describe('a marcacao que vai para o terminal', () => {
     expect(html).toContain('&lt;img');
   });
 });
+
+// O yanc v5.7 fala mais nos terminais TCMM/TASM. As linhas abaixo sairam do
+// cmmcomp 5.7 em 03/10/2026 (recursao e funcao morta), e as duas do asmcomp
+// do printf em Compilers/ASMComp/Sources/ASMComp.l da tag v5.7. "Info:" nao
+// e problema; a recursao e erro de verdade, com a linha.
+describe('yanc v5.7: Info nao vira problema, recursao vira erro', () => {
+  it('as linhas Info e a Atencao sem linha nao geram problema', async () => {
+    const { problemasNaLinha } = await import('../../js/terminal/error_locations.js');
+    for (const linha of [
+      'Info: 3 unreachable instructions removed',
+      'Info: stack depths from the program: SDEPTH 4, NDSTAC 3',
+      'Info: stack depths not worked out from the program, the default stays: two RETs of one routine leave different stack depths',
+      "Atenção: função 'nunca' não está sendo usada. Economize memória!",
+    ]) {
+      expect(problemasNaLinha(linha, { cmmPadrao: 'C:/p/rec/Software/rec.cmm' }), linha).toEqual([]);
+    }
+  });
+
+  it('a recursao em C+- e um erro na linha da chamada', async () => {
+    const { problemasNaLinha } = await import('../../js/terminal/error_locations.js');
+    const linha = "Erro na linha 12: a função 'fact' chama ela mesma (fact -> fact). Recursão não rola em C±. Quer recursão mesmo? Usa o compilador C++ do SAPHO.";
+    const [p, ...resto] = problemasNaLinha(linha, { cmmPadrao: 'C:/p/rec/Software/rec.cmm' });
+    expect(resto).toEqual([]);
+    expect(p).toMatchObject({ severidade: 'erro', linha: 12, arquivo: 'C:/p/rec/Software/rec.cmm' });
+  });
+});

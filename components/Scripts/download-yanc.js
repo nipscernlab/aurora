@@ -10,13 +10,18 @@
  *   - SAPHO/ (processor.v, core.v, addr_dec.v, instr_dec.v, ula.v,
  *            myFIFO.v, o Verilog do processador SAPHO. Chamava-se HDL/
  *            ate a v5.5; a v5.6 entrega as duas, HDL/ como copia de
- *            transicao, e a Aurora le SAPHO/ desde entao.
+ *            transicao, e a Aurora le SAPHO/ desde entao. A v5.7 traz
+ *            so SAPHO/.
  *            v5.4 acrescentou o parametro FROUND, o nivel de
  *            arredondamento do float, em processor/core/ula.
  *            v5.5 tirou LDA/STA do ISA e renumerou os opcodes, entao
  *            Verilog e asmcomp de versoes diferentes nao funcionam juntos.
  *            v5.6 fez do instr_dec uma function e corrigiu a inversao
- *            de bits da FFT no mem_ctrl; portas e parametros iguais.)
+ *            de bits da FFT no mem_ctrl; portas e parametros iguais.
+ *            v5.7 calcula a profundidade das pilhas pelo programa quando
+ *            #NDSTAC/#SDEPTH faltam, recusa recursao em C+-, tira o codigo
+ *            morto do .asm e do hardware, e no C++ compila <cstring> e
+ *            ponteiro de funcao. ISA e codificacao iguais aos da v5.5/v5.6.)
  *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
@@ -61,7 +66,7 @@ const { verifyChecksum } = require('./lib/checksum');
 // release). null = compute + log only (no enforcement yet).
 const EXPECTED_SHA256 = null;
 
-const YANC_TAG      = 'v5.6';
+const YANC_TAG      = 'v5.7';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-26T04:07:23.611Z",
+  "generatedAt": "2026-10-03T14:00:27.488Z",
   "source": {
     "yancPath": "C:/nipscern/yanc",
-    "yancCommit": "f48d4b6b11d8"
+    "yancCommit": "8f125687d615"
   },
   "language": {
     "keywords": [
@@ -1104,6 +1104,13 @@
       "category": "unused-variable errors/warnings (variaveis.c)",
       "pt": "Atenção: função '%s' não está sendo usada. Economize memória!\n",
       "en": "Heads up: function '%s' isn't being used. Save some memory, will ya!\n"
+    },
+    {
+      "code": "MSG_ERR_RECURSION",
+      "severity": "error",
+      "category": "unused-variable errors/warnings (variaveis.c)",
+      "pt": "Erro na linha %d: a função '%s' chama ela mesma (%s). Recursão não rola em C±. Quer recursão mesmo? Usa o compilador C++ do SAPHO.\n",
+      "en": "Error on line %d: function '%s' calls itself (%s). Recursion doesn't fly in C±. Really want recursion? Use SAPHO's C++ compiler.\n"
     },
     {
       "code": "MSG_ERR_DUP_INTERRUPT",

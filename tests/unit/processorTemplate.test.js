@@ -140,8 +140,7 @@ describe('processorSourceFile: nome e conteudo pela linguagem', () => {
 describe('PADROES_DO_CPPCOMP: o que a interface mostra nos campos que desabilita', () => {
     it('sao os do config.h do cppcomp, e o formato fecha (32 = 23 + 8 + 1)', () => {
         expect(PADROES_DO_CPPCOMP).toEqual({
-            nBits: 32, nbMantissa: 23, nbExponent: 8,
-            gain: 128, dataStackSize: 128, instructionStackSize: 128,
+            nBits: 32, nbMantissa: 23, nbExponent: 8, gain: 128,
         });
         expect(PADROES_DO_CPPCOMP.nBits)
             .toBe(PADROES_DO_CPPCOMP.nbMantissa + PADROES_DO_CPPCOMP.nbExponent + 1);

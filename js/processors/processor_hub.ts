@@ -28,8 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
         gain: campo('gain'),
         mantissa: campo('nbMantissa'),
         exponent: campo('nbExponent'),
-        iStack: campo('instructionStackSize'),
-        dStack: campo('dataStackSize'),
         inPorts: campo('inputPorts'),
         outPorts: campo('outputPorts')
     };
@@ -38,24 +36,28 @@ document.addEventListener('DOMContentLoaded', () => {
     //
     // O front end C++ do yanc (cpppp + cppcomp) le do fonte so o nome e as
     // duas contagens de porta, como `#pragma yanc prname/nuioin/nuioou`. Para
-    // largura, mantissa, expoente, ganho e as duas pilhas ele usa os padroes
-    // dele (Compilers/CPPComp/Headers/config.h), e escrever ali os numeros
-    // deste formulario cravaria no fonte um valor que ninguem escolheu. Por
-    // isso, em C++, estes seis campos ficam desabilitados, mostrando o que o
+    // largura, mantissa, expoente e ganho ele usa os padroes dele
+    // (Compilers/CPPComp/Headers/config.h), e escrever ali os numeros deste
+    // formulario cravaria no fonte um valor que ninguem escolheu. Por isso, em
+    // C++, estes quatro campos ficam desabilitados, mostrando o que o
     // compilador vai de fato assumir, e saem da validacao.
+    //
+    // As pilhas nao sao perguntadas em nenhuma das duas linguagens: sem
+    // #NDSTAC e #SDEPTH no fonte, o yanc calcula a profundidade de cada uma
+    // pelo programa, e quem quiser tamanho fixo escreve a diretiva a mao.
     const radioCmm = campo('languageCmm');
     const radioCpp = campo('languageCpp');
     const dicaLinguagem = document.getElementById('processorLanguageHint');
 
     /** Os campos que SO existem em C+-. Nome e portas ficam de fora. */
-    const CAMPOS_SO_DO_CMM = ['nBits', 'gain', 'mantissa', 'exponent', 'iStack', 'dStack'] as const;
+    const CAMPOS_SO_DO_CMM = ['nBits', 'gain', 'mantissa', 'exponent'] as const;
 
     /**
      * O que o cppcomp assume quando o fonte nao traz o pragma, ja no
      * vocabulario curto que o `inputs` acima usa.
      *
      * Os NUMEROS vem de js/project/processor_defaults.ts, que e quem escreve o
-     * fonte; aqui so se traduz o nome do campo. Antes eram os mesmos seis
+     * fonte; aqui so se traduz o nome do campo. Antes eram os mesmos
      * numeros digitados de novo, com um comentario dizendo que nao dava para
      * compartilhar modulo entre o main e o renderer, o que deixou de ser
      * verdade quando o processo principal passou a carregar modulo daqui.
@@ -65,25 +67,12 @@ document.addEventListener('DOMContentLoaded', () => {
         mantissa: String(PADROES.nbMantissa),
         exponent: String(PADROES.nbExponent),
         gain: String(PADROES.gain),
-        dStack: String(PADROES.dataStackSize),
-        iStack: String(PADROES.instructionStackSize),
     };
 
     /** O que a pessoa digitou em C+-, para voltar quando ela desmarcar C++. */
     const valoresDoCmm: Record<string, string> = {};
 
     const linguagemEscolhida = (): 'cmm' | 'cpp' => (radioCpp?.checked ? 'cpp' : 'cmm');
-
-    // A caixa "o compilador dimensiona as pilhas". Marcada, as duas pilhas
-    // nao vao para o cabecalho do .cmm (ver cmmTemplate em
-    // js/project/processor_defaults.ts) e o yanc calcula a profundidade de
-    // cada uma pelo programa. So existe em C+-: em C++ as pilhas ja sao do
-    // cppcomp, e a caixa fica desabilitada.
-    const caixaPilhasAuto = campo('autoStackSizes');
-    const PILHAS = ['iStack', 'dStack'] as const;
-    const ehPilha = (chave: string): boolean => (PILHAS as readonly string[]).includes(chave);
-    const pilhasAutomaticas = (): boolean =>
-        linguagemEscolhida() === 'cmm' && !!caixaPilhasAuto?.checked;
 
     // --- State Management ---
     let currentProjectPath: string | null = null;
@@ -183,17 +172,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!checkName()) isValid = false;
 
-        // Em C++ estes seis nao sao perguntados, entao nao sao validados: o
+        // Em C++ estes quatro nao sao perguntados, entao nao sao validados: o
         // que esta neles e o padrao do cppcomp, so para a pessoa ver.
         if (linguagemEscolhida() === 'cmm') {
             if (!checkPositiveInteger(inputs.nBits)) isValid = false;
             if (!checkPositiveInteger(inputs.mantissa)) isValid = false;
             if (!checkPositiveInteger(inputs.exponent)) isValid = false;
             if (!checkGain()) isValid = false;
-            if (!pilhasAutomaticas()) {
-                if (!checkPositiveInteger(inputs.iStack)) isValid = false;
-                if (!checkPositiveInteger(inputs.dStack)) isValid = false;
-            }
         }
         // Ports must be a positive integer like every other numeric field:
         // we used to accept 0 (and silently empty) which let users submit
@@ -213,42 +198,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * Poe o formulario no estado da linguagem e da caixa das pilhas.
-     *
-     * Um campo do C+- fica desabilitado por um de dois motivos. Em C++, ele
-     * passa a MOSTRAR o que o cppcomp assume. Com as pilhas automaticas, a
-     * pilha fica vazia, porque nao ha numero: quem decide e o compilador.
-     * Quando o motivo some, volta o que a pessoa tinha digitado.
+     * Poe o formulario no estado da linguagem escolhida. Em C++ os quatro
+     * campos do C+- ficam desabilitados e passam a MOSTRAR o que o cppcomp
+     * assume; ao voltar para C+-, o que a pessoa tinha digitado volta.
      */
-    const aplicarEstado = () => {
+    const aplicarLinguagem = () => {
         const ehCpp = linguagemEscolhida() === 'cpp';
-        const auto = pilhasAutomaticas();
         for (const chave of CAMPOS_SO_DO_CMM) {
             const el = inputs[chave];
             if (!el) continue;
-            const motivo = ehCpp ? 'cpp' : (auto && ehPilha(chave) ? 'auto' : null);
-            if (motivo) {
+            if (ehCpp) {
                 if (!el.disabled) valoresDoCmm[chave] = el.value;
-                el.value = motivo === 'cpp' ? (PADROES_DO_CPPCOMP[chave] ?? el.value) : '';
+                el.value = PADROES_DO_CPPCOMP[chave] ?? el.value;
                 el.disabled = true;
                 resetInputStyle(el);
             } else {
                 el.disabled = false;
                 if (chave in valoresDoCmm) el.value = valoresDoCmm[chave];
-                delete valoresDoCmm[chave];
             }
-            el.closest('.form-group')?.classList.toggle('is-disabled', !!motivo);
-        }
-        if (caixaPilhasAuto) {
-            caixaPilhasAuto.disabled = ehCpp;
-            caixaPilhasAuto.closest('.form-group')?.classList.toggle('is-disabled', ehCpp);
+            el.closest('.form-group')?.classList.toggle('is-disabled', ehCpp);
         }
         dicaLinguagem?.classList.toggle('hidden', !ehCpp);
         validateAll();
     };
 
-    for (const controle of [radioCmm, radioCpp, caixaPilhasAuto]) {
-        controle?.addEventListener('change', aplicarEstado);
+    for (const radio of [radioCmm, radioCpp]) {
+        radio?.addEventListener('change', aplicarLinguagem);
     }
 
     // --- 5. Event Listeners (Live) ---
@@ -288,10 +263,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (form) form.reset();
         Object.values(inputs).forEach(input => resetInputStyle(input));
-        // O form.reset() devolve o radio ao C+- e desmarca a caixa das pilhas,
-        // que e o estado do HTML; aplicarEstado reabilita os campos.
+        // O form.reset() devolve o radio ao C+-, que e o `checked` do HTML;
+        // aplicarLinguagem reabilita os campos e limpa os valores guardados.
         for (const chave of Object.keys(valoresDoCmm)) delete valoresDoCmm[chave];
-        aplicarEstado();
+        aplicarLinguagem();
         setTimeout(validateAll, 50);
     };
 
@@ -333,9 +308,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 nBits: parseInt(inputs.nBits?.value ?? ''),
                 nbMantissa: parseInt(inputs.mantissa?.value ?? ''),
                 nbExponent: parseInt(inputs.exponent?.value ?? ''),
-                // Sem numero, a diretiva da pilha nao vai para o cabecalho.
-                dataStackSize: pilhasAutomaticas() ? undefined : parseInt(inputs.dStack?.value ?? ''),
-                instructionStackSize: pilhasAutomaticas() ? undefined : parseInt(inputs.iStack?.value ?? ''),
                 inputPorts: parseInt(inputs.inPorts?.value ?? ''),
                 outputPorts: parseInt(inputs.outPorts?.value ?? ''),
                 gain: parseInt(inputs.gain?.value ?? ''),
@@ -378,5 +350,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 9. Initial Run ---
-    aplicarEstado();
+    aplicarLinguagem();
 });

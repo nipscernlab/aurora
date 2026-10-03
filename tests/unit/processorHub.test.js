@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 //
 // O formulario do Processor Hub (js/processors/processor_hub.ts), sobre o
-// trecho de verdade do index.html. O que estes casos travam e a caixa
-// "o compilador dimensiona as pilhas": marcada, as duas pilhas ficam vazias e
-// desabilitadas, saem da validacao e vao para o IPC sem valor, que e o que
-// faz o cmmTemplate deixar #NDSTAC e #SDEPTH fora do cabecalho. O E2E em
-// tests/e2e/processor-hub-language.test.js prova o mesmo na janela inteira.
+// trecho de verdade do index.html. O Hub nao pergunta as pilhas: sem #NDSTAC
+// e #SDEPTH no cabecalho, o yanc calcula a profundidade de cada uma pelo
+// programa, e quem quiser tamanho fixo escreve a diretiva a mao. O que vai
+// para o disco esta em tests/unit/processorTemplate.test.js; o E2E em
+// tests/e2e/processor-hub-language.test.js prova o formulario na janela.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -52,9 +52,10 @@ const $ = (id) => document.getElementById(id);
 
 function mudar(id, valor) {
     const el = $(id);
-    if (el.type === 'checkbox' || el.type === 'radio') el.checked = valor;
+    const marcavel = el.type === 'checkbox' || el.type === 'radio';
+    if (marcavel) el.checked = valor;
     else el.value = valor;
-    el.dispatchEvent(new Event(el.type === 'checkbox' || el.type === 'radio' ? 'change' : 'input'));
+    el.dispatchEvent(new Event(marcavel ? 'change' : 'input'));
 }
 
 async function gerar() {
@@ -62,6 +63,8 @@ async function gerar() {
     await vi.waitFor(() => expect(electronAPI.createProcessorProject).toHaveBeenCalled());
     return electronAPI.createProcessorProject.mock.calls[0][0];
 }
+
+const SO_DO_CMM = { nBits: '32', nbMantissa: '23', nbExponent: '8', gain: '128' };
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -71,67 +74,48 @@ beforeEach(() => {
     electronAPI.onProcessorsUpdated.mock.calls[0][0]({ projectPath: 'C:/proj' });
 });
 
-describe('Processor Hub: a caixa das pilhas', () => {
-    it('comeca desmarcada, e o IPC recebe as duas pilhas como sempre', async () => {
-        expect($('autoStackSizes').checked).toBe(false);
-        expect($('dataStackSize').disabled).toBe(false);
+describe('Processor Hub: as pilhas ficam com o compilador', () => {
+    it('o formulario nao tem campo de pilha', () => {
+        expect($('dataStackSize')).toBeNull();
+        expect($('instructionStackSize')).toBeNull();
+        expect($('autoStackSizes')).toBeNull();
+    });
+
+    it('o IPC recebe os campos do C+- e nenhuma pilha', async () => {
         const dados = await gerar();
-        expect(dados.dataStackSize).toBe(5);
-        expect(dados.instructionStackSize).toBe(5);
+        expect(dados).toMatchObject({
+            projectLocation: 'C:/proj', language: 'cmm',
+            nBits: 23, nbMantissa: 16, nbExponent: 6, gain: 128,
+            inputPorts: 1, outputPorts: 1,
+        });
+        expect(dados).not.toHaveProperty('dataStackSize');
+        expect(dados).not.toHaveProperty('instructionStackSize');
     });
+});
 
-    it('marcada, as pilhas ficam vazias e apagadas, e o IPC as recebe sem valor', async () => {
-        mudar('autoStackSizes', true);
-        for (const id of ['dataStackSize', 'instructionStackSize']) {
-            expect($(id).disabled, id).toBe(true);
-            expect($(id).value, id).toBe('');
-            expect($(id).closest('.form-group').classList.contains('is-disabled'), id).toBe(true);
-        }
-        // Vazias, nao travam o Gerar.
-        expect($('generateProcessor').disabled).toBe(false);
-
-        const dados = await gerar();
-        expect(dados.dataStackSize).toBeUndefined();
-        expect(dados.instructionStackSize).toBeUndefined();
-        expect(dados.nBits).toBe(23);
-    });
-
-    it('desmarcada, voltam os valores que a pessoa tinha digitado', () => {
-        mudar('dataStackSize', '9');
-        mudar('autoStackSizes', true);
-        mudar('autoStackSizes', false);
-        expect($('dataStackSize').value).toBe('9');
-        expect($('dataStackSize').disabled).toBe(false);
-        expect($('instructionStackSize').value).toBe('5');
-    });
-
-    it('em C++ a caixa fica desabilitada, e no C+- de novo as pilhas seguem com o compilador', () => {
-        mudar('autoStackSizes', true);
+describe('Processor Hub: o seletor de linguagem', () => {
+    it('em C++ os quatro campos do C+- mostram o padrao do cppcomp e desabilitam', () => {
         mudar('languageCpp', true);
-        expect($('autoStackSizes').disabled).toBe(true);
-        expect($('dataStackSize').value).toBe('128');
-
-        mudar('languageCmm', true);
-        expect($('autoStackSizes').disabled).toBe(false);
-        expect($('dataStackSize').value).toBe('');
-        expect($('dataStackSize').disabled).toBe(true);
-
-        mudar('autoStackSizes', false);
-        expect($('dataStackSize').value).toBe('5');
-    });
-
-    it('com a caixa desmarcada, pilha vazia continua travando o Gerar', () => {
-        mudar('dataStackSize', '');
-        expect($('generateProcessor').disabled).toBe(true);
-        mudar('autoStackSizes', true);
+        for (const [id, valor] of Object.entries(SO_DO_CMM)) {
+            expect($(id).disabled, id).toBe(true);
+            expect($(id).value, id).toBe(valor);
+        }
+        expect($('inputPorts').disabled).toBe(false);
         expect($('generateProcessor').disabled).toBe(false);
     });
 
-    it('cancelar desmarca a caixa e reabre as pilhas', () => {
-        mudar('autoStackSizes', true);
+    it('voltando ao C+-, os campos reabrem com o que a pessoa tinha digitado', () => {
+        mudar('nBits', '19');
+        mudar('languageCpp', true);
+        mudar('languageCmm', true);
+        expect($('nBits').disabled).toBe(false);
+        expect($('nBits').value).toBe('19');
+    });
+
+    it('cancelar devolve o formulario ao C+- com os campos abertos', () => {
+        mudar('languageCpp', true);
         $('cancelProcessorHub').click();
-        expect($('autoStackSizes').checked).toBe(false);
-        expect($('dataStackSize').disabled).toBe(false);
-        expect($('dataStackSize').value).toBe('5');
+        expect($('languageCmm').checked).toBe(true);
+        expect($('nBits').disabled).toBe(false);
     });
 });

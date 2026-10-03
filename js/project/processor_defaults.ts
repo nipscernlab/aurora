@@ -30,7 +30,11 @@
  * esse .js que o runtime carrega; os imports usam a extensao `.js`.
  */
 
-/** Os nove campos do Processor Hub. O C++ so usa tres deles; ver abaixo. */
+/**
+ * Os campos de um processador novo. O Processor Hub pergunta sete; as duas
+ * pilhas so chegam pela API, de quem pede tamanho fixo. O C++ usa tres; ver
+ * abaixo.
+ */
 export interface ParametrosDoProcessador {
   processorName: string;
   nBits?: number | string;
@@ -51,14 +55,15 @@ export interface ParametrosDoProcessador {
  * sao as do formulario, que e a mesma coisa que o id de cada campo no HTML.
  *
  * 23 = 16 + 6 + 1: e o float estreito do SAPHO, e nao o do IEEE-754.
+ *
+ * As pilhas nao tem padrao aqui de proposito: sem #NDSTAC e #SDEPTH o yanc
+ * calcula a profundidade de cada uma pelo programa.
  */
 export const PADROES_DO_CMM = Object.freeze({
   nBits: 23,
   nbMantissa: 16,
   nbExponent: 6,
   gain: 128,
-  dataStackSize: 5,
-  instructionStackSize: 5,
   inputPorts: 1,
   outputPorts: 1,
 });
@@ -77,12 +82,10 @@ export const PADROES_DO_CPPCOMP = Object.freeze({
   nbMantissa: 23,
   nbExponent: 8,
   gain: 128,
-  dataStackSize: 128,
-  instructionStackSize: 128,
 });
 
 /**
- * Uma pilha sem valor: ausente, vazia ou NaN (o `parseInt('')` do formulario).
+ * Uma pilha sem valor: ausente, vazia ou NaN (o `parseInt` de um campo vazio).
  * Zero e valor, e quem recusa e o yanc.
  */
 const semValor = (v: ParametrosDoProcessador['dataStackSize'] | null): boolean =>
@@ -97,8 +100,8 @@ const linhaDaPilha = (diretiva: string, v: ParametrosDoProcessador['dataStackSiz
   (semValor(v) ? '' : `${diretiva} ${v}\n`);
 
 /**
- * O fonte C+-: as diretivas do cabecalho e um main vazio. Sao nove, ou sete
- * quando as pilhas ficam para o compilador calcular.
+ * O fonte C+-: as diretivas do cabecalho e um main vazio. Sao sete, ou nove
+ * quando a API pede pilhas de tamanho fixo.
  */
 export function cmmTemplate(p: ParametrosDoProcessador): string {
   return `#PRNAME ${p.processorName}

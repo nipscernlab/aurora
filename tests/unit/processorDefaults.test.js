@@ -52,11 +52,18 @@ describe('PADROES_DO_CMM', () => {
         }
     });
 
-    it('cobre os oito campos de hardware, e nenhum a mais', () => {
+    it('cobre os seis campos de hardware, e nenhum a mais', () => {
+        // As pilhas sairam: sem #NDSTAC e #SDEPTH o yanc calcula a
+        // profundidade de cada uma pelo programa.
         expect(Object.keys(PADROES_DO_CMM).sort()).toEqual([
-            'dataStackSize', 'gain', 'inputPorts', 'instructionStackSize',
-            'nBits', 'nbExponent', 'nbMantissa', 'outputPorts',
+            'gain', 'inputPorts', 'nBits', 'nbExponent', 'nbMantissa', 'outputPorts',
         ]);
+    });
+
+    it('o formulario do Hub nao pergunta as pilhas', () => {
+        const doHtml = valoresDoFormulario();
+        expect(doHtml).not.toHaveProperty('dataStackSize');
+        expect(doHtml).not.toHaveProperty('instructionStackSize');
     });
 });
 
@@ -70,6 +77,11 @@ describe('PADROES_DO_CPPCOMP', () => {
         expect(PADROES_DO_CPPCOMP).not.toHaveProperty('inputPorts');
         expect(PADROES_DO_CPPCOMP).not.toHaveProperty('outputPorts');
     });
+
+    it('nem sobre pilhas, que o Hub nao mostra em nenhuma das linguagens', () => {
+        expect(PADROES_DO_CPPCOMP).not.toHaveProperty('dataStackSize');
+        expect(PADROES_DO_CPPCOMP).not.toHaveProperty('instructionStackSize');
+    });
 });
 
 describe('cmmTemplatePadrao', () => {
@@ -78,14 +90,15 @@ describe('cmmTemplatePadrao', () => {
             .toBe(`${cmmTemplate({ processorName: 'Foo', ...PADROES_DO_CMM })}\n`);
     });
 
-    it('carimba as nove diretivas com os valores do formulario', () => {
+    it('carimba as sete diretivas com os valores do formulario, sem as pilhas', () => {
         const t = cmmTemplatePadrao('Foo');
         expect(t).toContain('#PRNAME Foo');
         expect(t).toContain(`#NUBITS ${PADROES_DO_CMM.nBits}`);
         expect(t).toContain(`#NBMANT ${PADROES_DO_CMM.nbMantissa}`);
         expect(t).toContain(`#NBEXPO ${PADROES_DO_CMM.nbExponent}`);
         expect(t).toContain(`#NUGAIN ${PADROES_DO_CMM.gain}`);
-        expect(t.match(/^#[A-Z]{6} /gm)).toHaveLength(9);
+        expect(t).not.toMatch(/#NDSTAC|#SDEPTH/);
+        expect(t.match(/^#[A-Z]{6} /gm)).toHaveLength(7);
     });
 
     it('cai em "processor" quando ninguem passa nome', () => {

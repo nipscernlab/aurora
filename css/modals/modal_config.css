@@ -272,8 +272,7 @@
   color: var(--text);
 }
 
-.radio-option input[type="radio"],
-.radio-option input[type="checkbox"] {
+.radio-option input[type="radio"] {
   accent-color: var(--accent);
   cursor: pointer;
 }
@@ -281,8 +280,7 @@
 /* Campo que a linguagem desabilitou: continua legivel, mas visivelmente
    fora de uso. O `disabled` sozinho quase nao muda a cara do input aqui. */
 .form-group.is-disabled .form-label,
-.form-group.is-disabled .form-input:disabled,
-.form-group.is-disabled .radio-option {
+.form-group.is-disabled .form-input:disabled {
   opacity: 0.45;
 }
 

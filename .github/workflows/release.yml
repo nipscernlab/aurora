@@ -107,7 +107,7 @@ jobs:
             'User-Agent'  = 'aurora-release-workflow'
           }
           try {
-            $repo = Invoke-RestMethod -Uri "https://api.github.com/repos/$env:DIST_REPO" -Headers $headers
+            $repo = Invoke-RestMethod -Uri "https://api.github.com/repos/$env:DIST_REPO" -Headers $headers -ResponseHeadersVariable resposta
           } catch {
             Write-Host "::error::SAPHO_RELEASE_TOKEN cannot read $env:DIST_REPO ($($_.Exception.Message))."
             Write-Host "::error::Check that the PAT lists that repository, is approved by the org, and has not expired."
@@ -119,6 +119,20 @@ jobs:
             exit 1
           }
           Write-Host "Publish access to $env:DIST_REPO confirmed."
+          # O token e pessoal e vence. O GitHub diz quando, num cabecalho de
+          # toda resposta feita com ele; aqui isso vira uma linha em todo
+          # release e um aviso quando faltar um mes, em vez de o release
+          # simplesmente parar no dia seguinte ao vencimento.
+          $validade = "$($resposta['github-authentication-token-expiration'])"
+          if ($validade -match '^(\d{4}-\d{2}-\d{2})') {
+            $dias = ([datetime]::ParseExact($Matches[1], 'yyyy-MM-dd', $null) - (Get-Date).Date).Days
+            Write-Host "SAPHO_RELEASE_TOKEN expires on $($Matches[1]) ($dias days left)."
+            if ($dias -le 30) {
+              Write-Host "::warning::SAPHO_RELEASE_TOKEN expires on $($Matches[1]), in $dias days. Rotate it now (CONTRIBUTING.md, 'The publish token')."
+            }
+          } else {
+            Write-Host "SAPHO_RELEASE_TOKEN reports no expiration date."
+          }
           if ('${{ inputs.dry_run }}' -eq 'true') {
             Write-Host "Dry run: stopping here. Nothing was built or published."
           }

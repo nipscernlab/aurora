@@ -207,6 +207,12 @@ end with "Publish access to nipscernlab/sapho confirmed". Revoke the old token
 after that, not before. An expired token fails the preflight in seconds, with a
 message that says so, rather than after the twenty-minute build.
 
+The current token is `aurora-release-sapho`, owned by `lucianomaf`, created on
+2026-10-03 and **expiring on 2027-10-01**. The preflight prints the expiry date
+on every release and turns it into a warning in the run summary from thirty
+days out, so the date does not depend on anyone remembering it. When you rotate
+the token, update this paragraph.
+
 ### Code signing
 
 The installer is signed through the SignPath Foundation, organisation SAPHO

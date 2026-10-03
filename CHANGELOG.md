@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.22.0](https://github.com/nipscernlab/aurora/compare/v6.21.0...v6.22.0) (2026-10-03)
+
+
+### Features
+
+* **processador:** o Processor Hub deixa de perguntar as pilhas ([b35be4b](https://github.com/nipscernlab/aurora/commit/b35be4be2c44e7d010a93e1ca2b58f3da4fb22eb))
+* **processador:** o Processor Hub deixa o compilador dimensionar as pilhas ([705511d](https://github.com/nipscernlab/aurora/commit/705511d91ed87de6c6f58217095e5f83e530faaf))
+* **yanc:** a Aurora passa a usar o yanc v5.7 ([d8985fc](https://github.com/nipscernlab/aurora/commit/d8985fcdea107ca377a53b0a23b6922e923d6d88))
+
+
+### Bug Fixes
+
+* **ia:** o prompt para de exigir as pilhas e passa a dizer o que o yanc v5.6 faz ([e0410e9](https://github.com/nipscernlab/aurora/commit/e0410e9e0673cf420641798fdcd0c91706330267))
+
+
+### Documentation
+
+* **ia:** gabarito de perguntas para conferir a IA depois de cada release ([d7a7826](https://github.com/nipscernlab/aurora/commit/d7a782650457d5420f7deda303e4d3bc7f310bd8))
+
 ## [6.21.0](https://github.com/nipscernlab/aurora/compare/v6.20.0...v6.21.0) (2026-10-01)
 
 

@@ -86,24 +86,26 @@ describe('o inventario do toolchain bate com o que o instalador baixa', () => {
     });
 });
 
-// As tres afirmacoes abaixo estavam erradas no prompt, e cada uma faz o modelo
-// dar um conselho errado. Conferidas contra o codigo do yanc em 08/08/2026.
+// Cada afirmacao abaixo ja esteve errada no prompt, e cada uma faz o modelo dar
+// um conselho errado. Conferidas contra o codigo do yanc em 08/08/2026, e de
+// novo contra o v5.6 em 03/10/2026.
 describe('as restricoes do SAPHO estao contadas como o yanc realmente se comporta', () => {
-    it('nao promete que o yanc rejeita NUGAIN fora de potencia de 2', () => {
-        // Nada em yanc checa isso: o valor vai direto para o Verilog e o ula.v faz
-        // `out = in/NUGAIN`. Potencia de 2 e o que faz a divisao virar um shift de
-        // graca na sintese; o resto infere um divisor de verdade. E custo de
-        // hardware, e nao erro de compilacao.
-        expect(SYSTEM_PROMPT).toContain('Nothing in yanc checks this');
-        expect(SYSTEM_PROMPT).toContain('REAL DIVIDER');
-        expect(SYSTEM_PROMPT).not.toContain('non-power-of-2 values are rejected');
+    it('diz que o yanc recusa NUGAIN fora de potencia de 2', () => {
+        // Ate o v5.5 nada checava, e o prompt dizia isso. O yanc 2612bc59
+        // (18/09/2026, no v5.6) passou a recusar no cmmcomp e no asmcomp
+        // (MSG_ERR_NUGAIN_POW2), porque o divisor de verdade que o ula.v
+        // inferia estourava o caminho critico.
+        expect(SYSTEM_PROMPT).toContain('refused by cmmcomp and asmcomp');
+        expect(SYSTEM_PROMPT).not.toContain('Nothing in yanc checks this');
+        expect(SYSTEM_PROMPT).not.toContain('never tell the user yanc will reject it');
     });
 
     it('nao promete erro de build quando falta diretiva', () => {
         // asmcomp tem default para todas, e os defaults sao consistentes entre si,
-        // entao um .cmm sem o bloco compila limpo num processador de 23 bits.
+        // entao um .cmm sem o bloco compila limpo num processador de 32 bits
+        // (23 + 8 + 1 no v5.6; o prompt dizia 23 bits, de um yanc antigo).
         expect(SYSTEM_PROMPT).toContain('does\n' + '   NOT fail the build');
-        expect(SYSTEM_PROMPT).toContain('23-bit processor the user never asked for');
+        expect(SYSTEM_PROMPT).toContain('32-bit processor the user never asked for');
         expect(SYSTEM_PROMPT).not.toContain('Missing even one of the nine directives = build error');
     });
 
@@ -132,5 +134,36 @@ describe('o resumo do ISA bate com o sapho_rules.json', () => {
         expect(ops.some((o) => o.mnemonic === 'LDA' || o.mnemonic === 'STA')).toBe(false);
         expect(SYSTEM_PROMPT).toContain('read with LDI 0 and written with STI 0');
         expect(SYSTEM_PROMPT).not.toMatch(/\bLDA \(|\bSTA \(/);
+    });
+});
+
+// A Aurora deixou de escrever #NDSTAC e #SDEPTH num processador novo: sem elas
+// o yanc calcula a profundidade de cada pilha pelo programa. O prompt mandava o
+// modelo exigir as nove diretivas e escrever todas sempre, o que poria as duas
+// de volta em todo arquivo que ele tocasse.
+describe('as pilhas ficam com o compilador', () => {
+    it('NDSTAC e SDEPTH sao opcionais, e o modelo nao as acrescenta por conta propria', () => {
+        expect(SYSTEM_PROMPT).toContain('#NDSTAC and #SDEPTH are OPTIONAL');
+        expect(SYSTEM_PROMPT).not.toMatch(/Write all\s+nine/);
+        expect(SYSTEM_PROMPT).not.toContain('All 9 core directives');
+        expect(SYSTEM_PROMPT).not.toContain('#NDSTAC, #SDEPTH, #NUIOIN');
+    });
+
+    it('os padroes citados sao os do yanc que o instalador baixa', () => {
+        // Numeros de Compilers/ASMComp/Sources/eval.c no v5.6. Quando o
+        // YANC_TAG mudar, este caso cai de proposito: reconfira os padroes e o
+        // que uma pilha omitida vale (no v5.6, 128; depois do yanc 4be1f88,
+        // calculada pelo programa) e atualize o prompt e este teste juntos.
+        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v5.6');
+        expect(SYSTEM_PROMPT).toContain('NUBITS 32, NBMANT 23, NBEXPO 8');
+        expect(SYSTEM_PROMPT).toContain('NUGAIN 128, FFTSIZ 3');
+        expect(SYSTEM_PROMPT).toContain('an omitted stack depth is 128');
+    });
+});
+
+describe('quem mantem a Aurora', () => {
+    it('e o Prof. Luciano; o Arthur nao mexe mais nela', () => {
+        expect(SYSTEM_PROMPT).toContain('maintained by Prof. Luciano');
+        expect(SYSTEM_PROMPT).not.toContain('Arthur Araujo Martins');
     });
 });

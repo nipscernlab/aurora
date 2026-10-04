@@ -27,6 +27,8 @@ const { TOOL_MANIFEST } = require('../../main/ai/tools.js');
 // O registro do namespace continua no aurora_api.js; o CORPO dele mudou de
 // arquivo (item 4 do roadmap), e la o arquivo inteiro e o bloco.
 const FONTE = readFileSync(new URL('../../js/api/aurora_api.js', import.meta.url), 'utf8');
+// O catalogo que a IA consulta (_meta.schema) mora em meta_ns.ts.
+const CATALOGO = readFileSync(new URL('../../js/api/meta_ns.ts', import.meta.url), 'utf8');
 
 // O namespace saiu do aurora_api.js para um modulo proprio (item 4 do
 // roadmap), e agora o arquivo inteiro e o bloco: nao ha o que fatiar.
@@ -112,6 +114,6 @@ describe('o namespace existe do lado da API', () => {
   });
 
   it('aparece na lista de namespaces que a IA consulta', () => {
-    expect(FONTE).toContain("    list:    'The five ready-made example projects");
+    expect(CATALOGO).toContain("    list:    'The five ready-made example projects");
   });
 });

@@ -2387,8 +2387,19 @@ A cadeia, nesta ordem:
       `cpp-processor > criar em C+- ... NAO grava linguagem no .spf`: o
       `createProcessor` responde ok, o `.cmm` existe e a entrada some do `.spf`,
       1 vez em 5 a 7 rodadas, sozinho; o caso seguinte cai junto (`unknown
-      processor: proc_cmm`). Caminho provável: uma fila única de escrita do
-      `.spf` (o main pedir ao store, ou os dois lados serializarem por arquivo).
+      processor: proc_cmm`).
+
+      A correção, decidida em 04/10: seguir o desenho que o próprio
+      `spf_store.ts` declara ("single writer" da estrutura) e tirar do main as
+      três escritas da lista de processadores (`create-processor-project`,
+      `delete-processor`, `rename-processor`), deixando o main só com
+      metadados; quem chama (`processadores_ns.ts`, `processor_hub.ts` e o
+      apagar da árvore em `project_tree_actions.js`) grava a lista pelo
+      `SpfStore.update`. Isso toca `main/ipc/project.js` (1106 linhas) e
+      `js/project/project_tree_actions.js` (1192), e por decisão do Luciano os
+      dois viram `.ts` inteiros ANTES, numa sessão própria, sem exceção à regra
+      de conversão. Prova da correção: o E2E `cpp-processor` verde em pelo
+      menos 15 rodadas seguidas, sozinho.
 - [ ] **13.4 (decisão do Luciano, com o Chrys e o Arthur) Contrato tipado da
       ponte.** O `preload.js` é o arquivo que mais muda: toda funcionalidade
       nova passa pela ponte entre renderer e main. Um contrato único dos canais,

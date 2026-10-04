@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 //
 // Unit tests for the AuroraAPI.git namespace (G1, the git_* AI tools backend,
-// js/api/git_ns.js). The namespace is thin wrappers over the window.gitAPI
+// js/api/git_ns.ts). The namespace is thin wrappers over the window.gitAPI
 // preload bridge; these pin the bits with real logic: result shaping, argument
 // validation, file-list normalisation, and error / not-a-repo handling.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -76,5 +76,55 @@ describe('gitNs write-method validation + mapping', () => {
   it('stage() normalises a single path into an array', async () => {
     await gitNs.stage({ files: 'a.js' });
     expect(window.gitAPI.stage).toHaveBeenCalledWith(['a.js']);
+  });
+});
+
+// Os embrulhos finos, um por um: o metodo da ponte e o argumento que chega
+// nele. Acrescentados quando o git_ns virou .ts (03/10/2026).
+describe('gitNs: o que cada metodo pede a ponte', () => {
+  beforeEach(() => {
+    for (const m of ['log', 'branches', 'diff', 'unstage', 'discard', 'fetch', 'pull', 'push', 'stash']) {
+      window.gitAPI[m] = vi.fn(async () => ({ ok: true, isRepo: true }));
+    }
+  });
+
+  it('log limita entre 1 e 200, com 30 quando nao vem numero', async () => {
+    await gitNs.log();
+    await gitNs.log({ limit: 999 });
+    await gitNs.log({ limit: -5 });
+    expect(window.gitAPI.log.mock.calls).toEqual([[{ limit: 30 }], [{ limit: 200 }], [{ limit: 1 }]]);
+  });
+
+  it('branches e diff funcionam fora de um repositorio, o resto recusa', async () => {
+    window.gitAPI.branches = vi.fn(async () => ({ ok: true, isRepo: false, branches: [] }));
+    window.gitAPI.diff = vi.fn(async () => ({ ok: true, isRepo: false }));
+    window.gitAPI.fetch = vi.fn(async () => ({ ok: true, isRepo: false }));
+    expect((await gitNs.branches()).isRepo).toBe(false);
+    expect(window.gitAPI.branches).toHaveBeenCalledWith();
+    await gitNs.diff({ file: '', staged: 1 });
+    expect(window.gitAPI.diff).toHaveBeenCalledWith({ file: undefined, staged: true });
+    expect((await gitNs.fetch()).error.message).toBe('The open project is not a git repository.');
+  });
+
+  it('unstage e discard normalizam a lista; fetch, pull e push vao sem argumento', async () => {
+    await gitNs.unstage({ files: 'a.v' });
+    await gitNs.discard();
+    expect(window.gitAPI.unstage).toHaveBeenCalledWith(['a.v']);
+    expect(window.gitAPI.discard).toHaveBeenCalledWith([]);
+    await gitNs.fetch(); await gitNs.pull(); await gitNs.push();
+    for (const m of ['fetch', 'pull', 'push']) expect(window.gitAPI[m]).toHaveBeenCalledWith();
+  });
+
+  it('stash leva a mensagem aparada, ou nenhuma', async () => {
+    await gitNs.stash({ message: '  wip  ' });
+    await gitNs.stash();
+    expect(window.gitAPI.stash.mock.calls).toEqual([[{ message: 'wip' }], [{ message: undefined }]]);
+  });
+
+  it('a excecao da ponte vira erro com a mensagem dela', async () => {
+    window.gitAPI.pull = vi.fn(async () => { throw new Error('sem rede'); });
+    expect((await gitNs.pull()).error.message).toBe('sem rede');
+    window.gitAPI.push = vi.fn(async () => { throw null; });
+    expect((await gitNs.push()).error.message).toBe('git push failed');
   });
 });

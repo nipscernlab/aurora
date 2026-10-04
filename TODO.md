@@ -2366,6 +2366,18 @@ A cadeia, nesta ordem:
         pela AuroraAPI, exercita a shell direto. Na extração do `compile_ns.ts`,
         de novo 1 em 2 na suíte inteira; sozinho, 5 verdes em 5. Só falha com
         a máquina carregada pela suíte.
+- [ ] **Defeito: o `.spf` perde a entrada de um processador recém-criado
+      (achado em 04/10/2026).** O `create-processor-project` (main/ipc/project.js)
+      lê o `.spf`, acrescenta `{ name }` e grava; o `spf_store.ts` do renderer
+      grava o mesmo arquivo a partir de uma leitura própria, e a última escrita
+      apaga a outra. O comentário do `spf_store` chama isso de "race teórica"
+      porque supõe eventos de interface em sequência, mas pela API (a IA criando
+      processador com a árvore se atualizando) eles coincidem. Medido no E2E
+      `cpp-processor > criar em C+- ... NAO grava linguagem no .spf`: o
+      `createProcessor` responde ok, o `.cmm` existe e a entrada some do `.spf`,
+      1 vez em 5 a 7 rodadas, sozinho; o caso seguinte cai junto (`unknown
+      processor: proc_cmm`). Caminho provável: uma fila única de escrita do
+      `.spf` (o main pedir ao store, ou os dois lados serializarem por arquivo).
 - [ ] **13.4 (decisão do Luciano, com o Chrys e o Arthur) Contrato tipado da
       ponte.** O `preload.js` é o arquivo que mais muda: toda funcionalidade
       nova passa pela ponte entre renderer e main. Um contrato único dos canais,

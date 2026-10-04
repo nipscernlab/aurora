@@ -24,9 +24,10 @@ import { describe, expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 const { TOOL_MANIFEST } = require('../../main/ai/tools.js');
 
-// O registro do namespace continua no aurora_api.js; o CORPO dele mudou de
-// arquivo (item 4 do roadmap), e la o arquivo inteiro e o bloco.
-const FONTE = readFileSync(new URL('../../js/api/aurora_api.js', import.meta.url), 'utf8');
+// O registro do namespace continua no aurora_api.ts; o CORPO dele mudou de
+// arquivo (item 4 do roadmap), e la o arquivo inteiro e o bloco. Le-se o
+// fonte .ts, e nao o .js que o build gera ao lado: o CI parte de copia limpa.
+const FONTE = readFileSync(new URL('../../js/api/aurora_api.ts', import.meta.url), 'utf8');
 // O catalogo que a IA consulta (_meta.schema) mora em meta_ns.ts.
 const CATALOGO = readFileSync(new URL('../../js/api/meta_ns.ts', import.meta.url), 'utf8');
 

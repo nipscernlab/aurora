@@ -35,6 +35,7 @@
  * Compilado por `tsc` (npm run build:ts) num aurora_api.js ao lado, e esse .js
  * que o runtime carrega; os imports usam a extensao `.js`.
  */
+
 import { gitNs } from './git_ns.js';
 import { prismNs } from './prism_ns.js';
 import { waveNs } from './wave_ns.js';
@@ -59,6 +60,7 @@ import { metaNs } from './meta_ns.js';
 // nao importa nada: importar ESTE arquivo puxa a IDE inteira, e assim o nucleo
 // continua testavel sozinho.
 import { on, off, emit, WINDOW_EVENT_BRIDGE } from './api_core.js';
+
 /**
  * A ponte dos eventos antigos. A Aurora e anterior ao barramento, e os sinais
  * que cruzam a interface ainda saem como `CustomEvent` no window. Em vez de
@@ -67,54 +69,59 @@ import { on, off, emit, WINDOW_EVENT_BRIDGE } from './api_core.js';
  * window segue funcionando, e o codigo novo e a IA tem um lugar so para ouvir,
  * o `AuroraAPI.events.on(...)`.
  */
-function bridgeWindowEvents() {
-    for (const [domEvent, busEvent] of Object.entries(WINDOW_EVENT_BRIDGE)) {
-        window.addEventListener(domEvent, (e) => {
-            const detalhe = e?.detail;
-            emit(busEvent, detalhe != null ? detalhe : null);
-        });
-    }
+function bridgeWindowEvents(): void {
+  for (const [domEvent, busEvent] of Object.entries(WINDOW_EVENT_BRIDGE)) {
+    window.addEventListener(domEvent, (e) => {
+      const detalhe = (e as CustomEvent | null)?.detail;
+      emit(busEvent, detalhe != null ? detalhe : null);
+    });
+  }
 }
+
 /** O namespace project, juntado dos modulos que dividem o projeto por assunto. */
 const projectNs = {
-    ...cicloDoProjeto,
-    ...renomearProjeto,
-    // A listagem mora em arvore_do_projeto.ts, que a busca de layouts do wave
-    // tambem usa.
-    getTree(rootPath) { return listarArquivosDoProjeto(rootPath); },
-    ...arquivosDoProjeto,
-    ...analiseDoAsm,
-    ...memoriasDoProjeto,
-    ...processadoresDoProjeto,
+  ...cicloDoProjeto,
+  ...renomearProjeto,
+  // A listagem mora em arvore_do_projeto.ts, que a busca de layouts do wave
+  // tambem usa.
+  getTree(rootPath?: string | null) { return listarArquivosDoProjeto(rootPath); },
+  ...arquivosDoProjeto,
+  ...analiseDoAsm,
+  ...memoriasDoProjeto,
+  ...processadoresDoProjeto,
 };
+
 /** A API inteira, congelada: um namespace por chave, na ordem do retrato. */
 function montar() {
-    return Object.freeze({
-        editor: Object.freeze(editorNs),
-        terminal: Object.freeze(terminalNs),
-        project: Object.freeze(projectNs),
-        compile: Object.freeze(compileNs),
-        wave: Object.freeze(waveNs),
-        prism: Object.freeze(prismNs),
-        rules: Object.freeze(rulesNs),
-        examples: Object.freeze(examplesNs),
-        manual: Object.freeze(manualNs),
-        settings: Object.freeze(settingsNs),
-        ui: Object.freeze(uiNs),
-        ai: Object.freeze(aiNs),
-        git: Object.freeze(gitNs),
-        events: Object.freeze({ on, off, emit }),
-        _meta: metaNs,
-    });
+  return Object.freeze({
+    editor:   Object.freeze(editorNs),
+    terminal: Object.freeze(terminalNs),
+    project:  Object.freeze(projectNs),
+    compile:  Object.freeze(compileNs),
+    wave:     Object.freeze(waveNs),
+    prism:    Object.freeze(prismNs),
+    rules:    Object.freeze(rulesNs),
+    examples: Object.freeze(examplesNs),
+    manual:   Object.freeze(manualNs),
+    settings: Object.freeze(settingsNs),
+    ui:       Object.freeze(uiNs),
+    ai:       Object.freeze(aiNs),
+    git:      Object.freeze(gitNs),
+    events:   Object.freeze({ on, off, emit }),
+    _meta:    metaNs,
+  });
 }
+
+/** O tipo da AuroraAPI montada. */
+export type AuroraAPI = ReturnType<typeof montar>;
+
 /** Monta a API uma vez e a poe em `window.AuroraAPI`; chamadas seguintes devolvem a mesma. */
-export function initAuroraAPI() {
-    if (window.AuroraAPI)
-        return window.AuroraAPI;
-    // Repete os CustomEvents antigos do window no barramento, para haver um
-    // lugar so de onde observar a IDE.
-    bridgeWindowEvents();
-    const api = montar();
-    window.AuroraAPI = api;
-    return api;
+export function initAuroraAPI(): AuroraAPI {
+  if (window.AuroraAPI) return window.AuroraAPI as AuroraAPI;
+  // Repete os CustomEvents antigos do window no barramento, para haver um
+  // lugar so de onde observar a IDE.
+  bridgeWindowEvents();
+  const api = montar();
+  window.AuroraAPI = api;
+  return api;
 }

@@ -332,19 +332,8 @@ declare global {
     compilationManager?: { lastCompiledCmmPath?: string | null };
     /** Abre as Configuracoes numa aba (js/ui/settings); o terminal chama com 'componentes'. */
     auroraAbrirConfiguracoes?: (aba: string) => unknown;
-    /** O pedaco da API da AURORA que a barra e o Cancelar usam (js/api/aurora_api.js). */
-    AuroraAPI?: {
-      compile: {
-        compileStep(step: string): unknown; compileAll(): unknown; cancel(): unknown;
-        /** O estado da ultima corrida; `cancelled` diz se o Cancelar a parou. */
-        runStatus?(): Promise<{ ok?: boolean; data?: { cancelled?: boolean } } | null | undefined>;
-      };
-      /** A saida dos terminais, que a tarefa em segundo plano leva ao modelo. */
-      terminal?: { getAll?(): Promise<{ ok?: boolean; data?: unknown } | null | undefined> };
-      events?: { emit?(nome: string, dados: unknown): void };
-      /** As memorias do projeto, que o painel de IA le a cada turno. */
-      project?: { listMemories?(): Promise<{ ok: boolean; data?: { memories?: unknown[] } } | null | undefined> };
-    };
+    /** A AuroraAPI montada (js/api/aurora_api.ts); o tipo vem da propria montagem. */
+    AuroraAPI?: import('../api/aurora_api.js').AuroraAPI;
     /** O TabManager exposto em window (renderer.js); o PRISM em aba abre por ele. */
     TabManager?: {
       openPrismTab?(resultado: unknown): unknown;

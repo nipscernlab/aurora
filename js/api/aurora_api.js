@@ -35,10 +35,6 @@
  *     manifest auto-consumable by the AI runner.
  */
 
-import { electronAPI } from '../app/electron_api.js';
-import { ProjectStore } from '../project/project_store.js';
-import { EditorManager } from '../editor/monaco_editor.js';
-import { TabManager } from '../tabs/tab_manager.js';
 import { gitNs } from './git_ns.js';
 import { prismNs } from './prism_ns.js';
 import { waveNs } from './wave_ns.js';
@@ -49,9 +45,7 @@ import { cicloDoProjeto } from './ciclo_do_projeto_ns.js';
 import { renomearProjeto } from './renomear_projeto_ns.js';
 import { rulesNs } from './rules_ns.js';
 import { analiseDoAsm } from './analise_asm_ns.js';
-import { arquivosAbertos } from './abas_e_arvore.js';
-import { activeEditor, activeModel, flashLines, magicWandReveal } from './editor_ativo.js';
-import { acharArquivoNoProjeto, listarArquivosDoProjeto } from './arvore_do_projeto.js';
+import { listarArquivosDoProjeto } from './arvore_do_projeto.js';
 import { examplesNs } from './examples_ns.js';
 import { manualNs } from './manual_ns.js';
 import { uiNs } from './ui_ns.js';
@@ -59,11 +53,12 @@ import { aiNs } from './ai_ns.js';
 import { settingsNs } from './settings_ns.js';
 import { terminalNs } from './terminal_ns.js';
 import { compileNs } from './compile_ns.js';
+import { editorNs } from './editor_ns.js';
 
 // Envelope de resposta e barramento de eventos. Moram em api_core.js, que nao
 // importa nada, porque importar ESTE arquivo inicializa a IDE inteira e por
 // isso nenhum teste alcancava o nucleo. Ver js/api/api_core.js.
-import { ok, err, on, off, emit, WINDOW_EVENT_BRIDGE } from './api_core.js';
+import { on, off, emit, WINDOW_EVENT_BRIDGE } from './api_core.js';
 
 
 
@@ -100,281 +95,7 @@ function bridgeWindowEvents() {
   }
 }
 
-/* ============================================================
- *  editor, Monaco interactions
- * ========================================================== */
-
-// O editor em foco, o piscar das linhas e a varinha moram em editor_ativo.ts.
-
-const editorNs = {
-  async getActiveFilePath() {
-    return ok(TabManager?.activeTab || null);
-  },
-
-  async getOpenFiles() {
-    // Todo painel, do editor dividido e da barra principal (abas_e_arvore.ts).
-    return ok(arquivosAbertos());
-  },
-
-  async getActiveText() {
-    const model = activeModel();
-    if (!model) return err('No active editor');
-    return ok(model.getValue());
-  },
-
-  async setActiveText(text) {
-    const ed = activeEditor();
-    if (!ed) return err('No active editor');
-    const model = ed.getModel();
-    if (!model) return err('No active editor');
-    model.setValue(String(text ?? ''));
-    magicWandReveal(ed);
-    return ok();
-  },
-
-  /**
-   * Insert `text` at `{ line, column }` (1-indexed Monaco coordinates).
-   * Omit the position to insert at the current cursor.
-   */
-  async insertAt(text, position) {
-    const ed = activeEditor();
-    if (!ed) return err('No active editor');
-    const pos = position && position.line && position.column
-      ? { lineNumber: position.line, column: position.column }
-      : ed.getPosition();
-    if (!pos) return err('Cursor position unavailable');
-    const insertText = String(text ?? '');
-    ed.executeEdits('aurora-api', [{
-      range: {
-        startLineNumber: pos.lineNumber, startColumn: pos.column,
-        endLineNumber:   pos.lineNumber, endColumn:   pos.column,
-      },
-      text: insertText,
-      forceMoveMarkers: true,
-    }]);
-    const newLines = (insertText.match(/\n/g) || []).length;
-    flashLines(ed, pos.lineNumber, pos.lineNumber + newLines);
-    return ok();
-  },
-
-  /**
-   * Replace the text in `{ startLine, startColumn, endLine, endColumn }`
-   * (1-indexed, end-exclusive in column) with `text`.
-   */
-  async replaceRange({ startLine, startColumn, endLine, endColumn, text }) {
-    const ed = activeEditor();
-    if (!ed) return err('No active editor');
-    if (!startLine || !startColumn || !endLine || !endColumn) {
-      return err('replaceRange requires startLine, startColumn, endLine, endColumn');
-    }
-    const replaceText = String(text ?? '');
-    ed.executeEdits('aurora-api', [{
-      range: {
-        startLineNumber: startLine, startColumn,
-        endLineNumber:   endLine,   endColumn,
-      },
-      text: replaceText,
-      forceMoveMarkers: true,
-    }]);
-    const newLines = (replaceText.match(/\n/g) || []).length;
-    flashLines(ed, startLine, startLine + newLines);
-    return ok();
-  },
-
-  async getCursor() {
-    const ed = activeEditor();
-    if (!ed) return err('No active editor');
-    const p = ed.getPosition();
-    return p ? ok({ line: p.lineNumber, column: p.column }) : err('Cursor unavailable');
-  },
-
-  async setCursor({ line, column }) {
-    const ed = activeEditor();
-    if (!ed) return err('No active editor');
-    ed.setPosition({ lineNumber: line, column });
-    ed.revealPositionInCenter({ lineNumber: line, column });
-    ed.focus();
-    return ok();
-  },
-
-  async getLanguage() {
-    const model = activeModel();
-    if (!model) return err('No active editor');
-    return ok(model.getLanguageId?.() ?? null);
-  },
-
-  async newFile() {
-    if (typeof TabManager?.createNewFile !== 'function') {
-      return err('newFile unavailable');
-    }
-    try {
-      const filePath = TabManager.createNewFile();
-      emit('editor:new-file', { filePath });
-      return ok({ filePath });
-    } catch (e) {
-      return err(e?.message || 'newFile failed');
-    }
-  },
-
-  async save() {
-    const path = TabManager?.activeTab;
-    if (!path) return err('No active file');
-    try {
-      await TabManager.saveCurrentFile();
-      emit('editor:saved', { filePath: path });
-      return ok({ filePath: path });
-    } catch (e) {
-      return err(e?.message || 'save failed');
-    }
-  },
-
-  /**
-   * Formata um arquivo pelo formatador da própria AURORA, o mesmo da varinha
-   * e do Shift+Alt+F.
-   *
-   * Isto existe para a IA não precisar reescrever um arquivo inteiro só para
-   * arrumar indentação e espaçamento. Reescrever é caro, arrisca perder código
-   * e produz um diff enorme onde o certo seria um diff de formatação. Aqui ela
-   * delega ao clang-format (C, C++ e C±), ao black (Python) ou ao Verible
-   * (Verilog), conforme o idioma do arquivo, e o resultado é exatamente o que
-   * o usuário obteria clicando na varinha.
-   */
-  async formatFile({ filePath } = {}) {
-    let alvo = filePath || TabManager?.activeTab || null;
-    if (!alvo) return err('No file given and no active file');
-
-    // Aceita o mesmo tipo de caminho aproximado que openFile aceita.
-    if (filePath) {
-      const root = ProjectStore.getProjectPath() || '';
-      const abs = root ? await acharArquivoNoProjeto(filePath, root) : null;
-      if (!abs) return err(`"${filePath}" not found anywhere in the project.`);
-      alvo = abs;
-    }
-
-    // O provedor de formatação mora no Monaco, então o arquivo precisa de um
-    // modelo. Se não estiver aberto, abrimos.
-    let ed = EditorManager.getEditorForFile?.(alvo) ?? null;
-    if (!ed) {
-      const r = await editorNs.openFile({ filePath: alvo });
-      // O envelope da API e `{ ok, data }`. Ate 25/09/2026 isto conferia um
-      // `.success` que ele nao tem, e formatar um arquivo fechado parava aqui,
-      // devolvendo o resultado do openFile no lugar do da formatacao.
-      if (!r?.ok) return r;
-      ed = EditorManager.getEditorForFile?.(alvo) ?? null;
-    }
-    if (!ed?.getModel) return err(`Could not open an editor for "${alvo}"`);
-
-    const model = ed.getModel();
-    const antes = model.getValue();
-    const action = ed.getAction?.('editor.action.formatDocument');
-    if (!action) return err('Format action unavailable');
-    let suportado = false;
-    try { suportado = action.isSupported(); } catch { suportado = false; }
-    if (!suportado) {
-      return err(`No formatter is registered for "${model.getLanguageId()}". `
-        + 'Aurora formats C, C++, C± (clang-format), Python (black) and Verilog (Verible).');
-    }
-
-    try { await action.run(); } catch (e) {
-      return err(e?.message || 'format failed');
-    }
-
-    const depois = model.getValue();
-    if (depois === antes) {
-      return ok({ filePath: alvo, changed: false, message: 'Already formatted' });
-    }
-    try {
-      await TabManager.saveFile(alvo);
-    } catch (e) {
-      // A formatação está no buffer; só o salvamento falhou. Dizer isso é mais
-      // útil do que fingir que nada aconteceu.
-      return err(`Formatted the buffer but could not save: ${e?.message || e}`);
-    }
-    emit('editor:saved', { filePath: alvo });
-    return ok({ filePath: alvo, changed: true, language: model.getLanguageId() });
-  },
-
-  async saveAll() {
-    try {
-      await TabManager.saveAllFiles();
-      emit('editor:saved', { filePath: null, all: true });
-      return ok();
-    } catch (e) {
-      return err(e?.message || 'saveAll failed');
-    }
-  },
-
-  /** Close `filePath`, or the active tab if no path is given. */
-  async closeTab(filePath) {
-    const target = filePath || TabManager?.activeTab;
-    if (!target) return err('No tab to close');
-    if (typeof TabManager?.closeTab !== 'function') return err('TabManager.closeTab unavailable');
-    try {
-      await TabManager.closeTab(target);
-      return ok({ filePath: target });
-    } catch (e) {
-      return err(e?.message || 'closeTab failed');
-    }
-  },
-
-  /** Re-open the most-recently closed tab (TabManager keeps a small history). */
-  async reopenLastTab() {
-    if (typeof TabManager?.reopenLastClosedTab !== 'function') {
-      return err('reopen history unavailable');
-    }
-    try {
-      await TabManager.reopenLastClosedTab();
-      return ok();
-    } catch (e) {
-      return err(e?.message || 'reopenLastTab failed');
-    }
-  },
-
-  /** Open a project file in the editor, optionally in a new split pane. */
-  async openFile({ filePath, inNewSplit = false } = {}) {
-    if (!filePath) return err('filePath required');
-    const root = ProjectStore.getProjectPath() || '';
-    if (!root) return err('No project open');
-    // Find the file anywhere in the project (basename / partial path / casing),
-    // not just at the literal path the AI guessed.
-    const absPath = await acharArquivoNoProjeto(filePath, root);
-    if (!absPath) {
-      return err(`"${filePath}" not found anywhere in the project. Use get_project_tree to list available paths.`);
-    }
-    let content;
-    try {
-      content = await electronAPI.readFile(absPath);
-    } catch (e) {
-      return err(`Found "${absPath}" but could not read it: ${e?.message || e}`);
-    }
-    const sem = window.SplitEditorManager;
-    try {
-      if (inNewSplit && sem?.createSplit) {
-        await sem.createSplit();          // creates pane from current file + focuses it
-        await sem.openInFocusedPane(absPath, content);  // replace with target file
-      } else if (sem?.openInFocusedPane) {
-        await sem.openInFocusedPane(absPath, content);
-      } else {
-        TabManager.addTab(absPath, content);
-      }
-      return ok({ filePath: absPath });
-    } catch (e) {
-      return err(e?.message || 'openFile failed');
-    }
-  },
-
-  /** Create a new editor split pane. */
-  async createSplit() {
-    const sem = window.SplitEditorManager;
-    if (!sem?.createSplit) return err('SplitEditorManager unavailable');
-    try {
-      await sem.createSplit();
-      return ok();
-    } catch (e) {
-      return err(e?.message || 'createSplit failed');
-    }
-  },
-};
+// O namespace editor mora em editor_ns.ts.
 
 // O namespace terminal mora em terminal_ns.ts.
 

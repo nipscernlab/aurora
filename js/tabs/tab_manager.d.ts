@@ -19,6 +19,12 @@ export const TabManager: {
   /** As abas do painel principal, por caminho. */
   tabs?: Map<string, unknown>;
   closeTab(filePath: string): Promise<unknown>;
+  /** Reabre a ultima aba fechada (o gerenciador guarda um historico curto). */
+  reopenLastClosedTab?(): Promise<unknown>;
+  /** Cria uma aba de arquivo novo, sem nome, e devolve o caminho dela. */
+  createNewFile?(): string;
+  /** Grava a aba ativa. */
+  saveCurrentFile(): Promise<unknown>;
   closeAllTabs(): Promise<unknown>;
   activateTab(filePath: string): unknown;
   promotePreviewToPermanent(filePath: string): unknown;

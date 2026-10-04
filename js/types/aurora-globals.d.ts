@@ -278,6 +278,8 @@ declare global {
       closePane?(paneIndex: number | undefined): unknown;
       refreshLayout?(): unknown;
       openInFocusedPane?(filePath: string, content: string, opcoes?: { preview?: boolean }): Promise<unknown>;
+      /** Abre um painel novo com o arquivo em foco e passa o foco para ele. */
+      createSplit?(): Promise<unknown>;
     };
     /** A arvore de projeto (js/project/file_mode.js). */
     projectTreeManager?: {

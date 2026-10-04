@@ -246,6 +246,7 @@ declare global {
   /** O pedaco do TerminalManager (js/terminal/terminal_module.js) que os .ts usam. */
   interface AuroraTerminalManager {
     appendToTerminal?(terminalId: string, texto: string, tipo?: string): unknown;
+    clearTerminal?(terminalId: string): unknown;
     clearTerminalImmediate?(terminalId: string): unknown;
     clearHardwareProgress?(): unknown;
   }

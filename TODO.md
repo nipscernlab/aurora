@@ -2355,7 +2355,9 @@ A cadeia, nesta ordem:
         testes). O `fetcherTimeout` dependia da rede e foi corrigido.
       - [ ] E2E instável: `shell-terminal > navigates folders (cd persists,
         prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
-        mudança do momento (o repetidor deu 3 verdes seguidas).
+        mudança do momento (o repetidor deu 3 verdes seguidas). De novo em
+        03/10, 1 vez em 2, na extração do `terminal_ns.ts`: o teste não passa
+        pela AuroraAPI, exercita a shell direto.
 - [ ] **13.4 (decisão do Luciano, com o Chrys e o Arthur) Contrato tipado da
       ponte.** O `preload.js` é o arquivo que mais muda: toda funcionalidade
       nova passa pela ponte entre renderer e main. Um contrato único dos canais,

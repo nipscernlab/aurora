@@ -137,7 +137,12 @@ export function instalar(chave: string, janela: BrowserWindow | null, forcar = f
       for (const parte of String(buf).split(/[\r\n]+/)) {
         const linha = parte.trim();
         if (!linha) continue;
-        ultimaLinha = linha;
+        // A ultima linha vai para o detalhe da falha, e uma de progresso
+        // ("100%") nao explica nada. Ela so entra se nao houver outra: o
+        // progresso costuma vir pelo stderr e o erro pelo stdout, dois canos
+        // cuja ordem de chegada aqui nao e garantida.
+        const progresso = lerPercentual(linha) !== null;
+        if (!progresso || !ultimaLinha) ultimaLinha = linha;
         avisar(janela, { chave, estado: 'baixando', percentual: lerPercentual(linha), linha });
       }
     };

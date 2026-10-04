@@ -2353,7 +2353,8 @@ A cadeia, nesta ordem:
         do stream, mas nada o liga (o comentário diz que o fim do turno o
         ligaria). Instabilidades, por nome: o `componentesIpc > saida com erro`
         falhou 1 vez em 3 rodadas da suíte (a ordem das linhas de saída do
-        instalador); sob carga, o `edit-flow > clicking a .v file opens an
+        instalador; resolvido em 03/10: a linha de progresso não toma mais o
+        lugar da que explica a falha, e um caso força a ordem ruim); sob carga, o `edit-flow > clicking a .v file opens an
         editable Monaco buffer` e o `split-pane > opens tree file in the
         focused split pane` estouram a espera de 15 s pela aba (o mesmo commit
         deu 4 verdes seguidas depois, e o painel de IA nem monta nesses

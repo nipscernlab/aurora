@@ -71,6 +71,15 @@ const modo = process.env.COMP_TESTE_MODO || 'ok';
 console.log('[verible] 42% (1.2 / 3.0 MB)');
 process.stderr.write('[verible] 100%\\r');
 if (modo === 'falha') { console.log('rede caiu'); process.exit(3); }
+if (modo === 'progresso-por-ultimo') {
+  // O erro sai antes e o progresso depois, de proposito: a linha que explica a
+  // falha nao pode ser trocada por um "100%" que chegou atrasado no outro cano.
+  // A espera garante a ordem de chegada no processo pai, que dois canos
+  // separados nao garantem sozinhos.
+  process.stdout.write('rede caiu\\n', () => setTimeout(
+    () => process.stderr.write('[verible] 100%\\r', () => process.exit(3)), 150));
+  return;
+}
 if (modo === 'sem-sentinela') process.exit(0);
 const bin = path.join(raiz, 'Packages', 'verible', 'bin');
 fs.mkdirSync(bin, { recursive: true });
@@ -138,6 +147,13 @@ describe('componentes:instalar', () => {
     expect(r.erro).toBe('o download não chegou ao fim. Confira a internet e clique em Baixar de novo');
     expect(r.detalhe).toMatch(/^o instalador terminou sem deixar Packages\/verible\/bin\/verible-verilog-ls\.exe \| rede caiu$/);
     expect(j.recebido.at(-1)).toMatchObject({ estado: 'erro' });
+  });
+
+  it('a linha de progresso nao toma o lugar da que explica a falha', async () => {
+    process.env.COMP_TESTE_MODO = 'progresso-por-ultimo';
+    const r = await handlers.get('componentes:instalar')(evento(janela()), 'verible');
+    expect(r.ok).toBe(false);
+    expect(r.detalhe).toMatch(/ \| rede caiu$/);
   });
 
   it('saiu zero sem deixar a sentinela ainda e falha', async () => {

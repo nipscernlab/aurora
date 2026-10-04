@@ -29,6 +29,12 @@ const resolveSpec = vi.fn(async (base, extra) => ({
 vi.mock('../../js/compilation/spec_runner.js', () => ({ resolveSpec }));
 const buildSpecForStep = vi.fn(async (step, proc) => ({ step, proc }));
 vi.mock('../../js/compilation/spec_factory.js', () => ({ buildSpecForStep }));
+// O fluxo de compilacao vem por import (compile_ns.ts); o objeto e trocado a
+// cada caso, por isso o mock entrega um getter.
+const fluxoAtual = { cf: null };
+vi.mock('../../js/compilation/compilation_flow.js', () => ({
+  get compilationFlowManager() { return fluxoAtual.cf; },
+}));
 
 let API;
 let eventos;
@@ -40,7 +46,6 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  delete window.compilationFlowManager;
   eventos = [];
   for (const nome of ['compile:started', 'compile:override-set', 'compile:override-cleared']) {
     API.events.on(nome, (p) => eventos.push([nome, p]));
@@ -48,23 +53,16 @@ beforeEach(() => {
 });
 
 const fluxo = (extra = {}) => {
-  window.compilationFlowManager = {
+  fluxoAtual.cf = {
     runAll: vi.fn(async () => undefined),
     runSingleStep: vi.fn(async () => undefined),
     cancelAll: vi.fn(),
     ...extra,
   };
-  return window.compilationFlowManager;
+  return fluxoAtual.cf;
 };
 
 describe('compile: rodar', () => {
-  it('sem o fluxo de compilacao, tudo recusa', async () => {
-    for (const r of [await API.compile.compileAll(), await API.compile.compileStep('cmm'),
-      await API.compile.cancel(), await API.compile.runStatus()]) {
-      expect(r.error.message).toBe('compilation flow not initialised');
-    }
-  });
-
   it('compileAll avisa o inicio e roda tudo; recusa quando ja ha uma corrida', async () => {
     const cf = fluxo();
     expect(await API.compile.compileAll()).toEqual({ ok: true, data: null });

@@ -2172,6 +2172,11 @@ A cadeia, nesta ordem:
       gigante por gigante, na ordem de quantas leituras ele tem e de quanto
       ele muda. O `compilation_flow` foi o primeiro (abaixo); o próximo é o
       `aurora_api`, que tem 21 leituras e já tem três namespaces fora.
+
+      Em 03/10 o `compile` saiu do `aurora_api` (`compile_ns.ts`) e passou a
+      importar o `compilationFlowManager`, sob demanda, em vez de ler a global:
+      37 globais. Sobra que só sai com o `renderer.js`: a linha que ainda põe
+      `compilationFlowManager` no window, hoje sem leitor nenhum.
 - [ ] **13.3 Dividir os gigantes por responsabilidade, na ordem de quem mais
       muda:** `ai_assistant_manager` (o item da seção 12 já lista os próximos
       grupos), `compilation_module`, `aurora_api` (três namespaces já saíram
@@ -2357,7 +2362,7 @@ A cadeia, nesta ordem:
         prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
         mudança do momento (o repetidor deu 3 verdes seguidas). De novo em
         03/10, 1 vez em 2, na extração do `terminal_ns.ts`: o teste não passa
-        pela AuroraAPI, exercita a shell direto Na extração do `compile_ns.ts`,
+        pela AuroraAPI, exercita a shell direto. Na extração do `compile_ns.ts`,
         de novo 1 em 2 na suíte inteira; sozinho, 5 verdes em 5. Só falha com
         a máquina carregada pela suíte.
 - [ ] **13.4 (decisão do Luciano, com o Chrys e o Arthur) Contrato tipado da

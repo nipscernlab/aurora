@@ -20,13 +20,13 @@
     "js/app/renderer.js"
   ],
   "_latestCompilationModule": [
-    "js/compilation/compilation_module.js"
+    "js/compilation/compilation_module.ts"
   ],
   "abrirTerminal": [
     "js/utils/resize.js"
   ],
   "aiAssistantManager": [
-    "js/ui/ai_assistant_manager.js"
+    "js/ui/ai_assistant_manager.ts"
   ],
   "appInitializer": [
     "js/app/app_initializer.js"
@@ -42,9 +42,6 @@
   ],
   "availableProcessors": [
     "js/project/processor_list.ts"
-  ],
-  "compilationFlowManager": [
-    "js/app/renderer.js"
   ],
   "compilationModule": [
     "js/app/renderer.js"
@@ -113,6 +110,6 @@
     "js/tree/tree_view.ts"
   ],
   "waveConfigManager": [
-    "js/wave/wave_config_manager.js"
+    "js/wave/wave_config_manager.ts"
   ]
 }

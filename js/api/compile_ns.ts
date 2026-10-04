@@ -21,6 +21,19 @@ import { ok, err, emit } from './api_core.js';
 const ERRO_JA_RODANDO =
   'a compilation is already running; wait for it to finish or cancel it first';
 
+/**
+ * O fluxo de compilacao, o mesmo objeto que a barra de ferramentas usa.
+ *
+ * Antes era lido da global `compilationFlowManager` do window, que o
+ * renderer.js punha so para esta API ler (item 13.2 do TODO). O import e sob
+ * demanda, como o do spec_factory abaixo, porque o compilation_flow arrasta o
+ * modulo de compilacao, as abas e o rewind, e quem so monta a API (os testes,
+ * e a IA lendo um terminal) nao precisa carregar nada disso.
+ */
+async function fluxoDeCompilacao() {
+  return (await import('../compilation/compilation_flow.js')).compilationFlowManager;
+}
+
 /** A mensagem de uma excecao qualquer, ou a de reserva. */
 const motivo = (e: unknown, reserva: string): string => (e as Error | null)?.message || reserva;
 
@@ -34,8 +47,7 @@ interface PedidoDeOverride extends CommandOverride {
 export const compileNs = {
   /** Run the full project pipeline (cmm → verilog → wave → prism). */
   async compileAll() {
-    const cf = window.compilationFlowManager;
-    if (!cf) return err('compilation flow not initialised');
+    const cf = await fluxoDeCompilacao();
     emit('compile:started', { scope: 'all' });
     // Uma execucao de cada vez. Quem chega em cima de outra recebe a recusa,
     // e nao um ok mentiroso que a faria esperar por um resultado que nunca
@@ -57,8 +69,7 @@ export const compileNs = {
    *   - 'verilator-fast': Verilator headless run (no waveform), Verilator-only
    */
   async compileStep(step: string) {
-    const cf = window.compilationFlowManager;
-    if (!cf) return err('compilation flow not initialised');
+    const cf = await fluxoDeCompilacao();
     // 'cpp' e o mesmo passo de fonte que 'cmm'; o despacho por linguagem
     // (processor_dispatch.ts) escolhe o front end pelo fonte em foco.
     if (!ehPassoDaApi(step)) {
@@ -103,8 +114,7 @@ export const compileNs = {
   },
 
   async cancel() {
-    const cf = window.compilationFlowManager;
-    if (!cf) return err('compilation flow not initialised');
+    const cf = await fluxoDeCompilacao();
     // O evento sai de dentro do cancelAll, e nao daqui: cancelar pelo botao da
     // interface nao passa por esta funcao, e emitir nos dois lugares faria a
     // ferramenta da IA disparar o evento duas vezes.
@@ -124,8 +134,7 @@ export const compileNs = {
    * estado novo para desincronizar.
    */
   async runStatus() {
-    const cf = window.compilationFlowManager;
-    if (!cf) return err('compilation flow not initialised');
+    const cf = await fluxoDeCompilacao();
     const cancelada = !!cf.wasCancelled?.();
     const rodando = !!cf.isRunning?.();
     return ok({

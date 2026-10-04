@@ -324,14 +324,6 @@ declare global {
     /** O TerminalManager do renderer (renderer.js), criado sob demanda. */
     globalTerminalManager?: AuroraTerminalManager;
     initializeGlobalTerminalManager?: () => AuroraTerminalManager | null;
-    /** O fluxo de compilacao (js/compilation/compilation_flow.ts), posto pelo renderer.js; o compile_ns.ts o le. */
-    compilationFlowManager?: {
-      runAll(): Promise<unknown>;
-      runSingleStep(step: string): Promise<unknown>;
-      cancelAll(): unknown;
-      isRunning?(): boolean;
-      wasCancelled?(): boolean;
-    };
     /** O ultimo CompilationModule criado; o fluxo acha o terminal por ele em ultimo caso. */
     _latestCompilationModule?: { terminalManager?: AuroraTerminalManager; lastCompiledCmmPath?: string | null };
     /** O gerenciador de compilacao (js/compilation/compilation_module.js): lembra o ultimo .cmm compilado. */

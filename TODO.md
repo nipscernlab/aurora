@@ -2071,13 +2071,14 @@ sai quando ela acabar.
 
 ## 13. Desmacarronar o código (plano de 25/09/2026)
 
-**Ponto de retomada (02/10/2026).** Feitos: `compilation_module` (27/09) e
+**Ponto de retomada (04/10/2026).** Feitos: `compilation_module` (27/09),
 `ai_assistant_manager` (02/10, 3679 linhas `.js` para 543 `.ts` e 21 módulos
-em `js/ai/`, detalhe no 13.3). A limpeza das menções a `HDL/` também está
-feita (`cb2399a4`); no próximo release do yanc a única mudança é subir o
-`YANC_TAG` em `components/Scripts/download-yanc.js`. Próximo gigante, pela
-medição: `js/git/git_panel.js` (2105 linhas), depois `js/tabs/tab_manager.js`
-(1986) e `js/editor/monaco_editor.js` (1685). O método que funcionou: teste de
+em `js/ai/`) e `aurora_api` (03-04/10, de 1158 linhas `.js` para 125 `.ts`
+que só montam a API; detalhe no 13.3). Próximo, pela medição de 03/10
+(commits em 60 dias e quantos módulos importam): `js/tabs/tab_manager.js`
+(1986 linhas, 23 importadores), depois `js/editor/monaco_editor.js` (1685) e
+`js/editor/split_editor.js`, e o `js/git/git_panel.js` (2105) por último,
+porque só um módulo o importa. O método que funcionou: teste de
 caracterização entrando pelo que a pessoa e os outros módulos chamam, sem
 espião de método da instância, rodado no `.js` antigo; extração por
 responsabilidade, com o painel como contexto; E2E com
@@ -2209,6 +2210,16 @@ A cadeia, nesta ordem:
         `createSurferLayout` e o `formatFile` conferiam `.success` num
         envelope que só tem `.ok`, e paravam no meio. Falta dividir o que
         sobrou (`editor`, `terminal`, `compile`, `ui`, `ai`, `settings`).
+      - [x] `aurora_api` terminado (03-04/10): `ui_ns`, `ai_ns`,
+        `settings_ns`, `terminal_ns`, `compile_ns`, `editor_ns` e `meta_ns`,
+        cada um com teste de caracterização escrito e verde contra o `.js`
+        antigo pela API montada (`auroraApi*.test.js`, 80 casos). O que
+        sobrou virou `aurora_api.ts` (125 linhas, só a montagem), e o
+        `git_ns` virou `.ts` junto. O `compile` passou a importar o fluxo de
+        compilação em vez de ler a global (37 globais). Achados: o `schema()`
+        não descrevia 14 funções (corrigido, e o `auroraApiMeta` trava a
+        regra) e o defeito do `.spf` que perde um processador recém-criado
+        (item aberto abaixo).
       - [x] `terminal_module` (26/09): de 1767 linhas `.js` para cerca de
         1100 `.ts`, com cinco módulos fora: `links_do_terminal.ts`
         (reconhecer, ligar o clique, levar o editor à linha),

@@ -118,6 +118,9 @@ js/api/analise_asm_ns.js
 js/compilation/analise_asm.js
 js/api/examples_ns.js
 js/api/manual_ns.js
+js/api/ui_ns.js
+js/api/ai_ns.js
+js/api/settings_ns.js
 js/compilation/processor_source.js
 js/compilation/spec_factory.js
 js/compilation/spec_runner.js

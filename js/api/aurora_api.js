@@ -42,7 +42,6 @@ import { resolveSpec } from '../compilation/spec_runner.js';
 import { STEP_IDS, STEP_DESCRIPTIONS } from '../compilation/command_spec.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TabManager } from '../tabs/tab_manager.js';
-import { setTooltipsEnabled } from '../ui/tooltip.js';
 import { gitNs } from './git_ns.js';
 import { prismNs } from './prism_ns.js';
 import { waveNs } from './wave_ns.js';
@@ -58,6 +57,9 @@ import { activeEditor, activeModel, flashLines, magicWandReveal } from './editor
 import { acharArquivoNoProjeto, listarArquivosDoProjeto } from './arvore_do_projeto.js';
 import { examplesNs } from './examples_ns.js';
 import { manualNs } from './manual_ns.js';
+import { uiNs } from './ui_ns.js';
+import { aiNs } from './ai_ns.js';
+import { settingsNs } from './settings_ns.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { ehPassoDaApi } from '../compilation/api_steps.js';
 
@@ -759,172 +761,7 @@ const compileNs = {
 
 // O namespace rules (a base de conhecimento do yanc) mora em rules_ns.ts.
 
-/* ============================================================
- *  ui, notifications, modals, locale
- * ========================================================== */
-
-const uiNs = {
-  /** Pop a toast using the existing notification system. */
-  async showNotification(message, type = 'info', duration = 5000, title) {
-    if (typeof window.showNotification !== 'function') {
-      return err('notification system not available');
-    }
-    window.showNotification(String(message ?? ''), type, duration, title);
-    return ok();
-  },
-
-  /** Open the Settings modal (same effect as clicking the toolbar gear). */
-  async openSettings() {
-    const btn = document.getElementById('aurora-settings');
-    if (!btn) return err('settings button not found');
-    btn.click();
-    return ok();
-  },
-
-  async getLocale() {
-    return ok(window.getLocale ? window.getLocale() : null);
-  },
-
-  async setLocale(locale) {
-    if (typeof window.setLocale !== 'function') return err('i18n not loaded');
-    try { await window.setLocale(locale); return ok({ locale }); }
-    catch (e) { return err(e?.message || 'setLocale failed'); }
-  },
-
-  /**
-   * Pause the AI turn and show an inline question card in the chat
-   * panel. The card lets the user pick from {options}, optionally
-   * multi-select, and (always) write a free-form "Other" answer.
-   *
-   * Resolves with `{ answer: <text>, selected: [<labels>] }` once the
-   * user submits. The promise also resolves if the AI turn aborts.
-   *
-   * @param {object} params
-   * @param {string} params.question
-   * @param {Array<{label:string, description?:string}>} [params.options]
-   * @param {boolean} [params.multiSelect]
-   */
-  async askUserQuestion({ question, options = [], multiSelect = false } = {}) {
-    if (!question || typeof question !== 'string') return err('question required');
-    const mgr = window.aiAssistantManager;
-    if (!mgr || typeof mgr.showAskUserQuestionInline !== 'function') {
-      return err('AI panel is not available');
-    }
-    const result = await mgr.showAskUserQuestionInline({
-      question, options: Array.isArray(options) ? options : [], multiSelect: !!multiSelect,
-    });
-    if (result == null) return err('user dismissed the question');
-    return ok(result);
-  },
-};
-
-/* ============================================================
- *  ai, drive the Aurora Intelligence chat panel
- * ========================================================== */
-
-const aiNs = {
-  /** Open the AI assistant panel (idempotent). */
-  async open() {
-    const mgr = window.aiAssistantManager;
-    if (!mgr) return err('AI panel is not available');
-    mgr.ensureOpen();
-    return ok();
-  },
-
-  /**
-   * Open the panel and seed the composer with a code snippet the user
-   * selected in the editor, the backing call for the Monaco selection
-   * "star" widget. With a concrete `intent` and `send:true` the message is
-   * dispatched immediately; otherwise the composer is just pre-filled.
-   *
-   * @param {object} p
-   * @param {string} p.code        the selected source text (required)
-   * @param {string} [p.language]  monaco language id (verilog, cmm, python…)
-   * @param {string} [p.filePath]  absolute path of the file
-   * @param {number} [p.lineStart] 1-based first selected line
-   * @param {number} [p.lineEnd]   1-based last selected line
-   * @param {string} [p.intent]    'explain'|'fix'|'improve'|'comment'|'doc'|''
-   * @param {boolean}[p.send]      send immediately (only with an intent)
-   */
-  async askAboutSelection(p = {}) {
-    if (!p || !String(p.code || '').trim()) return err('code (a non-empty selection) required');
-    const mgr = window.aiAssistantManager;
-    if (!mgr || typeof mgr.askAboutSelection !== 'function') {
-      return err('AI panel is not available');
-    }
-    try {
-      mgr.askAboutSelection(p);
-      return ok();
-    } catch (e) {
-      return err(e?.message || 'askAboutSelection failed');
-    }
-  },
-
-  /**
-   * Start a long task in the background and return IMMEDIATELY so the current
-   * turn can end. When the task finishes, the assistant auto-continues the
-   * conversation with the result, i.e. it runs the work "under the hood",
-   * lets the chat finish, then posts a follow-up message on its own.
-   *
-   * @param {{task:'compile_all'|'compile_step', step?:string, note?:string}} p
-   */
-  async runInBackground(p = {}) {
-    const mgr = window.aiAssistantManager;
-    if (!mgr || typeof mgr.runInBackground !== 'function') {
-      return err('AI panel is not available');
-    }
-    const r = mgr.runInBackground(p || {});
-    return (r && r.ok) ? ok(r.data) : err((r && r.error) || 'runInBackground failed');
-  },
-};
-
-/* ============================================================
- *  settings, read/update the user-facing IDE settings
- * ========================================================== */
-
-const SETTINGS_KEY = 'aurora-settings';
-
-function readSettingsStore() {
-  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {}; }
-  catch (_) { return {}; }
-}
-
-const settingsNs = {
-  /** Snapshot of every user-facing setting Aurora exposes. */
-  async getAll() {
-    const s = readSettingsStore();
-    return ok({
-      locale: window.getLocale ? window.getLocale() : null,
-      tooltipsEnabled: s.tooltipsEnabled !== false,
-      verboseMode: !!s.verboseMode,
-    });
-  },
-
-  /**
-   * Update one setting. `key` is 'locale' | 'tooltipsEnabled' |
-   * 'verboseMode'. Persists to localStorage and broadcasts so the
-   * live UI reacts immediately.
-   */
-  async set(key, value) {
-    if (key === 'locale') {
-      if (typeof window.setLocale !== 'function') return err('i18n not loaded');
-      await window.setLocale(value);
-      return ok({ key, value });
-    }
-    if (key === 'tooltipsEnabled' || key === 'verboseMode') {
-      const s = readSettingsStore();
-      s[key] = !!value;
-      try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
-      catch (e) { return err(e?.message || 'could not persist setting'); }
-      window.dispatchEvent(new CustomEvent('aurora-settings-updated', { detail: s }));
-      if (key === 'tooltipsEnabled') {
-        setTooltipsEnabled(!!value);
-      }
-      return ok({ key, value: !!value });
-    }
-    return err(`unknown setting: ${key}`);
-  },
-};
+// Os namespaces ui, ai e settings moram em ui_ns.ts, ai_ns.ts e settings_ns.ts.
 
 /* ============================================================
  *  _meta, introspection

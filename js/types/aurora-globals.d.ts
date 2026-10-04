@@ -301,6 +301,16 @@ declare global {
     recentProjectsManager?: { removeProject?(spfPath: string): unknown; addProject?(spfPath: string): unknown };
     /** O aviso no canto (js/ui/notification.js). */
     showNotification?: (mensagem: string, tipo?: string, duracaoMs?: number, titulo?: string) => unknown;
+    /** O idioma da interface (js/i18n): ler e trocar. */
+    getLocale?: () => string | null;
+    setLocale?: (locale: string) => Promise<unknown>;
+    /** O painel de IA (js/ui/ai_assistant_manager.ts), no que a AuroraAPI pede a ele (ui_ns.ts e ai_ns.ts). */
+    aiAssistantManager?: {
+      ensureOpen(): unknown;
+      showAskUserQuestionInline?(p: { question: string; options: unknown[]; multiSelect: boolean }): Promise<unknown>;
+      askAboutSelection?(p: Record<string, unknown>): unknown;
+      runInBackground?(p: Record<string, unknown>): { ok?: boolean; data?: unknown; error?: string } | null | undefined;
+    };
     /** O seletor de .gtkw (js/wave/gtkw_picker.js); a barra so pede para re-sincronizar. */
     gtkwPickerManager?: { refresh?: () => unknown };
     /** De js/compilation/botoes_da_barra.ts, so para o E2E que as chama de dentro da pagina. */

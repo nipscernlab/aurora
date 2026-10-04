@@ -122,6 +122,7 @@ js/api/ui_ns.js
 js/api/ai_ns.js
 js/api/settings_ns.js
 js/api/terminal_ns.js
+js/api/compile_ns.js
 js/compilation/processor_source.js
 js/compilation/spec_factory.js
 js/compilation/spec_runner.js

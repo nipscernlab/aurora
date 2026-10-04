@@ -197,6 +197,10 @@ interface AuroraElectronAPI {
   onShellData(cb: (payload: { id: string; data: string }) => void): () => void;
   /** O shell terminou; devolve quem desliga o ouvinte. */
   onShellExit(cb: (payload: { id: string; code?: number | null }) => void): () => void;
+  /** As flags que o override de um passo nao pode tocar (main/compilation/protected_flags). */
+  getProtectedFlags(step?: string): Promise<unknown>;
+  /** Os binarios que o executor de specs aceita rodar. */
+  listAllowedBinaries(): Promise<unknown>;
 }
 
 /** Subset do window.gitAPI do preload (main/ipc/git.ts) que os .ts ja usam. */
@@ -320,6 +324,14 @@ declare global {
     /** O TerminalManager do renderer (renderer.js), criado sob demanda. */
     globalTerminalManager?: AuroraTerminalManager;
     initializeGlobalTerminalManager?: () => AuroraTerminalManager | null;
+    /** O fluxo de compilacao (js/compilation/compilation_flow.ts), posto pelo renderer.js; o compile_ns.ts o le. */
+    compilationFlowManager?: {
+      runAll(): Promise<unknown>;
+      runSingleStep(step: string): Promise<unknown>;
+      cancelAll(): unknown;
+      isRunning?(): boolean;
+      wasCancelled?(): boolean;
+    };
     /** O ultimo CompilationModule criado; o fluxo acha o terminal por ele em ultimo caso. */
     _latestCompilationModule?: { terminalManager?: AuroraTerminalManager; lastCompiledCmmPath?: string | null };
     /** O gerenciador de compilacao (js/compilation/compilation_module.js): lembra o ultimo .cmm compilado. */

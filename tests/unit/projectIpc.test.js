@@ -247,6 +247,50 @@ describe('project:write-spf', () => {
     expect(fs.existsSync(`${p.spf}.tmp`)).toBe(false);
   });
 
+  it('lista de processadores que so cresce: um processor:created por nome novo', async () => {
+    const p = projeto(undefined, { processors: [{ name: 'cpu' }] });
+    const ev = evento();
+    registrar(ev, p.spf);
+    const doc = (procs) => ({ structure: { processors: procs } });
+
+    await chamar('project:write-spf', ev, p.spf, doc([{ name: 'cpu' }, { name: 'dsp' }, 'mac', { semNome: 1 }]));
+    expect(ev.sender.enviados).toEqual([
+      ['processor:created', { processorName: 'dsp', projectPath: p.raiz }],
+      ['processor:created', { processorName: 'mac', projectPath: p.raiz }],
+    ]);
+
+    // Mesma lista: nada a avisar (gravar a arvore nao mexe nos processadores).
+    ev.sender.enviados.length = 0;
+    await chamar('project:write-spf', ev, p.spf, doc(['cpu', 'dsp', 'mac']));
+    expect(ev.sender.enviados).toEqual([]);
+  });
+
+  it('nome que sai ou troca: project:processors com a lista inteira', async () => {
+    const p = projeto(undefined, { processors: [{ name: 'cpu' }, { name: 'dsp' }] });
+    const ev = evento();
+    registrar(ev, p.spf);
+    await chamar('project:write-spf', ev, p.spf, { structure: { processors: [{ name: 'alu' }, { name: 'dsp' }] } });
+    await chamar('project:write-spf', ev, p.spf, { structure: { processors: [{ name: 'dsp' }] } });
+    expect(ev.sender.enviados).toEqual([
+      ['project:processors', { processors: ['alu', 'dsp'], projectPath: p.raiz }],
+      ['project:processors', { processors: ['dsp'], projectPath: p.raiz }],
+    ]);
+  });
+
+  it('.spf ilegivel antes conta como lista vazia; janela destruida nao recebe aviso', async () => {
+    const p = projeto();
+    fs.writeFileSync(p.spf, '{ quebrado');
+    const ev = evento();
+    registrar(ev, p.spf);
+    await chamar('project:write-spf', ev, p.spf, { structure: { processors: ['cpu'] } });
+    expect(ev.sender.enviados).toEqual([['processor:created', { processorName: 'cpu', projectPath: p.raiz }]]);
+
+    ev.sender.enviados.length = 0;
+    ev.sender.destruido = true;
+    await chamar('project:write-spf', ev, p.spf, { structure: { processors: [] } });
+    expect(ev.sender.enviados).toEqual([]);
+  });
+
   it('documento sem metadata nem structure e gravado como veio', async () => {
     const p = projeto();
     const ev = evento();
@@ -529,31 +573,30 @@ describe('create-processor-project', () => {
     ...extra,
   });
 
-  it('cria as tres pastas, o fonte C+-, a entrada no .spf e avisa a janela que pediu', async () => {
+  it('cria as tres pastas e o fonte C+-, e devolve a entrada sem tocar no .spf', async () => {
     const p = projeto();
+    const antes = fs.readFileSync(p.spf, 'utf8');
     const ev = evento();
-    state.mainWindows.add({ isDestroyed: () => false, webContents: ev.sender });
 
-    expect(await chamar('create-processor-project', ev, form(p)))
-      .toEqual({ success: true, path: path.join(p.raiz, 'cpu') });
+    expect(await chamar('create-processor-project', ev, form(p))).toEqual({
+      success: true, path: path.join(p.raiz, 'cpu'), spfPath: p.spf, entrada: { name: 'cpu' },
+    });
 
     for (const sub of ['Software', 'Hardware', 'Simulation']) {
       expect(fs.existsSync(path.join(p.raiz, 'cpu', sub))).toBe(true);
     }
     expect(fs.readFileSync(path.join(p.raiz, 'cpu', 'Software', 'cpu.cmm'), 'utf8')).toMatch(/#PRNAME cpu/);
-    expect(lerSpf(p.spf).structure.processors).toEqual([{ name: 'cpu' }]);
-    expect(ev.sender.enviados).toEqual([['processor:created', { processorName: 'cpu', projectPath: p.raiz }]]);
+    // O .spf e do renderer (js/project/processadores_do_spf.ts); o aviso sai
+    // do project:write-spf quando a gravacao dele chega.
+    expect(fs.readFileSync(p.spf, 'utf8')).toBe(antes);
+    expect(ev.sender.enviados).toEqual([]);
   });
 
-  it('C++ grava o .cpp e a linguagem; lista ausente vira lista; nome repetido nao duplica', async () => {
-    const p = projeto(undefined, { processors: 'quebrado' });
-    await chamar('create-processor-project', evento(), form(p, { language: 'CPP' }));
+  it('C++ grava o .cpp, e a entrada leva a linguagem', async () => {
+    const p = projeto();
+    const r = await chamar('create-processor-project', evento(), form(p, { language: 'CPP' }));
     expect(fs.existsSync(path.join(p.raiz, 'cpu', 'Software', 'cpu.cpp'))).toBe(true);
-    expect(lerSpf(p.spf).structure.processors).toEqual([{ name: 'cpu', language: 'cpp' }]);
-
-    const q = projeto(`q${n}`, { processors: ['CPU'] });
-    await chamar('create-processor-project', evento(), form(q));
-    expect(lerSpf(q.spf).structure.processors).toEqual(['CPU']);
+    expect(r.entrada).toEqual({ name: 'cpu', language: 'cpp' });
   });
 
   it('recusa sem local, nome que sai da pasta e processador que ja existe', async () => {
@@ -617,37 +660,34 @@ describe('get-available-processors', () => {
 // ---- delete-processor ----
 
 describe('delete-processor', () => {
-  it('apaga a pasta, tira do .spf e manda a lista nova', async () => {
+  it('apaga a pasta e devolve o nome e o .spf, sem tocar nele', async () => {
     const p = projeto(undefined, { processors: [{ name: 'cpu' }, { name: 'dsp' }] });
     processadorEmDisco(p.raiz, 'cpu');
+    const antes = fs.readFileSync(p.spf, 'utf8');
     const ev = evento();
     registrar(ev, p.spf);
 
-    expect(await chamar('delete-processor', ev, ' cpu ')).toEqual({ success: true });
+    expect(await chamar('delete-processor', ev, ' cpu ')).toEqual({ success: true, spfPath: p.spf, name: 'cpu' });
 
     expect(fs.existsSync(path.join(p.raiz, 'cpu'))).toBe(false);
-    expect(lerSpf(p.spf).structure.processors).toEqual([{ name: 'dsp' }]);
-    expect(ev.sender.enviados).toEqual([['project:processors', { processors: ['dsp'], projectPath: p.raiz }]]);
-  });
-
-  it('pasta que ja nao existe e janela destruida: so o .spf', async () => {
-    const p = projeto(undefined, { processors: [{ name: 'cpu' }] });
-    const ev = evento();
-    registrar(ev, p.spf);
-    ev.sender.destruido = true;
-    expect(await chamar('delete-processor', ev, 'cpu')).toEqual({ success: true });
-    expect(lerSpf(p.spf).structure.processors).toEqual([]);
+    expect(fs.readFileSync(p.spf, 'utf8')).toBe(antes);
     expect(ev.sender.enviados).toEqual([]);
   });
 
-  it('recusa sem projeto e nome que sai da pasta; .spf sem lista lanca', async () => {
+  it('pasta que ja nao existe: nada a apagar, e responde igual', async () => {
+    const p = projeto(undefined, { processors: [{ name: 'cpu' }] });
+    const ev = evento();
+    registrar(ev, p.spf);
+    expect(await chamar('delete-processor', ev, 'cpu')).toEqual({ success: true, spfPath: p.spf, name: 'cpu' });
+  });
+
+  it('recusa sem projeto e nome que sai da pasta', async () => {
     await expect(chamar('delete-processor', evento(), 'cpu')).rejects.toThrow('No open project');
-    const p = projeto(undefined, { processors: undefined });
+    const p = projeto();
     const ev = evento();
     registrar(ev, p.spf);
     await expect(chamar('delete-processor', ev, '..')).rejects.toThrow(/letters, numbers/);
     await expect(chamar('delete-processor', ev, undefined)).rejects.toThrow(/letters, numbers/);
-    await expect(chamar('delete-processor', ev, 'cpu')).rejects.toThrow(TypeError);
     expect(log.error).toHaveBeenCalledWith('Error deleting processor:', expect.any(Error));
   });
 });
@@ -655,21 +695,9 @@ describe('delete-processor', () => {
 // ---- rename-processor ----
 
 describe('rename-processor', () => {
-  it('move a pasta e os artefatos, reescreve a diretiva e os caminhos do .spf', async () => {
-    const p = projeto(undefined, {
-      processors: [{ name: 'cpu', clk: 50 }, 'dsp'],
-      topLevelFile: path.join('raiz-falsa'),
-      testbenchFile: '',
-      synthesizableFiles: [null, { name: 'x' }],
-      testbenchFiles: 'nao lista',
-    });
-    const doc = lerSpf(p.spf);
-    doc.structure.topLevelFile = path.join(p.raiz, 'cpu', 'Hardware', 'cpu.v');
-    doc.structure.synthesizableFiles.push(
-      { name: 'cpu.v', path: path.join(p.raiz, 'cpu', 'Hardware', 'cpu.v') },
-      { name: 'top.v', path: path.join(p.raiz, 'top.v') },
-    );
-    fs.writeFileSync(p.spf, JSON.stringify(doc));
+  it('move a pasta e os artefatos e reescreve a diretiva; o .spf fica para o renderer', async () => {
+    const p = projeto(undefined, { processors: [{ name: 'cpu', clk: 50 }, 'dsp'] });
+    const antes = fs.readFileSync(p.spf, 'utf8');
     processadorEmDisco(p.raiz, 'cpu', '// meu cpu\n#PRNAME cpu\n');
     const ev = evento();
     registrar(ev, p.spf);
@@ -681,30 +709,25 @@ describe('rename-processor', () => {
     const r = await chamar('rename-processor', ev, 'CPU', 'alu');
 
     const novo = path.join(p.raiz, 'alu');
-    expect(r).toEqual({ success: true, oldName: 'cpu', newName: 'alu', oldDir: path.join(p.raiz, 'cpu'), newDir: novo });
+    expect(r).toEqual({
+      success: true, oldName: 'cpu', newName: 'alu', oldDir: path.join(p.raiz, 'cpu'), newDir: novo,
+      spfPath: p.spf, projectDir: p.raiz,
+    });
     expect(fs.existsSync(path.join(p.raiz, 'cpu'))).toBe(false);
     expect(fs.readFileSync(path.join(novo, 'Software', 'alu.cmm'), 'utf8')).toBe('// meu cpu\n#PRNAME alu\n');
     for (const f of [['Software', 'alu.asm'], ['Hardware', 'alu.v'], ['Simulation', 'alu_tb.v']]) {
       expect(fs.existsSync(path.join(novo, ...f))).toBe(true);
     }
-    const s = lerSpf(p.spf).structure;
-    expect(s.processors).toEqual([{ name: 'alu', clk: 50 }, 'dsp']);
-    expect(s.topLevelFile).toBe(path.join(novo, 'Hardware', 'alu.v'));
-    expect(s.synthesizableFiles).toEqual([
-      null, { name: 'x' },
-      { name: 'alu.v', path: path.join(novo, 'Hardware', 'alu.v') },
-      { name: 'top.v', path: path.join(p.raiz, 'top.v') },
-    ]);
+    expect(fs.readFileSync(p.spf, 'utf8')).toBe(antes);
     expect(dir.watcher.close).toHaveBeenCalled();
     expect(state.activeDirectoryWatchers.size).toBe(0);
     expect([...state.activeWatchers.keys()]).toEqual([path.join(tmp.raiz, 'longe.v')]);
     expect(ev.sender.enviados).toEqual([
-      ['project:processors', { processors: ['alu', undefined], projectPath: p.raiz }],
       ['processor:renamed', { oldName: 'cpu', newName: 'alu', projectPath: p.raiz, oldDir: path.join(p.raiz, 'cpu'), newDir: novo }],
     ]);
   });
 
-  it('so a caixa muda: passa por uma pasta temporaria; entrada em texto vira objeto', async () => {
+  it('so a caixa muda: passa por uma pasta temporaria; janela destruida nao recebe aviso', async () => {
     const p = projeto(undefined, { processors: ['cpu'] });
     const doc = lerSpf(p.spf);
     delete doc.metadata;
@@ -719,7 +742,6 @@ describe('rename-processor', () => {
     expect(r.newName).toBe('CPU');
     expect(fs.readdirSync(p.raiz)).toContain('CPU');
     expect(fs.readFileSync(path.join(p.raiz, 'CPU', 'Software', 'CPU.cmm'), 'utf8')).toBe('sem diretiva\n');
-    expect(lerSpf(p.spf).structure.processors).toEqual([{ name: 'CPU' }]);
     expect(ev.sender.enviados).toEqual([]);
   });
 

@@ -78,6 +78,15 @@ describe('listar e criar', () => {
     expect((await pr.createProcessor({ processorName: 'Novo' })).data.revivedDanglingReference).toBe(false);
   });
 
+  it('a entrada do processador novo vai para o .spf pelo SpfStore, e nao pelo main', async () => {
+    electronAPI.createProcessorProject.mockResolvedValueOnce({
+      success: true, spfPath: 'C:/p/p.spf', entrada: { name: 'novo', language: 'cpp' },
+    });
+    await pr.createProcessor({ processorName: 'novo' });
+    expect(SpfStore.update).toHaveBeenCalledWith('C:/p/p.spf', expect.any(Function));
+    expect(estrutura.processors).toContainEqual({ name: 'novo', language: 'cpp' });
+  });
+
   it('criar recusa sem nome, com pasta existente, e devolve a falha do main', async () => {
     expect(msg(await pr.createProcessor())).toBe('processorName required');
     disco.set('C:/p/P', true);

@@ -16,6 +16,7 @@ import { motivoDe } from '../app/api_reply.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
+import { criarProcessador, apagarProcessador, renomearProcessador } from '../project/processadores_do_spf.js';
 import { configComTempo } from '../project/processor_sim_config.js';
 import { parseProcessorHeader } from '../compilation/processor_header.js';
 import { resolveProcessorSource, type EntradaDeProcessador } from '../compilation/processor_source.js';
@@ -80,7 +81,7 @@ export const processadoresDoProjeto = {
           .some((n) => typeof n === 'string' && n.toLowerCase() === name.toLowerCase());
       } catch (_) { /* lista indisponivel — segue criando normalmente */ }
 
-      const r = await electronAPI.createProcessorProject({
+      const r = await criarProcessador({
         projectLocation: root,
         ...config,
       });
@@ -105,7 +106,7 @@ export const processadoresDoProjeto = {
       return err('delete-processor IPC unavailable');
     }
     try {
-      const r = await electronAPI.deleteProcessor(processorName);
+      const r = await apagarProcessador(processorName);
       if (r && r.success === false) return err(motivoDe(r, 'deleteProcessor failed'));
       await atualizarArvore();
       emit('project:processor-deleted', { processorName });
@@ -118,8 +119,9 @@ export const processadoresDoProjeto = {
   /**
    * Rename a processor everywhere it matters: the working directory, the
    * .cmm file, the `#PRNAME` directive, the auto-generated build artifacts
-   * and every .spf reference. The main process does the on-disk + .spf work
-   * (see the `rename-processor` IPC); here we additionally re-point any open
+   * and every .spf reference. The main process does the on-disk work (see the
+   * `rename-processor` IPC) and the .spf changes through the SpfStore
+   * (renomearProcessador); here we additionally re-point any open
    * editor tabs that lived under the old folder so the user never ends up
    * staring at a tab whose file just moved.
    *
@@ -156,7 +158,7 @@ export const processadoresDoProjeto = {
     const openUnderOld = arquivosAbertos().filter(isUnderOld);
 
     let r;
-    try { r = await electronAPI.renameProcessor(oldNm, newNm); }
+    try { r = await renomearProcessador(oldNm, newNm); }
     catch (e) { return falhou(e, 'renameProcessor failed'); }
     if (r && r.success === false) return err(motivoDe(r, 'renameProcessor failed'));
 

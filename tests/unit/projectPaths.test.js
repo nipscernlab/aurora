@@ -13,7 +13,6 @@ import path from 'node:path';
 import { beforeEach, describe, it, expect } from 'vitest';
 
 import {
-  remapProcessorPath,
   remapRootPath,
   deepRemapPaths,
 } from '../../main/ipc/project_paths.js';
@@ -26,59 +25,6 @@ import state from '../../main/state.js';
 
 const S = path.sep;
 const j = (...p) => p.join(S);
-
-describe('remapProcessorPath', () => {
-  const dir = j('C:', 'proj');
-
-  it('reescreve a pasta e troca o nome dos artefatos do SAPHO', () => {
-    // `.cpp` entrou com a segunda linguagem de processador: sem ele, o
-    // caminho do fonte de um processador C++ ficava no nome antigo depois
-    // do rename, e o .spf apontava para um arquivo que nao existia mais.
-    for (const ext of ['.cmm', '.cpp', '.asm', '.v', '.sv']) {
-      expect(remapProcessorPath(j(dir, 'velho', `velho${ext}`), dir, 'velho', 'novo'))
-        .toBe(j(dir, 'novo', `novo${ext}`));
-    }
-  });
-
-  it('troca tambem o testbench nomeado pelo processador', () => {
-    expect(remapProcessorPath(j(dir, 'velho', 'velho_tb.v'), dir, 'velho', 'novo'))
-      .toBe(j(dir, 'novo', 'novo_tb.v'));
-  });
-
-  it('arquivo nomeado pelo usuario acompanha a pasta mas mantem o nome', () => {
-    expect(remapProcessorPath(j(dir, 'velho', 'Hardware', 'somador.v'), dir, 'velho', 'novo'))
-      .toBe(j(dir, 'novo', 'Hardware', 'somador.v'));
-  });
-
-  it('nao toca em caminho fora da pasta do processador', () => {
-    const fora = j(dir, 'outro', 'outro.v');
-    expect(remapProcessorPath(fora, dir, 'velho', 'novo')).toBe(fora);
-  });
-
-  it('nao confunde prefixo parecido', () => {
-    // `velho2` comeca com `velho`, mas e outra pasta.
-    const outro = j(dir, 'velho2', 'velho2.v');
-    expect(remapProcessorPath(outro, dir, 'velho', 'novo')).toBe(outro);
-  });
-
-  it('casa sem diferenciar maiuscula, porque Windows', () => {
-    expect(remapProcessorPath(j(dir, 'VELHO', 'VELHO.v'), dir, 'velho', 'novo'))
-      .toBe(j(dir, 'novo', 'novo.v'));
-  });
-
-  it('nome com caractere especial de regex nao explode', () => {
-    // Sem o escape no construtor do RegExp, `a.b` casaria `axb`.
-    const p = j(dir, 'a.b', 'a.b.v');
-    expect(remapProcessorPath(p, dir, 'a.b', 'novo')).toBe(j(dir, 'novo', 'novo.v'));
-    const naoDeveCasar = j(dir, 'axb', 'axb.v');
-    expect(remapProcessorPath(naoDeveCasar, dir, 'a.b', 'novo')).toBe(naoDeveCasar);
-  });
-
-  it('devolve entrada nao-string intocada', () => {
-    expect(remapProcessorPath(null, dir, 'v', 'n')).toBeNull();
-    expect(remapProcessorPath(42, dir, 'v', 'n')).toBe(42);
-  });
-});
 
 describe('remapRootPath', () => {
   const velho = j('C:', 'Users', 'x', 'ProjVelho');

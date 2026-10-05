@@ -1,6 +1,10 @@
 /**
  * project_paths.ts: leitura tolerante do `.spf` e reescrita de caminhos
- * absolutos quando um projeto ou um processador e renomeado.
+ * absolutos quando um projeto e renomeado.
+ *
+ * O remapProcessorPath, que fazia o mesmo para um processador renomeado, saiu
+ * em 05/10/2026: o `.spf` desse rename passou a ser gravado pelo renderer
+ * (caminhoRenomeado, em js/project/processadores_do_spf.ts).
  *
  * Extraido de main/ipc/project.js em 08/08/2026, sem mudanca de comportamento.
  * Duas razoes. Estas quatro funcoes sao puras e nao dependem do Electron, mas
@@ -10,56 +14,10 @@
  * erro aqui corrompe o projeto de quem estava usando. A segunda razao e que
  * este e o primeiro corte da divisao dos god files pedida no TODO.md.
  *
- * Quem usa: main/ipc/project.js (rename de projeto e de processador).
+ * Quem usa: main/ipc/project.ts (abrir e renomear projeto).
  */
 
 import path from 'node:path';
-
-/**
- * Reescreve um caminho absoluto que morava dentro da pasta de um processador
- * quando esse processador e renomeado de `oldName` para `newName`.
- *
- * So mexe em caminho DENTRO de `<projectDir>/<oldName>/`. O prefixo de
- * diretorio e reescrito, e o nome do arquivo so troca quando ele e um dos
- * artefatos que o SAPHO nomeia a partir do processador: `<old>.cmm`, `<old>.cpp`,
- * `<old>.asm`, `<old>.v` e `<old>_tb.v`. Arquivo nomeado pelo usuario dentro da
- * pasta mantem o nome e apenas acompanha a pasta. Caminho de fora volta
- * intocado.
- *
- * @param {any} p
- * @param {any} projectDir
- * @param {any} oldName
- * @param {any} newName
- */
-export function remapProcessorPath(
-  p: string, projectDir: string, oldName: string, newName: string,
-): string {
-  if (!p || typeof p !== 'string') return p;
-  const toNative = (s: string) => s.replace(/\//g, path.sep);
-  const native = toNative(p);
-  const oldDir = toNative(path.join(projectDir, oldName));
-  const lower = native.toLowerCase();
-  const oldLower = oldDir.toLowerCase();
-  const inside = lower === oldLower || lower.startsWith(oldLower + path.sep.toLowerCase());
-  if (!inside) return p;
-
-  const rest = native.slice(oldDir.length); // '' ou '\Hardware\old.v'
-  const out = path.join(projectDir, newName) + rest;
-
-  // Troca so o nome dos artefatos nomeados pelo processador.
-  const dir = path.dirname(out);
-  const base = path.basename(out);
-  const escaped = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const swapped = base.replace(
-    // `.cpp` entrou com a segunda linguagem: sem ele, renomear um
-    // processador C++ deixava o caminho do fonte no .spf apontando para o
-    // nome velho. Ver main/ipc/processor_rename.ts, que tem a lista dos
-    // artefatos do lado do disco.
-    new RegExp(`^${escaped}(_tb)?(\\.v|\\.sv|\\.asm|\\.cmm|\\.cpp)$`, 'i'),
-    (_m, /** @type {any} */ tb, /** @type {any} */ ext) => `${newName}${tb || ''}${ext}`,
-  );
-  return out === native && swapped === base ? out : path.join(dir, swapped);
-}
 
 /**
  * Reescreve um caminho absoluto que morava sob `oldRoot` para sob `newRoot`.

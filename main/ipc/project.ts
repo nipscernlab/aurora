@@ -2,10 +2,11 @@
  * Project lifecycle (open/close/create) e processor CRUD (main process).
  *
  * Per-project config: o .spf e a fonte canonica unica. Este modulo
- * cuida do lifecycle (open/close/create-project, create/delete-
- * processor) e reescreve o .spf nesses eventos. Mudancas de tree/
- * picker (synth files, top, testbench top) vivem no renderer via
- * SpfStore.update.
+ * cuida do lifecycle (open/close/create-project) e do disco dos
+ * processadores (criar, apagar, renomear a pasta e os arquivos). A
+ * lista de processadores do .spf, como o resto da estrutura, e gravada
+ * so pelo renderer, pelo SpfStore (js/project/processadores_do_spf.ts):
+ * com dois escritores a ultima escrita apagava a outra.
  */
 
 import path from 'node:path';
@@ -21,14 +22,12 @@ import state from '../state.js';
 // Electron no topo e nenhum teste as alcancava. Ver main/ipc/project_paths.js.
 // remapRootPath nao entra aqui: quem o usa e o deepRemapPaths, que foi junto.
 import {
-  remapProcessorPath,
   deepRemapPaths,
   spfDaJanela,
   registrarSpfDaJanela,
 } from './project_paths.js';
 import { entradaOcultaNaArvore } from './files_ops.js';
 import { prepararTempDoProjeto } from '../project_temp.js';
-import janelas from '../main_windows.js';
 import { autorizarExclusao, criarLixeiraDeProjeto, dentroDe } from './project_trash.js';
 import { processorSourceFile } from '../../js/project/processor_defaults.js';
 import { parseProcessorHeader } from '../../js/compilation/processor_header.js';
@@ -213,6 +212,50 @@ async function escreverSpf(spfPath: string, dados: any) {
     try { await fse.remove(tmp); } catch { /* melhor esforco */ }
     await fse.writeFile(spfPath, json, 'utf8');
   }
+}
+
+/** Os nomes da lista de processadores de um documento .spf, na ordem. */
+function nomesDaLista(doc: any): string[] {
+  const lista = Array.isArray(doc?.structure?.processors) ? doc.structure.processors : [];
+  return lista
+    .map((p: any) => (typeof p === 'string' ? p : p?.name))
+    .filter((n: unknown): n is string => typeof n === 'string');
+}
+
+/** Os nomes que o .spf tem no disco agora; arquivo ausente ou ilegivel conta como lista vazia. */
+async function nomesDosProcessadores(spfPath: string): Promise<string[]> {
+  try {
+    return nomesDaLista(parseSpfTolerant(await fse.readFile(spfPath, 'utf8')));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Avisa a janela que gravou quando a lista de processadores mudou.
+ *
+ * A lista e gravada so pelo renderer (js/project/processadores_do_spf.ts), e
+ * a barra de status, o painel de configuracao, a arvore, o Processor Hub e a
+ * barra de compilacao releem o .spf quando ouvem estes avisos. Saindo daqui,
+ * depois da gravacao, eles leem a lista ja mudada. So acrescimo vira
+ * `processor:created`, um por nome novo, como o criar avisava; qualquer outra
+ * mudanca (apagar, renomear) vira `project:processors` com a lista inteira.
+ */
+function avisarSeAListaMudou(event: any, spfPath: string, antes: string[], depois: string[]): void {
+  if (antes.join('\n') === depois.join('\n')) return;
+  if (event.sender.isDestroyed()) return;
+  const projectPath = path.dirname(spfPath);
+  const jaHavia = new Set(antes.map((n) => n.toLowerCase()));
+  const soAcrescimo = antes.every((n) => depois.includes(n));
+  if (soAcrescimo) {
+    for (const nome of depois) {
+      if (!jaHavia.has(nome.toLowerCase())) {
+        event.sender.send('processor:created', { processorName: nome, projectPath });
+      }
+    }
+    return;
+  }
+  event.sender.send('project:processors', { processors: depois, projectPath });
 }
 
 function register() {
@@ -558,7 +601,9 @@ function register() {
       if (!doc || typeof doc !== 'object') {
         return { success: false, message: 'spf document must be an object' };
       }
+      const antes = await nomesDosProcessadores(aberto);
       await escreverSpf(aberto, doc);
+      avisarSeAListaMudou(event, aberto, antes, nomesDaLista(doc));
       return { success: true };
     } catch (error) {
       log.error('project:write-spf failed:', error);
@@ -621,56 +666,27 @@ function register() {
         const sourceFilePath = path.join(softwarePath, fileName);
         await fse.writeFile(sourceFilePath, content, 'utf8');
 
+        // A entrada do .spf vai para quem chamou gravar pelo SpfStore
+        // (js/project/processadores_do_spf.ts); o aviso `processor:created`
+        // sai do `project:write-spf` quando essa gravacao chega, para a
+        // janela que gravou.
+        //
+        // `language` so e gravada quando NAO e a padrao: uma entrada C+-
+        // continua sendo `{ name }`, byte a byte o que era, e quem le
+        // (js/compilation/processor_source.ts) ja trata a ausencia como C+-.
+        // Para o C++ o campo e o que tira a ambiguidade quando existem um
+        // .cmm e um .cpp com o mesmo nome na pasta.
+        const ehCpp = String(formData.language || '').toLowerCase() === 'cpp';
         const spfPath = path.join(
           formData.projectLocation,
           `${path.basename(formData.projectLocation)}.spf`,
         );
-        const spfContent = await fse.readFile(spfPath, 'utf8');
-        const spfData = parseSpfTolerant(spfContent);
-
-        // Garante array antes do push e dedup case-insensitive: bugs
-        // anteriores podiam acumular o mesmo nome multiplas vezes no
-        // .spf, e da pra ainda haver arquivos no disco que escapem o
-        // check de fs.access la em cima (race com criar manual).
-        if (!Array.isArray(spfData.structure.processors)) {
-          spfData.structure.processors = [];
-        }
-        const targetLower = formData.processorName.toLowerCase();
-        const already = spfData.structure.processors.some(
-          (p: any) => (typeof p === 'string' ? p : p?.name)?.toLowerCase() === targetLower
-        );
-        if (!already) {
-          // `language` so e gravada quando NAO e a padrao: uma entrada C+-
-          // continua sendo `{ name }`, byte a byte o que era, e quem le
-          // (js/compilation/processor_source.ts) ja trata a ausencia como C+-.
-          // Para o C++ o campo e o que tira a ambiguidade quando existem um
-          // .cmm e um .cpp com o mesmo nome na pasta.
-          const ehCpp = String(formData.language || '').toLowerCase() === 'cpp';
-          spfData.structure.processors.push({
-            name: formData.processorName,
-            ...(ehCpp ? { language: 'cpp' } : {}),
-          });
-        }
-
-        await escreverSpf(spfPath, spfData);
-
-        // Channel `processor:created`, preload.js (onProcessorCreated)
-        // escuta com esse nome (colon-separated, mesmo padrao de
-        // `project:opened` e `project:processors`). O nome anterior
-        // `processor-created` era um typo: o listener nunca disparava,
-        // entao um novo processador so era refletido em
-        // window.availableProcessors / file tree apos restart do app.
-        //
-        // Vai para a JANELA QUE PEDIU, e nao para `state.mainWindow`, que e
-        // apenas a criada por ultimo: com duas janelas abertas, criar um
-        // processador numa delas fazia a arvore da OUTRA atualizar, e a que
-        // pediu so via o processador novo depois de reabrir o projeto.
-        janelas.mandar({ origem: event, reserva: false }, 'processor:created', {
-          processorName: formData.processorName,
-          projectPath: formData.projectLocation,
-        });
-
-        return { success: true, path: processorPath };
+        return {
+          success: true,
+          path: processorPath,
+          spfPath,
+          entrada: { name: formData.processorName, ...(ehCpp ? { language: 'cpp' } : {}) },
+        };
       }
     } catch (error) {
       log.error('Error in create-processor-project:', error);
@@ -786,23 +802,9 @@ function register() {
       const processorDir = path.join(projectDir, nome);
       if (await fse.pathExists(processorDir)) await fse.remove(processorDir);
 
-      if (projectData.structure.processors) {
-        projectData.structure.processors = projectData.structure.processors.filter(
-          (processor: any) => processor.name !== nome,
-        );
-        await escreverSpf(spfPath, projectData);
-      }
-
-      // Para a janela que pediu, nao para a que tem foco: com o PRISM ou o
-      // manual na frente, a lista ficava velha na janela certa.
-      if (!event.sender.isDestroyed()) {
-        event.sender.send('project:processors', {
-          processors: projectData.structure.processors.map((p: any) => p.name),
-          projectPath: projectData.structure.basePath,
-        });
-      }
-
-      return { success: true };
+      // A entrada sai do .spf por quem chamou, pelo SpfStore; o aviso
+      // `project:processors` sai do `project:write-spf`.
+      return { success: true, spfPath, name: nome };
     } catch (error) {
       log.error('Error deleting processor:', error);
       throw error;
@@ -818,9 +820,10 @@ function register() {
    *   - the auto-generated build artifacts (asm / Hardware .v / Simulation
    *     _tb.v) so stale-named files don't linger; they regenerate on the
    *     next compile anyway
-   *   - the .spf: the processors[] entry (clk/numClocks/showArrays config is
-   *     preserved) and any path reference (topLevelFile / testbenchFile /
-   *     synthesizableFiles / testbenchFiles) that pointed inside the folder.
+   *   - NOT the .spf: the processors[] entry and the path references move in
+   *     the renderer, through the SpfStore (renomearProcessador in
+   *     js/project/processadores_do_spf.ts), from the oldName/newName/
+   *     projectDir/spfPath this returns.
    *
    * Custom user toplevels / testbenches that live at the project root are
    * intentionally left alone, the user renames those explicitly.
@@ -919,46 +922,19 @@ function register() {
         if (patched !== raw) await fse.writeFile(fontePath, patched, 'utf8');
       }
 
-      // 4. Update the processors[] entry, preserving per-processor config.
-      procs[idx] = typeof procs[idx] === 'string'
-        ? { name: newNm }
-        : { ...procs[idx], name: newNm };
-      spfData.structure.processors = procs;
-
-      // 5. Remap any .spf path reference that lived under the old folder.
-      spfData.structure.topLevelFile =
-        remapProcessorPath(spfData.structure.topLevelFile, projectDir, currentName, newNm);
-      spfData.structure.testbenchFile =
-        remapProcessorPath(spfData.structure.testbenchFile, projectDir, currentName, newNm);
-      for (const key of ['synthesizableFiles', 'testbenchFiles']) {
-        const arr = Array.isArray(spfData.structure[key]) ? spfData.structure[key] : [];
-        for (const f of arr) {
-          if (f && typeof f === 'object' && f.path) {
-            const np = remapProcessorPath(f.path, projectDir, currentName, newNm);
-            if (np !== f.path) {
-              f.path = np;
-              f.name = path.basename(np);
-            }
-          }
-        }
-      }
-
-      if (spfData.metadata) spfData.metadata.lastModified = new Date().toISOString();
-      await escreverSpf(spfPath, spfData);
-
-      // Para a janela que pediu, nao para a que tem foco: com o PRISM ou o
-      // manual na frente, a lista ficava velha na janela certa.
+      // 4. A entrada e os caminhos do .spf mudam por quem chamou, pelo
+      // SpfStore (js/project/processadores_do_spf.ts), sobre os caminhos ja
+      // absolutos: o .spf no disco os guarda relativos, e remapear daqui,
+      // sobre o arquivo cru, nao achava nenhum dentro da pasta velha.
       if (!event.sender.isDestroyed()) {
-        event.sender.send('project:processors', {
-          processors: spfData.structure.processors.map((p: any) => p.name),
-          projectPath: projectDir,
-        });
         event.sender.send('processor:renamed', {
           oldName: currentName, newName: newNm, projectPath: projectDir, oldDir, newDir,
         });
       }
 
-      return { success: true, oldName: currentName, newName: newNm, oldDir, newDir };
+      return {
+        success: true, oldName: currentName, newName: newNm, oldDir, newDir, spfPath, projectDir,
+      };
     } catch (error) {
       log.error('Error renaming processor:', error);
       throw error;

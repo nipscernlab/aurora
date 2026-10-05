@@ -40,6 +40,7 @@ import { toNativeSeparators } from '../utils/path_utils.js';
 import { classifyVerilogContent } from './verilog_classifier.js';
 import { removerDoSpf, reporNoSpf } from './spf_paths.js';
 import { showCardNotification } from '../ui/notification.js';
+import { apagarProcessador } from './processadores_do_spf.js';
 import {
     isValidPythonModuleName,
     isValidVerilogFileName,
@@ -855,7 +856,7 @@ async def basic_test(dut):
         if (!confirmed) return;
 
         try {
-            await electronAPI.deleteProcessor(procName);
+            await apagarProcessador(procName);
             // Tree refresh is triggered by the project:processors IPC broadcast
             // from the main process after deletion. No explicit refreshTree() needed.
         } catch (err) {

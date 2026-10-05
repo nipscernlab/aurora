@@ -1,6 +1,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { PADROES_DO_CPPCOMP as PADROES } from '../project/processor_defaults.js';
+import { criarProcessador } from '../project/processadores_do_spf.js';
 
 /*
  * Compilado por `tsc` (npm run build:ts) num processor_hub.js ao lado, e esse
@@ -314,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                const result = await electronAPI.createProcessorProject(formData);
+                const result = await criarProcessador(formData);
 
                 if (result && result.success) {
                     // The IPC resolved, so the folder and files are already on

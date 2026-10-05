@@ -15,9 +15,12 @@ import { parseSpfTolerant } from './spf_parse.js';
  * <tbKey>.json via wave_state_store.js. Granularidade per-tb
  * justifica arquivo separado.
  *
- * Race teorica com escrita do main process (open/create-processor/
- * delete-processor reescrevem o .spf): esses sao eventos UI
- * sequenciais, nao concorrem com edicoes da tree.
+ * Escritor unico desde 05/10/2026: criar, apagar e renomear processador
+ * gravam a lista por aqui (js/project/processadores_do_spf.ts). Antes o
+ * main gravava o .spf nesses tres eventos a partir de uma leitura propria,
+ * e pela API (a IA criando processador com a arvore se atualizando) a
+ * ultima escrita apagava a outra. Sobra o project:open do main, que grava
+ * ao abrir, antes de a arvore escrever.
  *
  * API espelha o antigo ProjectConfigStore: `read` puro, `update`
  * atomico via promise chain serializada per-spfPath. O mutator

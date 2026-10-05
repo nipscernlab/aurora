@@ -2071,10 +2071,12 @@ sai quando ela acabar.
 
 ## 13. Desmacarronar o código (plano de 25/09/2026)
 
-**Ponto de retomada (04/10/2026).** Feitos: `compilation_module` (27/09),
+**Ponto de retomada (05/10/2026).** Feitos: `compilation_module` (27/09),
 `ai_assistant_manager` (02/10, 3679 linhas `.js` para 543 `.ts` e 21 módulos
 em `js/ai/`) e `aurora_api` (03-04/10, de 1158 linhas `.js` para 125 `.ts`
-que só montam a API; detalhe no 13.3). Próximo, pela medição de 03/10
+que só montam a API; detalhe no 13.3). Em 05/10 o `main/ipc/project` e o
+`project_tree_actions` viraram `.ts` e o defeito do `.spf` que perdia o
+processador foi corrigido (item abaixo). Próximo, pela medição de 03/10
 (commits em 60 dias e quantos módulos importam): `js/tabs/tab_manager.js`
 (1986 linhas, 23 importadores), depois `js/editor/monaco_editor.js` (1685) e
 `js/editor/split_editor.js`, e o `js/git/git_panel.js` (2105) por último,
@@ -2377,8 +2379,8 @@ A cadeia, nesta ordem:
         pela AuroraAPI, exercita a shell direto. Na extração do `compile_ns.ts`,
         de novo 1 em 2 na suíte inteira; sozinho, 5 verdes em 5. Só falha com
         a máquina carregada pela suíte.
-- [ ] **Defeito: o `.spf` perde a entrada de um processador recém-criado
-      (achado em 04/10/2026).** O `create-processor-project` (main/ipc/project.js)
+- [x] **Defeito: o `.spf` perde a entrada de um processador recém-criado
+      (achado em 04/10/2026, corrigido em 05/10).** O `create-processor-project` (main/ipc/project.js)
       lê o `.spf`, acrescenta `{ name }` e grava; o `spf_store.ts` do renderer
       grava o mesmo arquivo a partir de uma leitura própria, e a última escrita
       apaga a outra. O comentário do `spf_store` chama isso de "race teórica"
@@ -2400,6 +2402,29 @@ A cadeia, nesta ordem:
       dois viram `.ts` inteiros ANTES, numa sessão própria, sem exceção à regra
       de conversão. Prova da correção: o E2E `cpp-processor` verde em pelo
       menos 15 rodadas seguidas, sozinho.
+
+      Feito em 05/10, nesta ordem: teste de caracterização de cada arquivo no
+      `.js` antigo com 100% das linhas (`projectIpc`, 52 casos;
+      `projectTreeActions`, 43), conversão (`a6c3eba6`, `086d5cac`; o mixin
+      ganhou o contrato `AcoesDaArvore`), e a correção (`b2c8143f`). O main só
+      mexe no disco e devolve o que mudou; a lista e os caminhos vão para o
+      `.spf` por `js/project/processadores_do_spf.ts`, pelo `SpfStore`. Os
+      avisos `processor:created` e `project:processors` passaram a sair do
+      `project:write-spf` quando a lista de nomes muda, porque a barra de
+      status, o painel de configuração, a árvore, o Hub e a barra de
+      compilação releem o `.spf` ao ouvi-los: saindo do main antes da
+      gravação do renderer, leriam a lista velha. Prova: `cpp-processor` verde
+      em 15 rodadas seguidas, sozinho, e a suíte E2E inteira em 2.
+
+      Achado e corrigido junto: o rename de processador remapeava o `.spf`
+      cru, onde o `SpfStore` grava relativo o que está dentro do projeto, e
+      nenhum caminho era achado dentro da pasta velha; o topo e as listas
+      ficavam apontando para ela. Provado no `processadoresDoSpf` com o
+      `SpfStore` de verdade. O `remapProcessorPath` do main saiu.
+
+      Sobra, sem defeito medido: o `project:open` do main ainda grava o `.spf`
+      inteiro (a raiz realocada e o `exists` de cada processador). É no abrir,
+      antes de a árvore escrever, mas é o último escritor fora do `SpfStore`.
 - [ ] **13.4 (decisão do Luciano, com o Chrys e o Arthur) Contrato tipado da
       ponte.** O `preload.js` é o arquivo que mais muda: toda funcionalidade
       nova passa pela ponte entre renderer e main. Um contrato único dos canais,

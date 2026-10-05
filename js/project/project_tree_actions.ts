@@ -1,5 +1,5 @@
 /**
- * project_tree_actions.js: ActionsMixin do ProjectTreeManager.
+ * project_tree_actions.ts: ActionsMixin do ProjectTreeManager.
  *
  * Camada de interacao do usuario:
  *   - Drag-and-drop de .v na file tree
@@ -49,10 +49,10 @@ import {
 
 // i18n shim, falls back to the key path if i18n didn't boot yet
 // (rare; renderer hits these only after DOMContentLoaded).
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+const tr = (k: string, p?: Record<string, unknown>) => (window.t ? window.t(k, p) : k);
 
 /** O fechar-no-clique-fora do card "New File" que esta ligado ao document. */
-let createMenuDismiss = null;
+let createMenuDismiss: ((e: MouseEvent) => void) | null = null;
 
 /**
  * Tira um card de menu da tela pelo id.
@@ -66,7 +66,7 @@ let createMenuDismiss = null;
  * Funcao de modulo, e nao metodo, porque closeContextMenu e passada como
  * referencia para addEventListener: ali dentro `this` e o document.
  */
-function fecharCardDeMenu(id) {
+function fecharCardDeMenu(id: string) {
     const card = document.getElementById(id);
     if (!card) return;
     card.removeAttribute('id');
@@ -75,7 +75,70 @@ function fecharCardDeMenu(id) {
     setTimeout(() => card.remove(), 200);
 }
 
-export const ActionsMixin = {
+/** Um arquivo da arvore de processadores, como o ProjectTreeManager o guarda. */
+export interface ArquivoDaArvore {
+    name: string;
+    path: string;
+    isTopLevel?: boolean;
+    category?: string;
+}
+
+/**
+ * O que o mixin usa do ProjectTreeManager (js/project/file_mode.js) e nao
+ * define. O `this` de cada metodo e isto somado ao proprio mixin.
+ */
+interface AnfitriaoDasAcoes {
+    isTreeActive: boolean;
+    elements: { fileTree: HTMLElement };
+    verilogFiles: ArquivoDaArvore[];
+    missingFiles?: Array<{ path: string }> | null;
+    ALLOWED_EXTENSIONS: string[];
+    getFileExtension(nome: string): string;
+    _normalizePath(caminho: string | null | undefined): string;
+    showNotification(mensagem: string, tipo: string, ms?: number): void;
+    refreshTree(): unknown;
+    renderTree?: () => void;
+}
+
+/** Um arquivo que chega para importar: do arrastar, ou da AuroraAPI. */
+interface ArquivoParaImportar {
+    name: string;
+    path?: string | null;
+    isTopLevel?: boolean;
+}
+
+/** A resposta do dialogo de salvar da ponte. */
+type RespostaDoSalvar = { canceled?: boolean; filePath?: string };
+
+/** Os metodos deste mixin; o `this` de cada um ve tambem o anfitriao. */
+export interface AcoesDaArvore {
+    preventDefaults(e: Event): void;
+    handleDragEnter(): void;
+    handleDragLeave(e: DragEvent): void;
+    handleDrop(e: DragEvent): Promise<void>;
+    importFiles(files: ArquivoParaImportar[]): Promise<void>;
+    createGitignore(): Promise<void>;
+    createNewFile(): Promise<void>;
+    createNewCocotbFile(): Promise<void>;
+    deleteFile(index: number): Promise<void>;
+    removeFile(index: number): Promise<void>;
+    _removeFileByPath(path: string): Promise<void>;
+    _dropFileFromSpf(spfPath: string, filePath: string): Promise<void>;
+    dismissMissingFiles(): Promise<number>;
+    confirmAndDismissMissingFiles(): Promise<void>;
+    showProcessorContextMenu(event: MouseEvent, procName: string): void;
+    _deleteProcessorByName(procName: string): Promise<void>;
+    closeContextMenu(): void;
+    closeCreateMenu(): void;
+    closeAllTreeMenus(): void;
+    showContextMenu(event: MouseEvent, file: ArquivoDaArvore, index: number): void;
+    handleTreeContextMenu(event: MouseEvent): Promise<void>;
+    showCreateMenu(x: number, y: number): void;
+    handleContextMenuAction(action: string | null, file: ArquivoDaArvore, index: number): Promise<void>;
+    _mutateTopFlag(spfPath: string, targetKey: string, scope: 'synth' | 'tb', setTrue: boolean): Promise<void>;
+}
+
+export const ActionsMixin: AcoesDaArvore & ThisType<AnfitriaoDasAcoes & AcoesDaArvore> = {
     // ----- drag and drop -----------------------------------------------
 
     /** Cancela o default do browser pra eventos drag/drop. */
@@ -109,7 +172,7 @@ export const ActionsMixin = {
 
         if (!this.isTreeActive) return;
 
-        const droppedFiles = e.dataTransfer.files;
+        const droppedFiles = (e.dataTransfer as DataTransfer).files;
 
         if (!droppedFiles || droppedFiles.length === 0) {
             this.showNotification(tr('notification.tree.noFilesDropped'), 'warning', 2000);
@@ -208,7 +271,7 @@ export const ActionsMixin = {
             return;
         }
 
-        const validFiles = [];
+        const validFiles: Array<{ name: string; path: string; isTopLevel: boolean; category: string }> = [];
         const errors = [];
 
         for (const file of files) {
@@ -385,14 +448,15 @@ export const ActionsMixin = {
                     ? await electronAPI.joinPath(projectPath, `${suggested}.v`)
                     : `${suggested}.v`;
 
-                const result = await electronAPI.showSaveDialog({
+                // Resposta nula lanca no `result.canceled`, dentro do try, como antes.
+                const result = (await electronAPI.showSaveDialog({
                     title: tr('contextMenu.saveNewVerilog'),
                     defaultPath,
                     filters: [
                         { name: 'Verilog Files', extensions: ['v'] },
                     ],
                     properties: ['createDirectory', 'showOverwriteConfirmation'],
-                });
+                })) as RespostaDoSalvar;
 
                 if (result.canceled || !result.filePath) return;
 
@@ -464,14 +528,15 @@ export const ActionsMixin = {
                     ? await electronAPI.joinPath(projectPath, `${suggested}.py`)
                     : `${suggested}.py`;
 
-                const result = await electronAPI.showSaveDialog({
+                // Resposta nula lanca no `result.canceled`, dentro do try, como antes.
+                const result = (await electronAPI.showSaveDialog({
                     title: tr('contextMenu.saveNewCocotb'),
                     defaultPath,
                     filters: [
                         { name: 'Python cocotb Testbenches', extensions: ['py'] },
                     ],
                     properties: ['createDirectory', 'showOverwriteConfirmation'],
-                });
+                })) as RespostaDoSalvar;
 
                 if (result.canceled || !result.filePath) return;
 
@@ -559,13 +624,14 @@ async def basic_test(dut):
         } catch (error) {
             console.error('Error deleting file:', error);
 
-            if (error.code === 'ENOENT') {
+            const erro = error as { code?: string; message?: string };
+            if (erro.code === 'ENOENT') {
                 // Arquivo ja sumiu do disco, limpa a entry stale do .spf.
                 await this._dropFileFromSpf(targetSpfPath, filePath);
                 this.showNotification(tr('notification.tree.alreadyDeleted', { name: fileName }), 'info', 2000);
             } else {
                 this.showNotification(
-                    tr('notification.tree.errorDeleting', { name: fileName, error: error.message }),
+                    tr('notification.tree.errorDeleting', { name: fileName, error: erro.message }),
                     'error',
                     3000,
                 );
@@ -599,7 +665,7 @@ async def basic_test(dut):
         } catch (err) {
             console.error('[tree] removeFile failed:', err);
             fileItem?.classList.remove('verilog-file-animate-out');
-            this.showNotification(tr('notification.tree.removeFailed', { name: fileName, error: err?.message || String(err) }), 'error', 6000);
+            this.showNotification(tr('notification.tree.removeFailed', { name: fileName, error: (err as Error | null)?.message || String(err) }), 'error', 6000);
         }
     },
 
@@ -624,7 +690,7 @@ async def basic_test(dut):
         const file = this.verilogFiles.find((f) => f.path === path);
         if (!file) return;
 
-        let retirado = null;
+        let retirado: ReturnType<typeof removerDoSpf> | null = null;
         await SpfStore.update(targetSpfPath, (cfg) => {
             retirado = removerDoSpf(cfg, [path]);
         });
@@ -653,7 +719,7 @@ async def basic_test(dut):
     async _dropFileFromSpf(spfPath, filePath) {
         const targetKey = this._normalizePath(filePath);
         await SpfStore.update(spfPath, (cfg) => {
-            const filterOut = (arr) => (Array.isArray(arr) ? arr : []).filter(
+            const filterOut = (arr: unknown) => (Array.isArray(arr) ? arr : []).filter(
                 (f) => this._normalizePath(f.path) !== targetKey,
             );
             cfg.synthesizableFiles = filterOut(cfg.synthesizableFiles);
@@ -687,7 +753,7 @@ async def basic_test(dut):
         if (!spfPath || missing.length === 0) return 0;
         const keys = new Set(missing.map((f) => this._normalizePath(f.path)));
         await SpfStore.update(spfPath, (cfg) => {
-            const filterOut = (arr) => (Array.isArray(arr) ? arr : []).filter(
+            const filterOut = (arr: unknown) => (Array.isArray(arr) ? arr : []).filter(
                 (f) => !keys.has(this._normalizePath(f.path)),
             );
             cfg.synthesizableFiles = filterOut(cfg.synthesizableFiles);
@@ -755,7 +821,7 @@ async def basic_test(dut):
         }, 10);
 
         menu.addEventListener('click', async (e) => {
-            const item = e.target.closest('.context-menu-item');
+            const item = (e.target as Element).closest<HTMLElement>('.context-menu-item');
             if (!item) return;
             if (item.dataset.action === 'delete-processor') {
                 this.closeContextMenu();
@@ -794,7 +860,7 @@ async def basic_test(dut):
             // from the main process after deletion. No explicit refreshTree() needed.
         } catch (err) {
             console.error('Error deleting processor:', err);
-            this.showNotification(`Error deleting processor: ${err.message}`, 'error', 4000);
+            this.showNotification(`Error deleting processor: ${(err as Error).message}`, 'error', 4000);
         }
     },
 
@@ -906,7 +972,7 @@ async def basic_test(dut):
         }, 10);
 
         menu.addEventListener('click', async (e) => {
-            const item = e.target.closest('.context-menu-item');
+            const item = (e.target as Element).closest('.context-menu-item');
             if (!item || item.classList.contains('disabled')) return;
 
             const action = item.getAttribute('data-action');
@@ -942,7 +1008,7 @@ async def basic_test(dut):
         // per-row sumiram com o render-reconciler refactor; este path
         // delegado os substitui. Busca por data-file-path:
         // lookups por indice sao evitados (quebram sob sort).
-        const row = event.target.closest('.verilog-file-item');
+        const row = (event.target as Element).closest<HTMLElement>('.verilog-file-item');
         if (row) {
             event.preventDefault();
             event.stopPropagation();
@@ -953,7 +1019,7 @@ async def basic_test(dut):
         }
 
         // Right-click on a processor separator → delete-processor menu.
-        const sep = event.target.closest('.verilog-processor-separator');
+        const sep = (event.target as Element).closest<HTMLElement>('.verilog-processor-separator');
         if (sep) {
             event.preventDefault();
             event.stopPropagation();
@@ -966,7 +1032,7 @@ async def basic_test(dut):
 
         // Right-click em area vazia → menu "New File" (Verilog / Python).
         event.preventDefault();
-        if (event.target.closest('button')) return;
+        if ((event.target as Element).closest('button')) return;
 
         this.showCreateMenu(event.pageX, event.pageY);
     },
@@ -1018,7 +1084,7 @@ async def basic_test(dut):
         }, 10);
 
         menu.addEventListener('click', async (e) => {
-            const item = e.target.closest('.create-menu-item');
+            const item = (e.target as Element).closest('.create-menu-item');
             if (!item) return;
 
             const action = item.getAttribute('data-action');
@@ -1032,8 +1098,8 @@ async def basic_test(dut):
             this.closeCreateMenu();
         });
 
-        const closeOnClickOutside = (e) => {
-            if (menu.contains(e.target)) return;
+        const closeOnClickOutside = (e: MouseEvent) => {
+            if (menu.contains(e.target as Node)) return;
             this.closeCreateMenu();
         };
 
@@ -1102,12 +1168,12 @@ async def basic_test(dut):
      * tops independentes (um synth top + um testbench top
      * coexistem); o flag e exclusivo DENTRO da categoria.
      *
-     * @param {string} spfPath capturado pelo caller
-     * @param {string} targetKey path normalizado do arquivo alvo
-     * @param {'synth'|'tb'} scope categoria afetada
-     * @param {boolean} setTrue true=setar, false=limpar
+     * @param spfPath capturado pelo caller
+     * @param targetKey path normalizado do arquivo alvo
+     * @param scope categoria afetada
+     * @param setTrue true=setar, false=limpar
      */
-    async _mutateTopFlag(spfPath, targetKey, scope, setTrue) {
+    async _mutateTopFlag(spfPath: string, targetKey: string, scope: 'synth'|'tb', setTrue: boolean) {
         await SpfStore.update(spfPath, (cfg) => {
             const arrKey = scope === 'tb' ? 'testbenchFiles' : 'synthesizableFiles';
             const pointerKey = scope === 'tb' ? 'testbenchFile' : 'topLevelFile';
@@ -1131,15 +1197,15 @@ async def basic_test(dut):
                 }
             }
             cfg[arrKey] = arr;
-            cfg[pointerKey] = setTrue ? targetEntry.path : '';
+            cfg[pointerKey] = setTrue ? targetEntry.path as string : '';
         });
     },
 };
 
 // ---- helpers privados ------------------------------------------------
 
-function basenameOf(filePath) {
-    return filePath.split(/[\\/]/).pop();
+function basenameOf(filePath: string) {
+    return filePath.split(/[\\/]/).pop() as string;
 }
 
 // As quatro regras de nome de arquivo moram no js/tabs/tab_utils.ts, junto
@@ -1153,7 +1219,7 @@ function basenameOf(filePath) {
  * Defensive fallback pra window.confirm se o dialog_manager nao
  * carregou ainda.
  */
-function showDeleteConfirmDialog(fileName) {
+function showDeleteConfirmDialog(fileName: string) {
     const dialog = window.AuroraUI?.dialog;
     if (typeof dialog !== 'function') {
         return Promise.resolve(window.confirm(tr('dialog.deleteFile.fallbackPrompt', { name: fileName })));
@@ -1166,7 +1232,7 @@ function showDeleteConfirmDialog(fileName) {
             { label: tr('dialog.common.cancel'),  action: 'cancel', type: 'cancel' },
             { label: tr('dialog.deleteFile.delete'), action: 'delete', type: 'danger' },
         ],
-    }).then((action) => action === 'delete');
+    }).then((action: unknown) => action === 'delete');
 }
 
 /**
@@ -1175,7 +1241,7 @@ function showDeleteConfirmDialog(fileName) {
  * which is the right move only if the user deleted those files on purpose.
  * Same canonical dialog + window.confirm fallback as showDeleteConfirmDialog.
  */
-function showDismissMissingFilesDialog(count) {
+function showDismissMissingFilesDialog(count: number) {
     const dialog = window.AuroraUI?.dialog;
     if (typeof dialog !== 'function') {
         return Promise.resolve(window.confirm(tr('dialog.dismissMissing.fallbackPrompt')));
@@ -1188,5 +1254,5 @@ function showDismissMissingFilesDialog(count) {
             { label: tr('dialog.dismissMissing.cancel'),  action: 'cancel',  type: 'cancel' },
             { label: tr('dialog.dismissMissing.confirm'), action: 'dismiss', type: 'danger' },
         ],
-    }).then((action) => action === 'dismiss');
+    }).then((action: unknown) => action === 'dismiss');
 }

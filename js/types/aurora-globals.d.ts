@@ -160,8 +160,10 @@ interface AuroraElectronAPI {
   onDirectoryGone?(cb: (directoryPath: string) => void): void;
   onDirectoryWatcherError?(cb: (directoryPath: string, error: unknown) => void): void;
   /** Os processadores do projeto, como o .spf os lista (nome, ou objeto com config). */
+  /** O caminho em disco de um File arrastado para dentro do app (webUtils). */
+  getPathForFile(file: File): string;
   getAvailableProcessors(projectPath: string): Promise<Array<string | { name?: string; [k: string]: unknown }> | null>;
-  deleteProcessor?(name: string): Promise<{ success?: boolean; message?: string; [k: string]: unknown } | null>;
+  deleteProcessor(name: string): Promise<{ success?: boolean; message?: string; [k: string]: unknown } | null>;
   renameProcessor?(oldName: string, newName: string): Promise<{ success?: boolean; message?: string; oldName?: string; newName?: string; oldDir?: string; newDir?: string; [k: string]: unknown } | null>;
   /** O main avisa que o botao do Processor Hub pode habilitar. */
   onProcessorHubState?(cb: (...args: unknown[]) => void): void;
@@ -186,7 +188,7 @@ interface AuroraElectronAPI {
   /** Mensagem do processo principal para um terminal (canal terminal-log). */
   onTerminalLog(cb: (event: unknown, terminal: string, message: string, type?: string) => void): void;
   /** O dialogo nativo de salvar (main/ipc/files.js), com as opcoes do Electron. */
-  showSaveDialog?(opts: Record<string, unknown>): Promise<{ canceled?: boolean; filePath?: string } | null | undefined>;
+  showSaveDialog(opts: Record<string, unknown>): Promise<{ canceled?: boolean; filePath?: string } | null | undefined>;
   /** O shell interativo da aba TCMD (main/ipc/shell.js): um PTY por id de sessao. */
   shellStart(opts: { id: string; cwd?: string; cols?: number; rows?: number }):
     Promise<{ ok: boolean; error?: string } | null | undefined>;
@@ -289,6 +291,7 @@ declare global {
       missingFiles?: import('../project/arquivos_faltando.js').ArquivoFaltando[];
       createNewCocotbFile?(): unknown;
       createGitignore?(): unknown;
+      refreshTree?(): unknown;
       /** Os arquivos que a visao Verilog lista; a IA acha por eles um nome citado na resposta. */
       verilogFiles?: import('../ai/file_ref.js').ArquivoDaArvore[];
     };
@@ -299,7 +302,7 @@ declare global {
     /** As subarvores da arvore de arquivos (js/tree/tree_view.ts). */
     treeView?: { getContainer?(nome: string): HTMLElement | null };
     /** As operacoes da visao de pastas (js/tree/standard_tree_crud.ts), para o roteador do botao direito. */
-    standardTreeCrud?: unknown;
+    standardTreeCrud?: { showMenu?(event: MouseEvent): unknown };
     /** O inicializador do app (js/app/app_initializer.js): lembra o ultimo projeto. */
     appInitializer?: { saveCurrentProject?(spfPath: string): unknown };
     /** O gerenciador de projeto do renderer (js/project/project_manager.js). */

@@ -23,6 +23,8 @@ export const TabManager: {
   reopenLastClosedTab?(): Promise<unknown>;
   /** Cria uma aba de arquivo novo, sem nome, e devolve o caminho dela. */
   createNewFile?(): string;
+  /** Pede nome e local pelo dialogo de salvar e cria o arquivo novo. */
+  createNewFileFromDialog(): Promise<unknown>;
   /** Grava a aba ativa. */
   saveCurrentFile(): Promise<unknown>;
   closeAllTabs(): Promise<unknown>;

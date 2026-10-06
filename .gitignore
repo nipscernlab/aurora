@@ -288,6 +288,11 @@ js/ui/ai_assistant_manager.js
 js/project/project_tree_actions.js
 js/project/processadores_do_spf.js
 js/tabs/untitled_docs.js
+js/tabs/dialogo_nao_salvo.js
+js/tabs/abas_embutidas.js
+js/tabs/salvar_abas.js
+js/tabs/documento_sem_nome.js
+js/tabs/fechar_abas.js
 js/tabs/tab_watchers.js
 js/tabs/tab_drag.js
 js/tabs/tab_viewers.js

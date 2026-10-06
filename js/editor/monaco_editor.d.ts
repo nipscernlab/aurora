@@ -14,6 +14,8 @@ export const EditorManager: {
   activeEditor?: Monaco.editor.IStandaloneCodeEditor | null;
   /** O editor que mostra `filePath`, se houver um aberto. */
   getEditorForFile(filePath: string): Monaco.editor.IStandaloneCodeEditor | null | undefined;
+  /** Fecha e descarta o editor do arquivo. */
+  closeEditor(filePath: string): void;
 };
 
 export function initMonaco(...args: unknown[]): unknown;

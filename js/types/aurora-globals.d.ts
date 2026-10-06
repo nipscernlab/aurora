@@ -72,6 +72,10 @@ interface AuroraElectronAPI {
     Promise<{ success?: boolean; decoded?: unknown } | null | undefined>;
   /** O Surfer numa aba do editor (main/ipc/surfer_tab.js). */
   surferTabAvailable?(): Promise<boolean>;
+  /** Derruba o servidor da onda de uma aba do Surfer (fechar a aba). */
+  surferTabStop?(tabId: string): Promise<unknown>;
+  /** A URL e o preload da pagina do PRISM numa aba (main/ipc/prism.ts). */
+  prismTabPage?(): Promise<{ ok: boolean; url?: string; preload?: string; error?: string } | null | undefined>;
   surferTabServe(opts: {
     surferBin: string; waveFile: string; tabId: string;
     suclFile: string | null; stateFile: string | null;
@@ -277,6 +281,14 @@ declare global {
     electronAPI: AuroraElectronAPI;
     /** Absolute path of the current project dir (per-processor compile root). */
     currentProjectPath?: string | null;
+    /** Os modelos do Monaco compartilhados entre os paineis (js/editor/shared_models.js). */
+    SharedModelRegistry?: {
+      getModel(filePath: string): import('monaco-editor').editor.ITextModel | undefined;
+      has(filePath: string): boolean;
+      isDirty(filePath: string): boolean;
+      markSaved(filePath: string): void;
+      release(filePath: string): void;
+    };
     /** Espelho do ProjectStore para quem ainda nao o importa (js/project/project_store.ts). */
     ProjectStore?: typeof import('../project/project_store.js').ProjectStore;
     gitAPI?: AuroraGitAPI;
@@ -285,8 +297,20 @@ declare global {
     renderTreeEmptyState?: () => void;
     /** Os paineis do editor dividido (js/editor/split_editor.js), cada um com as suas abas. */
     SplitEditorManager?: {
-      panes?: Array<{ tabs?: Map<string, { editor?: unknown }>; paneIndex?: number; _closeFile?(filePath: string): Promise<unknown> }>;
+      panes?: Array<{
+        tabs?: Map<string, { editor?: unknown; editorDiv?: HTMLElement }>;
+        paneIndex?: number;
+        activeFile?: string | null;
+        element?: HTMLElement;
+        openFile(filePath: string, content: string): Promise<unknown>;
+        _activateFile(filePath: string): unknown;
+        _closeFile?(filePath: string): Promise<unknown>;
+      }>;
       focusedPane?: number;
+      /** Passa o foco para o painel (0 e o principal). */
+      setFocus?(paneIndex: number): unknown;
+      /** O arquivo do painel em foco, se houver um dividido em foco. */
+      getFocusedFile?(): string | null;
       /** Uma aba da AURORA esta sendo arrastada (js/tabs/tab_drag.ts), e de qual painel ela saiu. */
       _dragActive?: boolean;
       _dragSourcePane?: number | null;

@@ -289,6 +289,7 @@ js/project/project_tree_actions.js
 js/project/processadores_do_spf.js
 js/tabs/untitled_docs.js
 js/tabs/tab_watchers.js
+js/tabs/tab_drag.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

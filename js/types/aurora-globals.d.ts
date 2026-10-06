@@ -283,6 +283,9 @@ declare global {
     SplitEditorManager?: {
       panes?: Array<{ tabs?: Map<string, { editor?: unknown }>; paneIndex?: number; _closeFile?(filePath: string): Promise<unknown> }>;
       focusedPane?: number;
+      /** Uma aba da AURORA esta sendo arrastada (js/tabs/tab_drag.ts), e de qual painel ela saiu. */
+      _dragActive?: boolean;
+      _dragSourcePane?: number | null;
       closePane?(paneIndex: number | undefined): unknown;
       refreshLayout?(): unknown;
       openInFocusedPane?(filePath: string, content: string, opcoes?: { preview?: boolean }): Promise<unknown>;

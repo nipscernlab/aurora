@@ -10,7 +10,21 @@
  * tab_manager.js.
  */
 
-export const tabDrag = {
+/** O que o arraste guarda no TabManager, que o recebe por Object.assign. */
+interface AnfitriaoDoArraste {
+    tabObserver?: MutationObserver | null;
+}
+
+/** Os metodos deste mixin. */
+export interface ArrasteDasAbas {
+    initSortableTabs(): void;
+    getDragAfterElement(container: ParentNode, y: number): Element | undefined;
+    getTabOrder(): Array<string | null>;
+    saveTabOrder(): void;
+    restoreTabOrder(): void;
+}
+
+export const tabDrag: ArrasteDasAbas & ThisType<AnfitriaoDoArraste & ArrasteDasAbas> = {
     initSortableTabs() {
         const tabsContainer = document.getElementById('tabs-container');
         if (!tabsContainer) return;
@@ -20,8 +34,8 @@ export const tabDrag = {
         window.addEventListener('dragover', (e) => e.preventDefault());
         window.addEventListener('drop', (e) => e.preventDefault());
 
-        let draggedTab = null;
-        let draggedTabPath = null;
+        let draggedTab: HTMLElement | null = null;
+        let draggedTabPath: string | null = null;
         let dragStartX = 0;
         let hasMovedEnough = false;
         let rafPending = false;
@@ -29,8 +43,8 @@ export const tabDrag = {
         // FLIP: remember each tab's position, mutate the DOM, then play every
         // displaced tab from its old spot to the new one with a short transform
         // transition, so neighbours GLIDE to make room instead of snapping.
-        const flip = (mutate) => {
-            const tabs = Array.from(tabsContainer.querySelectorAll('.tab'));
+        const flip = (mutate: () => void) => {
+            const tabs = Array.from(tabsContainer.querySelectorAll<HTMLElement>('.tab'));
             const before = tabs.map((t) => t.getBoundingClientRect().left);
             mutate();
             tabs.forEach((t, i) => {
@@ -46,14 +60,14 @@ export const tabDrag = {
         };
 
         const clearTabTransforms = () => {
-            tabsContainer.querySelectorAll('.tab').forEach((t) => {
+            tabsContainer.querySelectorAll<HTMLElement>('.tab').forEach((t) => {
                 t.style.transition = '';
                 t.style.transform = '';
             });
         };
 
         // The tab the cursor would insert BEFORE (null → append at the end).
-        const getReferenceTab = (x) => {
+        const getReferenceTab = (x: number) => {
             const tabs = Array.from(tabsContainer.querySelectorAll('.tab:not(.dragging)'));
             for (const tab of tabs) {
                 const rect = tab.getBoundingClientRect();
@@ -63,22 +77,25 @@ export const tabDrag = {
         };
 
         // Live reorder while dragging, animated via FLIP.
-        const liveReorder = (x) => {
+        const liveReorder = (x: number) => {
             if (!draggedTab) return;
+            const arrastada = draggedTab;
             const ref = getReferenceTab(x);
             if (ref === draggedTab) return;
             const already = ref
-                ? draggedTab.nextElementSibling === ref
-                : draggedTab === tabsContainer.querySelector('.tab:last-of-type');
+                ? arrastada.nextElementSibling === ref
+                : arrastada === tabsContainer.querySelector('.tab:last-of-type');
             if (already) return;
             flip(() => {
-                if (ref) tabsContainer.insertBefore(draggedTab, ref);
-                else tabsContainer.appendChild(draggedTab);
+                if (ref) tabsContainer.insertBefore(arrastada, ref);
+                else tabsContainer.appendChild(arrastada);
             });
         };
 
-        const handleDragStart = (e) => {
-            const tab = e.target.closest('.tab');
+        // Os ouvintes recebem o DragEvent; sem dataTransfer, o acesso lanca como antes.
+        type Arraste = DragEvent & { dataTransfer: DataTransfer };
+        const handleDragStart = (e: Arraste) => {
+            const tab = (e.target as Element).closest<HTMLElement>('.tab');
             if (!tab) return;
 
             draggedTab = tab;
@@ -91,7 +108,7 @@ export const tabDrag = {
             // paste the file path into the buffer when the user drops a
             // tab onto the editor area. Drop targets (split panes + main
             // shell) read this same key, see split_editor.js.
-            e.dataTransfer.setData('application/x-aurora-tab-path', draggedTabPath);
+            e.dataTransfer.setData('application/x-aurora-tab-path', draggedTabPath as string);
 
             // Flag the drag as an Aurora tab drag originating in the main pane
             // (index 0), so split-pane drop targets accept it and know its
@@ -119,7 +136,7 @@ export const tabDrag = {
             }, 10);
         };
 
-        const handleDrag = (e) => {
+        const handleDrag = (e: DragEvent) => {
             if (!draggedTab) return;
             // The HTML5 drag event reports clientX 0 on the final event; ignore.
             if (e.clientX === 0) return;
@@ -156,38 +173,38 @@ export const tabDrag = {
             hasMovedEnough = false;
         };
 
-        const handleDragOver = (e) => {
+        const handleDragOver = (e: Arraste) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
         };
 
-        const handleDrop = (e) => {
+        const handleDrop = (e: Arraste) => {
             e.preventDefault();
             // The live reorder already placed the tab; just clear + finish.
             try { e.dataTransfer.clearData(); } catch (_) { /* ignore */ }
             handleDragEnd();
         };
 
-        const addTabListeners = (tab) => {
+        const addTabListeners = (tab: HTMLElement) => {
             tab.draggable = true;
-            tab.addEventListener('dragstart', handleDragStart);
+            tab.addEventListener('dragstart', handleDragStart as EventListener);
             tab.addEventListener('drag', handleDrag);
             tab.addEventListener('dragend', handleDragEnd);
         };
 
         // Initialize existing tabs.
-        tabsContainer.querySelectorAll('.tab').forEach(addTabListeners);
+        tabsContainer.querySelectorAll<HTMLElement>('.tab').forEach(addTabListeners);
 
         // Container-level listeners.
-        tabsContainer.addEventListener('dragover', handleDragOver);
-        tabsContainer.addEventListener('drop', handleDrop);
+        tabsContainer.addEventListener('dragover', handleDragOver as EventListener);
+        tabsContainer.addEventListener('drop', handleDrop as EventListener);
 
         // Auto-wire newly-added tabs (TabManager.addTab inserts them at runtime).
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 mutation.addedNodes.forEach((node) => {
-                    if (node.nodeType === Node.ELEMENT_NODE && node.matches('.tab')) {
-                        addTabListeners(node);
+                    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).matches('.tab')) {
+                        addTabListeners(node as HTMLElement);
                     }
                 });
             });
@@ -214,14 +231,15 @@ export const tabDrag = {
                 }
                 return closest;
             },
-            { offset: Number.NEGATIVE_INFINITY },
+            { offset: Number.NEGATIVE_INFINITY } as { offset: number, element?: Element },
         ).element;
     },
 
     // -- Tab-order persistence -----------------------------------------------
 
     getTabOrder() {
-        const tabContainer = document.getElementById('tabs-container');
+        // Sem a barra, o acesso lanca, como antes.
+        const tabContainer = document.getElementById('tabs-container') as HTMLElement;
         return Array.from(tabContainer.querySelectorAll('.tab'))
             .map((tab) => tab.getAttribute('data-path'));
     },
@@ -235,8 +253,8 @@ export const tabDrag = {
         const savedOrder = localStorage.getItem('editorTabOrder');
         if (!savedOrder) return;
 
-        const tabContainer = document.getElementById('tabs-container');
-        const tabOrder = JSON.parse(savedOrder);
+        const tabContainer = document.getElementById('tabs-container') as HTMLElement;
+        const tabOrder: string[] = JSON.parse(savedOrder);
 
         tabOrder.forEach((filePath) => {
             const tab = tabContainer.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);

@@ -27,10 +27,10 @@ import { electronAPI } from '../app/electron_api.js';
  * (servidor que morreu, cliente que buscou a onda por outro caminho), a
  * pessoa nao pode ficar sem enxergar o Surfer por causa do indicador.
  */
-const veusDaOnda = new Map();
+const veusDaOnda = new Map<string, { el: HTMLElement, prazo: ReturnType<typeof setTimeout> }>();
 const PRAZO_DO_VEU = 90000;
 
-function tirarVeuDaOnda(filePath) {
+function tirarVeuDaOnda(filePath: string) {
     const veu = veusDaOnda.get(filePath);
     if (!veu) return;
     veusDaOnda.delete(filePath);
@@ -38,7 +38,7 @@ function tirarVeuDaOnda(filePath) {
     veu.el.remove();
 }
 
-function montarVeuDaOnda(viewer, filePath) {
+function montarVeuDaOnda(viewer: HTMLElement, filePath: string) {
     tirarVeuDaOnda(filePath);
     const el = document.createElement('div');
     el.className = 'surfer-carregando';
@@ -56,23 +56,54 @@ if (typeof window !== 'undefined' && electronAPI.onSurferTabWaveServed) {
 
 // Decode whatever shape electronAPI.readFileBuffer returns into a
 // fresh ArrayBuffer suitable for Blob construction.
-function bufferToArrayBuffer(buffer) {
+function bufferToArrayBuffer(buffer: unknown): ArrayBuffer {
     if (buffer instanceof ArrayBuffer) return buffer;
     if (ArrayBuffer.isView(buffer)) {
-        return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+        return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
     }
-    if (buffer.buffer && buffer.byteLength) {
-        return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    // Objeto com cara de Buffer; nulo lanca aqui, como antes.
+    const b = buffer as { buffer?: ArrayBuffer, byteOffset: number, byteLength: number };
+    if (b.buffer && b.byteLength) {
+        return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
     }
-    return Uint8Array.from(buffer).buffer;
+    return Uint8Array.from(buffer as ArrayLike<number>).buffer;
 }
 
-export const tabViewers = {
+/** A janela do visor de PDF do Chromium, quando o iframe deixa ler. */
+type JanelaDoPdf = Window & { PDFViewerApplication?: { pdfViewer: { currentScale: number } } };
+/** A posicao de um PDF guardada entre trocas de aba. */
+type EstadoDoPdf = { scrollTop: number, scrollLeft: number, zoom: number };
+
+/** O que os visualizadores guardam no TabManager, que os recebe por Object.assign. */
+interface AnfitriaoDosVisualizadores {
+    viewerInstances: Map<string, HTMLElement>;
+    pdfViewerStates: Map<string, EstadoDoPdf>;
+    pdfStateIntervals: Map<string, ReturnType<typeof setInterval>>;
+}
+
+/** Os metodos deste mixin. */
+export interface VisualizadoresDasAbas {
+    createImageViewer(filePath: string): HTMLElement;
+    loadImageFile(filePath: string, imgElement: HTMLImageElement): Promise<void>;
+    createPdfViewer(filePath: string): HTMLElement;
+    loadPdfFile(filePath: string, iframeElement: HTMLIFrameElement): Promise<void>;
+    setupPdfStateTracking(filePath: string, iframe: HTMLIFrameElement): void;
+    restorePdfViewerState(filePath: string, viewer: HTMLElement): void;
+    createSurferViewer(filePath: string, pageUrl: string): HTMLElement;
+    refreshSurferViewer(filePath: string, pageUrl: string): void;
+    savePdfViewerState(filePath: string): void;
+}
+
+// Dentro do try de cada leitura do PDF: iframe sem janela ou sem documento
+// lanca, e o catch engole, como antes.
+const janelaDe = (iframe: HTMLIFrameElement) => iframe.contentWindow as JanelaDoPdf;
+
+export const tabViewers: VisualizadoresDasAbas & ThisType<AnfitriaoDosVisualizadores & VisualizadoresDasAbas> = {
     // -- Image viewer ---------------------------------------------------------
 
     createImageViewer(filePath /*, container */) {
         if (this.viewerInstances.has(filePath)) {
-            return this.viewerInstances.get(filePath);
+            return this.viewerInstances.get(filePath) as HTMLElement;
         }
 
         const imageViewer = document.createElement('div');
@@ -102,12 +133,14 @@ export const tabViewers = {
     </div>
   `;
 
-        const zoomInBtn = imageViewer.querySelector('#zoom-in-btn');
-        const zoomOutBtn = imageViewer.querySelector('#zoom-out-btn');
-        const zoomResetBtn = imageViewer.querySelector('#zoom-reset-btn');
-        const zoomLevel = imageViewer.querySelector('#zoom-level');
-        const imageDisplay = imageViewer.querySelector('#image-display');
-        const imageContent = imageViewer.querySelector('#image-content');
+        // O molde acima tem os seis: as buscas nao voltam vazias.
+        const achar = <T extends HTMLElement>(sel: string) => imageViewer.querySelector(sel) as T;
+        const zoomInBtn = achar('#zoom-in-btn');
+        const zoomOutBtn = achar('#zoom-out-btn');
+        const zoomResetBtn = achar('#zoom-reset-btn');
+        const zoomLevel = achar('#zoom-level');
+        const imageDisplay = achar<HTMLImageElement>('#image-display');
+        const imageContent = achar('#image-content');
 
         // Pan is applied via the transform itself (translate + scale), NOT via
         // container scroll. `transform: scale()` doesn't grow the scroll box, so
@@ -137,14 +170,14 @@ export const tabViewers = {
 
         // `animate` is for the discrete zoom buttons; drag/wheel pass false so
         // the image tracks the cursor immediately (a transition would smear it).
-        const applyTransform = (animate) => {
+        const applyTransform = (animate: boolean) => {
             clampPan();
             imageDisplay.style.transition = animate ? 'transform 180ms ease' : 'none';
             imageDisplay.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoom})`;
             zoomLevel.textContent = `${Math.round(currentZoom * 100)}%`;
         };
 
-        const updateZoom = (newZoom, animate = true) => {
+        const updateZoom = (newZoom: number, animate = true) => {
             currentZoom = Math.max(0.1, Math.min(5, newZoom));
             applyTransform(animate);
         };
@@ -158,7 +191,7 @@ export const tabViewers = {
             applyTransform(true);
         });
 
-        imageContent.addEventListener('wheel', (e) => {
+        imageContent.addEventListener('wheel', (e: WheelEvent) => {
             if (e.ctrlKey) {
                 e.preventDefault();
                 const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -166,7 +199,7 @@ export const tabViewers = {
             }
         });
 
-        imageContent.addEventListener('mousedown', (e) => {
+        imageContent.addEventListener('mousedown', (e: MouseEvent) => {
             if (e.button === 0) {
                 isDragging = true;
                 imageContent.classList.add('dragging');
@@ -185,7 +218,7 @@ export const tabViewers = {
         imageContent.addEventListener('mouseleave', endDrag);
         imageContent.addEventListener('mouseup', endDrag);
 
-        imageContent.addEventListener('mousemove', (e) => {
+        imageContent.addEventListener('mousemove', (e: MouseEvent) => {
             if (!isDragging) return;
             e.preventDefault();
             panX = startPanX + (e.pageX - startX);
@@ -194,7 +227,7 @@ export const tabViewers = {
         });
 
         // Touch: one-finger drag to pan (same translate model as the mouse).
-        imageContent.addEventListener('touchstart', (e) => {
+        imageContent.addEventListener('touchstart', (e: TouchEvent) => {
             if (e.touches.length === 1) {
                 const touch = e.touches[0];
                 startX = touch.pageX;
@@ -204,7 +237,7 @@ export const tabViewers = {
             }
         });
 
-        imageContent.addEventListener('touchmove', (e) => {
+        imageContent.addEventListener('touchmove', (e: TouchEvent) => {
             if (e.touches.length === 1) {
                 e.preventDefault();
                 const touch = e.touches[0];
@@ -243,7 +276,7 @@ export const tabViewers = {
 
     createPdfViewer(filePath /*, container */) {
         if (this.viewerInstances.has(filePath)) {
-            const existingViewer = this.viewerInstances.get(filePath);
+            const existingViewer = this.viewerInstances.get(filePath) as HTMLElement;
             this.restorePdfViewerState(filePath, existingViewer);
             return existingViewer;
         }
@@ -256,7 +289,7 @@ export const tabViewers = {
     </div>
   `;
 
-        const pdfFrame = pdfViewer.querySelector('#pdf-frame');
+        const pdfFrame = pdfViewer.querySelector('#pdf-frame') as HTMLIFrameElement;
 
         pdfFrame.addEventListener('load', () => {
             this.setupPdfStateTracking(filePath, pdfFrame);
@@ -296,12 +329,12 @@ export const tabViewers = {
         try {
             const saveState = () => {
                 try {
-                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const iframeDoc = iframe.contentDocument || janelaDe(iframe).document;
                     if (iframeDoc) {
                         const state = {
                             scrollTop: iframeDoc.documentElement.scrollTop || iframeDoc.body.scrollTop,
                             scrollLeft: iframeDoc.documentElement.scrollLeft || iframeDoc.body.scrollLeft,
-                            zoom: iframe.contentWindow.PDFViewerApplication?.pdfViewer?.currentScale || 1,
+                            zoom: janelaDe(iframe).PDFViewerApplication?.pdfViewer?.currentScale || 1,
                         };
                         this.pdfViewerStates.set(filePath, state);
                     }
@@ -310,8 +343,8 @@ export const tabViewers = {
                 }
             };
 
-            iframe.contentWindow.addEventListener('scroll', saveState);
-            iframe.contentWindow.addEventListener('resize', saveState);
+            janelaDe(iframe).addEventListener('scroll', saveState);
+            janelaDe(iframe).addEventListener('resize', saveState);
             // Clear any prior poll for this file (the iframe 'load' handler can
             // fire more than once) and track the new one so closeTab can stop
             // it, an untracked setInterval here leaked one 2s timer per PDF
@@ -327,19 +360,20 @@ export const tabViewers = {
         const state = this.pdfViewerStates.get(filePath);
         if (!state) return;
 
-        const iframe = viewer.querySelector('#pdf-frame');
+        const iframe = viewer.querySelector<HTMLIFrameElement>('#pdf-frame');
         if (!iframe) return;
 
         iframe.addEventListener('load', () => {
             setTimeout(() => {
                 try {
-                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const iframeDoc = iframe.contentDocument || janelaDe(iframe).document;
                     if (iframeDoc) {
                         iframeDoc.documentElement.scrollTop = state.scrollTop;
                         iframeDoc.documentElement.scrollLeft = state.scrollLeft;
 
-                        if (iframe.contentWindow.PDFViewerApplication) {
-                            iframe.contentWindow.PDFViewerApplication.pdfViewer.currentScale = state.zoom;
+                        const visor = janelaDe(iframe).PDFViewerApplication;
+                        if (visor) {
+                            visor.pdfViewer.currentScale = state.zoom;
                         }
                     }
                 } catch (_) {
@@ -364,7 +398,7 @@ export const tabViewers = {
     // unico sinal honesto que se tem de fora do WASM.
     createSurferViewer(filePath, pageUrl) {
         if (this.viewerInstances.has(filePath)) {
-            return this.viewerInstances.get(filePath);
+            return this.viewerInstances.get(filePath) as HTMLElement;
         }
 
         const viewer = document.createElement('div');
@@ -391,8 +425,8 @@ export const tabViewers = {
     // iframe recarrega na URL nova. A aba e o viewer continuam os mesmos.
     refreshSurferViewer(filePath, pageUrl) {
         const viewer = this.viewerInstances.get(filePath);
-        const iframe = viewer && viewer.querySelector('iframe.surfer-frame');
-        if (!iframe) return;
+        const iframe = viewer && viewer.querySelector<HTMLIFrameElement>('iframe.surfer-frame');
+        if (!viewer || !iframe) return;
         // A onda vai ser lida de novo, entao o veu volta com ela.
         montarVeuDaOnda(viewer, filePath);
         iframe.src = pageUrl;
@@ -402,16 +436,16 @@ export const tabViewers = {
         const viewer = this.viewerInstances.get(filePath);
         if (!viewer) return;
 
-        const iframe = viewer.querySelector('#pdf-frame');
+        const iframe = viewer.querySelector<HTMLIFrameElement>('#pdf-frame');
         if (!iframe) return;
 
         try {
-            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            const iframeDoc = iframe.contentDocument || janelaDe(iframe).document;
             if (iframeDoc) {
                 const state = {
                     scrollTop: iframeDoc.documentElement.scrollTop || iframeDoc.body.scrollTop,
                     scrollLeft: iframeDoc.documentElement.scrollLeft || iframeDoc.body.scrollLeft,
-                    zoom: iframe.contentWindow.PDFViewerApplication?.pdfViewer?.currentScale || 1,
+                    zoom: janelaDe(iframe).PDFViewerApplication?.pdfViewer?.currentScale || 1,
                 };
                 this.pdfViewerStates.set(filePath, state);
             }

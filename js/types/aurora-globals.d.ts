@@ -79,6 +79,10 @@ interface AuroraElectronAPI {
   }): Promise<{ success?: boolean; pageUrl?: string; message?: string } | null | undefined>;
   /** O "salvar" de dentro da aba gravou o estado no projeto. */
   onSurferTabStateSaved?(cb: (dados: { tabId: string; path: string }) => void): void;
+  /** O cliente WASM da aba buscou a onda (surfer-tab:wave-served); tira o veu de carregamento. */
+  onSurferTabWaveServed?(cb: (dados: { tabId?: unknown }) => void): void;
+  /** Os bytes de um arquivo (imagem, PDF), como o Buffer chega pelo IPC. */
+  readFileBuffer(path: string): Promise<Uint8Array>;
   /**
    * Manda um comando para a pagina do PRISM (a simulacao logica interativa).
    * Este e o lado de QUEM PEDE, o renderer principal; os dois abaixo sao o

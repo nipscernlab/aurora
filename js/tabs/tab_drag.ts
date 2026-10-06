@@ -211,7 +211,8 @@ export const tabDrag: ArrasteDasAbas & ThisType<AnfitriaoDoArraste & ArrasteDasA
         });
         observer.observe(tabsContainer, { childList: true });
 
-        // Stored on TabManager so cleanup() can disconnect the observer.
+        // Guardado no TabManager. O cleanup() que o desligava nao tinha
+        // chamador e saiu em 05/10/2026; a barra vive o app inteiro.
         this.tabObserver = observer;
     },
 

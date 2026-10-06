@@ -567,108 +567,6 @@ async def basic_test(dut):
         }
     }
 
-    // Enhanced formatCurrentFile with undo history preservation
-    static async formatCurrentFile() {
-        if (!this.activeTab) {
-            console.warn('No active tab to format');
-            return;
-        }
-
-        const filePath = this.activeTab;
-
-        // Don't format binary files
-        if (this.isBinaryFile(filePath)) {
-            console.warn('Cannot format binary files');
-            return;
-        }
-
-        const editor = EditorManager.getEditorForFile(filePath);
-
-        if (!editor) {
-            console.error('No editor found for active tab');
-            return;
-        }
-
-        // Show loading indicator
-        this.showFormattingIndicator(true);
-
-        try {
-            const originalCode = editor.getValue();
-
-            if (!originalCode.trim()) {
-                console.warn('No code to format');
-                return;
-            }
-
-            // Format the code
-            const formattedCode = await CodeFormatter.formatCode(originalCode, filePath);
-
-            if (formattedCode && formattedCode !== originalCode) {
-                // Create undo stop before formatting
-                editor.pushUndoStop();
-
-                // Store cursor position and selection
-                const position = editor.getPosition();
-                const _selection = editor.getSelection();
-
-                // Update editor content
-                editor.setValue(formattedCode);
-
-                // Create undo stop after formatting to make it undoable
-                editor.pushUndoStop();
-
-                // Try to restore cursor position (approximate)
-                if (position) {
-                    const lineCount = editor.getModel()
-                        .getLineCount();
-                    const restoredPosition = {
-                        lineNumber: Math.min(position.lineNumber, lineCount),
-                        column: Math.min(position.column, editor.getModel()
-                            .getLineLength(Math.min(position.lineNumber, lineCount)) + 1)
-                    };
-                    editor.setPosition(restoredPosition);
-                }
-
-                // Mark file as modified
-                this.markFileAsModified(filePath);
-
-                // Show success feedback
-                if (typeof showCardNotification === 'function') {
-                    showCardNotification('Code formatted successfully', 'success');
-                }
-            } else {
-                if (typeof showCardNotification === 'function') {
-                    showCardNotification('Code is already properly formatted', 'info');
-                }
-            }
-
-        } catch (error) {
-            console.error('Code formatting failed:', error);
-            if (typeof showCardNotification === 'function') {
-                showCardNotification(`Formatting failed: ${error.message}`, 'error');
-            }
-        } finally {
-            // Hide loading indicator
-            this.showFormattingIndicator(false);
-        }
-    }
-
-    static showFormattingIndicator(show) {
-        const broomIcon = document.querySelector('.context-refactor-button');
-        if (!broomIcon) return;
-
-        const tr = (k) => (window.t ? window.t(k) : k);
-        if (show) {
-            broomIcon.classList.add('formatting');
-            broomIcon.title = tr('tabs.formatting');
-        } else {
-            broomIcon.classList.remove('formatting');
-            broomIcon.style.animation = '';
-            broomIcon.title = tr('tabs.formatter');
-        }
-    }
-
-
     // Enhanced updateContextPath method
     static updateContextPath(filePath) {
         const contextContainer = document.getElementById('context-path');
@@ -710,16 +608,6 @@ async def basic_test(dut):
         }
 
         contextContainer.innerHTML = html;
-
-        // Add click listener for formatting (only for text files)
-        if (!this.isBinaryFile(filePath)) {
-            const broomIcon = contextContainer.querySelector('.context-refactor-button');
-            if (broomIcon) {
-                broomIcon.addEventListener('click', async () => {
-                    await TabManager.formatCurrentFile();
-                });
-            }
-        }
     }
 
 
@@ -1549,54 +1437,6 @@ async def basic_test(dut):
         }
     }
 
-    // Enhanced cleanup method
-    static cleanup() {
-        // Save all PDF states before cleanup
-        for (const [filePath, _viewer] of this.viewerInstances.entries()) {
-            if (this.isPdfFile(filePath)) {
-                this.savePdfViewerState(filePath);
-            }
-        }
-
-        for (const id of this.pdfStateIntervals.values()) clearInterval(id);
-        this.pdfStateIntervals.clear();
-        this.viewerInstances.clear();
-        this.pdfViewerStates.clear();
-        this.stopAllWatchers();
-
-        // Disconnect the MutationObserver wired in tab_drag.js so the host
-        // page can GC. Without this the observer holds a live reference to
-        // the tabs container forever (it was set up in initSortableTabs
-        // and stashed on TabManager precisely so cleanup could release it).
-        if (this.tabObserver) {
-            this.tabObserver.disconnect();
-            this.tabObserver = null;
-        }
-    }
-
-    // Handling unsaved changes with dialog
-    static async handleUnsavedChanges(filePath) {
-        const fileName = this.getDisplayName(filePath);
-        const result = await showUnsavedChangesDialog(fileName);
-
-        switch (result) {
-        case 'save':
-            try {
-                const saved = await this.saveFile(filePath);
-                return saved !== false;
-            } catch (error) {
-                console.error('Error saving file:', error);
-                return true; // Continue closing even if save failed
-            }
-        case 'dont-save':
-            this.unsavedChanges.delete(filePath);
-            return true;
-        case 'cancel':
-        default:
-            return false;
-        }
-    }
-
     // Enhanced saveFile method with undo history preservation
     static async saveFile(filePath = null) {
         const currentPath = filePath || this.getEditingFilePath();
@@ -1656,33 +1496,6 @@ async def basic_test(dut):
         return true;
     }
 
-    // Optional: Method to manually create undo stops when needed
-    static createUndoStop(filePath = null) {
-        const currentPath = filePath || this.activeTab;
-        if (!currentPath) return;
-
-        const editor = EditorManager.getEditorForFile(currentPath);
-        if (editor && typeof editor.pushUndoStop === 'function') {
-            editor.pushUndoStop();
-        }
-    }
-
-    // Optional: Method to get undo/redo state information
-    static getUndoRedoState(filePath = null) {
-        const currentPath = filePath || this.activeTab;
-        if (!currentPath) return null;
-
-        const editor = EditorManager.getEditorForFile(currentPath);
-        if (!editor) return null;
-
-        return {
-            canUndo: editor.getModel() ? editor.getModel()
-                .canUndo() : false,
-            canRedo: editor.getModel() ? editor.getModel()
-                .canRedo() : false
-        };
-    }
-
     // Fixed reopenLastClosedTab method
     static async reopenLastClosedTab() {
         if (this.closedTabsStack.length === 0) return;
@@ -1726,41 +1539,6 @@ async def basic_test(dut):
         }
     }
 
-    static updateEditorContent(filePath) {
-        const content = this.tabs.get(filePath); // Obtém o conteúdo da aba ativa
-        if (editor && content !== undefined) {
-            // Atualiza o conteúdo do Monaco Editor
-            editor.setValue(content);
-
-            // Determina a linguagem do arquivo com base na extensão
-            const extension = filePath.split('.')
-                .pop()
-                .toLowerCase();
-            const languageMap = {
-                'js': 'javascript',
-                'jsx': 'javascript',
-                'ts': 'typescript',
-                'tsx': 'typescript',
-                'html': 'html',
-                'css': 'css',
-                'json': 'json',
-                'md': 'markdown',
-                'py': 'python',
-                'c': 'c',
-                'cpp': 'cpp',
-                'h': 'c',
-                'hpp': 'cpp'
-            };
-            const language = languageMap[extension] || 'plaintext';
-
-            // Atualiza o modelo do Monaco Editor com o novo conteúdo e linguagem
-            editor.getModel()
-                ?.dispose();
-            editor.setModel(monaco.editor.createModel(content, language));
-        } else {
-            console.error(`No content found for ${filePath}`);
-        }
-    }
     // Whenever a Monaco editor (main or split) gets keyboard focus, it
     // dispatches `aurora-editor-focused` with the file path it's showing.
     // We use that to keep the tab UI in sync with where the cursor really

@@ -1,5 +1,5 @@
 /**
- * dirac_snippets.js: como se digita a notacao de Dirac.
+ * dirac_snippets.ts: como se digita a notacao de Dirac.
  *
  * O PROBLEMA
  * ----------
@@ -29,6 +29,8 @@
  * de la, para uma mudanca no compilador nao deixar o editor ensinando um
  * simbolo que nao existe mais.
  */
+
+import type * as Monaco from 'monaco-editor';
 
 /** O bra e o ket, na forma que o lexer do yanc reconhece. */
 export const KET_ABRE = '⟨';   // ⟨
@@ -126,10 +128,10 @@ export const SUGESTOES_DIRAC = Object.freeze([
 /**
  * Liga as sugestoes ao editor.
  *
- * @param {any} monaco  o objeto global do Monaco, ja carregado
- * @returns {any} o descartador do provedor, para o teste poder desfazer
+ * @param monaco  o objeto global do Monaco, ja carregado
+ * @returns o descartador do provedor, para o teste poder desfazer
  */
-export function registrarSnippetsDirac(monaco) {
+export function registrarSnippetsDirac(monaco: typeof Monaco | null | undefined): Monaco.IDisposable | null {
   if (!monaco?.languages?.registerCompletionItemProvider) return null;
   const Kind = monaco.languages.CompletionItemKind;
   const Regra = monaco.languages.CompletionItemInsertTextRule;

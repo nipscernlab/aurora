@@ -387,7 +387,7 @@ describe('fechar', () => {
   });
 
   it('PRISM e Surfer: fechar esquece a aba; o Surfer derruba o servidor; o visualizador sai', async () => {
-    TabManager.openSurferWave('C:/p/w.vcd', 'aurora-surfer://w', 'wave:C:/p/w.vcd');
+    TabManager.openSurferWave('C:/p/w.vcd', 'about:blank#w', 'wave:C:/p/w.vcd');
     expect(document.querySelector('.surfer-viewer')).not.toBeNull();
     TabManager.pdfStateIntervals.set('C:/p/w.vcd', setInterval(() => {}, 10000));
     await TabManager.closeTab('C:/p/w.vcd');
@@ -397,7 +397,7 @@ describe('fechar', () => {
     expect(TabManager.pdfStateIntervals.size).toBe(0);
 
     window.electronAPI.surferTabStop = () => { throw new Error('ja caiu'); };
-    TabManager.openSurferWave('C:/p/w.vcd', 'u', 't');
+    TabManager.openSurferWave('C:/p/w.vcd', 'about:blank#u', 't');
     await TabManager.closeTab('C:/p/w.vcd');
     window.electronAPI.surferTabStop = m.ponte.surferTabStop;
 
@@ -579,14 +579,14 @@ describe('reabrir', () => {
 
 describe('PRISM e Surfer', () => {
   it('Surfer: abre com o logo e o visualizador; reabrir troca a url e traz para a frente', () => {
-    TabManager.openSurferWave('C:/p/w.vcd', 'u1', 't1');
+    TabManager.openSurferWave('C:/p/w.vcd', 'about:blank#1', 't1');
     const aba = abaDe('C:/p/w.vcd');
     expect(aba.querySelector('img.tab-logo').getAttribute('src')).toBe('./assets/icons/Surfer_logo.svg');
     expect(TabManager.isEmbeddedView('C:/p/w.vcd')).toBe(true);
     const recarregar = vi.spyOn(TabManager, 'refreshSurferViewer');
-    TabManager.openSurferWave('C:/p/w.vcd', 'u2', 't2');
-    expect(recarregar).toHaveBeenCalledWith('C:/p/w.vcd', 'u2');
-    expect(TabManager.surferViews.get('C:/p/w.vcd')).toEqual({ tabId: 't2', pageUrl: 'u2' });
+    TabManager.openSurferWave('C:/p/w.vcd', 'about:blank#2', 't2');
+    expect(recarregar).toHaveBeenCalledWith('C:/p/w.vcd', 'about:blank#2');
+    expect(TabManager.surferViews.get('C:/p/w.vcd')).toEqual({ tabId: 't2', pageUrl: 'about:blank#2' });
   });
 
   it('PRISM: a pagina num webview, com o resultado entregue no dom-ready e a cada recompilacao', async () => {

@@ -179,7 +179,13 @@ interface AuroraElectronAPI {
   runLogGravar?(projeto: string, exec: import('../compilation/run_log.js').Execucao): Promise<unknown>;
   runLogListar?(projeto: string): Promise<{ execucoes?: import('../compilation/run_log.js').ResumoDeExecucao[] } | null>;
   runLogLer?(projeto: string | null | undefined, id: string | null): Promise<{ ok: boolean; execucao: import('../compilation/run_history.js').ExecucaoGravada } | null>;
-  onFileChanged?(cb: (filePath: string) => void): void;
+  onFileChanged(cb: (filePath: string) => void): void;
+  /** O vigia de um arquivo caiu no main (canal file-watcher-error). */
+  onFileWatcherError(cb: (filePath: string, error: unknown) => void): void;
+  /** Vigia um arquivo no main (chokidar); devolve o id do vigia. */
+  watchFile(filePath: string): Promise<string | null>;
+  /** Para o vigia pelo id (ou pelo caminho). */
+  stopWatchingFile(watcherIdOrPath: string): Promise<unknown>;
   componentesListar?(): Promise<{ componentes?: Array<{ nome: string; instalado: boolean; requerParaCompilar?: boolean; downloadMB: number }> } | null>;
   prismCompileWithPaths(paths: unknown): Promise<{ success: boolean; message?: string; [k: string]: unknown }>;
   cancelVvpProcess(): Promise<{ success?: boolean } | null>;

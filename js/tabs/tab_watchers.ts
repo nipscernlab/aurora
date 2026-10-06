@@ -16,10 +16,50 @@
 import { electronAPI } from '../app/electron_api.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showDialog } from '../ui/dialog_manager.js';
+import type * as Monaco from 'monaco-editor';
 
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+type Editor = Monaco.editor.IStandaloneCodeEditor;
 
-export const tabWatchers = {
+/** O que o vigia le e escreve no TabManager, que o recebe por Object.assign. */
+interface AnfitriaoDoVigia {
+    tabs: Map<string, unknown>;
+    fileWatchers: Map<string, string | null>;
+    lastModifiedTimes: Map<string, number>;
+    externalChangeQueue: Set<string>;
+    unsavedChanges: Set<string>;
+    periodicCheckInterval: ReturnType<typeof setInterval> | null;
+    isCheckingFiles: boolean;
+    _fileCheckFocusBound?: boolean;
+    isUntitledPath?(filePath: string): boolean;
+    isEmbeddedView?(filePath: string): boolean;
+    markFileAsSaved(filePath: string): void;
+    saveFile(filePath: string): Promise<unknown>;
+}
+
+/** Os metodos deste mixin. */
+export interface VigiaDasAbas {
+    startPeriodicFileCheck(): void;
+    stopPeriodicFileCheck(): void;
+    checkAllOpenFilesForChanges(): Promise<void>;
+    checkSingleFileForChanges(filePath: string): Promise<void>;
+    initFileChangeListeners(): void;
+    restartFileWatcher(filePath: string): Promise<void>;
+    startWatchingFile(filePath: string): Promise<void>;
+    stopWatchingFile(filePath: string): Promise<void>;
+    stopAllWatchers(): void;
+    handleExternalFileChange(filePath: string): Promise<void>;
+    updateTabWithExternalContent(filePath: string, newContent: string, editor: Editor): Promise<void>;
+    showFileConflictDialog(filePath: string, diskContent?: string, editorContent?: string): Promise<string>;
+    handleConflictResolution(filePath: string, resolution: string, diskContent: string, editorContent?: string): Promise<void>;
+    showExternalChangeNotification(filePath: string, action: string): void;
+}
+
+/** O que o stat do main devolve; nulo ou sem data lanca adiante, dentro do try de quem chama. */
+type Stat = { mtime: number };
+
+const tr = (k: string, p?: Record<string, unknown>) => (window.t ? window.t(k, p) : k);
+
+export const tabWatchers: VigiaDasAbas & ThisType<AnfitriaoDoVigia & VigiaDasAbas> = {
     // -- Periodic poll --------------------------------------------------------
 
     startPeriodicFileCheck() {
@@ -90,7 +130,7 @@ export const tabWatchers = {
             // ronda dava stat em "prism:\PRISM" e enchia o log de ENOENT.
             if (this.isEmbeddedView?.(filePath)) return;
 
-            const stats = await electronAPI.getFileStats(filePath);
+            const stats = await electronAPI.getFileStats(filePath) as Stat;
             const lastKnownTime = this.lastModifiedTimes.get(filePath);
 
             if (!lastKnownTime || stats.mtime > lastKnownTime) {
@@ -99,7 +139,8 @@ export const tabWatchers = {
         } catch (error) {
             // ENOENT = file deleted while we held a tab on it. Don't yank the
             // tab, the user might still want to save back to that path.
-            if (error.message.includes('ENOENT') || error.message.includes('no such file')) {
+            const msg = (error as Error).message;
+            if (msg.includes('ENOENT') || msg.includes('no such file')) {
                 this.stopWatchingFile(filePath);
             } else {
                 console.error(`Error checking file ${filePath}:`, error);
@@ -139,7 +180,7 @@ export const tabWatchers = {
         if (this.fileWatchers.has(filePath)) return;
 
         try {
-            const stats = await electronAPI.getFileStats(filePath);
+            const stats = await electronAPI.getFileStats(filePath) as Stat;
             this.lastModifiedTimes.set(filePath, stats.mtime);
 
             const watcherId = await electronAPI.watchFile(filePath);
@@ -179,7 +220,7 @@ export const tabWatchers = {
         this.externalChangeQueue.add(filePath);
 
         try {
-            const stats = await electronAPI.getFileStats(filePath);
+            const stats = await electronAPI.getFileStats(filePath) as Stat;
             const lastKnownTime = this.lastModifiedTimes.get(filePath);
 
             // 1s tolerance for clock skew between filesystem and process.
@@ -232,11 +273,12 @@ export const tabWatchers = {
             return;
         }
 
-        const position = editor.getPosition();
+        // Sem posicao, o acesso lanca no try abaixo e o cursor volta ao inicio.
+        const position = editor.getPosition() as Monaco.Position;
         const scrollTop = editor.getScrollTop();
 
         // Use pushEditOperations (not setValue) so the swap is undoable.
-        const model = editor.getModel();
+        const model = editor.getModel() as Monaco.editor.ITextModel;
         const fullRange = model.getFullModelRange();
         model.pushEditOperations(
             [],

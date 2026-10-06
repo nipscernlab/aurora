@@ -2075,12 +2075,12 @@ sai quando ela acabar.
 `ai_assistant_manager` (02/10, 3679 linhas `.js` para 543 `.ts` e 21 módulos
 em `js/ai/`) e `aurora_api` (03-04/10, de 1158 linhas `.js` para 125 `.ts`
 que só montam a API; detalhe no 13.3). Em 05/10 o `main/ipc/project` e o
-`project_tree_actions` viraram `.ts` e o defeito do `.spf` que perdia o
-processador foi corrigido (item abaixo). Próximo, pela medição de 03/10
-(commits em 60 dias e quantos módulos importam): `js/tabs/tab_manager.js`
-(1986 linhas, 23 importadores), depois `js/editor/monaco_editor.js` (1685) e
-`js/editor/split_editor.js`, e o `js/git/git_panel.js` (2105) por último,
-porque só um módulo o importa. O método que funcionou: teste de
+`project_tree_actions` viraram `.ts`, o defeito do `.spf` que perdia o
+processador foi corrigido (item abaixo), e o `tab_manager` foi dividido e
+convertido: a pasta `js/tabs` ficou sem `.js` (detalhe no 13.3). Próximo, pela
+medição de 03/10 (commits em 60 dias e quantos módulos importam):
+`js/editor/monaco_editor.js` (1685) e `js/editor/split_editor.js`, e o
+`js/git/git_panel.js` (2105) por último, porque só um módulo o importa. O método que funcionou: teste de
 caracterização entrando pelo que a pessoa e os outros módulos chamam, sem
 espião de método da instância, rodado no `.js` antigo; extração por
 responsabilidade, com o painel como contexto; E2E com
@@ -2093,7 +2093,8 @@ alcançado; um item `null` numa conversa gravada quebra o envio seguinte; o
 `askUserQuestion` do `aurora_api` confere um `null` que não chega; o
 `capture-media` deixa pastas no temp quando nenhum quadro é capturado ou o
 Electron não abre (14.1). Instabilidades com nome: `componentesIpc > saida
-com erro` e, sob carga, `edit-flow > clicking a .v file...` e `split-pane >
+com erro` e, sob carga, `modal-drag-region > ...` (05/10: 1 vez em 2 com a
+suíte inteira, 5 verdes em 5 sozinho), `edit-flow > clicking a .v file...` e `split-pane >
 opens tree file...` (13.3).
 
 O diagnóstico, medido e não suposto. O emaranhado não está nos `import`: o
@@ -2372,6 +2373,30 @@ A cadeia, nesta ordem:
         focused split pane` estouram a espera de 15 s pela aba (o mesmo commit
         deu 4 verdes seguidas depois, e o painel de IA nem monta nesses
         testes). O `fetcherTimeout` dependia da rede e foi corrigido.
+      - [x] `tab_manager` (05/10): de 1986 linhas `.js` para cerca de 820
+        `.ts`, com o estado e o núcleo (abrir, ativar, suja e salva, véu e
+        foco). Antes, os quatro vizinhos viraram `.ts` com caracterização no
+        `.js` antigo (`untitled_docs`, `tab_watchers`, `tab_drag`,
+        `tab_viewers`), e 330 linhas mortas saíram (sem chamador ou
+        inalcançáveis, como o `formatCurrentFile`, que dependia de um botão que
+        nenhum HTML monta e de uma global `CodeFormatter` que ninguém define).
+        Saíram cinco mixins no formato que a pasta já usava, cada um com o
+        contrato e o que lê da classe: `dialogo_nao_salvo`, `abas_embutidas`
+        (Surfer e PRISM), `salvar_abas`, `documento_sem_nome` e `fechar_abas`.
+        A classe declara (`declare static`) o que recebe deles, e uma
+        verificação no fim do arquivo faz o compilador conferir que ela cumpre
+        o anfitrião de cada mixin. Caracterização: `tabManagerAbas` e
+        `tabManagerSalvar` (66 casos, 100% das linhas, sobre o mundo falso de
+        `tests/helpers/abasFalsas.js`), entrando pela classe, verdes antes e
+        depois da divisão.
+
+        Achados, abertos e registrados nos testes: a aba reaberta pelo painel
+        principal nunca recebe o texto guardado, porque o editor nasce depois
+        de um `await` dentro do `addTab` e a conferência vem antes (efeito
+        pequeno: o guardado é o último salvo); e, quando o arquivo salvo de um
+        sem nome já estava aberto só num painel dividido, a troca o põe no mapa
+        de abas do painel principal sem aba no DOM, e o `activeTab` fica no sem
+        nome que já saiu.
       - [ ] E2E instável: `shell-terminal > navigates folders (cd persists,
         prompt updates)` falhou 1 vez em 4 em 25/09, sem relação com a
         mudança do momento (o repetidor deu 3 verdes seguidas). De novo em

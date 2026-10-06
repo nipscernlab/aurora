@@ -1630,23 +1630,6 @@ Object.assign(TabManager, tabViewers, tabDrag, tabWatchers);
 // Call initialization when the script loads
 TabManager.initialize();
 
-// Atualizar a função de inicialização do contexto
-// (currently disabled, see commented call below)
-// eslint-disable-next-line no-unused-vars
-function initContextPath() {
-    const _editorContainer = document.getElementById('monaco-editor')
-        .parentElement;
-    const contextContainer = document.createElement('div');
-    contextContainer.id = 'context-path';
-    contextContainer.className = 'context-path-container empty';
-
-    // Inserir após o container de tabs
-    const tabsContainer = document.getElementById('editor-tabs');
-    if (tabsContainer) {
-        tabsContainer.after(contextContainer);
-    }
-}
-
 window.addEventListener('beforeunload', () => {
     TabManager.stopAllWatchers();
 });
@@ -1661,17 +1644,6 @@ function initTabs() {
 
     tabsContainer.id = 'editor-tabs';
     editorContainer.insertBefore(tabsContainer, editorContainer.firstChild);
-
-
-    if (!document.getElementById('editor-tabs')) {
-        const tabsContainer = document.createElement('div');
-        tabsContainer.id = 'editor-tabs';
-        editorContainer.insertBefore(tabsContainer, editorContainer.firstChild);
-    }
-
-    // if (!document.getElementById('context-path')) {
-    //     initContextPath();  // temporarily disabled, context-path bar hidden
-    // }
 }
 
 window.addEventListener('load', () => {

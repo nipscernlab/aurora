@@ -50,7 +50,7 @@ export function syncCmmcompEnabled(): void {
  * clicar agora. Sem fonte em foco o simbolo fica como estava, para o botao
  * nao piscar entre dois desenhos a cada clique numa aba qualquer.
  */
-function sincronizarGlifoDaLinguagem(path: string | undefined): void {
+function sincronizarGlifoDaLinguagem(path: string | null | undefined): void {
   if (!isProcessorSourcePath(path)) return;
   const lang = resolveProcessorLanguage({ name: '', sourceFile: String(path).split(/[\\/]/).pop() });
   setDrawnGlyphLanguage(document, lang);

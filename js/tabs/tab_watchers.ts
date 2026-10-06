@@ -21,7 +21,7 @@ import type * as Monaco from 'monaco-editor';
 type Editor = Monaco.editor.IStandaloneCodeEditor;
 
 /** O que o vigia le e escreve no TabManager, que o recebe por Object.assign. */
-interface AnfitriaoDoVigia {
+export interface AnfitriaoDoVigia {
     tabs: Map<string, unknown>;
     fileWatchers: Map<string, string | null>;
     lastModifiedTimes: Map<string, number>;

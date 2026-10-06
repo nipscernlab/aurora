@@ -1,55 +1,168 @@
+/**
+ * tab_manager.ts: as abas do painel principal do editor.
+ *
+ * O TabManager e uma classe so de estaticos, um por app. Aqui ficam o estado
+ * (as abas abertas, a ativa, a previa, as sujas) e o nucleo: abrir, ativar,
+ * marcar suja ou salva, o veu de boas-vindas e o foco do editor. O resto mora
+ * em mixins da mesma pasta, instalados por Object.assign no fim do arquivo e
+ * declarados na classe (`declare static`) para quem chama ter o tipo:
+ *
+ *   tab_viewers        imagem, PDF e o visualizador do Surfer
+ *   tab_drag           arrastar para reordenar, e a ordem guardada
+ *   tab_watchers       o vigia do disco e o conflito com mudanca de fora
+ *   abas_embutidas     as abas do Surfer e do PRISM
+ *   salvar_abas        salvar um, o em edicao, ou todos
+ *   documento_sem_nome o Untitled-N, o atalho $cmm e o arquivo novo pelo dialogo
+ *   fechar_abas        fechar, a previa, fechar todas, reabrir
+ *
+ * Dividido em 05/10/2026; ate entao era um tab_manager.js de 1986 linhas.
+ */
+
 import '../components/aurora-tabs.js';
 import { EditorManager } from '../editor/monaco_editor.js';
-import { tabViewers } from './tab_viewers.js';
-import { tabDrag } from './tab_drag.js';
-import { tabWatchers } from './tab_watchers.js';
-import { abasEmbutidas } from './abas_embutidas.js';
-import { salvarAbas } from './salvar_abas.js';
-import { documentoSemNome } from './documento_sem_nome.js';
-import { fecharAbas } from './fechar_abas.js';
+import type * as Monaco from 'monaco-editor';
+import { tabViewers, type VisualizadoresDasAbas } from './tab_viewers.js';
+import { tabDrag, type ArrasteDasAbas } from './tab_drag.js';
+import { tabWatchers, type VigiaDasAbas } from './tab_watchers.js';
+import { abasEmbutidas, type AbasEmbutidas } from './abas_embutidas.js';
+import { salvarAbas, type SalvarAbas } from './salvar_abas.js';
+import { documentoSemNome, type DocumentoSemNome } from './documento_sem_nome.js';
+import { fecharAbas, type FecharAbas } from './fechar_abas.js';
 import { isImageFile, isPdfFile, isBinaryFile, getFileIcon } from './tab_utils.js';
-import { isUntitled, untitledDisplayName } from './untitled_docs.js';
+import { isUntitled, untitledDisplayName, type UntitledDocument } from './untitled_docs.js';
 import { showUnsavedChangesDialog } from './dialogo_nao_salvo.js';
+import type { AnfitriaoDosVisualizadores } from './tab_viewers.js';
+import type { AnfitriaoDoArraste } from './tab_drag.js';
+import type { AnfitriaoDoVigia } from './tab_watchers.js';
+import type { AnfitriaoDasEmbutidas } from './abas_embutidas.js';
+import type { AnfitriaoDoSalvar } from './salvar_abas.js';
+import type { AnfitriaoDoSemNome } from './documento_sem_nome.js';
+import type { AnfitriaoDoFechar } from './fechar_abas.js';
+
+/** O que se pode pedir ao abrir uma aba. */
+export interface OpcoesDeAba {
+    /** Aba de previa (italico), que a proxima previa substitui. */
+    preview?: boolean;
+    /** Ja veio do SplitEditorManager: nao reenviar para o painel em foco. */
+    _fromSplit?: boolean;
+    /** Ir a esta linha quando o editor existir. */
+    revealPosition?: { line?: number, column?: number };
+    /** Cursor, selecao e rolagem de um editor fechado e reaberto no mesmo gesto. */
+    viewState?: unknown;
+}
+
+type Editor = Monaco.editor.IStandaloneCodeEditor & { __auroraContentDisposable?: Monaco.IDisposable };
 
 // O split_editor importa a pergunta daqui; ela mora em dialogo_nao_salvo.ts.
 export { showUnsavedChangesDialog };
 
 export class TabManager {
-    static tabs = new Map();
-    static activeTab = null;
-    static previewTab = null; // path of current preview (italic) tab, or null
-    static editorStates = new Map();
-    static unsavedChanges = new Set();
-    static closedTabsStack = [];
-    static fileWatchers = new Map();
-    static lastModifiedTimes = new Map();
-    static externalChangeQueue = new Set();
-    static periodicCheckInterval = null;
+    static tabs = new Map<string, string>();
+    static activeTab: string | null = null;
+    static previewTab: string | null = null; // path of current preview (italic) tab, or null
+    static editorStates = new Map<string, unknown>();
+    static unsavedChanges = new Set<string>();
+    static closedTabsStack: Array<{ filePath: string, content: string, timestamp: number }> = [];
+    static fileWatchers = new Map<string, string | null>();
+    static lastModifiedTimes = new Map<string, number>();
+    static externalChangeQueue = new Set<string>();
+    static periodicCheckInterval: ReturnType<typeof setInterval> | null = null;
     static isCheckingFiles = false;
-    static viewerInstances = new Map();
+    static viewerInstances = new Map<string, HTMLElement>();
 
     // Abas do Surfer: caminho da onda → { tabId, pageUrl }. O tabId amarra o
     // servidor headless no main (surfer-tab:serve/stop); fechar a aba derruba
     // o servidor. Registrado por openSurferWave ANTES do addTab, porque o
     // roteamento (isSurferView) e consultado dentro do proprio addTab.
-    static surferViews = new Map();
+    static surferViews = new Map<string, { tabId: string, pageUrl: string }>();
     // A aba do PRISM: uma so, na chave PRISM_TAB. Guarda o ultimo resultado
     // de compilacao para entregar a pagina quando o <webview> ficar pronto, e
     // de novo a cada recompilacao vinda da toolbar.
-    static prismViews = new Map();
-    static pdfViewerStates = new Map();
+    static prismViews = new Map<string, { result: unknown }>();
+    static pdfViewerStates = new Map<string, { scrollTop: number, scrollLeft: number, zoom: number }>();
     static untitledCounter = 0;
-    static untitledDocuments = new Map();
-    static applyingSnippet = new Set();
+    static untitledDocuments = new Map<string, UntitledDocument>();
+    static applyingSnippet = new Set<string>();
     // filePath -> setInterval id for the PDF state-tracking poll. Tracked so
     // closing a PDF tab can clear it; otherwise each opened PDF left a 2s
     // interval running forever against a detached iframe.
-    static pdfStateIntervals = new Map();
+    static pdfStateIntervals = new Map<string, ReturnType<typeof setInterval>>();
     // Optional delegate for the welcome-overlay decision. SplitEditorManager
     // registers one so the overlay reflects ALL panes (main + splits), not
     // just the main pane. When null, show/hideOverlay do the plain toggle.
     // (Replaces an older monkey-patch that reassigned show/hideOverlay.)
-    static overlayDelegate = null;
+    static overlayDelegate: (() => void) | null = null;
+
+    // Guardas de "ja liguei" e o observador da barra (tab_drag).
+    static _initialized?: boolean;
+    static _editorFocusBound?: boolean;
+    static _fileCheckFocusBound?: boolean;
+    static tabObserver?: MutationObserver | null;
+
+    // ---- o que os mixins instalam (Object.assign no fim do arquivo) ----
+    declare static createImageViewer: VisualizadoresDasAbas['createImageViewer'];
+    declare static loadImageFile: VisualizadoresDasAbas['loadImageFile'];
+    declare static createPdfViewer: VisualizadoresDasAbas['createPdfViewer'];
+    declare static loadPdfFile: VisualizadoresDasAbas['loadPdfFile'];
+    declare static setupPdfStateTracking: VisualizadoresDasAbas['setupPdfStateTracking'];
+    declare static restorePdfViewerState: VisualizadoresDasAbas['restorePdfViewerState'];
+    declare static createSurferViewer: VisualizadoresDasAbas['createSurferViewer'];
+    declare static refreshSurferViewer: VisualizadoresDasAbas['refreshSurferViewer'];
+    declare static savePdfViewerState: VisualizadoresDasAbas['savePdfViewerState'];
+
+    declare static initSortableTabs: ArrasteDasAbas['initSortableTabs'];
+    declare static getDragAfterElement: ArrasteDasAbas['getDragAfterElement'];
+    declare static getTabOrder: ArrasteDasAbas['getTabOrder'];
+    declare static saveTabOrder: ArrasteDasAbas['saveTabOrder'];
+    declare static restoreTabOrder: ArrasteDasAbas['restoreTabOrder'];
+
+    declare static startPeriodicFileCheck: VigiaDasAbas['startPeriodicFileCheck'];
+    declare static stopPeriodicFileCheck: VigiaDasAbas['stopPeriodicFileCheck'];
+    declare static checkAllOpenFilesForChanges: VigiaDasAbas['checkAllOpenFilesForChanges'];
+    declare static checkSingleFileForChanges: VigiaDasAbas['checkSingleFileForChanges'];
+    declare static initFileChangeListeners: VigiaDasAbas['initFileChangeListeners'];
+    declare static restartFileWatcher: VigiaDasAbas['restartFileWatcher'];
+    declare static startWatchingFile: VigiaDasAbas['startWatchingFile'];
+    declare static stopWatchingFile: VigiaDasAbas['stopWatchingFile'];
+    declare static stopAllWatchers: VigiaDasAbas['stopAllWatchers'];
+    declare static handleExternalFileChange: VigiaDasAbas['handleExternalFileChange'];
+    declare static updateTabWithExternalContent: VigiaDasAbas['updateTabWithExternalContent'];
+    declare static showFileConflictDialog: VigiaDasAbas['showFileConflictDialog'];
+    declare static handleConflictResolution: VigiaDasAbas['handleConflictResolution'];
+    declare static showExternalChangeNotification: VigiaDasAbas['showExternalChangeNotification'];
+
+    declare static isSurferView: AbasEmbutidas['isSurferView'];
+    declare static isPrismView: AbasEmbutidas['isPrismView'];
+    declare static isEmbeddedView: AbasEmbutidas['isEmbeddedView'];
+    declare static openSurferWave: AbasEmbutidas['openSurferWave'];
+    declare static openPrismTab: AbasEmbutidas['openPrismTab'];
+    declare static createPrismViewer: AbasEmbutidas['createPrismViewer'];
+    declare static refreshPrismViewer: AbasEmbutidas['refreshPrismViewer'];
+
+    declare static saveCurrentFile: SalvarAbas['saveCurrentFile'];
+    declare static saveAllFiles: SalvarAbas['saveAllFiles'];
+    declare static saveFile: SalvarAbas['saveFile'];
+
+    declare static createNewFile: DocumentoSemNome['createNewFile'];
+    declare static updateUntitledDocumentType: DocumentoSemNome['updateUntitledDocumentType'];
+    declare static expandUntitledSnippet: DocumentoSemNome['expandUntitledSnippet'];
+    declare static updateUntitledTabPresentation: DocumentoSemNome['updateUntitledTabPresentation'];
+    declare static confirmOverwrite: DocumentoSemNome['confirmOverwrite'];
+    declare static getProcessorCmmTarget: DocumentoSemNome['getProcessorCmmTarget'];
+    declare static choosePathForUntitledFile: DocumentoSemNome['choosePathForUntitledFile'];
+    declare static registerSavedProjectFile: DocumentoSemNome['registerSavedProjectFile'];
+    declare static registerProcessor: DocumentoSemNome['registerProcessor'];
+    declare static saveCmmProcessorFile: DocumentoSemNome['saveCmmProcessorFile'];
+    declare static replaceUntitledWithSavedFile: DocumentoSemNome['replaceUntitledWithSavedFile'];
+    declare static saveUntitledFile: DocumentoSemNome['saveUntitledFile'];
+    declare static initialContentForType: DocumentoSemNome['initialContentForType'];
+    declare static createNewFileFromDialog: DocumentoSemNome['createNewFileFromDialog'];
+
+    declare static closeAllTabs: FecharAbas['closeAllTabs'];
+    declare static getInstanceCount: FecharAbas['getInstanceCount'];
+    declare static _closePreviewSilently: FecharAbas['_closePreviewSilently'];
+    declare static closeTab: FecharAbas['closeTab'];
+    declare static reopenLastClosedTab: FecharAbas['reopenLastClosedTab'];
 
     static hideOverlay() {
         if (TabManager.overlayDelegate) { TabManager.overlayDelegate(); return; }
@@ -80,36 +193,35 @@ export class TabManager {
         }
     }
 
-    // Pure untitled metadata logic lives in untitled_docs.js; the state (the
+    // Pure untitled metadata logic lives in untitled_docs.ts; the state (the
     // untitledDocuments Map + untitledCounter) stays owned here, so these are
-    // thin delegators. Their monaco/DOM-heavy siblings (updateUntitledDocumentType,
-    // expandUntitledSnippet, updateUntitledTabPresentation) stay full in the class.
-    static isUntitledPath(filePath) {
+    // thin delegators. O resto do documento sem nome mora em documento_sem_nome.ts.
+    static isUntitledPath(filePath: string) {
         return isUntitled(this.untitledDocuments, filePath);
     }
 
-    static getDisplayName(filePath) {
+    static getDisplayName(filePath: string) {
         return untitledDisplayName(this.untitledDocuments, filePath);
     }
 
     // File-type detection, pure logic lives in tab_utils.js. These stay as
     // static delegators because they're called ~20× internally as this.X
     // (the bare calls below resolve to the tab_utils imports, not recursion).
-    static isImageFile(filePath) {
+    static isImageFile(filePath: string) {
         return isImageFile(filePath);
     }
 
-    static isPdfFile(filePath) {
+    static isPdfFile(filePath: string) {
         return isPdfFile(filePath);
     }
 
-    static isBinaryFile(filePath) {
+    static isBinaryFile(filePath: string) {
         return isBinaryFile(filePath);
     }
 
 
     // Enhanced updateContextPath method
-    static updateContextPath(filePath) {
+    static updateContextPath(filePath: string | null) {
         const contextContainer = document.getElementById('context-path');
         if (!contextContainer) return;
 
@@ -160,14 +272,14 @@ export class TabManager {
     // both `.tab` (main) and `.tab.split-tab` (splits) because both share
     // the base class. VS Code-equivalent behaviour: edit in any pane, every
     // instance shows the dirty dot.
-    static markFileAsModified(filePath) {
+    static markFileAsModified(filePath: string | null | undefined) {
         if (!filePath) return;
 
         this.unsavedChanges.add(filePath);
         document
             .querySelectorAll(`.tab[data-path="${CSS.escape(filePath)}"]`)
             .forEach((tab) => {
-                const closeButton = tab.querySelector('.close-tab');
+                const closeButton = tab.querySelector<HTMLElement>('.close-tab');
                 if (closeButton) {
                     closeButton.innerHTML = '•';
                     closeButton.style.color = '#ffd700';
@@ -178,14 +290,14 @@ export class TabManager {
 
     // Improved method to mark files as saved. Mirror of markFileAsModified
     //, every instance of the file (main + splits) drops the dirty dot.
-    static markFileAsSaved(filePath) {
+    static markFileAsSaved(filePath: string | null | undefined) {
         if (!filePath) return;
 
         this.unsavedChanges.delete(filePath);
         document
             .querySelectorAll(`.tab[data-path="${CSS.escape(filePath)}"]`)
             .forEach((tab) => {
-                const closeButton = tab.querySelector('.close-tab');
+                const closeButton = tab.querySelector<HTMLElement>('.close-tab');
                 if (closeButton) {
                     closeButton.innerHTML = '×';
                     closeButton.style.color = '';
@@ -201,12 +313,12 @@ export class TabManager {
     // getFileIcon, Phosphor icon class for a filename. Pure logic in
     // tab_utils.js; this static delegator preserves the 4 external callers
     // (file tree, project tree, split editor, hierarchy view).
-    static getFileIcon(filename) {
+    static getFileIcon(filename: string) {
         return getFileIcon(filename);
     }
 
     // Promote preview tab to permanent (remove italic, keep tab)
-    static promotePreviewToPermanent(filePath) {
+    static promotePreviewToPermanent(filePath: string) {
         if (this.previewTab !== filePath) return;
         this.previewTab = null;
         const tab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
@@ -218,7 +330,7 @@ export class TabManager {
 
     // Enhanced addTab method with binary file support
     // options: { preview: false } , preview=true opens as italic preview tab (VS Code style)
-    static addTab(filePath, content = null, options = {}) {
+    static addTab(filePath: string, content: string | null = null, options: OpcoesDeAba = {}) {
         // A new tab always lands in the focused split when one is focused, the
         // "open in the focused split, necessarily" rule, no matter which open
         // path (tree click, import, AI) called addTab. Safe from recursion:
@@ -226,7 +338,7 @@ export class TabManager {
         // (focusedPane 0), which this guard doesn't re-route, and pane.openFile
         // manages its own editors without calling back here.
         const sem = window.SplitEditorManager;
-        if (sem && sem.focusedPane > 0 && !options._fromSplit) {
+        if (sem && (sem.focusedPane ?? 0) > 0 && !options._fromSplit) {
             sem.openInFocusedPane(filePath, content ?? '', options);
             return;
         }
@@ -309,7 +421,8 @@ export class TabManager {
             this.promotePreviewToPermanent(filePath);
             this.activateTab(filePath);
         });
-        const closeBtn = tab.querySelector('.close-tab');
+        // O molde acima tem o botao.
+        const closeBtn = tab.querySelector('.close-tab') as HTMLElement;
         closeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.closeTab(filePath);
@@ -398,7 +511,7 @@ export class TabManager {
                         // pedido de ir a outro lugar.
                         requestAnimationFrame(() => {
                             editor.layout();
-                            try { editor.restoreViewState(options.viewState); }
+                            try { editor.restoreViewState(options.viewState as Monaco.editor.ICodeEditorViewState); }
                             catch (_) { /* estado de outra versão do Monaco */ }
                         });
                     }
@@ -415,7 +528,7 @@ export class TabManager {
 
 
     // Enhanced activateTab with better viewer management
-    static activateTab(filePath) {
+    static activateTab(filePath: string) {
         // Only the MAIN pane's tab bar, split panes own their .split-tab active
         // state (SplitEditorManager._activateFile). Querying all `.tab` here used
         // to strip the active class off split tabs, so a split's tab stopped
@@ -440,7 +553,8 @@ export class TabManager {
             // Update context path
             this.updateContextPath(filePath);
 
-            const editorContainer = document.getElementById('monaco-editor');
+            // O container do editor faz parte do index.html; sem ele o acesso lanca, como antes.
+        const editorContainer = document.getElementById('monaco-editor') as HTMLElement;
             this.hideOverlay();
 
             // Handle binary files
@@ -451,14 +565,14 @@ export class TabManager {
                 }
 
                 // Hide ALL editor instances
-                const editorInstances = editorContainer.querySelectorAll('.editor-instance');
+                const editorInstances = editorContainer.querySelectorAll<HTMLElement>('.editor-instance');
                 editorInstances.forEach(el => {
                     el.style.display = 'none';
                     el.classList.remove('active');
                 });
 
                 // Hide all viewers first
-                const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer, .surfer-viewer, .prism-viewer');
+                const allViewers = editorContainer.querySelectorAll<HTMLElement>('.image-viewer, .pdf-viewer, .surfer-viewer, .prism-viewer');
                 allViewers.forEach(viewer => {
                     viewer.style.display = 'none';
                 });
@@ -467,13 +581,13 @@ export class TabManager {
                 let viewer = this.viewerInstances.get(filePath);
                 if (!viewer) {
                     if (this.isSurferView(filePath)) {
-                        viewer = this.createSurferViewer(filePath, this.surferViews.get(filePath).pageUrl);
+                        viewer = this.createSurferViewer(filePath, (this.surferViews.get(filePath) as { pageUrl: string }).pageUrl);
                     } else if (this.isPrismView(filePath)) {
                         viewer = this.createPrismViewer(filePath);
                     } else if (this.isImageFile(filePath)) {
-                        viewer = this.createImageViewer(filePath, editorContainer);
+                        viewer = this.createImageViewer(filePath);
                     } else if (this.isPdfFile(filePath)) {
-                        viewer = this.createPdfViewer(filePath, editorContainer);
+                        viewer = this.createPdfViewer(filePath);
                     }
                 }
 
@@ -494,13 +608,13 @@ export class TabManager {
 
             } else {
                 // Hide all viewers for text files
-                const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer, .surfer-viewer, .prism-viewer');
+                const allViewers = editorContainer.querySelectorAll<HTMLElement>('.image-viewer, .pdf-viewer, .surfer-viewer, .prism-viewer');
                 allViewers.forEach(viewer => {
                     viewer.style.display = 'none';
                 });
 
                 // Show and activate the appropriate editor instance
-                const editorInstances = editorContainer.querySelectorAll('.editor-instance');
+                const editorInstances = editorContainer.querySelectorAll<HTMLElement>('.editor-instance');
                 editorInstances.forEach(el => {
                     if (el.dataset.filePath === filePath) {
                         el.style.display = 'block';
@@ -518,7 +632,7 @@ export class TabManager {
     // Resolve "the file the user is currently editing", main pane uses
     // TabManager.activeTab, splits override with their own focused file.
     // Falls back to the main active tab if no split is focused.
-    static getEditingFilePath() {
+    static getEditingFilePath(): string | null {
         const split = window.SplitEditorManager;
         if (split && typeof split.getFocusedFile === 'function') {
             const focused = split.getFocusedFile();
@@ -535,7 +649,7 @@ export class TabManager {
     // shares the same model correctly clears/sets dirty here too, and
     // undoing all the way back to the saved state crosses the snapshot
     // and clears the dot, exactly like VS Code.
-    static setupContentChangeListener(filePath, editor) {
+    static setupContentChangeListener(filePath: string, editor: Editor) {
         // Idempotent guard. createEditorInstance returns the SAME editor on
         // reopen, and addTab re-calls this, so without the guard every reopen
         // stacked another onDidChangeModelContent listener on the same editor:
@@ -585,9 +699,10 @@ export class TabManager {
         // editor has focus and MUTED otherwise. Toggle a body class from the
         // editors' focus/blur, debounced so switching main<->split (blur then
         // focus) doesn't flicker the highlight off for a frame.
-        let _editorBlurTimer = null;
+        let _editorBlurTimer: ReturnType<typeof setTimeout> | null = null;
         document.addEventListener('aurora-editor-focusstate', (e) => {
-            if (e.detail && e.detail.focused) {
+            const detalhe = (e as CustomEvent<{ focused?: boolean } | null>).detail;
+            if (detalhe && detalhe.focused) {
                 if (_editorBlurTimer) { clearTimeout(_editorBlurTimer); _editorBlurTimer = null; }
                 document.body.classList.add('editor-has-focus');
             } else {
@@ -599,7 +714,7 @@ export class TabManager {
             }
         });
         document.addEventListener('aurora-editor-focused', (e) => {
-            const detail = e.detail || {};
+            const detail = (e as CustomEvent<{ filePath?: string, paneIndex?: number } | null>).detail || {};
             const { filePath, paneIndex } = detail;
             if (!filePath) return;
 
@@ -661,6 +776,17 @@ export class TabManager {
 // mixins shadow each other or the core class methods.
 Object.assign(TabManager, tabViewers, tabDrag, tabWatchers, abasEmbutidas, salvarAbas, documentoSemNome, fecharAbas);
 
+// O compilador confere que a classe cumpre o que cada mixin le dela: um campo
+// que mude de tipo aqui, ou um metodo que um mixin passe a usar e a classe nao
+// tenha, quebra a verificacao de tipos em vez de quebrar em tempo de execucao.
+type Cumpre<T> = typeof TabManager extends T ? true : never;
+const _contratos: [
+    Cumpre<AnfitriaoDosVisualizadores>, Cumpre<AnfitriaoDoArraste>, Cumpre<AnfitriaoDoVigia>,
+    Cumpre<AnfitriaoDasEmbutidas>, Cumpre<AnfitriaoDoSalvar>, Cumpre<AnfitriaoDoSemNome>,
+    Cumpre<AnfitriaoDoFechar>,
+] = [true, true, true, true, true, true, true];
+void _contratos;
+
 // Call initialization when the script loads
 TabManager.initialize();
 
@@ -671,8 +797,9 @@ window.addEventListener('beforeunload', () => {
 // Initialize tab container
 function initTabs() {
 
-    const editorContainer = document.getElementById('monaco-editor')
-        .parentElement;
+    // O container do editor faz parte do index.html; sem ele o acesso lanca, como antes.
+    const editorContainer = (document.getElementById('monaco-editor') as HTMLElement)
+        .parentElement as HTMLElement;
     const tabsContainer = document.createElement('div');
     if (document.getElementById('editor-tabs')) return;
 

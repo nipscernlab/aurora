@@ -11,7 +11,7 @@
  */
 
 /** O que o arraste guarda no TabManager, que o recebe por Object.assign. */
-interface AnfitriaoDoArraste {
+export interface AnfitriaoDoArraste {
     tabObserver?: MutationObserver | null;
 }
 

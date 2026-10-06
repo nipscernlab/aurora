@@ -16,7 +16,7 @@ import { electronAPI } from '../app/electron_api.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 
 /** O que o salvar usa do TabManager. */
-interface AnfitriaoDoSalvar {
+export interface AnfitriaoDoSalvar {
     tabs: Map<string, unknown>;
     unsavedChanges: Set<string>;
     lastModifiedTimes: Map<string, number>;

@@ -16,7 +16,7 @@ import type * as Monaco from 'monaco-editor';
 type AbaFechada = { filePath: string, content: string, timestamp: number };
 
 /** O que este mixin usa do TabManager. */
-interface AnfitriaoDoFechar {
+export interface AnfitriaoDoFechar {
     tabs: Map<string, unknown>;
     unsavedChanges: Set<string>;
     untitledDocuments: Map<string, unknown>;

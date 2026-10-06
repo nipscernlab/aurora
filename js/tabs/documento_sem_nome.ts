@@ -51,7 +51,7 @@ type AlvoDoProcessador =
     };
 
 /** O que este mixin usa do TabManager. */
-interface AnfitriaoDoSemNome {
+export interface AnfitriaoDoSemNome {
     tabs: Map<string, unknown>;
     untitledDocuments: Map<string, UntitledDocument>;
     untitledCounter: number;

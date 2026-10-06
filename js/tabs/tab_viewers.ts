@@ -75,7 +75,7 @@ type JanelaDoPdf = Window & { PDFViewerApplication?: { pdfViewer: { currentScale
 type EstadoDoPdf = { scrollTop: number, scrollLeft: number, zoom: number };
 
 /** O que os visualizadores guardam no TabManager, que os recebe por Object.assign. */
-interface AnfitriaoDosVisualizadores {
+export interface AnfitriaoDosVisualizadores {
     viewerInstances: Map<string, HTMLElement>;
     pdfViewerStates: Map<string, EstadoDoPdf>;
     pdfStateIntervals: Map<string, ReturnType<typeof setInterval>>;

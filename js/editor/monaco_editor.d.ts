@@ -16,6 +16,12 @@ export const EditorManager: {
   getEditorForFile(filePath: string): Monaco.editor.IStandaloneCodeEditor | null | undefined;
   /** Fecha e descarta o editor do arquivo. */
   closeEditor(filePath: string): void;
+  /** Resolve quando o Monaco e o EditorManager terminaram de subir. */
+  ready: Promise<unknown>;
+  /** Cria (ou devolve, se ja existe) o editor do arquivo; nulo se o container nao existe. */
+  createEditorInstance(filePath: string, initialContent?: string): Monaco.editor.IStandaloneCodeEditor | null;
+  /** Mostra o editor do arquivo no painel principal. */
+  setActiveEditor(filePath: string): void;
 };
 
 export function initMonaco(...args: unknown[]): unknown;

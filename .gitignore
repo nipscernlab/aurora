@@ -296,6 +296,7 @@ js/tabs/fechar_abas.js
 js/tabs/tab_watchers.js
 js/tabs/tab_drag.js
 js/tabs/tab_viewers.js
+js/tabs/tab_manager.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

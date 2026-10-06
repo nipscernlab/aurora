@@ -17,7 +17,7 @@ type AbaDoPrism = { result: unknown };
 type Webview = HTMLElement & { send(canal: string, ...args: unknown[]): void };
 
 /** O que este mixin le e escreve no TabManager. */
-interface AnfitriaoDasEmbutidas {
+export interface AnfitriaoDasEmbutidas {
     surferViews: Map<string, AbaDoSurfer>;
     prismViews: Map<string, AbaDoPrism>;
     viewerInstances: Map<string, HTMLElement>;

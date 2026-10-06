@@ -287,6 +287,7 @@ js/ui/ai_mark.js
 js/ui/ai_assistant_manager.js
 js/project/project_tree_actions.js
 js/project/processadores_do_spf.js
+js/tabs/untitled_docs.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

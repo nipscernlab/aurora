@@ -14,17 +14,25 @@
 import { getExtensionForDocumentType } from '../editor/document_type_detector.js';
 import { basenameOf } from './tab_utils.js';
 
+/** What TabManager keeps per untitled document. */
+export interface UntitledDocument {
+    detectedType?: string | null;
+    [key: string]: unknown;
+}
+
+type UntitledDocuments = Map<string, UntitledDocument>;
+
 // Prefix for generated untitled names: "Untitled-1", "Untitled-2", ...
 export const UNTITLED_PREFIX = 'Untitled-';
 
 // Is this path one of the in-memory untitled documents?
-export function isUntitled(untitledDocuments, filePath) {
+export function isUntitled(untitledDocuments: UntitledDocuments, filePath: string): boolean {
     return untitledDocuments.has(filePath);
 }
 
 // Display name for a tab. Untitled docs show "<path>.<ext>" once a type has
 // been detected (else the bare path); saved files show their basename.
-export function untitledDisplayName(untitledDocuments, filePath) {
+export function untitledDisplayName(untitledDocuments: UntitledDocuments, filePath: string): string {
     if (isUntitled(untitledDocuments, filePath)) {
         const meta = untitledDocuments.get(filePath);
         const ext = getExtensionForDocumentType(meta?.detectedType);
@@ -36,9 +44,11 @@ export function untitledDisplayName(untitledDocuments, filePath) {
 // Find the next free "Untitled-N" name given the current counter. Returns the
 // chosen path and the advanced counter; the caller writes the counter back
 // (the class owns it). Skips any name already live as a tab or untitled doc.
-export function nextUntitledPath(untitledDocuments, tabs, counter) {
+export function nextUntitledPath(
+    untitledDocuments: UntitledDocuments, tabs: Map<string, unknown>, counter: number,
+): { filePath: string, counter: number } {
     let next = counter;
-    let filePath;
+    let filePath: string;
     do {
         next += 1;
         filePath = `${UNTITLED_PREFIX}${next}`;

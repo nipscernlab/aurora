@@ -2077,10 +2077,23 @@ em `js/ai/`) e `aurora_api` (03-04/10, de 1158 linhas `.js` para 125 `.ts`
 que só montam a API; detalhe no 13.3). Em 05/10 o `main/ipc/project` e o
 `project_tree_actions` viraram `.ts`, o defeito do `.spf` que perdia o
 processador foi corrigido (item abaixo), e o `tab_manager` foi dividido e
-convertido: a pasta `js/tabs` ficou sem `.js` (detalhe no 13.3). Próximo, pela
-medição de 03/10 (commits em 60 dias e quantos módulos importam):
-`js/editor/monaco_editor.js` (1685) e `js/editor/split_editor.js`, e o
-`js/git/git_panel.js` (2105) por último, porque só um módulo o importa. O método que funcionou: teste de
+convertido: a pasta `js/tabs` ficou sem `.js` (detalhe no 13.3). Em 06/10
+começou o `js/editor/monaco_editor.js`: o `dirac_snippets` virou `.ts`, e as
+linguagens (C+-, ASM, MATLAB) e os temas da casa saíram para
+`linguagens_do_editor.ts`, com prova diferencial (as funções antigas e as novas
+fizeram as mesmas 16 chamadas num Monaco de mentira); o `initMonaco` passou a
+chamar o carregador AMD como `window.require`, o que deixou o boot testável
+(`monacoBoot`). Próximo no `monaco_editor`: as decorações (bra-ket, barra
+vertical), a criação e os recursos do editor, e então a conversão, que pede
+`.ts` (ou `.d.ts`) para os vizinhos que ele importa (`ai_selection_widget`,
+`lsp_integration`, `slang_integration`, `treesitter_highlight`, os dois
+formatadores). Depois o `js/editor/split_editor.js`, e o `js/git/git_panel.js`
+(2105) por último, porque só um módulo o importa.
+
+Teste vermelho local de AMBIENTE, em 06/10: o `genPrismSkins` falha porque o
+`components/SAPHO` desta máquina foi trocado fora da sessão (aparecem
+`div_array` e `ula_idiv`, e o `.aurora-versions.json` ainda diz yanc v5.4). O
+CI, que parte de cópia limpa, passa. Conferir de onde veio antes de mexer. O método que funcionou: teste de
 caracterização entrando pelo que a pessoa e os outros módulos chamam, sem
 espião de método da instância, rodado no `.js` antigo; extração por
 responsabilidade, com o painel como contexto; E2E com

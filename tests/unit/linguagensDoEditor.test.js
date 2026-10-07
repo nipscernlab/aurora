@@ -96,6 +96,13 @@ describe('registro', () => {
             temas: mon.temas,
         }).toMatchSnapshot();
     });
+    it('o assembly conhece as leituras da divisao do yanc v6.0', () => {
+        // `DIV x; NOP; QUO`: QUO, REM e F_QUO sao apelidos do asmcomp v6.0.
+        const mon = monacoFalso();
+        setupASMLanguage(mon);
+        expect(mon.tokenizadores.asm.instructions).toEqual(
+            expect.arrayContaining(['QUO', 'REM', 'F_QUO']));
+    });
 });
 
 describe('os #define do C+-', () => {

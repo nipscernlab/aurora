@@ -150,11 +150,11 @@ describe('as pilhas ficam com o compilador', () => {
     });
 
     it('os padroes citados sao os do yanc que o instalador baixa', () => {
-        // Numeros de Compilers/ASMComp/Sources/eval.c, iguais no v5.6 e no
-        // v5.7. Quando o YANC_TAG mudar, este caso cai de proposito: reconfira
+        // Numeros de Compilers/ASMComp/Sources/eval.c, iguais do v5.6 ao
+        // v6.0. Quando o YANC_TAG mudar, este caso cai de proposito: reconfira
         // os padroes e o que uma pilha omitida vale, e atualize o prompt, o
         // docs/gabarito-ia.md e este teste juntos.
-        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v5.7');
+        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v6.0');
         expect(SYSTEM_PROMPT).toContain('NUBITS 32, NBMANT 23, NBEXPO 8');
         expect(SYSTEM_PROMPT).toContain('NUGAIN 128, FFTSIZ 3');
         // v5.7: omitida, a profundidade sai do programa (pico + 1, minimo 2).
@@ -195,5 +195,25 @@ describe('o yanc v5.7', () => {
     it('no C++, memcpy e memset contam palavras, e ponteiro de funcao compila', () => {
         expect(SYSTEM_PROMPT).toContain('memcpy/memset count WORDS');
         expect(SYSTEM_PROMPT).toContain('int (*fp)(int) = f;');
+    });
+});
+
+// O que o yanc v6.0 mudou no que o modelo deve dizer (yanc/CHANGELOG, v6.0).
+describe('o yanc v6.0', () => {
+    it('toda divisao vira tres palavras, e o .asm feito a mao tem de escreve-las', () => {
+        // O modelo escreve .asm no _aurora_opt; sem a sequencia o asmcomp recusa.
+        // Mensagens de Compilers/ASMComp/Headers/messages.h na tag v6.0.
+        expect(SYSTEM_PROMPT).toContain('DIV x; NOP; QUO      MOD x; NOP; REM      F_DIV x; NOP; F_QUO');
+        expect(SYSTEM_PROMPT).toContain('S_DIV, S_MOD, SF_DIV');
+        expect(SYSTEM_PROMPT).toContain('DIV leva três palavras');
+        expect(SYSTEM_PROMPT).toContain('o programa termina no meio da sequência de DIV');
+        expect(SYSTEM_PROMPT).toContain('Never drop the NOP');
+        expect(SYSTEM_PROMPT).toContain('117 mnemonics');
+    });
+
+    it('cita o ganho medido e que SAPHO/ e asmcomp vem da mesma release', () => {
+        expect(SYSTEM_PROMPT).toMatch(/9\.43 MHz in\s+v5\.7, 21\.9 MHz in v6\.0/);
+        expect(SYSTEM_PROMPT).toContain('8.80 MHz in v5.7, 23.98 MHz');
+        expect(SYSTEM_PROMPT).toContain('must come from the same yanc release');
     });
 });

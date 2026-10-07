@@ -21,7 +21,11 @@
  *            v5.7 calcula a profundidade das pilhas pelo programa quando
  *            #NDSTAC/#SDEPTH faltam, recusa recursao em C+-, tira o codigo
  *            morto do .asm e do hardware, e no C++ compila <cstring> e
- *            ponteiro de funcao. ISA e codificacao iguais aos da v5.5/v5.6.)
+ *            ponteiro de funcao. ISA e codificacao iguais aos da v5.5/v5.6.
+ *            v6.0 poe dois registradores dentro de cada divisor (DIV, MOD,
+ *            F_DIV): o resultado sai dois ciclos depois, toda divisao vira
+ *            `DIV x; NOP; QUO` (REM, F_QUO), e o divisor deixa de limitar o
+ *            relogio. SAPHO/ e asmcomp tem de vir da mesma release.)
  *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
@@ -66,7 +70,7 @@ const { verifyChecksum } = require('./lib/checksum');
 // release). null = compute + log only (no enforcement yet).
 const EXPECTED_SHA256 = null;
 
-const YANC_TAG      = 'v5.7';
+const YANC_TAG      = 'v6.0';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';

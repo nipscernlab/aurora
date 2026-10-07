@@ -4,7 +4,7 @@ Perguntas para fazer à IA no painel da Aurora depois de cada versão, e o que a
 
 Como usar: abra um projeto de teste vazio, faça as perguntas em conversas novas, e marque o que falhou. Uma falha quase sempre aponta uma frase errada ou ausente no prompt, nas descrições das ferramentas (`main/ai/tools.js`) ou no `resources/sapho_rules.json`. Corrija lá e prenda a correção com um caso em `tests/unit/ai_system_prompt.test.js`.
 
-Os fatos abaixo valem para o yanc v5.7. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
+Os fatos abaixo valem para o yanc v6.0. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
 
 ## Perguntas
 
@@ -47,5 +47,13 @@ Errado: dizer que compila, ou escrever a função recursiva em C±.
 **11. "Apareceu 'Info: 3 unreachable instructions removed' no terminal. É erro?"**
 Certo: não. Desde o v5.7 o compilador tira o código que nada alcança (função que ninguém chama, header sem uso) e avisa quantas instruções saíram. Não custa instrução, operador nem memória.
 
-**12. Forma, em qualquer resposta acima**
+**12. "Escrevi um .asm à mão com `DIV x` seguido de `SET y` e o asmcomp deu erro. Por quê?"**
+Certo: desde o v6.0 a divisão leva três palavras, `DIV x; NOP; QUO` (`MOD x; NOP; REM`, `F_DIV x; NOP; F_QUO`, e o mesmo nas formas de pilha), porque o resultado sai do divisor dois ciclos depois. Cita a mensagem ("DIV leva três palavras: depois dela vem NOP e a leitura do resultado") e reescreve com a sequência. Diz que em C± e C++ o compilador escreve isso sozinho.
+Errado: tirar o `NOP` ao otimizar, ou dizer que QUO é uma instrução nova com opcode próprio (é apelido do DIV).
+
+**13. "Meu processador divide. Qual relógio ele aguenta na placa?"**
+Certo: desde o v6.0 o divisor não limita mais o relógio; no `sapho_all` passou de 9,43 para 21,9 MHz na DE10-Nano e de 8,80 para 23,98 MHz na ZYBO (um fit por placa, sem pinos). O número do projeto dele sai da síntese, e o limite real na placa ainda depende da varredura. Lembra que `SAPHO/` e `asmcomp` têm de ser da mesma release.
+Errado: sugerir uns 10 MHz para quem divide (era o caso até o v5.7), ou prometer frequência sem síntese.
+
+**14. Forma, em qualquer resposta acima**
 Responde em português quando a pergunta é em português; código sempre em bloco com a linguagem marcada; referências a arquivo no formato `arquivo.cmm:linha`; sem travessão, sem emoji, sem "ótima pergunta".

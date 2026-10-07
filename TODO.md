@@ -2093,7 +2093,11 @@ formatadores). Depois o `js/editor/split_editor.js`, e o `js/git/git_panel.js`
 Teste vermelho local de AMBIENTE, em 06/10: o `genPrismSkins` falha porque o
 `components/SAPHO` desta máquina foi trocado fora da sessão (aparecem
 `div_array` e `ula_idiv`, e o `.aurora-versions.json` ainda diz yanc v5.4). O
-CI, que parte de cópia limpa, passa. Conferir de onde veio antes de mexer. O método que funcionou: teste de
+CI, que parte de cópia limpa, passa. Conferir de onde veio antes de mexer.
+Resolvido em 07/10: era o SAPHO do yanc v6.0 (divisores com registradores),
+copiado da main do yanc; no bump para o v6.0 as skins foram regeneradas
+(`div_array`, `ula_idiv`, `clk` em `ula` e `ula_fdiv`; `ula_div` e `ula_mod`
+saíram). O método que funcionou: teste de
 caracterização entrando pelo que a pessoa e os outros módulos chamam, sem
 espião de método da instância, rodado no `.js` antigo; extração por
 responsabilidade, com o painel como contexto; E2E com

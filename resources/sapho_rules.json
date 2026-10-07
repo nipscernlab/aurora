@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-03T14:00:27.488Z",
+  "generatedAt": "2026-10-07T19:02:00.402Z",
   "source": {
-    "yancPath": "C:/nipscern/yanc",
-    "yancCommit": "8f125687d615"
+    "yancPath": "C:/nipscern/yanc-v6.0-wt",
+    "yancCommit": "6cafe471ca93"
   },
   "language": {
     "keywords": [
@@ -1653,6 +1653,16 @@
         "description": "fixed-point division with memory"
       },
       {
+        "mnemonic": "QUO",
+        "opcode": 24,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "DIV",
+        "family": "other",
+        "variants": [],
+        "description": "integer quotient of the division two words before"
+      },
+      {
         "mnemonic": "S_DIV",
         "opcode": 25,
         "operandKind": "none",
@@ -1673,6 +1683,16 @@
         "family": "arith_int",
         "variants": [],
         "description": "fixed-point remainder with memory"
+      },
+      {
+        "mnemonic": "REM",
+        "opcode": 26,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "MOD",
+        "family": "other",
+        "variants": [],
+        "description": "remainder of the division two words before"
       },
       {
         "mnemonic": "S_MOD",
@@ -1845,6 +1865,18 @@
           "float"
         ],
         "description": "floating-point division with memory"
+      },
+      {
+        "mnemonic": "F_QUO",
+        "opcode": 38,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "F_DIV",
+        "family": "other",
+        "variants": [
+          "float"
+        ],
+        "description": "float quotient of the division two words before"
       },
       {
         "mnemonic": "SF_DIV",

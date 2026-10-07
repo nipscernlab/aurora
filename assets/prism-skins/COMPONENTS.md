@@ -17,6 +17,7 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 | ------ | ------ | ----: | ---- | -------------------- |
 | `addr_dec` | `addr_dec.v` | 3 | hand-crafted (`addr_dec.svg`) | →valid_in →index ←valid_out |
 | `core` | `core.v` | 16 | hand-crafted (`core.svg`) | →clk →rst →instr ←instr_addr ←mem_wr ←mem_addr_rd ←mem_addr_wr →mem_data_rd ←mem_data_wr →io_in ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei |
+| `div_array` | `ula.v` | 8 | hand-crafted (`div_array.svg`) | →r0 →nb →d →side ←q ←rem ←side_o →clk |
 | `instr_dec` | `instr_dec.v` | 12 | hand-crafted (`instr_dec.svg`) | →clk →rst →opcode ←push ←pop ←ula_op ←mem_wr ←req_in ←out_en ←ldi ←sti ←fft |
 | `instr_fetch` | `core.v` | 9 | hand-crafted (`instr_fetch.svg`) | →clk →rst →itr ←cheguei →instr ←addr →acc ←opcode ←operand |
 | `io_ctrl` | `core.v` | 9 | hand-crafted (`io_ctrl.svg`) | →clk →rst →req_in →out_en →addr ←en_in ←addr_in ←en_out ←addr_out |
@@ -30,18 +31,17 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 | `processor` | `processor.v` | 10 | hand-crafted (`processor.svg`) | →clk →rst →io_in ←io_out ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei |
 | `rel_addr` | `core.v` | 5 | hand-crafted (`rel_addr.svg`) | →use_oft →fft →offset →addr ←out |
 | `stack` | `core.v` | 6 | hand-crafted (`stack.svg`) | →clk →rst →push →pop →in ←out |
-| `ula` | `ula.v` | 4 | hand-crafted (`ula.svg`) | →op →in1 →in2 ←out |
+| `ula` | `ula.v` | 5 | hand-crafted (`ula.svg`) | →op →in1 →in2 ←out →clk |
 | `ula_abs` | `ula.v` | 2 | hand-crafted (`ula_abs.svg`) | →in ←out |
 | `ula_add` | `ula.v` | 3 | hand-crafted (`ula_add.svg`) | →in1 →in2 ←out |
 | `ula_and` | `ula.v` | 3 | hand-crafted (`ula_and.svg`) | →in1 →in2 ←out |
 | `ula_denorm` | `ula.v` | 9 | hand-crafted (`ula_denorm.svg`) | →neg1 →neg2 →in1 →in2 ←e_out ←s_big ←s_small ←m_big ←m_small |
-| `ula_div` | `ula.v` | 3 | hand-crafted (`ula_div.svg`) | →in1 →in2 ←out |
 | `ula_equ` | `ula.v` | 3 | hand-crafted (`ula_equ.svg`) | →in1 →in2 ←out |
 | `ula_f2i` | `ula.v` | 2 | hand-crafted (`ula_f2i.svg`) | →in ←out |
 | `ula_fabs` | `ula.v` | 2 | hand-crafted (`ula_fabs.svg`) | →in ←out |
 | `ula_fadd` | `ula.v` | 6 | hand-crafted (`ula_fadd.svg`) | →e_in →s_big →s_small →m_big →m_small ←out |
 | `ula_fcmp` | `ula.v` | 4 | hand-crafted (`ula_fcmp.svg`) | →in1 →in2 ←les ←gre |
-| `ula_fdiv` | `ula.v` | 3 | hand-crafted (`ula_fdiv.svg`) | →in1 →in2 ←out |
+| `ula_fdiv` | `ula.v` | 4 | hand-crafted (`ula_fdiv.svg`) | →in1 →in2 ←out →clk |
 | `ula_fmlt` | `ula.v` | 3 | hand-crafted (`ula_fmlt.svg`) | →in1 →in2 ←out |
 | `ula_fneg` | `ula.v` | 2 | hand-crafted (`ula_fneg.svg`) | →in ←out |
 | `ula_fpst` | `ula.v` | 2 | hand-crafted (`ula_fpst.svg`) | →in ←out |
@@ -49,6 +49,7 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 | `ula_fsgn` | `ula.v` | 3 | hand-crafted (`ula_fsgn.svg`) | →in1 →in2 ←out |
 | `ula_gre` | `ula.v` | 3 | hand-crafted (`ula_gre.svg`) | →in1 →in2 ←out |
 | `ula_i2f` | `ula.v` | 2 | hand-crafted (`ula_i2f.svg`) | →in ←out |
+| `ula_idiv` | `ula.v` | 5 | hand-crafted (`ula_idiv.svg`) | →in1 →in2 ←quo ←rem →clk |
 | `ula_in1_ctrl` | `core.v` | 6 | hand-crafted (`ula_in1_ctrl.svg`) | →clk →rst →pop →mem →stack ←out |
 | `ula_in2_ctrl` | `core.v` | 6 | hand-crafted (`ula_in2_ctrl.svg`) | →clk →rst →req_in →acc →io_in ←out |
 | `ula_inv` | `ula.v` | 2 | hand-crafted (`ula_inv.svg`) | →in ←out |
@@ -57,7 +58,6 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 | `ula_lin` | `ula.v` | 2 | hand-crafted (`ula_lin.svg`) | →in ←out |
 | `ula_lor` | `ula.v` | 3 | hand-crafted (`ula_lor.svg`) | →in1 →in2 ←out |
 | `ula_mlt` | `ula.v` | 3 | hand-crafted (`ula_mlt.svg`) | →in1 →in2 ←out |
-| `ula_mod` | `ula.v` | 3 | hand-crafted (`ula_mod.svg`) | →in1 →in2 ←out |
 | `ula_mux` | `ula.v` | 47 | hand-crafted (`ula_mux.svg`) | →op →in1 →in2 →add →mlt →div →mod →sgn →fsgn →neg →negm →fneg →fnegm →abs →absm →fabs →fabsm →pst →pstm →fpst →fpstm →nrm →nrmm →f2i →f2im →ann →orr →cor →inv →invm →lan →lor →lin →linm →les →fles →gre →fgre →equ →shl →shr →srs →smx →fscl →xpo →xpom ←out |
 | `ula_neg` | `ula.v` | 2 | hand-crafted (`ula_neg.svg`) | →in ←out |
 | `ula_nmux` | `ula.v` | 5 | hand-crafted (`ula_nmux.svg`) | →A →B →in1 →in2 ←out |

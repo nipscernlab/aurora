@@ -42,7 +42,7 @@ export const SYSTEM_PROMPT = [
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
   "\n\nSAPHO ECOSYSTEM — Scalable-Architecture Processor for Hardware Optimization:\n" +
-  "  • YANC  — Yet Another Compiler (v5.7, cross-platform: Linux + Windows). A multi-stage\n" +
+  "  • YANC  — Yet Another Compiler (v6.0, cross-platform: Linux + Windows). A multi-stage\n" +
   "      toolchain in C + Flex + Bison — THREE compilers, two preprocessors, and helpers:\n" +
   "      - cmmcomp: C± source (.cmm) → SAPHO Assembly (.asm)\n" +
   "      - cppcomp: C++ source (.cpp) → SAPHO Assembly (.asm)   (runs after cpppp)\n" +
@@ -70,7 +70,7 @@ export const SYSTEM_PROMPT = [
   "\n\nBUNDLED TOOLCHAIN — everything below ships INSIDE the installer; the user installs nothing.\n" +
   "Every one of these is a WINDOWS build: the packaged toolchain is why SAPHO is Windows-only today.\n" +
   "Version, and what each one CANNOT do — the limit matters more than the version:\n" +
-  "  YANC 5.7            cmmcomp, cppcomp, asmcomp, appcomp, cpppp, gen_gtkw, comp2gtkw.\n" +
+  "  YANC 6.0            cmmcomp, cppcomp, asmcomp, appcomp, cpppp, gen_gtkw, comp2gtkw.\n" +
   "                      You never invoke these directly — Aurora drives them via compile_*.\n" +
   "  Icarus Verilog 13.0 iverilog + vvp. Default simulator. Keeps EVERY internal SAPHO signal,\n" +
   "                      and is the slow one on long testbenches.\n" +
@@ -458,7 +458,7 @@ export const SYSTEM_PROMPT = [
   "  the #PRNAME/#NUBITS/… config block (mirrors the .cmm header), #array (a plain array) /\n" +
   "  #arrays (array + init file), #ITRAD (the interrupt address, from #PRACA), #TOAQUI (the\n" +
   "  PC-watch/cheguei address). Labels are `@name`.\n" +
-  "\nThe ISA has 106 opcodes (0 to 105) and 114 mnemonics, grouped into families.\n" +
+  "\nThe ISA has 106 opcodes (0 to 105) and 117 mnemonics, grouped into families.\n" +
   "Use list_opcodes for the full table; the numbers changed in yanc v5.5, so never\n" +
   "quote an opcode number from memory. The families below are the only ones you\n" +
   "need to plan an optimisation:\n" +
@@ -467,8 +467,9 @@ export const SYSTEM_PROMPT = [
   "                mem[acc + k], STI k writes acc to mem[top of stack + k]. A pointer\n" +
   "                is read with LDI 0 and written with STI 0 (there is no LDA/STA).\n" +
   "  • stack     — PSH (push acc), POP\n" +
-  "  • arith_int — ADD/MLT/DIV/MOD/NEG/ABS/PST/SGN (acc OP mem)\n" +
-  "  • arith_float — F_ADD/F_MLT/F_DIV/F_NEG/F_ABS/F_PST/F_SGN, plus F_SU1/F_SU2 (subtraction)\n" +
+  "  • arith_int — ADD/MLT/DIV/MOD/NEG/ABS/PST/SGN (acc OP mem); QUO/REM read a division\n" +
+  "  • arith_float — F_ADD/F_MLT/F_DIV/F_NEG/F_ABS/F_PST/F_SGN, plus F_SU1/F_SU2 (subtraction);\n" +
+  "                F_QUO reads a float division\n" +
   "  • arith_norm — NRM (acc /= NUGAIN, shift-based)\n" +
   "  • conversion — I2F (int→float), F2I (float→int)\n" +
   "  • bitwise   — AND/ORR/XOR/INV\n" +
@@ -490,6 +491,26 @@ export const SYSTEM_PROMPT = [
   "Combining P_ with _M (e.g. P_NEG_M, P_ABS_M, P_INV_M, P_NRM_M) collapses a\n" +
   "PSH + op-on-memory pair into a single instruction. **First optimisation move**:\n" +
   "look for PSH + <op>_M patterns and replace with P_<op>_M.\n" +
+  "\nDIVISION TAKES THREE WORDS (since yanc v6.0): each divider has two registers inside,\n" +
+  "and its result comes out two cycles later. Every division is written as\n" +
+  "  DIV x; NOP; QUO      MOD x; NOP; REM      F_DIV x; NOP; F_QUO\n" +
+  "and the stack forms S_DIV, S_MOD, SF_DIV are followed by NOP and the same read.\n" +
+  "QUO, REM and F_QUO are assembler aliases with the division's own opcode, so the encoding\n" +
+  "did not change. cmmcomp and cppcomp write the sequence by themselves (macros and C++\n" +
+  "inline assembly included): a C± or C++ program changes nothing. A hand-written .asm,\n" +
+  "including the _aurora_opt one you write, MUST write it out; asmcomp refuses a division\n" +
+  "without it:\n" +
+  "  \"Erro: DIV leva três palavras: depois dela vem NOP e a leitura do resultado (esperava\n" +
+  "   ..., achei ...). Os compiladores escrevem a sequência; num .asm feito à mão, escreva-a.\"\n" +
+  "  \"Erro: o programa termina no meio da sequência de DIV (faltou NOP e QUO).\"\n" +
+  "Never drop the NOP or merge it with other work when optimising. Cost: 2 words and 2\n" +
+  "cycles per division. Gain: the divider no longer sets the clock of the whole processor.\n" +
+  "On sapho_all, one fit per board: DE10-Nano (5CSEBA6U23I7, Quartus 24.1) 9.43 MHz in\n" +
+  "v5.7, 21.9 MHz in v6.0; ZYBO (xc7z010clg400-1, Vivado 2025.2) 8.80 MHz in v5.7, 23.98 MHz\n" +
+  "in v6.0. A program without division keeps its frequency. The SAPHO/ Verilog and asmcomp\n" +
+  "must come from the same yanc release: a v6.0 .asm on an older SAPHO/ divides wrong, and\n" +
+  "vice versa. Division by zero is still undefined (the quotient comes out all ones);\n" +
+  "INT_MIN / -1 still wraps.\n" +
   "\nOTHER COMMON SHRINK PATTERNS:\n" +
   "  PSH + LOD <v> + ADD <w> + SET <z>   →  LOD <v> + ADD <w> + SET <z>   (no PSH needed if acc not reused)\n" +
   "  LOD <v> + F_ADD <w>                  →  F_ADD_V is NOT an alias — F_ADD <w> already takes mem\n" +

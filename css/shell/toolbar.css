@@ -180,7 +180,14 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
    zonas laterais (flex-shrink:0) transbordaria da caixa (base 0) e
    pintaria POR CIMA do centro (ex.: PRISM sobre Verilog). Clipando as
    tres, nenhum item pinta fora da sua zona, pior caso vira corte, nunca
-   sobreposicao. */
+   sobreposicao.
+   O corte, porem, ainda deixava o botao cortado EMBAIXO do vizinho: a 1440 px
+   o "Abrir Projeto" sumia 4 px sob o Processor Hub. Por isso as laterais nao
+   encolhem abaixo do proprio conteudo (min-width: min-content); quem cede e o
+   centro, e antes de ceder ele desce para a segunda linha (@media abaixo).
+   tests/e2e/toolbar-sem-sobreposicao.test.js mede isso em varias larguras. */
+.toolbar-zone-left,
+.toolbar-zone-right  { min-width: min-content; }
 .toolbar-zone-left   { flex: 1 1 0; justify-content: flex-start; overflow: hidden; }
 .toolbar-zone-center { flex: 0 1 auto; justify-content: center; overflow: hidden; }
 .toolbar-zone-right  { flex: 1 1 0; justify-content: flex-end; overflow: hidden; }
@@ -193,16 +200,20 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
  *  borda da zona, sem nenhum aviso de que existem.
  *
  *  Somando o conteudo real (3 botoes a esquerda, 15 botoes + 3 separadores no
- *  centro, 8 a direita e os 3 controles de janela) a toolbar precisa de cerca
- *  de 1150px para caber numa linha. Abaixo disso a zona central desce inteira
- *  para uma segunda linha, onde tem a largura toda a disposicao.
+ *  centro, 8 a direita e os 3 controles de janela) a toolbar precisava de
+ *  cerca de 1150px para caber numa linha. Com o seletor GTKWave/Surfer, os
+ *  botoes de marcar ponto e voltar e o seletor de layout passou disso, e de
+ *  1150 a 1280 px o centro invadia a esquerda (medido em 08/10/2026). Abaixo
+ *  de 1280 px, onde os rotulos ja somem, a zona central desce inteira para uma
+ *  segunda linha, onde tem a largura toda a disposicao. Quem acrescentar botao
+ *  confere com tests/e2e/toolbar-sem-sobreposicao.test.js.
  *
  *  A primeira linha continua sendo a barra de titulo: brand + zona esquerda a
  *  esquerda, zona direita e os controles de janela a direita, na altura
  *  padrao. Isso mantem a area de arrasto e o alvo de fechar no canto, que e
  *  onde o Windows ensina o usuario a jogar o cursor.
  * ------------------------------------------------------------------------- */
-@media (max-width: 1150px) {
+@media (max-width: 1280px) {
   /*
    * Grid de duas linhas, e nao `flex-wrap`.
    *
@@ -950,16 +961,19 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
  *  before the center groups overlap. The cascade goes:
  *
  *    1440px → drop the SAPHO & AURORA wordmark (decorative)
- *    1280px → drop button labels on new/open/full-build/processor hub,
+ *    1440px → drop button labels on new/open/full-build/processor hub,
  *             icon-only collapse for those buttons, tighten the
- *             gtkw-picker
+ *             gtkw-picker (was 1280px; the labelled bar needs ~1430px)
+ *    1280px → the center zone moves to a second row
  *    1100px → drop the PRISM word; drop the legacy mode toggle
  *     980px → drop the cluster separators, tighten group gaps,
  *             collapse PRISM/locale label widths
  *     880px → drop toolbar gap, drop sidebar margin, collapse left
  *             group padding
  * ------------------------------------------------------------------------- */
-@media screen and (max-width: 1280px) {
+/* Era 1280px. Com os rotulos a barra precisa de ~1430 px numa linha (medido
+   em 08/10/2026), e de 1280 a 1440 px o centro invadia a esquerda. */
+@media screen and (max-width: 1440px) {
   #newProjectBtn span,
   #openProjectBtn span,
   #settings span,
@@ -967,7 +981,10 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   #allcomp span {
     display: none;
   }
-  .toolbar-button:not(.icon-only) {
+  /* O PRISM fica de fora: o logo tem 32 px e a palavra so sai abaixo de
+     1100 px, e espremido em 28 px o conteudo centralizado transbordava para
+     os dois lados e cobria a pena do Verilog. */
+  .toolbar-button:not(.icon-only):not(.prism-btn) {
     width: var(--h-button);
     min-width: var(--h-button);
     padding: 0;

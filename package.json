@@ -331,7 +331,7 @@
     "typescript-5": "npm:typescript@5.9.3",
     "vite": "^8.3.1",
     "vite-plugin-static-copy": "^4.1.1",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.3"
   },
   "allowScripts": {
     "@anthropic-ai/claude-code": true,

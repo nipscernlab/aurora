@@ -117,15 +117,28 @@ export function classifyVerilogContent(content: string, fileName = ''): VerilogC
         return 'synthesizable';
     }
     const code = stripCommentsAndStrings(content);
+    const gravaOnda = /\$dump(file|vars|on|off|all|limit|flush)\b/.test(code);
+    const semPortas = hasPortlessModule(code);
+    // Delay procedural (#10, # 5). NAO casa `#(` de override de
+    // parametro em instanciacao, esse e comum em codigo sintetizavel.
+    const avancaTempo = /#\s*\d/.test(code);
+
+    // Modulo com portas que nao grava onda nem avanca o tempo nao e
+    // testbench, por mais initial/$display/$finish que tenha: e o idioma
+    // de conferir parametro na elaboracao (`initial if (SEED == 0) begin
+    // $display(...); $finish; end`), que roda no tempo zero e a sintese
+    // ignora. Era o que tirava rng_xoshiro.v e vizinhos do design do hits.
+    if (!gravaOnda && !semPortas && !avancaTempo) return 'synthesizable';
+
     let score = 0;
 
     // --- Sinais definitivos (sozinhos ja passam o threshold) ---
     // Dump de VCD: so testbench escreve waveform.
-    if (/\$dump(file|vars|on|off|all|limit|flush)\b/.test(code)) score += 3;
+    if (gravaOnda) score += 3;
     // Terminacao de simulacao.
     if (/\$(finish|stop)\b/.test(code)) score += 3;
     // Modulo sem portas, top de testbench.
-    if (hasPortlessModule(code)) score += 3;
+    if (semPortas) score += 3;
 
     // --- Sinais fortes ---
     // Bloco initial. Codigo sintetizavel pode ter (init de reg em
@@ -135,9 +148,7 @@ export function classifyVerilogContent(content: string, fileName = ''): VerilogC
     // --- Sinais fracos ---
     // Tasks de I/O / introspeccao de tempo tipicas de testbench.
     if (/\$(display|write|monitor|strobe|time|realtime|random|sformatf?)\b/.test(code)) score += 1;
-    // Delay procedural (#10, # 5). NAO casa `#(` de override de
-    // parametro em instanciacao, esse e comum em codigo sintetizavel.
-    if (/#\s*\d/.test(code)) score += 1;
+    if (avancaTempo) score += 1;
 
     // --- Hint do nome ---
     if (/(^|[^a-z])(tb|test|testbench)([^a-z]|$)/.test(fileName.toLowerCase())) score += 2;

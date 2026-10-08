@@ -302,7 +302,7 @@
     "fs-extra": "^11.4.1",
     "jquery": "^3.7.1",
     "jquery-ui": "^1.14.2",
-    "katex": "^0.18.9",
+    "katex": "^0.19.0",
     "lit": "^3.3.3",
     "material-icon-theme": "^5.39.0",
     "monaco-editor": "0.52.2",

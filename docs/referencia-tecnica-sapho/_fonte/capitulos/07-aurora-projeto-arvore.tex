@@ -66,7 +66,7 @@ A tabela seguinte lista todos os campos definidos no código. As interfaces
   \lstinline|projectName|   & metadata  & Nome do projeto (basename da pasta). Exibido na barra de título como \lstinline|<nome>.spf|. \\
   \lstinline|createdAt|     & metadata  & Timestamp ISO de criação. \\
   \lstinline|lastModified|  & metadata  & Timestamp ISO carimbado a cada escrita do \path{.spf}. \\
-  \lstinline|lastOpened|    & metadata  & Timestamp ISO da última abertura (gravado em \lstinline|project:open|). \\
+  \lstinline|lastOpened|    & metadata  & Legado: data da última abertura, gravada até 08/10/2026. Ninguém lê; projetos antigos ainda o trazem. \\
   \lstinline|computerName|  & metadata  & \lstinline|COMPUTERNAME| ou \lstinline|os.hostname()|. \\
   \lstinline|appVersion|    & metadata  & Versão do app (\lstinline|app.getVersion()|). \\
   \lstinline|projectPath|   & metadata  & Caminho absoluto da pasta do projeto. \\
@@ -270,8 +270,8 @@ O handler do processo principal \lstinline|project:open|
     verdade no main).
   \item Registra nos recentes (\path{main/recents.js}) e reconstrói a
     \emph{jumplist}; chama também \lstinline|app.addRecentDocument|.
-  \item Lê e faz parse tolerante do \path{.spf}, carimba
-    \lstinline|metadata.lastOpened|.
+  \item Lê e faz parse tolerante do \path{.spf}. Não carimba data de
+    abertura (o \lstinline|metadata.lastOpened| saiu em 09/10/2026).
   \item \textbf{Reconcilia o \lstinline|basePath|}: alinha sempre com
     \lstinline|path.dirname(spfPath)|. Se diferir, faz \lstinline|deepRemapPaths|
     de todo caminho absoluto que ainda apontava para a raiz antiga (caso de

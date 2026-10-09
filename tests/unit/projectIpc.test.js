@@ -351,7 +351,9 @@ describe('project:open', () => {
     expect(r.projectData.structure.processors).toEqual([
       { name: 'cpu', exists: true }, { name: 'some', exists: false },
     ]);
-    expect(r.projectData.metadata.lastOpened).toEqual(expect.any(String));
+    // Abrir nao carimba data no .spf: ninguem lia o lastOpened, e a data
+    // mudava o arquivo (e o git do repositorio do projeto) a cada abertura.
+    expect(r.projectData.metadata).not.toHaveProperty('lastOpened');
     // A pasta escondida da AURORA nao aparece na arvore.
     expect(r.files.map((f) => f.name).sort()).toEqual(['cpu', `${p.nome}.spf`]);
     expect(ev.sender.enviados).toEqual([
@@ -359,7 +361,16 @@ describe('project:open', () => {
       ['project:processors', { processors: ['cpu', 'some'], projectPath: p.raiz }],
     ]);
     expect(recents.push).toHaveBeenCalledWith(p.spf);
-    expect(lerSpf(p.spf).metadata.lastOpened).toBe(r.projectData.metadata.lastOpened);
+    expect(lerSpf(p.spf).metadata).not.toHaveProperty('lastOpened');
+  });
+
+  it('um lastOpened que o .spf ja traga fica como estava', async () => {
+    const p = projeto();
+    const doc = lerSpf(p.spf);
+    doc.metadata.lastOpened = '2026-07-18T15:05:34.982Z';
+    fs.writeFileSync(p.spf, JSON.stringify(doc, null, 2));
+    await chamar('project:open', evento(), p.spf);
+    expect(lerSpf(p.spf).metadata.lastOpened).toBe('2026-07-18T15:05:34.982Z');
   });
 
   it('caminho antigo <raiz>/<nome>.spf e corrigido para <raiz>/<nome>/<nome>.spf', async () => {

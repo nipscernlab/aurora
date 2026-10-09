@@ -393,7 +393,10 @@ function register() {
       // para um arquivo qualquer abria a pasta dele para escrita.
       registrarSpfDaJanela(event, spfPath);
 
-      projectData.metadata.lastOpened = new Date().toISOString();
+      // Nao carimba metadata.lastOpened (saiu em 09/10/2026): ninguem o lia,
+      // e a data mudava o .spf, e o git do repositorio do projeto, a cada
+      // abertura. A data de abertura vive na lista de recentes (main/recents
+      // e o localStorage da tela inicial). Um lastOpened antigo fica no .spf.
 
       // basePath SEMPRE alinha com dirname(spfPath). Antes checavamos so
       // existence (oldBasePath nao existe -> reconcilia); mas isso falhava

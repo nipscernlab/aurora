@@ -97,16 +97,28 @@ describe('createFile', () => {
     expect(disco.get('C:\\p\\vazio.txt')).toBe('');
   });
 
-  it('Verilog novo entra nos sintetizaveis do .spf, uma vez so', async () => {
+  it('Verilog novo entra no .spf sem papel, uma vez so (TODO 13b)', async () => {
     cfg = { synthesizableFiles: [], testbenchFiles: [{ path: 'C:/p/tb.v' }] };
     await arq.createFile('C:\\p\\alu.v', 'module alu;');
-    expect(cfg.synthesizableFiles).toEqual([{ name: 'alu.v', path: 'C:\\p\\alu.v', isTopLevel: false }]);
+    expect(cfg.unclassifiedFiles).toEqual([{ name: 'alu.v', path: 'C:\\p\\alu.v', isTopLevel: false }]);
+    expect(cfg.synthesizableFiles).toEqual([]);
     await arq.createFile('C:\\p\\ALU.v', 'module alu;');
     await arq.createFile('C:\\p\\tb.v', 'module tb;');
-    expect(cfg.synthesizableFiles).toHaveLength(1);
+    expect(cfg.unclassifiedFiles).toHaveLength(1);
+    expect(cfg.testbenchFiles).toEqual([{ path: 'C:/p/tb.v' }]);
     cfg = {};
     await arq.createFile('C:\\p\\x.sv', '');
-    expect(cfg.synthesizableFiles).toHaveLength(1);
+    expect(cfg.unclassifiedFiles).toHaveLength(1);
+  });
+
+  it('quem cria pode dizer o papel; papel desconhecido vale como nenhum', async () => {
+    cfg = {};
+    await arq.createFile('C:\\p\\alu.v', 'module alu;', 'synthesizable');
+    await arq.createFile('C:\\p\\alu_tb.v', 'module tb;', 'testbench');
+    await arq.createFile('C:\\p\\outro.v', '', 'qualquer');
+    expect(cfg.synthesizableFiles.map((f) => f.name)).toEqual(['alu.v']);
+    expect(cfg.testbenchFiles.map((f) => f.name)).toEqual(['alu_tb.v']);
+    expect(cfg.unclassifiedFiles.map((f) => f.name)).toEqual(['outro.v']);
   });
 
   it('Verilog sem projeto aberto e so escrito e repintado', async () => {
@@ -201,9 +213,10 @@ describe('importar, tirar e renomear no .spf', () => {
     cfg = { synthesizableFiles: [] };
     const ouvinte = vi.fn();
     api.on('project:file-imported', ouvinte);
-    expect((await arq.importFile({ filePath: 'D:\\lib\\uart.v' })).data).toEqual({ filePath: 'C:\\p\\uart.v', kind: 'synthesizable' });
+    expect((await arq.importFile({ filePath: 'D:\\lib\\uart.v' })).data).toEqual({ filePath: 'C:\\p\\uart.v', kind: 'unclassified' });
     expect(disco.get('C:\\p\\uart.v')).toBe('module uart;');
-    expect(cfg.synthesizableFiles).toEqual([{ name: 'uart.v', path: 'C:\\p\\uart.v', isTopLevel: false }]);
+    expect(cfg.unclassifiedFiles).toEqual([{ name: 'uart.v', path: 'C:\\p\\uart.v', isTopLevel: false }]);
+    expect(cfg.synthesizableFiles).toEqual([]);
     expect((await arq.importFile({ filePath: 'D:\\lib\\test_top.py' })).data.kind).toBe('testbench');
     expect(cfg.testbenchFiles).toHaveLength(1);
     expect(ouvinte).toHaveBeenCalledTimes(2);
@@ -217,6 +230,16 @@ describe('importar, tirar e renomear no .spf', () => {
     ProjectStore.setProject('C:/q/q.spf', 'C:/q');
     disco.set('D:/x.v', '');
     expect((await arq.importFile({ filePath: 'D:/x.v' })).data.filePath).toBe('C:/q/x.v');
+    cfg = {};
+    expect((await arq.importFile({ filePath: 'C:/q/s.v', kind: 'synthesizable' })).data.kind).toBe('synthesizable');
+    expect(cfg.synthesizableFiles.map((f) => f.name)).toEqual(['s.v']);
+  });
+
+  it('tirar e renomear enxergam tambem os que ainda nao tem papel', async () => {
+    cfg = { unclassifiedFiles: [{ name: 'n.v', path: 'C:/p/n.v' }, { path: 'C:/p/m.v' }] };
+    expect((await arq.removeImportedFile({ filePath: 'C:/p/m.v' })).data.removed).toBe(true);
+    await arq.renameImportedFile({ fromPath: 'C:/p/n.v', toPath: 'C:/p/novo.v' });
+    expect(cfg.unclassifiedFiles).toEqual([{ name: 'novo.v', path: 'C:/p/novo.v' }]);
   });
 
   it('tirar do .spf, e opcionalmente do disco', async () => {

@@ -6,7 +6,7 @@
 // sintese e topo de simulacao sao coisas diferentes.
 
 import { describe, it, expect } from 'vitest';
-import { marcarPapel } from '../../js/project/papel_no_spf.ts';
+import { marcarPapel, registrarArquivo, papelDeEntrada } from '../../js/project/papel_no_spf.ts';
 
 const chave = (p) => p.replace(/\\/g, '/').toLowerCase();
 const cfg = () => ({
@@ -61,5 +61,41 @@ describe('marcarPapel', () => {
         expect(c.unclassifiedFiles).toEqual([]);
         expect(c.synthesizableFiles).toEqual([null, { name: 'sem caminho' }]);
         expect(c.testbenchFiles).toEqual([{ name: 'a.v', path: 'C:/p/a.v', isTopLevel: false }]);
+    });
+});
+
+// Passo 4 (09/10/2026): arquivo novo entra sem papel; quem ja esta listado
+// fica onde esta, com o papel que tem.
+describe('registrarArquivo', () => {
+    it('novo entra no fim da lista pedida; a lista e criada se faltar', () => {
+        const c = cfg();
+        expect(registrarArquivo(c, 'C:/p/novo.v', 'unclassified', chave)).toBe(true);
+        expect(c.unclassifiedFiles.map((f) => f.name)).toEqual(['X.v', 'novo.v']);
+        const d = {};
+        expect(registrarArquivo(d, 'C:/p/t.py', 'testbench', chave)).toBe(true);
+        expect(d).toEqual({ testbenchFiles: [{ name: 't.py', path: 'C:/p/t.py', isTopLevel: false }] });
+    });
+
+    it('ja listado em qualquer lista: nada muda, nem de lugar nem de papel', () => {
+        const c = cfg();
+        expect(registrarArquivo(c, 'c:/P/TOP.v', 'unclassified', chave)).toBe(false);
+        expect(registrarArquivo(c, 'C:/p/x.v', 'synthesizable', chave)).toBe(false);
+        expect(registrarArquivo(c, 'C:/p/tb.v', 'synthesizable', chave)).toBe(false);
+        expect(c).toEqual(cfg());
+    });
+
+    it('lista estranha no .spf vira lista nova', () => {
+        const c = { unclassifiedFiles: 'x', synthesizableFiles: [null] };
+        registrarArquivo(c, 'C:\\p\\a.v', 'unclassified', chave);
+        expect(c.unclassifiedFiles).toEqual([{ name: 'a.v', path: 'C:\\p\\a.v', isTopLevel: false }]);
+    });
+});
+
+describe('papelDeEntrada', () => {
+    it('so o .py ja chega com papel; o resto entra sem papel', () => {
+        expect(papelDeEntrada('teste.PY')).toBe('testbench');
+        expect(papelDeEntrada('alu.v')).toBe('unclassified');
+        expect(papelDeEntrada('defs.vh')).toBe('unclassified');
+        expect(papelDeEntrada('')).toBe('unclassified');
     });
 });

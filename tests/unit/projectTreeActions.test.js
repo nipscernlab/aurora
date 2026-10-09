@@ -178,7 +178,7 @@ describe('arrastar', () => {
 // ---- importar ----
 
 describe('importFiles', () => {
-    it('classifica pelo conteudo e grava em cada lista sem duplicar', async () => {
+    it('o .v entra sem papel, o .py como testbench, sem duplicar em lista nenhuma (TODO 13b)', async () => {
         const ctx = contexto({ verilogFiles: [{ path: 'C:/p/ja.v' }] });
         disco.spf = { synthesizableFiles: [{ path: 'C:/P/DUP.v' }], testbenchFiles: [{ name: 'velho_tb.v', path: 'C:/p/velho_tb.v' }] };
         api.readFile = vi.fn(async (p) => {
@@ -197,8 +197,12 @@ describe('importFiles', () => {
             { name: 'dup.v', path: 'C:/p/dup.v' },
         ]);
 
-        expect(disco.spf.synthesizableFiles.map((f) => f.name ?? f.path)).toEqual(['C:/P/DUP.v', 'm.v', 'ilegivel.v']);
-        expect(disco.spf.testbenchFiles.map((f) => f.name)).toEqual(['velho_tb.v', 'meu_tb.v', 'teste.py']);
+        // O conteudo nao decide mais nada: meu_tb.v parece testbench e entra
+        // sem papel como os outros; so a pessoa o classifica.
+        expect(disco.spf.synthesizableFiles.map((f) => f.name ?? f.path)).toEqual(['C:/P/DUP.v']);
+        expect(disco.spf.testbenchFiles.map((f) => f.name)).toEqual(['velho_tb.v', 'teste.py']);
+        expect(disco.spf.unclassifiedFiles.map((f) => f.name)).toEqual(['m.v', 'meu_tb.v', 'ilegivel.v']);
+        expect(api.readFile).not.toHaveBeenCalled();
         expect(avisos(ctx)).toEqual([
             ['notification.tree.noPath', 'warning'],
             ['notification.tree.unsupportedExt', 'warning'],
@@ -213,8 +217,7 @@ describe('importFiles', () => {
         api.readFile = async () => 'module m(input a); endmodule';
         await contexto().importFiles([{ name: 'm.v', path: 'C:/p/m.v' }]);
         expect(disco.spf).toEqual({
-            synthesizableFiles: [{ name: 'm.v', path: 'C:/p/m.v', isTopLevel: false }],
-            testbenchFiles: [],
+            unclassifiedFiles: [{ name: 'm.v', path: 'C:/p/m.v', isTopLevel: false }],
         });
     });
 
@@ -291,7 +294,7 @@ describe('createGitignore', () => {
 // ---- criar .v e .py ----
 
 describe.each([
-    ['createNewFile', '.v', 'untitled', 'synthesizableFiles', 'a b', 'a_b'],
+    ['createNewFile', '.v', 'untitled', 'unclassifiedFiles', 'a b', 'a_b'],
     ['createNewCocotbFile', '.py', 'test_dut', 'testbenchFiles', '1x', 'test_1x'],
 ])('%s', (metodo, ext, sugestao, lista, invalido, saneado) => {
     it('pede o nome, corrige o invalido, grava, poe no .spf e abre', async () => {

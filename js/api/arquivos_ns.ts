@@ -15,7 +15,19 @@ import { electronAPI } from '../app/electron_api.js';
 import { SharedModelRegistry } from '../editor/shared_models.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
+import { registrarArquivo, papelDeEntrada, type PapelDeEntrada } from '../project/papel_no_spf.js';
 import { ok, err, emit } from './api_core.js';
+
+/** As tres listas de arquivos do .spf (TODO 13b): sintese, testbench, sem papel. */
+const LISTAS_DE_ARQUIVOS = ['synthesizableFiles', 'testbenchFiles', 'unclassifiedFiles'] as const;
+
+/** Caminho normalizado para comparar (barra e caixa). */
+const chaveDoCaminho = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+
+/** Papel pedido por quem cria ou importa; qualquer outra coisa vale como nenhum. */
+function papelPedido(papel: unknown): PapelDeEntrada {
+  return papel === 'synthesizable' || papel === 'testbench' ? papel : 'unclassified';
+}
 import { atualizarArvore } from './abas_e_arvore.js';
 import { acharArquivoNoProjeto } from './arvore_do_projeto.js';
 import { activeEditor, magicWandReveal } from './editor_ativo.js';
@@ -104,9 +116,12 @@ export const arquivosDoProjeto = {
   },
 
   /** Create (or overwrite) a file with `content`, then refresh the tree.
-   *  .v/.sv/.vh files are auto-registered in synthesizableFiles so they
-   *  appear in the file tree immediately without a manual import step. */
-  async createFile(filePath: string | null | undefined, content: unknown = '') {
+   *  .v/.sv/.vh files are auto-registered in the .spf so they appear in the
+   *  file tree immediately. They enter with the `role` given
+   *  ('synthesizable' or 'testbench'), or with no role yet, for the person to
+   *  choose with a right-click (TODO 13b). A file already listed keeps its
+   *  role and its place. */
+  async createFile(filePath: string | null | undefined, content: unknown = '', role: unknown = null) {
     if (!filePath) return err('filePath required');
     try {
       await electronAPI.writeFile(filePath, String(content ?? ''));
@@ -132,18 +147,8 @@ export const arquivosDoProjeto = {
       if (['v', 'sv', 'vh'].includes(ext)) {
         const spfPath = ProjectStore.getSpfPath();
         if (spfPath) {
-          const name = filePath.split(/[\\/]/).pop();
-          const normPath = filePath.replace(/\\/g, '/').toLowerCase();
           await SpfStore.update(spfPath, (cfg) => {
-            const synth = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
-            const tb   = Array.isArray(cfg.testbenchFiles)     ? cfg.testbenchFiles     : [];
-            const alreadyIn =
-              synth.some((f) => (f.path || '').replace(/\\/g, '/').toLowerCase() === normPath) ||
-              tb.some((f)   => (f.path || '').replace(/\\/g, '/').toLowerCase() === normPath);
-            if (!alreadyIn) {
-              synth.push({ name, path: filePath, isTopLevel: false });
-              cfg.synthesizableFiles = synth;
-            }
+            registrarArquivo(cfg, filePath, papelPedido(role), chaveDoCaminho);
           });
           // SpfStore.update fires aurora:spf-changed → file tree re-renders.
           return ok({ filePath });
@@ -234,7 +239,10 @@ export const arquivosDoProjeto = {
   /**
    * Import an existing Verilog/cocotb file (.v / .sv / .vh / .py) into the open
    * project: copies it to the project root if it lives elsewhere and
-   * registers it in the SPF (synthesizable / testbench list).
+   * registers it in the SPF. It enters with the `kind` given ('synthesizable'
+   * or 'testbench'); without one, a .py enters as testbench and anything else
+   * with no role yet, for the person to choose (TODO 13b). A file already
+   * listed keeps its role and its place.
    */
   async importFile({ filePath, kind = null }: { filePath?: string; kind?: string | null } = {}) {
     if (!filePath) return err('filePath required');
@@ -243,8 +251,7 @@ export const arquivosDoProjeto = {
     const projectRoot = ProjectStore.getProjectPath();
     if (!projectRoot) return err('Project root unavailable');
     const nameHint = filePath.split(/[\\/]/).pop() || '';
-    const normalizedKind = kind || (/\.py$/i.test(nameHint) ? 'testbench' : 'synthesizable');
-    const targetList = normalizedKind === 'testbench' ? 'testbenchFiles' : 'synthesizableFiles';
+    const normalizedKind = kind ? papelPedido(kind) : papelDeEntrada(nameHint);
     try {
       // Copy into the project if the source lives outside the project root.
       const sep = projectRoot.includes('\\') ? '\\' : '/';
@@ -256,13 +263,8 @@ export const arquivosDoProjeto = {
         finalPath = `${projectRoot}${sep}${base}`;
         await electronAPI.copyFile(filePath, finalPath);
       }
-      const name = finalPath.split(/[\\/]/).pop();
-      const normFinal = finalPath.replace(/\\/g, '/').toLowerCase();
       await SpfStore.update(spfPath, (cfg) => {
-        const arr = Array.isArray(cfg[targetList]) ? cfg[targetList] : [];
-        const already = arr.some((f) => (f.path || '').replace(/\\/g, '/').toLowerCase() === normFinal);
-        if (!already) arr.push({ name, path: finalPath, isTopLevel: false });
-        cfg[targetList] = arr;
+        registrarArquivo(cfg, finalPath, normalizedKind, chaveDoCaminho);
       });
       await atualizarArvore();
       emit('project:file-imported', { filePath: finalPath, kind: normalizedKind });
@@ -281,7 +283,7 @@ export const arquivosDoProjeto = {
       const norm = filePath.replace(/\\/g, '/').toLowerCase();
       let removed = false;
       await SpfStore.update(spfPath, (cfg) => {
-        for (const key of ['synthesizableFiles', 'testbenchFiles']) {
+        for (const key of LISTAS_DE_ARQUIVOS) {
           const arr = Array.isArray(cfg[key]) ? cfg[key] : [];
           const filtered = arr.filter((f) => {
             const match = (f.path || '').replace(/\\/g, '/').toLowerCase() === norm;
@@ -316,7 +318,7 @@ export const arquivosDoProjeto = {
       await electronAPI.deleteFileOrDirectory(fromPath);
       const newName = toPath.split(/[\\/]/).pop();
       await SpfStore.update(spfPath, (cfg) => {
-        for (const key of ['synthesizableFiles', 'testbenchFiles']) {
+        for (const key of LISTAS_DE_ARQUIVOS) {
           const arr = Array.isArray(cfg[key]) ? cfg[key] : [];
           for (const f of arr) {
             if ((f.path || '').replace(/\\/g, '/').toLowerCase() === fromNorm) {

@@ -2496,7 +2496,7 @@ primeiro lugar para o último. Pedido do hits e decisão do Luciano:
       `ph-question` em cor de alerta. Só na árvore; abas seguem pela extensão.
 - [ ] **Botão direito:** marcar como síntese / como testbench. Top level só em
       síntese, testbench atual só em testbench. Sem voltar para indefinido.
-- [ ] **Entram já classificados:** `.py` (testbench cocotb); o que o SAPHO gera
+- [x] **Entram já classificados** (passo 4, ver o commit `feat(arvore): arquivo novo entra sem papel`): `.py` (testbench cocotb); o que o SAPHO gera
       (`Hardware/` como síntese, o `<proc>_tb.v` como testbench). Arquivo novo,
       importado ou arrastado entra indefinido.
 - [ ] **IA:** classifica só o que ela criou, dizendo que classificou; nunca
@@ -2510,9 +2510,17 @@ primeiro lugar para o último. Pedido do hits e decisão do Luciano:
       formatação do arquivo regravado.
 - [x] Antes (3e96bc69): `file_mode.js` e `project_tree_render.js` viram `.ts`, com teste
       de caracterização, em commit separado.
+- [ ] **Fechar a janela perde o que não foi salvo, sem aviso** (achado em
+      09/10/2026, lendo o código; não testado no app). O × manda
+      `window:close` direto ao main (`main/windows.js`), que fecha; nenhum
+      `beforeunload` segura. O documento sem nome vive só na memória (mapa
+      `untitledDocuments` + modelo do Monaco) e some; edição não salva de
+      arquivo com nome também. Conserto: perguntar ao fechar, listando o que
+      falta salvar (salvar, descartar, cancelar).
 - [ ] **Depois (lembrete do Luciano):** levar tudo isso ao prompt da IA, ao
       `docs/gabarito-ia.md`, ao manual (docs_aurora), à referência técnica e aos
-      READMEs. Não está resolvido como manter essas fontes em dia a cada
+      READMEs (a referência técnica em LaTeX ainda descreve a heurística nos
+      capítulos 07, 09, 12 e 13 e na seção S06). Não está resolvido como manter essas fontes em dia a cada
       mudança; ver a conversa de 07/10 sobre automatizar a documentação.
 - [ ] Conferir no hits com a macro: `USE_SHAPER_LEGACY` descomentado em
       `simulacao.v` tem de mudar a onda (prova de que a ordem vale).

@@ -25,7 +25,7 @@ import {
 } from '../editor/document_type_detector.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
-import { classifyVerilogContent } from '../project/verilog_classifier.js';
+import { registrarArquivo, papelDeEntrada } from '../project/papel_no_spf.js';
 import { addAvailableProcessor } from '../project/processor_list.js';
 import {
     basenameOf, withoutExtension, extensionOf, normalizeKey,
@@ -266,7 +266,7 @@ export const documentoSemNome: DocumentoSemNome & ThisType<AnfitriaoDoSemNome & 
         }
     },
 
-    async registerSavedProjectFile(filePath, content) {
+    async registerSavedProjectFile(filePath, _content) {
         const ext = extensionOf(filePath);
         if (ext !== 'py' && ext !== 'v') return;
 
@@ -275,24 +275,11 @@ export const documentoSemNome: DocumentoSemNome & ThisType<AnfitriaoDoSemNome & 
             return;
         }
 
-        const name = basenameOf(filePath);
-        const targetKey = normalizeKey(filePath);
+        // O papel nao vem do conteudo (TODO 13b): o .py entra como testbench,
+        // o .v sem papel, para a pessoa escolher no botao direito. Salvar por
+        // cima de um arquivo ja listado nao o tira do lugar nem do papel.
         await SpfStore.update(spfPath, (cfg) => {
-            const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
-            const tbFiles = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
-
-            const nextSynth = synthFiles.filter((f) => normalizeKey(f?.path) !== targetKey);
-            const nextTb = tbFiles.filter((f) => normalizeKey(f?.path) !== targetKey);
-            const entry = { name, path: filePath, isTopLevel: false };
-
-            if (ext === 'py' || classifyVerilogContent(content, name) === 'testbench') {
-                nextTb.push(entry);
-            } else {
-                nextSynth.push(entry);
-            }
-
-            cfg.synthesizableFiles = nextSynth;
-            cfg.testbenchFiles = nextTb;
+            registrarArquivo(cfg, filePath, papelDeEntrada(basenameOf(filePath)), (c) => normalizeKey(c));
         });
     },
 

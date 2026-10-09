@@ -373,9 +373,8 @@ export const RenderMixin: RenderizacaoDaArvore & ThisType<AnfitriaoDoRender & Re
         if (legacyBadge) legacyBadge.remove();
 
         // Toggle legado: versoes anteriores tinham um botao de toggle
-        // synth/testbench na row. A categoria agora e auto-detectada
-        // ([verilog_classifier.js](verilog_classifier.js)), remove o
-        // botao se uma row antiga ainda o tiver.
+        // synth/testbench na row. O papel agora se escolhe no botao
+        // direito (TODO 13b); remove o botao se uma row antiga o tiver.
         const legacyToggle = row.querySelector('.category-toggle-wrapper');
         if (legacyToggle) legacyToggle.remove();
     },

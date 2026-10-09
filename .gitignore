@@ -158,7 +158,6 @@ js/ai/tool_chip_text.js
 js/project/spf_parse.js
 js/project/processor_sim_config.js
 js/project/spf_store.js
-js/project/verilog_classifier.js
 js/tabs/tab_utils.js
 js/wave/complex_decode.js
 js/wave/generate_blocks.js

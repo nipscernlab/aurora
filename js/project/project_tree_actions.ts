@@ -9,9 +9,9 @@
  *   - Delete inline via botao da row
  *
  * O papel de cada arquivo e o da lista do .spf onde ele esta, e so a pessoa
- * o muda, por este menu (TODO 13b; papel_no_spf.ts). A abertura do projeto
- * nao o infere mais do conteudo. A importacao ainda o adivinha pelo
- * verilog_classifier ate o passo 4.
+ * o muda, por este menu (TODO 13b; papel_no_spf.ts). Nada o infere do
+ * conteudo: arquivo criado, importado ou arrastado entra sem papel (o .py,
+ * que so pode ser testbench, entra como testbench).
  *
  * Mixed in via Object.assign(ProjectTreeManager.prototype, ActionsMixin)
  * em file_mode.js. Cada metodo usa `this` da classe, com acesso a:
@@ -34,11 +34,10 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
 import { SpfStore } from './spf_store.js';
 import { toNativeSeparators } from '../utils/path_utils.js';
-import { classifyVerilogContent } from './verilog_classifier.js';
 import { removerDoSpf, reporNoSpf } from './spf_paths.js';
 import { showCardNotification } from '../ui/notification.js';
 import { apagarProcessador } from './processadores_do_spf.js';
-import { marcarPapel } from './papel_no_spf.js';
+import { marcarPapel, registrarArquivo, papelDeEntrada } from './papel_no_spf.js';
 import {
     isValidPythonModuleName,
     isValidVerilogFileName,
@@ -314,44 +313,15 @@ export const ActionsMixin: AcoesDaArvore & ThisType<AnfitriaoDasAcoes & AcoesDaA
             return;
         }
 
-        // Classifica cada arquivo lendo conteudo do disco. Atualiza
-        // os objetos LOCAIS (validFiles), refreshs concorrentes nao
-        // alcancam estes flags.
-        for (const f of validFiles) {
-            if (/\.py$/i.test(f.name)) {
-                f.category = 'testbench';
-                continue;
-            }
-            try {
-                const content = await electronAPI.readFile(f.path);
-                f.category = classifyVerilogContent(content, f.name);
-            } catch (err) {
-                console.warn(`Classifier: cannot read ${f.path}:`, err);
-                f.category = 'synthesizable';
-            }
-        }
-
         // Transacao atomica. Le o .spf fresh dentro do write-chain
         // do SpfStore (serializado per-path), faz append-com-dedup,
-        // escreve. Trocar de projeto durante a classificacao acima
-        // nao afeta esta chamada, targetSpfPath ja foi capturado.
+        // escreve; targetSpfPath ja foi capturado. O papel nao vem do
+        // conteudo (TODO 13b): o .py entra como testbench, o resto sem
+        // papel, e quem ja esta listado fica como esta.
         await SpfStore.update(targetSpfPath, (cfg) => {
-            const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
-            const tbFiles = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
-            const seen = new Set([
-                ...synthFiles.map((f) => this._normalizePath(f.path)),
-                ...tbFiles.map((f) => this._normalizePath(f.path)),
-            ]);
             for (const f of validFiles) {
-                const key = this._normalizePath(f.path);
-                if (seen.has(key)) continue;
-                const entry = { name: f.name, path: f.path, isTopLevel: false };
-                if (f.category === 'testbench') tbFiles.push(entry);
-                else synthFiles.push(entry);
-                seen.add(key);
+                registrarArquivo(cfg, f.path as string, papelDeEntrada(f.name), (c) => this._normalizePath(c));
             }
-            cfg.synthesizableFiles = synthFiles;
-            cfg.testbenchFiles = tbFiles;
         });
 
         this.showNotification(
@@ -484,19 +454,10 @@ export const ActionsMixin: AcoesDaArvore & ThisType<AnfitriaoDasAcoes & AcoesDaA
             await electronAPI.writeFile(finalPath, '');
 
             // Append-com-dedup atomico no .spf capturado. Arquivo novo
-            // / vazio cai como 'synthesizable' (default seguro;
-            // _classifyAll re-roda no refresh e ajusta se necessario).
+            // entra sem papel (TODO 13b): a interrogacao na arvore chama a
+            // pessoa a escolher no botao direito. Ja listado, fica como esta.
             await SpfStore.update(targetSpfPath, (cfg) => {
-                const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
-                const tbFiles = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
-                const targetKey = this._normalizePath(finalPath);
-                const synthIdx = synthFiles.findIndex((f) => this._normalizePath(f.path) === targetKey);
-                const tbIdx = tbFiles.findIndex((f) => this._normalizePath(f.path) === targetKey);
-                if (synthIdx < 0 && tbIdx < 0) {
-                    synthFiles.push({ name: finalFileName, path: finalPath, isTopLevel: false });
-                }
-                cfg.synthesizableFiles = synthFiles;
-                cfg.testbenchFiles = tbFiles;
+                registrarArquivo(cfg, finalPath, 'unclassified', (c) => this._normalizePath(c));
             });
 
             this.showNotification(tr('notification.tree.created', { name: finalFileName }), 'success', 2000);

@@ -200,8 +200,9 @@ describe('salvar o sem nome', () => {
 
     expect(m.ponte.showSaveDialog.mock.calls[0][0].defaultPath).toBe('C:/p/untitled.v');
     expect(escritas()).toEqual([['C:/p/top.v', 'module top(input a); endmodule']]);
-    expect(m.spf.estrutura.synthesizableFiles).toEqual([{ name: 'top.v', path: 'C:/p/top.v', isTopLevel: false }]);
-    expect(m.spf.estrutura.testbenchFiles).toEqual([]);
+    // Ja estava na sintese: salvar por cima nao mexe na entrada (TODO 13b).
+    expect(m.spf.estrutura.synthesizableFiles).toEqual([{ path: 'C:/p/top.v' }]);
+    expect(m.spf.estrutura.testbenchFiles).toBe('x');
     expect(TabManager.tabs.has(p)).toBe(false);
     expect(TabManager.untitledDocuments.has(p)).toBe(false);
     expect(TabManager.tabs.get('C:/p/top.v')).toBe('module top(input a); endmodule');
@@ -247,11 +248,15 @@ describe('salvar o sem nome', () => {
     m.ponte.getFileStats = async () => ({ mtime: 1000 });
   });
 
-  it('Verilog que e testbench vai para os testbenches', async () => {
+  it('Verilog salvo entra sem papel; ja listado fica onde estava, com o papel que tinha (TODO 13b)', async () => {
     m.projeto.spf = 'C:/p/p.spf';
-    m.spf.estrutura = { testbenchFiles: [{ path: 'C:/P/TB.V' }] };
+    m.spf.estrutura = { synthesizableFiles: [{ path: 'C:/p/a.v' }, { path: 'C:/P/TB.V' }, { path: 'C:/p/z.v' }] };
+    // Parece testbench pelo conteudo, mas o papel nao vem mais do conteudo:
+    // continua na sintese, no mesmo lugar.
     await TabManager.registerSavedProjectFile('C:/p/tb.v', 'module tb; initial begin $dumpvars; $finish; end endmodule');
-    expect(m.spf.estrutura.testbenchFiles).toEqual([{ name: 'tb.v', path: 'C:/p/tb.v', isTopLevel: false }]);
+    expect(m.spf.estrutura.synthesizableFiles).toEqual([{ path: 'C:/p/a.v' }, { path: 'C:/P/TB.V' }, { path: 'C:/p/z.v' }]);
+    await TabManager.registerSavedProjectFile('C:/p/novo.v', 'module novo(input a); endmodule');
+    expect(m.spf.estrutura.unclassifiedFiles).toEqual([{ name: 'novo.v', path: 'C:/p/novo.v', isTopLevel: false }]);
   });
 
   it('C+- no projeto: cria as pastas do processador, grava o .cmm com o #PRNAME e registra', async () => {

@@ -70,3 +70,44 @@ export function marcarPapel(
     cfg[destino] = listaDestino;
     return true;
 }
+
+/** Papel de um arquivo que acabou de entrar no projeto, ou nenhum ainda. */
+export type PapelDeEntrada = Papel | 'unclassified';
+
+const LISTA_DE_ENTRADA = { ...LISTA_DO_PAPEL, unclassified: 'unclassifiedFiles' } as const;
+
+/**
+ * O papel com que um arquivo novo entra (TODO 13b, passo 4): nenhum, a pessoa
+ * escolhe no botao direito. A excecao e o .py, que so pode ser testbench
+ * (cocotb nao sintetiza), entao nao ha o que perguntar.
+ */
+export function papelDeEntrada(nome: string): PapelDeEntrada {
+    return /\.py$/i.test(nome || '') ? 'testbench' : 'unclassified';
+}
+
+/**
+ * Registra um arquivo que entrou no projeto (criado, importado, arrastado,
+ * salvo pela primeira vez). Se ele ja esta em QUALQUER lista do .spf, nada
+ * muda: nem de papel, nem de lugar. Senao, entra no fim da lista do papel.
+ *
+ * @returns se registrou (falso quando ja estava listado)
+ */
+export function registrarArquivo(
+    cfg: Record<string, unknown>,
+    caminho: string,
+    papel: PapelDeEntrada,
+    chave: (c: string) => string,
+): boolean {
+    const alvo = chave(caminho);
+    for (const lista of LISTAS) {
+        const atual = cfg[lista];
+        if (Array.isArray(atual) && (atual as Entrada[]).some((e) => !!e && typeof e.path === 'string' && chave(e.path) === alvo)) {
+            return false;
+        }
+    }
+    const destino = LISTA_DE_ENTRADA[papel];
+    const lista = Array.isArray(cfg[destino]) ? (cfg[destino] as Entrada[]) : [];
+    lista.push({ name: caminho.split(/[\\/]/).pop(), path: caminho, isTopLevel: false });
+    cfg[destino] = lista;
+    return true;
+}

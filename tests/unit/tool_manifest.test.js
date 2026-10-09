@@ -2,9 +2,8 @@ import { readFileSync } from 'node:fs';
 
 import { describe, it, expect } from 'vitest';
 
-import pkg from '../../main/ai/tools.js';
+import { TOOL_MANIFEST } from '../../main/ai/tools.js';
 
-const { TOOL_MANIFEST } = pkg;
 
 // Contract tests for the tool manifest.
 //

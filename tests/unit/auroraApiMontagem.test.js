@@ -7,9 +7,8 @@
 
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 
-import pkg from '../../main/ai/tools.js';
+import { TOOL_MANIFEST } from '../../main/ai/tools.js';
 
-const { TOOL_MANIFEST } = pkg;
 
 vi.mock('../../js/editor/monaco_editor.js', () => ({ EditorManager: {} }));
 vi.mock('../../js/tabs/tab_manager.js', () => ({ TabManager: {} }));

@@ -1,5 +1,5 @@
 /**
- * project_tree_render.js: RenderMixin do ProjectTreeManager.
+ * project_tree_render.ts: RenderMixin do ProjectTreeManager.
  *
  * Camada de DOM/rendering: dado o state da classe (this.verilogFiles,
  * helpers de path), monta e atualiza as rows da file tree no
@@ -13,10 +13,36 @@
  *   - this._getProcessorForFile    (state mixin)
  *   - this.getFileExtension        (state mixin)
  *
- * NAO importa nada externo, render puro, sem IO.
+ * NAO importa nada externo, render puro, sem IO. (O import abaixo e so de
+ * tipo e some na compilacao.)
  */
 
-export const RenderMixin = {
+import type { ArquivoDaArvore } from './project_tree_actions.js';
+
+/** O que o mixin le de quem o recebe (o ProjectTreeManager). */
+interface AnfitriaoDoRender {
+    verilogFiles: ArquivoDaArvore[];
+    missingFiles?: Array<{ name: string; path: string }> | null;
+    getFileExtension(nome: string): string;
+    _getProcessorForFile(file: ArquivoDaArvore): string | null;
+}
+
+/** Arquivo como o icone o recebe: os chamadores antigos passam so o nome. */
+type ArquivoParaIcone = Partial<ArquivoDaArvore> | string | null | undefined;
+
+export interface RenderizacaoDaArvore {
+    renderTree(): void;
+    _renderMissingFilesNotice(container: HTMLElement): void;
+    _escapeHtml(s: unknown): string;
+    refreshEditorFocusHighlight(): void;
+    _updateFileItem(row: HTMLElement, file: ArquivoDaArvore): void;
+    _createFileItem(file: ArquivoDaArvore): HTMLDivElement;
+    _createProcessorSeparator(procName: string): HTMLDivElement;
+    _getIconTooltip(file: Partial<ArquivoDaArvore> | null | undefined): string;
+    getFileIcon(file: ArquivoParaIcone): string;
+}
+
+export const RenderMixin: RenderizacaoDaArvore & ThisType<AnfitriaoDoRender & RenderizacaoDaArvore> = {
     /**
      * Renderiza a file tree no subcontainer `.tree-view-verilog`.
      * CSS mostra so o subcontainer ativo via `#file-tree[data-active-view]`,
@@ -45,7 +71,7 @@ export const RenderMixin = {
         // QUANTO trocar a view visivel devem ir via
         // fileTreeViewController.showFileMode() (que invoca este
         // renderer via o renderer hook registrado).
-        const container = window.treeView?.getContainer('verilog');
+        const container = window.treeView?.getContainer?.('verilog');
         if (!container) return;
 
         // Se chegamos aqui, ha um projeto ativo (renderTree so roda com
@@ -104,15 +130,15 @@ export const RenderMixin = {
         // grupo sem nome que aparece primeiro, sem separador. Os
         // grupos por processador aparecem depois, em ordem alfabetica,
         // cada um precedido por um separador horizontal com o nome.
-        const userFiles = [];
-        const procGroups = new Map(); // procName -> [files]
+        const userFiles: ArquivoDaArvore[] = [];
+        const procGroups = new Map<string, ArquivoDaArvore[]>(); // procName -> [files]
         for (const file of this.verilogFiles) {
             const proc = this._getProcessorForFile(file);
             if (!proc) {
                 userFiles.push(file);
             } else {
                 if (!procGroups.has(proc)) procGroups.set(proc, []);
-                procGroups.get(proc).push(file);
+                procGroups.get(proc)!.push(file);
             }
         }
         const procNames = [...procGroups.keys()].sort((a, b) => a.localeCompare(b));
@@ -127,8 +153,8 @@ export const RenderMixin = {
         // Map e as extras sao removidas imediatamente. Sem essa
         // limpeza, Map.set sobrescreve sem tirar do DOM, e as
         // duplicatas sobrevivem o "cleanup" no fim deste metodo.
-        const existingFileRows = new Map();
-        for (const row of container.querySelectorAll('.verilog-file-item')) {
+        const existingFileRows = new Map<string | undefined, HTMLElement>();
+        for (const row of container.querySelectorAll<HTMLElement>('.verilog-file-item')) {
             const key = row.dataset.filePath;
             if (existingFileRows.has(key)) {
                 row.remove();
@@ -136,8 +162,8 @@ export const RenderMixin = {
                 existingFileRows.set(key, row);
             }
         }
-        const existingSeparators = new Map();
-        for (const sep of container.querySelectorAll('.verilog-processor-separator')) {
+        const existingSeparators = new Map<string | undefined, HTMLElement>();
+        for (const sep of container.querySelectorAll<HTMLElement>('.verilog-processor-separator')) {
             const key = sep.dataset.processorName;
             if (existingSeparators.has(key)) {
                 sep.remove();
@@ -146,13 +172,13 @@ export const RenderMixin = {
             }
         }
 
-        let prev = null;
-        const placeNode = (node) => {
+        let prev: Node | null = null;
+        const placeNode = (node: Node) => {
             const targetSibling = prev ? prev.nextSibling : container.firstChild;
             if (node !== targetSibling) container.insertBefore(node, targetSibling);
             prev = node;
         };
-        const placeFile = (file) => {
+        const placeFile = (file: ArquivoDaArvore) => {
             let row = existingFileRows.get(file.path);
             if (row) {
                 this._updateFileItem(row, file);
@@ -162,7 +188,7 @@ export const RenderMixin = {
             }
             placeNode(row);
         };
-        const placeSeparator = (procName) => {
+        const placeSeparator = (procName: string) => {
             let sep = existingSeparators.get(procName);
             if (sep) {
                 existingSeparators.delete(procName);
@@ -184,7 +210,7 @@ export const RenderMixin = {
         for (const file of userFiles) placeFile(file);
         for (const procName of procNames) {
             placeSeparator(procName);
-            for (const file of procGroups.get(procName)) placeFile(file);
+            for (const file of procGroups.get(procName)!) placeFile(file);
         }
 
         // Limpa rows / separadores que sobraram (arquivos removidos,
@@ -210,7 +236,7 @@ export const RenderMixin = {
      * desloca o card. CSS controla o visual (warning subtil, sem
      * dominar a tree).
      */
-    _renderMissingFilesNotice(container) {
+    _renderMissingFilesNotice(container: HTMLElement) {
         const missing = Array.isArray(this.missingFiles) ? this.missingFiles : [];
         const existing = container.querySelector('.verilog-missing-notice');
         if (missing.length === 0) {
@@ -219,7 +245,7 @@ export const RenderMixin = {
         }
         // Reuso de DOM: se ja existe, atualiza o conteudo em vez de
         // recriar. Sem isso, render-em-loop faria o card piscar.
-        const tr = (k, p) => (window.t ? window.t(k, p) : k);
+        const tr = (k: string, p?: Record<string, unknown>) => (window.t ? window.t(k, p) : k);
         const headline = missing.length === 1
             ? tr('fileTree.missingFiles.headlineOne')
             : tr('fileTree.missingFiles.headlineOther', { count: missing.length });
@@ -250,7 +276,7 @@ export const RenderMixin = {
 
     /** Mesma escape policy usada por recent_projects.js, defensiva
      * pra paths/nomes com caracteres especiais. */
-    _escapeHtml(s) {
+    _escapeHtml(s: unknown) {
         const div = document.createElement('div');
         div.textContent = s == null ? '' : String(s);
         return div.innerHTML;
@@ -263,12 +289,12 @@ export const RenderMixin = {
      * row na tree (arquivo fora do projeto).
      */
     refreshEditorFocusHighlight() {
-        const container = window.treeView?.getContainer('verilog');
+        const container = window.treeView?.getContainer?.('verilog');
         if (!container) return;
         const focusedPath = window.TabManager?.getEditingFilePath?.() || '';
-        const norm = (p) => (p || '').replace(/\\/g, '/').toLowerCase();
+        const norm = (p: string) => (p || '').replace(/\\/g, '/').toLowerCase();
         const target = norm(focusedPath);
-        for (const row of container.querySelectorAll('.verilog-file-item')) {
+        for (const row of container.querySelectorAll<HTMLElement>('.verilog-file-item')) {
             const rowPath = norm(row.dataset.filePath || '');
             row.classList.toggle('editor-focused', !!target && rowPath === target);
         }
@@ -282,7 +308,7 @@ export const RenderMixin = {
      * porque a delegacao no nivel da tree (setupEventListeners)
      * dispatcha pelo handler certo via data-file-path, nao por indice.
      */
-    _updateFileItem(row, file) {
+    _updateFileItem(row: HTMLElement, file: ArquivoDaArvore) {
         const isTestbench = file.category === 'testbench';
         row.classList.toggle('synthesizable', !isTestbench);
         row.classList.toggle('testbench', isTestbench);
@@ -294,7 +320,7 @@ export const RenderMixin = {
 
         // Icone, recalcula porque depende de isTopLevel + category.
         // So mexe no DOM se a classe efetivamente mudou.
-        const iconEl = info.querySelector('.verilog-file-icon');
+        const iconEl = info.querySelector<HTMLElement>('.verilog-file-icon');
         if (iconEl) {
             const desiredIcon = `${this.getFileIcon(file)} verilog-file-icon`;
             if (iconEl.className !== desiredIcon) iconEl.className = desiredIcon;
@@ -309,7 +335,7 @@ export const RenderMixin = {
         // Filename, so toca DOM se mudou (e.g. rename fora do Aurora).
         // Re-escrever o textNode a cada render flicka selecao em alguns
         // browsers.
-        const nameEl = info.querySelector('.verilog-file-name');
+        const nameEl = info.querySelector<HTMLElement>('.verilog-file-name');
         if (nameEl) {
             if (nameEl.textContent !== file.name) nameEl.textContent = file.name;
             const desiredTitle = file.path;
@@ -341,7 +367,7 @@ export const RenderMixin = {
      * que uma row criada aqui possa ser reutilizada/atualizada sem
      * recriar o HTML estrutural.
      */
-    _createFileItem(file) {
+    _createFileItem(file: ArquivoDaArvore) {
         const fileItem = document.createElement('div');
         fileItem.className = 'verilog-file-item';
         fileItem.dataset.filePath = file.path;
@@ -391,7 +417,7 @@ export const RenderMixin = {
      * Cria o separador horizontal que marca o inicio de um grupo
      * de arquivos de processador na arvore.
      */
-    _createProcessorSeparator(procName) {
+    _createProcessorSeparator(procName: string) {
         const isImported = procName === '__imported__';
         const sep = document.createElement('div');
         sep.className = 'verilog-processor-separator';
@@ -407,11 +433,11 @@ export const RenderMixin = {
             ${isImported ? '' : '<button type="button" class="verilog-processor-delete" data-action="delete-processor" tabindex="-1"><i class="ph ph-trash" aria-hidden="true"></i></button>'}
             <span class="verilog-processor-separator-line"></span>
         `;
-        sep.querySelector('.verilog-processor-separator-label').textContent =
+        sep.querySelector('.verilog-processor-separator-label')!.textContent =
             isImported ? 'Imported' : procName;
-        const lixeira = sep.querySelector('.verilog-processor-delete');
+        const lixeira = sep.querySelector<HTMLButtonElement>('.verilog-processor-delete');
         if (lixeira) {
-            const rotulo = (window.t?.('fileTree.crud.deleteProcessor', 'Delete processor') || 'Delete processor')
+            const rotulo = (window.t?.('fileTree.crud.deleteProcessor') || 'Delete processor')
                 + ` "${procName}"`;
             lixeira.title = rotulo;
             lixeira.setAttribute('aria-label', rotulo);
@@ -425,7 +451,7 @@ export const RenderMixin = {
      * conta a categoria auto-detectada, sem o toggle na row, o
      * tooltip do icone e a unica forma de confirmar synth vs tb.
      */
-    _getIconTooltip(file) {
+    _getIconTooltip(file: Partial<ArquivoDaArvore> | null | undefined): string {
         if (file?.isTopLevel) {
             return file.category === 'testbench'
                 ? 'This file is set as the project\'s Testbench top'
@@ -449,8 +475,8 @@ export const RenderMixin = {
      * ja e comunicada pelo agrupamento da arvore, nao pelo formato do icone.
      * Tolerante a chamadores antigos que passavam so o nome (string).
      */
-    getFileIcon(file) {
-        const fileObj = (typeof file === 'string') ? { name: file } : (file || {});
+    getFileIcon(file: ArquivoParaIcone): string {
+        const fileObj: Partial<ArquivoDaArvore> = (typeof file === 'string') ? { name: file } : (file || {});
         const name = fileObj.name || '';
 
         // Os DOIS topos, cada um com o seu icone.

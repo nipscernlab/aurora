@@ -1,5 +1,5 @@
 /**
- * file_mode.js: ProjectTreeManager (state + lifecycle + persistencia).
+ * file_mode.ts: ProjectTreeManager (state + lifecycle + persistencia).
  *
  * Renderiza a file tree do projeto, a unica vista de arquivos que
  * Aurora mostra hoje. Lista arquivos a partir do .spf
@@ -39,17 +39,40 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
 import { setAvailableProcessors, addAvailableProcessor } from './processor_list.js';
 import { SpfStore } from './spf_store.js';
+import type { ArquivoDaArvore, AcoesDaArvore } from './project_tree_actions.js';
+import type { RenderizacaoDaArvore } from './project_tree_render.js';
+import type { VerilogCategory } from './verilog_classifier.js';
+
+/** Quem recebe o aviso de erro ao abrir: o proprio ProjectTreeManager. */
+interface QuemNotifica {
+    showNotification?(mensagem: string, tipo?: string, ms?: number): void;
+}
+
+/** Arquivo que o .spf lista mas o disco nao tem mais. */
+interface ArquivoSumido {
+    name: string;
+    path: string;
+    category: string;
+}
+
+/** Entrada de arquivo como o .spf a guarda. */
+interface EntradaDoSpf {
+    name?: string;
+    path?: string;
+    isTopLevel?: boolean;
+    isMarkedTestbench?: boolean;
+}
 
 // Single click on a file in the tree opens it as a VS Code-style preview
 // (italic tab; clicking another file replaces it). Double click pins it
 // as a permanent tab. The same `options.preview` flag flows through to
 // SplitPane.openFile so a focused split treats clicks identically, each
 // pane carries its own preview slot, decoupled from the main pane.
-async function openTreeFile(filePath, fileName, options, ctx) {
+async function openTreeFile(filePath: string, fileName: string, options: { preview: boolean }, ctx: QuemNotifica) {
     try {
         const content = await electronAPI.readFile(filePath);
         const sem = window.SplitEditorManager;
-        if (sem && sem.focusedPane > 0) {
+        if (sem && (sem.focusedPane ?? 0) > 0) {
             await sem.openInFocusedPane(filePath, content, options);
         } else {
             TabManager.addTab(filePath, content, options);
@@ -69,6 +92,22 @@ import { classifyVerilogContent } from './verilog_classifier.js';
 import { sourceExtensions } from '../compilation/processor_source.js';
 
 class ProjectTreeManager {
+    declare ALLOWED_EXTENSIONS: string[];
+    declare SOFTWARE_EXTENSIONS: string[];
+    declare verilogFiles: ArquivoDaArvore[];
+    declare isTreeActive: boolean;
+    declare _projectEpoch: number;
+    declare elements: {
+        fileTree?: HTMLElement | null;
+        fileTreeContainer?: Element | null;
+        refreshButton?: HTMLElement | null;
+    };
+    declare initPromise: Promise<void> | null;
+    declare missingFiles: ArquivoSumido[];
+    declare _classifyCache: Map<string, { mtime: number; category: VerilogCategory }> | undefined;
+    declare _refreshPromise: Promise<void> | null | undefined;
+    declare _refreshPending: boolean | undefined;
+
     constructor() {
         // File tree drag-and-drop accepts Verilog source and header
         // files only. .gtkw save files have a dedicated entry point
@@ -186,7 +225,7 @@ class ProjectTreeManager {
         // depois do usuario trocar de projeto, ali NAO queremos
         // refresh: o projeto ativo agora e outro).
         window.addEventListener('aurora:spf-changed', (event) => {
-            const changed = event?.detail?.spfPath;
+            const changed = (event as CustomEvent<{ spfPath?: string } | undefined>)?.detail?.spfPath;
             if (changed && changed === ProjectStore.getSpfPath() && this.isTreeActive) {
                 this.refreshTree();
             }
@@ -198,7 +237,7 @@ class ProjectTreeManager {
         // do projeto Verilog (e.g. .json, .md). Path comparado via
         // _normalizePath pra cobrir Windows case/sep.
         window.addEventListener('aurora:file-saved', (event) => {
-            const savedPath = event?.detail?.path;
+            const savedPath = (event as CustomEvent<{ path?: string } | undefined>)?.detail?.path;
             if (!savedPath || !this.isTreeActive) return;
             const key = this._normalizePath(savedPath);
             const tracked = this.verilogFiles.some((f) => this._normalizePath(f.path) === key);
@@ -210,7 +249,7 @@ class ProjectTreeManager {
         // visao Pastas ficava fora da lista de fontes ate um refresh forte.
         // Aqui a decisao e pela extensao, que e o que classifica um fonte.
         window.addEventListener('aurora:file-created', (event) => {
-            const p = event?.detail?.path;
+            const p = (event as CustomEvent<{ path?: string } | undefined>)?.detail?.path;
             if (!p || !this.isTreeActive) return;
             const ext = String(p).slice(String(p).lastIndexOf('.')).toLowerCase();
             if (this.ALLOWED_EXTENSIONS.includes(ext)) this.refreshTree();
@@ -236,11 +275,12 @@ class ProjectTreeManager {
             // a cada click significa que listeners sobrevivem a sort
             // e updates in-place, nenhum indice capturado em closure
             // pode targetar a row errada.
-            this.elements.fileTree.addEventListener('click', async (e) => {
+            this.elements.fileTree.addEventListener('click', async (e: MouseEvent) => {
+                const alvo = e.target as Element;
                 if (!this.isTreeActive) return;
                 // Missing-files notice "dismiss" button, confirm the
                 // implications, then prune the dangling refs from the .spf.
-                if (e.target.closest('.verilog-missing-dismiss')) {
+                if (alvo.closest('.verilog-missing-dismiss')) {
                     e.preventDefault();
                     e.stopPropagation();
                     await this.confirmAndDismissMissingFiles();
@@ -249,24 +289,24 @@ class ProjectTreeManager {
                 // Lixeira do separador de processador: mesmo caminho de
                 // exclusao do menu de botao direito, com o mesmo dialogo de
                 // confirmacao. Vem antes da row porque o separador nao e uma.
-                const lixeira = e.target.closest('.verilog-processor-delete');
+                const lixeira = alvo.closest('.verilog-processor-delete');
                 if (lixeira) {
                     e.preventDefault();
                     e.stopPropagation();
-                    const procName = lixeira.closest('.verilog-processor-separator')?.dataset.processorName;
+                    const procName = lixeira.closest<HTMLElement>('.verilog-processor-separator')?.dataset.processorName;
                     if (procName && procName !== '__imported__') {
                         await this._deleteProcessorByName(procName);
                     }
                     return;
                 }
-                const row = e.target.closest('.verilog-file-item');
+                const row = alvo.closest<HTMLElement>('.verilog-file-item');
                 if (!row) return;
                 const path = row.dataset.filePath;
                 if (!path) return;
                 const file = this.verilogFiles.find((f) => f.path === path);
                 if (!file) return;
 
-                const actionBtn = e.target.closest('[data-action]');
+                const actionBtn = alvo.closest<HTMLElement>('[data-action]');
                 const action = actionBtn?.dataset.action;
 
                 if (action === 'delete') {
@@ -287,15 +327,16 @@ class ProjectTreeManager {
             // listener still fires first (it opens or activates the preview);
             // this one upgrades the same path to a permanent tab. We don't
             // re-read the file here, the preview already created the tab.
-            this.elements.fileTree.addEventListener('dblclick', async (e) => {
+            this.elements.fileTree.addEventListener('dblclick', async (e: MouseEvent) => {
+                const alvo = e.target as Element;
                 if (!this.isTreeActive) return;
-                const row = e.target.closest('.verilog-file-item');
+                const row = alvo.closest<HTMLElement>('.verilog-file-item');
                 if (!row) return;
                 const path = row.dataset.filePath;
                 if (!path) return;
                 const file = this.verilogFiles.find((f) => f.path === path);
                 if (!file) return;
-                if (e.target.closest('[data-action]')) return; // delete button
+                if (alvo.closest('[data-action]')) return; // delete button
                 await openTreeFile(file.path, file.name, { preview: false }, this);
             });
         }
@@ -316,16 +357,17 @@ class ProjectTreeManager {
         // precisamos sincroniza-la aqui antes de refreshTree(), senao
         // o varredor pula a pasta do processador recem-criado e os
         // arquivos do template nunca aparecem.
-        electronAPI?.onProcessorCreated?.((data) => {
+        electronAPI?.onProcessorCreated?.((data: unknown) => {
             // addAvailableProcessor faz dedup case-insensitive, ver
             // processor_list.js.
-            addAvailableProcessor(data?.processorName);
+            addAvailableProcessor((data as { processorName?: unknown } | null)?.processorName);
             this.refreshTree();
         });
         // onProcessorsUpdated traz a lista completa (disparado em
         // delete-processor e re-disparado em project open). Substituimos
         // a lista inteira; setAvailableProcessors faz dedup.
-        electronAPI?.onProcessorsUpdated?.((data) => {
+        electronAPI?.onProcessorsUpdated?.((dados) => {
+            const data = dados as { processors?: unknown } | null;
             if (Array.isArray(data?.processors)) {
                 setAvailableProcessors(data.processors);
             }
@@ -352,7 +394,7 @@ class ProjectTreeManager {
 
         // dragover usa um listener inline pra setar a classe; nao
         // precisa do bound handler porque o code roda inline.
-        dropArea.addEventListener('dragover', (e) => {
+        dropArea.addEventListener('dragover', (e: DragEvent) => {
             if (this.isTreeActive) {
                 e.preventDefault();
                 dropArea.classList.add('verilog-dragover');
@@ -375,13 +417,13 @@ class ProjectTreeManager {
     }
 
     /** Extensao com ponto (e.g. '.v'). */
-    getFileExtension(fileName) {
+    getFileExtension(fileName: string) {
         const parts = fileName.toLowerCase().split('.');
         return parts.length > 1 ? '.' + parts[parts.length - 1] : '';
     }
 
     /** Normaliza path pra comparacao case-insensitive cross-platform. */
-    _normalizePath(p) {
+    _normalizePath(p: string | null | undefined) {
         return (p || '').replace(/\\/g, '/').toLowerCase();
     }
 
@@ -391,7 +433,7 @@ class ProjectTreeManager {
      * null. Lista canonica de processadores e window.availableProcessors
      * (semeada no load do .spf por project_manager).
      */
-    _getProcessorForFile(file) {
+    _getProcessorForFile(file: Partial<ArquivoDaArvore> | null | undefined): string | null {
         const projectPath = ProjectStore.getProjectPath();
         if (!projectPath || !file?.path) return null;
         const procs = Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
@@ -451,7 +493,7 @@ class ProjectTreeManager {
         for (const procName of procs) {
             for (const subDirName of subfolders) {
                 const subDir = await electronAPI.joinPath(projectPath, procName, subDirName);
-                let entries;
+                let entries: unknown;
                 try {
                     entries = await electronAPI.listFilesInDirectory(subDir);
                 } catch {
@@ -467,7 +509,7 @@ class ProjectTreeManager {
                     const fullPath = await electronAPI.joinPath(subDir, entry);
                     const key = this._normalizePath(fullPath);
                     if (seen.has(key)) continue;
-                    const fileEntry = {
+                    const fileEntry: ArquivoDaArvore = {
                         name: entry,
                         path: fullPath,
                         isTopLevel: false,
@@ -531,16 +573,16 @@ class ProjectTreeManager {
             // the whole .v and re-running the regex (P3, was N+1 full reads on
             // every refresh). Only files whose mtime moved get read again.
             const cache = this._classifyCache || (this._classifyCache = new Map());
-            let mtime = null;
+            let mtime: number | null = null;
             try {
                 mtime = (await electronAPI.getFileStats(file.path))?.mtime ?? null;
             } catch (_) { /* fall through to a full read */ }
             const hit = mtime != null ? cache.get(file.path) : null;
-            let category;
+            let category: VerilogCategory;
             if (hit && hit.mtime === mtime) {
                 category = hit.category;
             } else {
-                let content;
+                let content: string;
                 try {
                     content = await electronAPI.readFile(file.path);
                 } catch (error) {
@@ -722,7 +764,7 @@ class ProjectTreeManager {
      *   e pura assignment; qualquer load/refresh em paralelo nao
      *   consegue backdate o dado que estamos prestes a persistir.
      */
-    async saveConfiguration(spfPathArg) {
+    async saveConfiguration(spfPathArg?: string | null) {
         try {
             // Persist to the CAPTURED path when the caller passes one
             // (loadConfiguration captures it at entry). Falling back to the
@@ -735,7 +777,7 @@ class ProjectTreeManager {
                 return;
             }
 
-            const buildEntry = (f) => ({
+            const buildEntry = (f: ArquivoDaArvore) => ({
                 name: f.name,
                 path: f.path,
                 isTopLevel: f.isTopLevel || false,
@@ -808,7 +850,7 @@ class ProjectTreeManager {
             // or persist, the new project's own refresh will populate it.
             const epoch = this._projectEpoch;
 
-            const nextFiles = [];
+            const nextFiles: ArquivoDaArvore[] = [];
             // Junta TODOS os paths que o .spf referencia mas o disco nao
             // tem mais, pra que renderTree mostre o card "missing files"
             // no topo e o usuario veja o que sumiu sem precisar abrir o
@@ -821,7 +863,7 @@ class ProjectTreeManager {
             console.log('Loading configuration from:', spfPath);
 
             if (Array.isArray(configData.synthesizableFiles)) {
-                for (const fileData of configData.synthesizableFiles) {
+                for (const fileData of configData.synthesizableFiles as EntradaDoSpf[]) {
                     if (!fileData.path || !fileData.name) continue;
                     try {
                         const exists = await electronAPI.fileExists(fileData.path);
@@ -847,7 +889,7 @@ class ProjectTreeManager {
             }
 
             if (Array.isArray(configData.testbenchFiles)) {
-                for (const fileData of configData.testbenchFiles) {
+                for (const fileData of configData.testbenchFiles as EntradaDoSpf[]) {
                     if (!fileData.path || !fileData.name) continue;
                     try {
                         const exists = await electronAPI.fileExists(fileData.path);
@@ -963,7 +1005,7 @@ class ProjectTreeManager {
      * Pass-through pro window.showNotification global. Fallback pra
      * console.log se o sistema de notificacoes ainda nao montou.
      */
-    showNotification(message, type = 'info', duration = 3000) {
+    showNotification(message: string, type = 'info', duration = 3000) {
         if (typeof window.showNotification === 'function') {
             window.showNotification(message, type, duration);
             return;
@@ -975,6 +1017,10 @@ class ProjectTreeManager {
 // Mix render + actions no prototype. Ordem: render primeiro, actions
 // depois (caso uma key colida, nao deveria, mas a precedencia ficaria
 // com actions, mais perto da intencao do usuario).
+// A fusao de interface diz ao TypeScript o que o Object.assign abaixo poe na
+// classe; nao gera codigo.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+interface ProjectTreeManager extends RenderizacaoDaArvore, AcoesDaArvore {}
 Object.assign(ProjectTreeManager.prototype, RenderMixin, ActionsMixin);
 
 // Singleton, handlers bindados pra esta instancia sao referenciados

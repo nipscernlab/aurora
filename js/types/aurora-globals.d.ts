@@ -333,7 +333,7 @@ declare global {
       verilogFiles?: import('../ai/file_ref.js').ArquivoDaArvore[];
     };
     /** O controlador das duas visoes da arvore (js/tree/file_tree_view_controller.ts); lido por window para nao fechar ciclo. */
-    fileTreeViewController?: { getActiveView?(): string; getHierarchyData?(): unknown; setHierarchyData?(dados: unknown): void };
+    fileTreeViewController?: { showFileMode?(): unknown; getActiveView?(): string; getHierarchyData?(): unknown; setHierarchyData?(dados: unknown): void };
     /** O ouvinte do destaque da vista hierarquica ja foi ligado (compilation_module.ts). */
     __hierarchyFocusWired?: boolean;
     /** As subarvores da arvore de arquivos (js/tree/tree_view.ts). */

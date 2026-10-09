@@ -4,6 +4,75 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.22.0](https://github.com/nipscernlab/aurora/compare/v6.21.0...v6.22.0) (2026-10-09)
+
+
+### Features
+
+* **arvore:** arquivo novo entra sem papel, e a heuristica sai ([eb49f37](https://github.com/nipscernlab/aurora/commit/eb49f3762b7104e8a7295fa1975de09cf413f586))
+* **arvore:** o .spf diz o papel de cada arquivo, e a arvore nao reordena ([e2bd004](https://github.com/nipscernlab/aurora/commit/e2bd0043f56e106e2f2e4ccef1668b048efd543e))
+* **arvore:** o icone de cada arquivo diz o papel que ele tem ([6db245c](https://github.com/nipscernlab/aurora/commit/6db245c24895c6c05fe4d6721698432c1dffdaf3))
+* **arvore:** o papel de cada arquivo se escolhe no botao direito ([1ae5516](https://github.com/nipscernlab/aurora/commit/1ae551686b925913a0d4261f91dbfa7bb8572ab3))
+* **compilacao:** avisa quais arquivos sem papel ficaram fora ([cc42674](https://github.com/nipscernlab/aurora/commit/cc426744c3c1ba2a98c52f29f90a6dd0fcd396de))
+* **ia:** a IA da o papel so ao que ela criou, e diz que deu ([7b42c48](https://github.com/nipscernlab/aurora/commit/7b42c488385d00ef3daca6f183443b95a672026b))
+* **processador:** o Processor Hub deixa de perguntar as pilhas ([b35be4b](https://github.com/nipscernlab/aurora/commit/b35be4be2c44e7d010a93e1ca2b58f3da4fb22eb))
+* **processador:** o Processor Hub deixa o compilador dimensionar as pilhas ([705511d](https://github.com/nipscernlab/aurora/commit/705511d91ed87de6c6f58217095e5f83e530faaf))
+* **yanc:** a Aurora passa a usar o yanc v5.7 ([d8985fc](https://github.com/nipscernlab/aurora/commit/d8985fcdea107ca377a53b0a23b6922e923d6d88))
+* **yanc:** a Aurora passa a usar o yanc v6.0 ([f6be6a7](https://github.com/nipscernlab/aurora/commit/f6be6a72192646d7c949b06076ca5578ac38ea95))
+
+
+### Bug Fixes
+
+* **abas:** fechar a janela com algo nao salvo pergunta antes ([e313e8a](https://github.com/nipscernlab/aurora/commit/e313e8a336b2bf32dbe8ff7ae84588f09b35df59))
+* **api:** o schema() da AuroraAPI descreve as 14 funcoes que faltavam ([27426c0](https://github.com/nipscernlab/aurora/commit/27426c0929fff0bb04c914cc246c8836559764d9))
+* **arvore:** conferir parametro num initial nao faz de RTL um testbench ([0648da1](https://github.com/nipscernlab/aurora/commit/0648da11f69cc472abd5dd4145b9898d83a1356c))
+* **build:** main/ai/tools.js gerado sai do git ([852ff75](https://github.com/nipscernlab/aurora/commit/852ff75046f09d43e36cc87e889804dd2040a376))
+* **build:** o .js gerado do main/ipc/project sai do repositorio ([adf81be](https://github.com/nipscernlab/aurora/commit/adf81be3f1dd2fd1b98e28dcf85401ab925ffab2))
+* **build:** os .js gerados do aurora_api e do git_ns saem do repositorio ([6566a5c](https://github.com/nipscernlab/aurora/commit/6566a5c82c29a7a4b6fd5e674888e24f9cb9c8ae))
+* **componentes:** o detalhe da falha de download diz o erro, e nao a linha de progresso ([04e0b86](https://github.com/nipscernlab/aurora/commit/04e0b862050e4a532ab0f14d9b470815e1a8580f))
+* **ia:** o prompt para de exigir as pilhas e passa a dizer o que o yanc v5.6 faz ([e0410e9](https://github.com/nipscernlab/aurora/commit/e0410e9e0673cf420641798fdcd0c91706330267))
+* **interface:** o logo do PRISM nao cobre mais o botao do Verilog ([ce25ae5](https://github.com/nipscernlab/aurora/commit/ce25ae52967975a9ff83943b4f503261ac90b642))
+* **projeto:** a raiz do .spf so muda quando o projeto muda de pasta ([b0a869a](https://github.com/nipscernlab/aurora/commit/b0a869a75214fb327ca71f27eb0fd826c280d732))
+* **projeto:** abrir o projeto nao carimba mais metadata.lastOpened no .spf ([ce62d09](https://github.com/nipscernlab/aurora/commit/ce62d09b216b32b89049afee6b2dd215f4e82cac))
+* **spf:** a lista de processadores do .spf passa a ter um escritor so ([b2c8143](https://github.com/nipscernlab/aurora/commit/b2c8143fbf100526272b451f1ae23bbb68737be9))
+
+
+### Refactor
+
+* **api:** aurora_api e git_ns viram .ts ([e7a1982](https://github.com/nipscernlab/aurora/commit/e7a1982c93cd5af198aaec0b621dfb53d460cd3a))
+* **api:** o catalogo _meta sai do aurora_api para meta_ns.ts ([7f32ab7](https://github.com/nipscernlab/aurora/commit/7f32ab7b6d5153b1f51abaff52c4c196c8970d95))
+* **api:** o compile importa o fluxo de compilacao em vez de ler a global ([262b885](https://github.com/nipscernlab/aurora/commit/262b8852a11d8d58bf0e0b604eb9b52bfb7b7f4b))
+* **api:** o compile sai do aurora_api para compile_ns.ts ([ec5dfd7](https://github.com/nipscernlab/aurora/commit/ec5dfd77878a32cdc6eb6cd921dda50a6dc4627f))
+* **api:** o editor sai do aurora_api para editor_ns.ts ([0951db8](https://github.com/nipscernlab/aurora/commit/0951db8b9e9fe44b3a1fe2fc5d34e74cf0f79535))
+* **api:** o terminal sai do aurora_api para terminal_ns.ts ([4aa8909](https://github.com/nipscernlab/aurora/commit/4aa8909e07a758fcaf81fdfcfd9e997710e6674b))
+* **api:** ui, ai e settings saem do aurora_api para ui_ns.ts, ai_ns.ts e settings_ns.ts ([85587e3](https://github.com/nipscernlab/aurora/commit/85587e36600f01fe4024fe6c38bfd5c7f9be022a))
+* **arvore:** file_mode e project_tree_render viram .ts ([3e96bc6](https://github.com/nipscernlab/aurora/commit/3e96bc695981b5ea2720fc799a8f83b67b14352b))
+* **editor:** as linguagens e os temas saem do monaco_editor para linguagens_do_editor.ts ([3621ba3](https://github.com/nipscernlab/aurora/commit/3621ba3f8d82e149b8e402145178bf1ea6c458f5))
+* **editor:** dirac_snippets vira .ts ([c49fc00](https://github.com/nipscernlab/aurora/commit/c49fc00a815bdd323205abd0cf165459bd260b70))
+* **ia:** main/ai/tools vira .ts ([69fbb89](https://github.com/nipscernlab/aurora/commit/69fbb89459c6332f4be1066d63a8b3084b9d102c))
+* **project:** main/ipc/project vira .ts ([a6c3eba](https://github.com/nipscernlab/aurora/commit/a6c3eba692a821cab8dbd99f7c2fa929951332d8))
+* **tabs:** o TabManager se divide em cinco modulos .ts ([0739fe6](https://github.com/nipscernlab/aurora/commit/0739fe6f46f15fb6f72293cbc578bae437cb7118))
+* **tabs:** tab_drag vira .ts ([8e86536](https://github.com/nipscernlab/aurora/commit/8e86536bef03b3cfb945cb5f4b1d5dbc3ffe8251))
+* **tabs:** tab_manager vira .ts, e o tab_manager.d.ts escrito a mao sai ([8aa7517](https://github.com/nipscernlab/aurora/commit/8aa751723213829ff051a9cafbb50ccafe49b6e9))
+* **tabs:** tab_viewers vira .ts ([4595747](https://github.com/nipscernlab/aurora/commit/45957479d89f14e6cbc0641cb0540661d1c7282f))
+* **tabs:** tab_watchers vira .ts ([b00db1a](https://github.com/nipscernlab/aurora/commit/b00db1a9cf6f5cc665df2eb2e023e4dc76ad6803))
+* **tabs:** tira do TabManager o initContextPath e um bloco que nunca entra ([c1806e5](https://github.com/nipscernlab/aurora/commit/c1806e560d73e449d56f34216a4f1d0e3d7f774a))
+* **tabs:** tira do TabManager o que ninguem chama ([ea97d61](https://github.com/nipscernlab/aurora/commit/ea97d610551aae3de2e0344f0d5a2fb9459163aa))
+* **tabs:** untitled_docs vira .ts ([64e9a79](https://github.com/nipscernlab/aurora/commit/64e9a794b00c2bcc501a73bfd7e36bd952373c37))
+* **tree:** project_tree_actions vira .ts ([086d5ca](https://github.com/nipscernlab/aurora/commit/086d5cac69110aee3dbf4a2a615808f25dac14e9))
+
+
+### Documentation
+
+* **ia:** gabarito de perguntas para conferir a IA depois de cada release ([d7a7826](https://github.com/nipscernlab/aurora/commit/d7a782650457d5420f7deda303e4d3bc7f310bd8))
+* **todo:** a correcao do .spf que perde o processador, e a ordem decidida ([42d9a30](https://github.com/nipscernlab/aurora/commit/42d9a30739727f4234646e2558ecf30cb34aeef8))
+* **todo:** o aurora_api fechado, de 1158 linhas .js para 125 .ts, e o ponto de retomada ([e935112](https://github.com/nipscernlab/aurora/commit/e935112afeba6ee440b334a66ecaa1ab09891582))
+* **todo:** o comeco do monaco_editor e o teste vermelho de ambiente do genPrismSkins ([1329e85](https://github.com/nipscernlab/aurora/commit/1329e85802de922f547fa1fabbcb56478725c7fc))
+* **todo:** o defeito do .spf corrigido, e o que sobra do main como escritor ([b4d4814](https://github.com/nipscernlab/aurora/commit/b4d481447b9e18184f0fd76a11fabe08eba9b8f7))
+* **todo:** o papel de cada arquivo passa a ser escolhido pela pessoa (13b) ([301b069](https://github.com/nipscernlab/aurora/commit/301b06927a16489a83a95f855c5e17054ccfe696))
+* **todo:** o tab_manager dividido e convertido, os achados e a instabilidade do modal-drag-region ([5936401](https://github.com/nipscernlab/aurora/commit/5936401bd088562dd26a8e1cca94b9cc02fb540c))
+* **todo:** passo 1 do 13b feito; lista_do_spf.js gerado fora do git ([3a74aba](https://github.com/nipscernlab/aurora/commit/3a74aba1a0fb2ebcace3daf79db7446ae9aceb41))
+
 ## [6.21.0](https://github.com/nipscernlab/aurora/compare/v6.20.0...v6.21.0) (2026-10-01)
 
 

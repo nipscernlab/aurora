@@ -170,6 +170,19 @@ async function moveWithRetry(from: any, to: any, options = {}) {
 }
 
 /**
+ * True se `gravada` e um caminho absoluto para a mesma pasta que `raiz`, em
+ * qualquer grafia: barras de um tipo ou de outro, e no Windows maiusculas ou
+ * minusculas (o NTFS nao distingue). Caminho relativo ou que nao e texto nunca
+ * e a mesma pasta, e e trocado.
+ */
+function mesmaPasta(gravada: unknown, raiz: string): boolean {
+  if (typeof gravada !== 'string' || !path.isAbsolute(gravada)) return false;
+  const a = path.resolve(gravada);
+  const b = path.resolve(raiz);
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
+
+/**
  * Grava o .spf inteiro de forma atomica: escreve num .tmp ao lado e renomeia
  * por cima. Uma queda no meio do writeFile deixava JSON truncado, que o
  * parseSpfTolerant nao recupera, e o projeto nao reabria. O rename e atomico
@@ -192,12 +205,20 @@ async function escreverSpf(spfPath: string, dados: any) {
   // So sobrescreve campo que JA existe: um .spf sem `metadata` nao ganha um
   // aqui, porque inventar estrutura na hora de gravar e como um escritor
   // atomico perde a previsibilidade.
-  const raizDeAgora = path.dirname(spfPath);
+  //
+  // E so troca quando a pasta e OUTRA. A mesma pasta escrita de outro jeito
+  // ("C:/x" e "C:\x", "c:" e "C:") fica como estava: antes a raiz seguia a
+  // grafia de quem chamou, e um projeto aberto com barras normais trocava as
+  // barras do .spf a cada gravacao, sujando o git do repositorio do projeto.
+  // Quando troca, grava na grafia do sistema (path.resolve).
+  const raizDeAgora = path.resolve(path.dirname(spfPath));
   if (dados && typeof dados === 'object') {
-    if (dados.metadata && typeof dados.metadata === 'object') {
+    if (dados.metadata && typeof dados.metadata === 'object'
+      && !mesmaPasta(dados.metadata.projectPath, raizDeAgora)) {
       dados.metadata.projectPath = raizDeAgora;
     }
-    if (dados.structure && typeof dados.structure === 'object') {
+    if (dados.structure && typeof dados.structure === 'object'
+      && !mesmaPasta(dados.structure.basePath, raizDeAgora)) {
       dados.structure.basePath = raizDeAgora;
     }
   }
@@ -407,9 +428,13 @@ function register() {
       // (outro PC E mesma maquina) de forma uniforme. Trade-off: se algum
       // user mantiver basePath propositalmente diferente do dirname do
       // .spf, ele e sobrescrito (cenario muito improvavel).
+      //
+      // A comparacao e de PASTA, nao de texto (mesmaPasta): abrir pelo mesmo
+      // caminho com barras normais, ou com o drive em minuscula, nao e mudar
+      // de pasta, e nao realoca nem regrava a raiz.
       const oldBasePath = projectData.structure.basePath;
-      const expectedBasePath = path.dirname(spfPath);
-      if (oldBasePath !== expectedBasePath) {
+      const expectedBasePath = path.resolve(path.dirname(spfPath));
+      if (!mesmaPasta(oldBasePath, expectedBasePath)) {
         // Relocate every absolute path the .spf still pins to the OLD root so a
         // copied/backed-up project keeps working. The file lists are stored
         // relative (untouched here), but command overrides keep freeform

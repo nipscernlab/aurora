@@ -291,6 +291,30 @@ describe('project:write-spf', () => {
     expect(ev.sender.enviados).toEqual([]);
   });
 
+  // O hits (08/10/2026): a janela tinha aberto o projeto com o caminho em
+  // barras normais, e toda gravacao trocava a raiz "C:\\..." por "C:/...",
+  // o mesmo lugar escrito de outro jeito, sujando o git do repositorio.
+  it('raiz gravada que e a mesma pasta, em outra grafia, fica como estava', async () => {
+    const p = projeto();
+    const outraGrafia = p.spf.split(path.sep).join('/');
+    const ev = evento();
+    registrar(ev, outraGrafia);
+    const doc = { metadata: { projectPath: p.raiz }, structure: { basePath: p.raiz } };
+    await chamar('project:write-spf', ev, outraGrafia, doc);
+    const lido = lerSpf(p.spf);
+    expect(lido.metadata.projectPath).toBe(p.raiz);
+    expect(lido.structure.basePath).toBe(p.raiz);
+  });
+
+  it('raiz que mudou de pasta e gravada na grafia do sistema', async () => {
+    const p = projeto();
+    const ev = evento();
+    const outraGrafia = p.spf.split(path.sep).join('/');
+    registrar(ev, outraGrafia);
+    await chamar('project:write-spf', ev, outraGrafia, { structure: { basePath: 'C:/velho' } });
+    expect(lerSpf(p.spf).structure.basePath).toBe(p.raiz);
+  });
+
   it('documento sem metadata nem structure e gravado como veio', async () => {
     const p = projeto();
     const ev = evento();
@@ -399,6 +423,19 @@ describe('project:open', () => {
       basePath: p.raiz, processors: [], folders: [],
       commandOverrides: { cwd: path.join(p.raiz, 'sim') },
     });
+  });
+
+  it('abrir por outra grafia do mesmo caminho nao mexe na raiz nem realoca', async () => {
+    const p = projeto(undefined, { commandOverrides: { cwd: 'C:/fora/do/projeto' } });
+    const antes = fs.readFileSync(p.spf, 'utf8');
+    let outraGrafia = p.spf.split(path.sep).join('/');
+    if (process.platform === 'win32') outraGrafia = outraGrafia[0].toLowerCase() + outraGrafia.slice(1);
+    const r = await chamar('project:open', evento(), outraGrafia);
+    const lido = lerSpf(p.spf);
+    expect(lido.structure.basePath).toBe(p.raiz);
+    expect(lido.metadata.projectPath).toBe(p.raiz);
+    expect(r.projectData.structure.basePath).toBe(p.raiz);
+    expect(lido.structure.commandOverrides).toEqual(JSON.parse(antes).structure.commandOverrides);
   });
 
   it('raiz gravada relativa nao e realocada, so trocada', async () => {

@@ -318,9 +318,20 @@ export const SYSTEM_PROMPT = [
   "\n5. A PROJECT MUST DECLARE A TOPLEVEL AND A TESTBENCH BEFORE COMPILATION.\n" +
   "   The synthesizable Top Level (.v) and the Testbench Top (.v) are NOT optional.\n" +
   "   Compile / wave / PRISM steps all assume they exist. Workflow:\n" +
-  "     create_file (.v)  →  set_top_level  →  set_testbench_top  →  compile_*\n" +
+  "     create_file (.v, role)  →  set_top_level  →  set_testbench_top  →  compile_*\n" +
   "   If list_processors / list_wave_signals indicates none is set, STOP and ask the\n" +
   "   user (or set them yourself if it is unambiguous which file is which).\n" +
+
+  "\n5b. FILE ROLES ARE THE USER'S CHOICE. Every Verilog file in the project has one role,\n" +
+  "   kept in the .spf: synthesizable (enters the iverilog/Yosys build), testbench, or\n" +
+  "   no role yet (left out of every build; the file tree shows a question mark and the\n" +
+  "   Verilog terminal lists it before compiling). Nothing infers the role from the\n" +
+  "   content; the user picks it with a right-click on the file. A new file enters with\n" +
+  "   no role, a .py enters as testbench, and what SAPHO generates already has its role.\n" +
+  "   You may give a role only to files you created in this conversation: pass `role`\n" +
+  "   to create_file, or call set_file_role, and tell the user which role you gave.\n" +
+  "   For any other file, ask before changing the role. An \"Unknown module\" error with\n" +
+  "   files listed as having no role usually means the module lives in one of them.\n" +
 
   "\n6. RESERVED PATHS — NEVER write here; yanc overwrites them on every compile:\n" +
   "     <proc>/Hardware/<proc>.v      (asmcomp synthesizable output)\n" +
@@ -577,7 +588,7 @@ export const SYSTEM_PROMPT = [
   // ── Workflow Rules ─────────────────────────────────────────────────────────
   "\n\nWORKFLOW — Custom Verilog files (always follow this order):\n" +
   "  1. get_project_tree           discover project root and all existing files\n" +
-  "  2. create_file                write the .v — auto-added to the file tree\n" +
+  "  2. create_file                write the .v with its role — auto-added to the file tree\n" +
   "  3. set_top_level              mark synthesizable wrapper as Top Level\n" +
   "  4. set_testbench_top          mark testbench as Testbench Top\n" +
   "  5. compile_all / compile_step only AFTER steps 3 and 4 are done\n" +

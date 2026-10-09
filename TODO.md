@@ -2491,17 +2491,17 @@ primeiro lugar para o último. Pedido do hits e decisão do Luciano:
       Nada é inferido do conteúdo; a heurística sai inteira. No `.spf`, uma
       terceira lista `unclassifiedFiles` (a 6.21 a ignora; projetos atuais não
       precisam de conversão).
-- [ ] **Ícones na árvore:** top level `ph-crown-simple`, testbench atual
+- [x] **Ícones na árvore** (6db245c2): top level `ph-crown-simple`, testbench atual
       `ph-stool`, síntese `ph-cpu`, testbench `ph-flask`, indefinido
       `ph-question` em cor de alerta. Só na árvore; abas seguem pela extensão.
-- [ ] **Botão direito:** marcar como síntese / como testbench. Top level só em
+- [x] **Botão direito** (1ae55168): marcar como síntese / como testbench. Top level só em
       síntese, testbench atual só em testbench. Sem voltar para indefinido.
 - [x] **Entram já classificados** (passo 4, ver o commit `feat(arvore): arquivo novo entra sem papel`): `.py` (testbench cocotb); o que o SAPHO gera
       (`Hardware/` como síntese, o `<proc>_tb.v` como testbench). Arquivo novo,
       importado ou arrastado entra indefinido.
-- [ ] **IA:** classifica só o que ela criou, dizendo que classificou; nunca
+- [x] **IA** (passo 6): classifica só o que ela criou, dizendo que classificou; nunca
       troca o papel de arquivo da pessoa sem perguntar. Ferramenta nova na API.
-- [ ] **Compilação:** indefinido fica fora do iverilog e do Yosys, e o
+- [x] **Compilação** (passo 5, cc426744): indefinido fica fora do iverilog e do Yosys, e o
       terminal avisa quais são antes de compilar.
 - [x] **Nunca reordenar** (e2bd0043) as listas ao gravar (ordem de entrada; o hits depende
       do `simulacao.v` primeiro).

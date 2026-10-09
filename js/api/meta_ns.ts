@@ -73,6 +73,7 @@ const NAMESPACES: Readonly<Record<string, Readonly<Record<string, string>>>> = O
     backup:             'Zip the open project into <root>/Backup/',
     setTopLevel:        'Mark a synthesizable Verilog file as the Top Level module',
     setTestbenchTop:    'Mark a Verilog file as the Testbench Top module',
+    setFileRole:        'Give a file its role, synthesizable or testbench (it leaves the list of files with no role yet)',
     importFile:         'Import a Verilog or cocotb file into the project and register it in the .spf',
     removeImportedFile: 'Remove a file from the .spf lists, optionally deleting it from disk',
     renameImportedFile: 'Rename an imported file on disk and in its .spf entry',

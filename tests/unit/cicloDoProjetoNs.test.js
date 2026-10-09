@@ -168,6 +168,22 @@ describe('os dois topos', () => {
     expect(cfg.testbenchFile).toBe('C:/p/m.v');
   });
 
+  it('setFileRole troca o papel e diz se mudou; papel invalido recusa (TODO 13b)', async () => {
+    cfg = { synthesizableFiles: [{ path: 'C:\\p\\top.v', isTopLevel: true }], unclassifiedFiles: [{ name: 'n.v', path: 'C:\\p\\n.v' }], topLevelFile: 'C:\\p\\top.v' };
+    expect((await ciclo.setFileRole('n.v', 'testbench')).data).toEqual({ filePath: 'C:\\p\\n.v', role: 'testbench', changed: true });
+    expect(cfg.unclassifiedFiles).toEqual([]);
+    expect(cfg.testbenchFiles).toEqual([{ name: 'n.v', path: 'C:\\p\\n.v', isTopLevel: false }]);
+    expect((await ciclo.setFileRole('C:\\p\\n.v', 'testbench')).data.changed).toBe(false);
+    await ciclo.setFileRole('C:\\p\\top.v', 'testbench');
+    expect(cfg.topLevelFile).toBe('');
+    expect(msg(await ciclo.setFileRole('C:\\p\\n.v', 'unclassified'))).toBe('role must be "synthesizable" or "testbench"');
+    expect(msg(await ciclo.setFileRole(null, 'testbench'))).toBe('filePath required');
+    SpfStore.update.mockRejectedValueOnce({});
+    expect(msg(await ciclo.setFileRole('a.v', 'synthesizable'))).toBe('setFileRole failed');
+    ProjectStore.clearProject();
+    expect(msg(await ciclo.setFileRole('a.v', 'synthesizable'))).toBe('No project open');
+  });
+
   it('topo de simulacao: o espelho, com o outro ponteiro', async () => {
     cfg = { synthesizableFiles: [{ path: 'C:\\p\\tb.v' }], topLevelFile: 'C:\\p\\tb.v' };
     expect((await ciclo.setTestbenchTop('\\tb.v')).data).toEqual({ filePath: 'C:\\p\\tb.v' });

@@ -217,3 +217,19 @@ describe('o yanc v6.0', () => {
         expect(SYSTEM_PROMPT).toContain('must come from the same yanc release');
     });
 });
+
+// TODO 13b, passo 6 (09/10/2026): o papel de cada arquivo e da pessoa.
+describe('o papel dos arquivos', () => {
+    it('diz os tres papeis e que o sem papel fica fora da compilacao', () => {
+        expect(SYSTEM_PROMPT).toContain('FILE ROLES ARE THE USER\'S CHOICE');
+        expect(SYSTEM_PROMPT).toMatch(/no role yet[^.]*left out of every build/);
+        expect(SYSTEM_PROMPT).toContain('question mark');
+    });
+
+    it('a IA classifica so o que ela criou, e diz que classificou; o resto pergunta', () => {
+        expect(SYSTEM_PROMPT).toMatch(/only to files you created in this conversation/);
+        expect(SYSTEM_PROMPT).toMatch(/tell the user which role you gave/i);
+        expect(SYSTEM_PROMPT).toMatch(/ask before changing the role/i);
+        expect(SYSTEM_PROMPT).toContain('create_file (.v, role)');
+    });
+});

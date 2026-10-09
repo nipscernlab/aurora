@@ -118,6 +118,7 @@
     "renameImportedFile",
     "renameProcessor",
     "renameProject",
+    "setFileRole",
     "setProcessorConfig",
     "setTestbenchTop",
     "setTopLevel",

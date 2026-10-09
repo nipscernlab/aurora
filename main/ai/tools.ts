@@ -501,18 +501,49 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'create_file',
-    description: 'Create a new file (or overwrite an existing one) with the given content.',
+    description:
+      'Create a new file (or overwrite an existing one) with the given content. ' +
+      'A new .v/.sv/.vh enters the project with the `role` you give, or with no role yet ' +
+      '(left out of every build, shown with a question mark in the tree) if you give none. ' +
+      'A file already in the project keeps its role.',
     access: 'write',
     api: ['project', 'createFile'],
     argStyle: 'positional',
-    argNames: ['filePath', 'content'],
+    argNames: ['filePath', 'content', 'role'],
     inputSchema: {
       type: 'object',
       properties: {
         filePath: { type: 'string', description: 'Absolute path of the file' },
         content: { type: 'string', description: 'File content (empty if omitted)' },
+        role: {
+          type: 'string',
+          enum: ['synthesizable', 'testbench'],
+          description:
+            'Only for a file you are creating now, when you know what you wrote: synthesizable ' +
+            '(design) or testbench (stimulus). Tell the user which role you gave. Omit it if unsure.',
+        },
       },
       required: ['filePath'],
+    },
+  },
+  {
+    name: 'set_file_role',
+    description:
+      'Give a Verilog file its role: synthesizable (enters the iverilog/Yosys build) or testbench. ' +
+      'The file leaves the list of files with no role yet and loses any top mark. ' +
+      'The role is the user\'s choice: use this on a file you created in this conversation, or when ' +
+      'the user asked; for any other file, ask before changing its role.',
+    access: 'write',
+    api: ['project', 'setFileRole'],
+    argStyle: 'positional',
+    argNames: ['filePath', 'role'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Absolute or project-relative path to the .v/.sv/.vh file' },
+        role: { type: 'string', enum: ['synthesizable', 'testbench'], description: 'The role to give the file' },
+      },
+      required: ['filePath', 'role'],
     },
   },
   {
@@ -940,7 +971,7 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'import_file',
-    description: 'Register an existing .v / .sv / .vh / .py file as a synthesizable or testbench file in the current project SPF. Copies the file into the project root if it lives elsewhere. Python .py files are treated as cocotb testbenches.',
+    description: 'Register an existing .v / .sv / .vh / .py file in the current project SPF. Copies the file into the project root if it lives elsewhere. Python .py files are cocotb testbenches. Without `kind`, a Verilog file enters with no role yet, for the user to choose; pass `kind` only when the user told you the role.',
     access: 'write',
     api: ['project', 'importFile'],
     argStyle: 'object',

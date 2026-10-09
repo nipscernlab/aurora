@@ -71,6 +71,29 @@ async function marcarTopo(tipo: TipoDeTopo, filePath: string | null | undefined)
   } catch (e) { return err((e as Error | null)?.message || tipo.falha); }
 }
 
+/**
+ * Troca o papel de um arquivo (TODO 13b): o mesmo gesto do "Marcar como
+ * sintese / testbench" do botao direito (papel_no_spf.ts). Nao ha volta para
+ * "sem papel" por aqui, como nao ha no menu.
+ */
+async function trocarPapel(filePath: string | null | undefined, role: unknown) {
+  const spfPath = ProjectStore.getSpfPath();
+  const root = ProjectStore.getProjectPath();
+  if (!spfPath || !root) return err('No project open');
+  if (!filePath) return err('filePath required');
+  if (role !== 'synthesizable' && role !== 'testbench') return err('role must be "synthesizable" or "testbench"');
+  const isAbs = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
+  const absPath = isAbs ? filePath : `${root}\\${filePath.replace(/^[\\/]+/, '')}`;
+  const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+  let changed = false;
+  try {
+    await SpfStore.update(spfPath, (cfg) => {
+      changed = marcarPapel(cfg as unknown as Record<string, unknown>, absPath, role, norm);
+    });
+    return ok({ filePath: absPath, role, changed });
+  } catch (e) { return err((e as Error | null)?.message || 'setFileRole failed'); }
+}
+
 export const cicloDoProjeto = {
   /**
    * Fecha o projeto aberto, devolvendo a IDE ao estado sem projeto.
@@ -203,5 +226,13 @@ export const cicloDoProjeto = {
    * exclusive within testbenchFiles.
    */
   setTestbenchTop(filePath: string | null | undefined) { return marcarTopo(TOPO_DE_SIMULACAO, filePath); },
+
+  /**
+   * Give a file its role: 'synthesizable' or 'testbench' (TODO 13b). The file
+   * leaves the other lists (including the one of files with no role yet),
+   * goes to the end of the new one without reordering anything, and loses any
+   * top mark. `changed` is false when it already had that role.
+   */
+  setFileRole(filePath: string | null | undefined, role: unknown) { return trocarPapel(filePath, role); },
 
 };

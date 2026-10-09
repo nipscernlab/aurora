@@ -186,6 +186,28 @@ describe('TOOL_MANIFEST', () => {
         expect([...objeto.properties.radix.enum].sort()).toEqual([...RADIX_VALIDOS].sort());
     });
 
+    // TODO 13b, passo 6 (09/10/2026): o papel de cada arquivo e da pessoa. A
+    // IA classifica so o que ela criou, dizendo que classificou; o resto ela
+    // pergunta antes. Por isso o papel e opcional no create_file, e trocar o
+    // papel de um arquivo e uma ferramenta de escrita, com confirmacao.
+    it('create_file aceita o papel do arquivo que a IA cria, e so os dois papeis', () => {
+        const d = TOOL_MANIFEST.find((t) => t.name === 'create_file');
+        expect(d.argNames).toEqual(['filePath', 'content', 'role']);
+        expect(d.inputSchema.properties.role.enum).toEqual(['synthesizable', 'testbench']);
+        expect(d.inputSchema.required).toEqual(['filePath']);
+        expect(d.inputSchema.properties.role.description).toMatch(/only for a file you are creating/i);
+    });
+
+    it('set_file_role troca o papel pela API, com confirmacao', () => {
+        const d = TOOL_MANIFEST.find((t) => t.name === 'set_file_role');
+        expect(d).toMatchObject({
+            access: 'write', api: ['project', 'setFileRole'], argStyle: 'positional', argNames: ['filePath', 'role'],
+        });
+        expect(d.inputSchema.properties.role.enum).toEqual(['synthesizable', 'testbench']);
+        expect(d.inputSchema.required).toEqual(['filePath', 'role']);
+        expect(d.description).toMatch(/ask/i);
+    });
+
     // A varinha e a IA compartilham um caminho só de formatação.
     it('wires format_file to the editor namespace', () => {
         expect(TOOL_MANIFEST.find((d) => d.name === 'format_file')).toMatchObject({

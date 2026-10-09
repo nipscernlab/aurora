@@ -296,6 +296,7 @@ js/tabs/tab_watchers.js
 js/tabs/tab_drag.js
 js/tabs/tab_viewers.js
 js/tabs/tab_manager.js
+js/tabs/guarda_de_fechamento.js
 js/editor/dirac_snippets.js
 js/editor/linguagens_do_editor.js
 js/project/project_tree_render.js

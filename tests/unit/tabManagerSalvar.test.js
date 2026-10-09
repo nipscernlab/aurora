@@ -538,3 +538,25 @@ describe('salvar o aberto', () => {
     m.ponte.getFileStats = async () => ({ mtime: 1000 });
   });
 });
+
+// A guarda de fechamento (09/10/2026) esta ligada no TabManager de verdade:
+// com um documento sem nome com texto, fechar a janela e cancelado e o
+// dialogo pergunta; sem nada por salvar, a janela fecha.
+describe('fechar a janela', () => {
+  it('com trabalho nao salvo, segura e pergunta; sem nada, deixa fechar', async () => {
+    const fechar = () => {
+      const e = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    registro({});
+    expect(fechar()).toBe(false);
+
+    const p = TabManager.createNewFile();
+    TabManager.unsavedChanges.add(p);
+    window.AuroraUI = { dialog: vi.fn(async () => 'cancel') };
+    expect(fechar()).toBe(true);
+    await vi.waitFor(() => expect(window.AuroraUI.dialog).toHaveBeenCalledTimes(1));
+    delete window.AuroraUI;
+  });
+});

@@ -546,6 +546,13 @@
       "message": "The whole project folder will be moved to the Recycle Bin:<br><code>{{path}}</code><br><br>Nothing is deleted for good: you can restore it from the Recycle Bin. Open files are closed first; unsaved changes in them are lost.",
       "cancel": "Keep the project",
       "confirm": "Move to Recycle Bin"
+    },
+    "closeWindow": {
+      "title": "Unsaved changes",
+      "message": "These files have changes that are not saved. Closing now loses them:",
+      "discard": "Close without saving",
+      "saveAll": "Save all and close",
+      "fallback": "There are unsaved changes. Close without saving?"
     }
   },
   "statusBar": {

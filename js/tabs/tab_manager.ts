@@ -26,6 +26,8 @@ import { tabDrag, type ArrasteDasAbas } from './tab_drag.js';
 import { tabWatchers, type VigiaDasAbas } from './tab_watchers.js';
 import { abasEmbutidas, type AbasEmbutidas } from './abas_embutidas.js';
 import { salvarAbas, type SalvarAbas } from './salvar_abas.js';
+import { instalarGuarda, dialogoPadrao } from './guarda_de_fechamento.js';
+import { electronAPI } from '../app/electron_api.js';
 import { documentoSemNome, type DocumentoSemNome } from './documento_sem_nome.js';
 import { fecharAbas, type FecharAbas } from './fechar_abas.js';
 import { isImageFile, isPdfFile, isBinaryFile, getFileIcon } from './tab_utils.js';
@@ -793,6 +795,10 @@ TabManager.initialize();
 window.addEventListener('beforeunload', () => {
     TabManager.stopAllWatchers();
 });
+
+// Fechar a janela com algo nao salvo pergunta antes (guarda_de_fechamento.ts).
+// Antes o x fechava direto, e o documento sem nome sumia sem aviso.
+instalarGuarda(TabManager, electronAPI, dialogoPadrao);
 
 // Initialize tab container
 function initTabs() {

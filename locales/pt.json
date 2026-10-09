@@ -546,6 +546,13 @@
       "message": "A pasta inteira do projeto vai para a Lixeira:<br><code>{{path}}</code><br><br>Nada e apagado de vez: da para restaurar pela Lixeira. Os arquivos abertos sao fechados antes; o que neles nao foi salvo se perde.",
       "cancel": "Manter o projeto",
       "confirm": "Mandar para a Lixeira"
+    },
+    "closeWindow": {
+      "title": "Alterações não salvas",
+      "message": "Estes arquivos têm alterações que não foram salvas. Fechar agora as perde:",
+      "discard": "Fechar sem salvar",
+      "saveAll": "Salvar tudo e fechar",
+      "fallback": "Há alterações não salvas. Fechar sem salvar?"
     }
   },
   "statusBar": {

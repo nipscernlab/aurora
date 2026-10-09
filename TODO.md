@@ -2510,13 +2510,17 @@ primeiro lugar para o último. Pedido do hits e decisão do Luciano:
       formatação do arquivo regravado.
 - [x] Antes (3e96bc69): `file_mode.js` e `project_tree_render.js` viram `.ts`, com teste
       de caracterização, em commit separado.
-- [ ] **Fechar a janela perde o que não foi salvo, sem aviso** (achado em
-      09/10/2026, lendo o código; não testado no app). O × manda
-      `window:close` direto ao main (`main/windows.js`), que fecha; nenhum
-      `beforeunload` segura. O documento sem nome vive só na memória (mapa
-      `untitledDocuments` + modelo do Monaco) e some; edição não salva de
-      arquivo com nome também. Conserto: perguntar ao fechar, listando o que
-      falta salvar (salvar, descartar, cancelar).
+- [x] **Fechar a janela perdia o que não foi salvo, sem aviso** (achado em
+      09/10/2026). Resolvido por `js/tabs/guarda_de_fechamento.ts`: o
+      `beforeunload` cancela o fechamento quando há algo não salvo e pergunta
+      (salvar tudo, fechar sem salvar, cancelar). Cobre o ×, o Alt+F4 e a
+      barra de tarefas, sem mexer no main nem na ponte.
+- [ ] **Falta na guarda:** o encerramento que o próprio app inicia com
+      `app.exit` (instalar atualização, `app:reload`) não passa pelo
+      `beforeunload` e ainda perde o não salvo; e um Ctrl+R de
+      desenvolvimento vira fechar depois do diálogo. Resolver pede mexer em
+      `main/lifecycle.js`, `main/updater.js` e na ponte (`preload.js`), que
+      viram `.ts` antes (o preload precisa sair em CommonJS no sandbox).
 - [ ] **Depois (lembrete do Luciano):** levar tudo isso ao prompt da IA, ao
       `docs/gabarito-ia.md`, ao manual (docs_aurora), à referência técnica e aos
       READMEs (a referência técnica em LaTeX ainda descreve a heurística nos

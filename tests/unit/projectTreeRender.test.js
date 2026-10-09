@@ -338,7 +338,7 @@ describe('RenderMixin, o que faltava cobrir', () => {
 
     it('tooltip de .py e de testbench comum', () => {
         expect(mgr._getIconTooltip(f('t.py', { category: 'testbench' }))).toBe('Python cocotb testbench');
-        expect(mgr._getIconTooltip(f('t.v', { category: 'testbench' }))).toBe('Detected as a testbench');
+        expect(mgr._getIconTooltip(f('t.v', { category: 'testbench' }))).toBe('Testbench');
     });
 
     it('icone vem do TabManager quando ele responde; senao, pela extensao', () => {
@@ -352,5 +352,52 @@ describe('RenderMixin, o que faltava cobrir', () => {
         };
         for (const [nome, icone] of Object.entries(casos)) expect(mgr.getFileIcon(nome)).toBe(icone);
         expect(mgr.getFileIcon(null)).toBe('ph ph-file');
+    });
+});
+
+// Passo 2 do TODO 13b (09/10/2026): o icone diz o papel que a pessoa escolheu.
+// Coroa e banquinho para os dois topos (ja eram), chip para sintese, frasco
+// para testbench e interrogacao para o que ainda nao tem papel. So na arvore:
+// as abas continuam com o icone da extensao.
+describe('icones dos papeis', () => {
+    beforeEach(() => { window.TabManager = { getFileIcon: () => 'icone-da-aba' }; });
+    afterEach(() => { delete window.TabManager; delete window.t; });
+
+    it('cada papel de um Verilog tem o seu icone, por cima do icone da aba', () => {
+        expect(mgr.getFileIcon(f('a.v'))).toBe('ph ph-cpu');
+        expect(mgr.getFileIcon(f('a.sv', { category: 'testbench' }))).toBe('ph ph-flask');
+        expect(mgr.getFileIcon(f('a.vh', { category: 'unclassified' }))).toBe('ph ph-question');
+        expect(mgr.getFileIcon(f('top.v', { isTopLevel: true }))).toBe('ph ph-crown-simple');
+        expect(mgr.getFileIcon(f('tb.v', { isTopLevel: true, category: 'testbench' }))).toBe('ph ph-stool');
+    });
+
+    it('fora do Verilog, ou sem papel informado, vale o icone da aba', () => {
+        expect(mgr.getFileIcon(f('t.py', { category: 'testbench' }))).toBe('icone-da-aba');
+        expect(mgr.getFileIcon(f('cpu.cmm', { isSoftware: true }))).toBe('icone-da-aba');
+        expect(mgr.getFileIcon('a.v')).toBe('icone-da-aba');
+        expect(mgr.getFileIcon({ name: 'a.v', path: 'a.v' })).toBe('icone-da-aba');
+    });
+
+    it('a dica diz o papel, e a do sem papel diz o que fazer', () => {
+        expect(mgr._getIconTooltip(f('a.v'))).toBe('Synthesis');
+        expect(mgr._getIconTooltip(f('a.v', { category: 'unclassified' })))
+            .toBe('No role yet: right-click and mark it as synthesis or testbench');
+        window.t = (k) => `T:${k}`;
+        expect(mgr._getIconTooltip(f('a.v'))).toBe('T:fileTree.role.synth');
+        expect(mgr._getIconTooltip(f('a.v', { category: 'testbench' }))).toBe('T:fileTree.role.testbench');
+        expect(mgr._getIconTooltip(f('a.v', { category: 'unclassified' }))).toBe('T:fileTree.role.unclassified');
+        window.t = (k) => k;
+        expect(mgr._getIconTooltip(f('a.v'))).toBe('Synthesis');
+    });
+
+    it('a linha sem papel tem classe propria, e troca quando ganha papel', () => {
+        const row = mgr._createFileItem(f('x.v', { category: 'unclassified' }));
+        expect(row.classList.contains('unclassified')).toBe(true);
+        expect(row.classList.contains('synthesizable')).toBe(false);
+        mgr._updateFileItem(row, f('x.v', { category: 'testbench' }));
+        expect([...row.classList].sort()).toEqual(['testbench', 'verilog-file-item']);
+        mgr._updateFileItem(row, f('x.v', { category: 'unclassified' }));
+        expect(row.classList.contains('unclassified')).toBe(true);
+        expect(row.classList.contains('synthesizable')).toBe(false);
     });
 });

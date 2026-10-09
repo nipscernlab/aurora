@@ -30,6 +30,29 @@ interface AnfitriaoDoRender {
 /** Arquivo como o icone o recebe: os chamadores antigos passam so o nome. */
 type ArquivoParaIcone = Partial<ArquivoDaArvore> | string | null | undefined;
 
+/** Extensoes de Verilog: so elas mostram o papel no icone. */
+const VERILOG = ['.v', '.sv', '.vh'];
+
+/** Papel do arquivo, como a lista do .spf onde ele esta o diz. */
+function papelDe(file: Partial<ArquivoDaArvore> | null | undefined): 'synthesizable' | 'testbench' | 'unclassified' {
+    if (file?.category === 'testbench') return 'testbench';
+    if (file?.category === 'unclassified') return 'unclassified';
+    return 'synthesizable';
+}
+
+/** Dica de cada papel: chave de traducao e o texto em ingles se nao houver. */
+const DICA_DO_PAPEL = {
+    synthesizable: ['fileTree.role.synth', 'Synthesis'],
+    testbench: ['fileTree.role.testbench', 'Testbench'],
+    unclassified: ['fileTree.role.unclassified', 'No role yet: right-click and mark it as synthesis or testbench'],
+} as const;
+
+/** Traducao da chave, ou a reserva se o i18n nao subiu ou nao conhece a chave. */
+function traduzir(chave: string, reserva: string): string {
+    const v = window.t?.(chave);
+    return v && v !== chave ? v : reserva;
+}
+
 export interface RenderizacaoDaArvore {
     renderTree(): void;
     _renderMissingFilesNotice(container: HTMLElement): void;
@@ -309,9 +332,10 @@ export const RenderMixin: RenderizacaoDaArvore & ThisType<AnfitriaoDoRender & Re
      * dispatcha pelo handler certo via data-file-path, nao por indice.
      */
     _updateFileItem(row: HTMLElement, file: ArquivoDaArvore) {
-        const isTestbench = file.category === 'testbench';
-        row.classList.toggle('synthesizable', !isTestbench);
-        row.classList.toggle('testbench', isTestbench);
+        const papel = papelDe(file);
+        row.classList.toggle('synthesizable', papel === 'synthesizable');
+        row.classList.toggle('testbench', papel === 'testbench');
+        row.classList.toggle('unclassified', papel === 'unclassified');
         row.classList.toggle('software', !!file.isSoftware);
         row.classList.toggle('top-level-file', !!file.isTopLevel);
 
@@ -372,9 +396,8 @@ export const RenderMixin: RenderizacaoDaArvore & ThisType<AnfitriaoDoRender & Re
         fileItem.className = 'verilog-file-item';
         fileItem.dataset.filePath = file.path;
 
-        const isTestbench = file.category === 'testbench';
         const isSoftware = !!file.isSoftware;
-        fileItem.classList.add(isTestbench ? 'testbench' : 'synthesizable');
+        fileItem.classList.add(papelDe(file));
         if (isSoftware) fileItem.classList.add('software');
         if (file.isTopLevel) fileItem.classList.add('top-level-file');
 
@@ -386,10 +409,9 @@ export const RenderMixin: RenderizacaoDaArvore & ThisType<AnfitriaoDoRender & Re
         // processador). Apenas o icone + nome. Clicar abre o arquivo,
         // igual aos demais.
         //
-        // A categoria synth/testbench NAO tem mais um toggle na row:
-        // e auto-detectada do conteudo ([verilog_classifier.js]
-        // (verilog_classifier.js)) e comunicada visualmente pela classe
-        // synthesizable/testbench da row + pelo icone.
+        // O papel (sintese, testbench ou sem papel) vem do .spf, escolhido
+        // pela pessoa no botao direito, e aparece na classe da row e no
+        // icone. Nao ha botao de papel na propria row.
         const actionsHtml = isSoftware
             ? ''
             : `
@@ -458,10 +480,10 @@ export const RenderMixin: RenderizacaoDaArvore & ThisType<AnfitriaoDoRender & Re
                 : 'This file is set as the project\'s Top Level module';
         }
         const ext = this.getFileExtension(file?.name || '');
-        if (ext === '.v' || ext === '.sv' || ext === '.py') {
-            return file?.category === 'testbench'
-                ? (ext === '.py' ? 'Python cocotb testbench' : 'Detected as a testbench')
-                : 'Detected as synthesizable';
+        if (ext === '.py' && file?.category === 'testbench') return 'Python cocotb testbench';
+        if (VERILOG.includes(ext) || ext === '.py') {
+            const [chave, reserva] = DICA_DO_PAPEL[papelDe(file)];
+            return traduzir(chave, reserva);
         }
         return '';
     },
@@ -498,6 +520,17 @@ export const RenderMixin: RenderizacaoDaArvore & ThisType<AnfitriaoDoRender & Re
         // simbolo especial devolveria o problema, que e nao distinguir nada.
         if (fileObj.isTopLevel) {
             return fileObj.category === 'testbench' ? 'ph ph-stool' : 'ph ph-crown-simple';
+        }
+
+        // O papel que a pessoa escolheu (TODO 13b): chip para sintese, frasco
+        // para testbench, interrogacao para o que ainda nao tem papel. So para
+        // Verilog e so quando o papel veio junto; quem passa so o nome (as
+        // abas, chamadores antigos) continua com o icone da extensao.
+        if (VERILOG.includes(this.getFileExtension(name)) && fileObj.category) {
+            const papel = papelDe(fileObj);
+            if (papel === 'testbench') return 'ph ph-flask';
+            if (papel === 'unclassified') return 'ph ph-question';
+            return 'ph ph-cpu';
         }
 
         const fromTabs = window.TabManager?.getFileIcon?.(name);

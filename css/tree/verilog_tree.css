@@ -369,6 +369,13 @@ body.editor-has-focus .verilog-file-item.editor-focused .verilog-file-name {
   color: var(--accent-hover);
 }
 
+/* Arquivo que a pessoa ainda nao classificou (TODO 13b): a interrogacao em cor
+   de alerta, para chamar o botao direito. Os outros papeis ficam no tom comum;
+   quem os distingue e a forma do icone. */
+.verilog-file-item.unclassified .verilog-file-icon {
+  color: var(--state-warn);
+}
+
 .verilog-file-name {
   font-size: var(--text-sm);
   font-weight: var(--font-normal);
@@ -388,10 +395,10 @@ body.editor-has-focus .verilog-file-item.editor-focused .verilog-file-name {
 /* ---------------------------------------------------------------------------
  *  Row actions
  *
- *  Synth-vs-testbench category is auto-detected from file content
- *  (js/project/verilog_classifier.js), there's no toggle in the row.
- *  The category is conveyed visually by the row's synthesizable/
- *  testbench class and its icon. The only row action left is delete,
+ *  The role (synthesis, testbench or none yet) comes from the .spf and is
+ *  chosen by the person with a right-click; there's no toggle in the row.
+ *  It shows in the row's synthesizable/testbench/unclassified class and
+ *  in its icon. The only row action left is delete,
  *  kept hover-only because it's destructive (one accidental click =
  *  file removed from the project) so requiring hover is a soft guard.
  * ------------------------------------------------------------------------- */

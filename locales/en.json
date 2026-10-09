@@ -215,7 +215,12 @@
     "projectGone": "The project folder is no longer on disk. It was deleted, moved, or its drive was disconnected. Nothing here was closed and no unsaved work was discarded, but saving will fail until you reopen the project.",
     "moreActions": "More",
     "closeProject": "Close project",
-    "deleteProject": "Delete project..."
+    "deleteProject": "Delete project...",
+    "role": {
+      "synth": "Synthesis",
+      "testbench": "Testbench",
+      "unclassified": "No role yet: right-click and mark it as synthesis or testbench"
+    }
   },
   "modal": {
     "help": "Open the manual on this topic",

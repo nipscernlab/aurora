@@ -215,7 +215,12 @@
     "projectGone": "A pasta do projeto nao esta mais no disco. Ela foi apagada, movida, ou a unidade dela foi desconectada. Nada aqui foi fechado e nenhum trabalho nao salvo foi descartado, mas salvar vai falhar ate voce reabrir o projeto.",
     "moreActions": "Mais",
     "closeProject": "Fechar projeto",
-    "deleteProject": "Excluir projeto..."
+    "deleteProject": "Excluir projeto...",
+    "role": {
+      "synth": "Síntese",
+      "testbench": "Testbench",
+      "unclassified": "Sem papel ainda: clique com o botão direito e marque como síntese ou testbench"
+    }
   },
   "modal": {
     "help": "Abrir o manual neste assunto",

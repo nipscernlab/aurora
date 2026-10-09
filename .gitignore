@@ -302,6 +302,7 @@ js/editor/linguagens_do_editor.js
 js/project/project_tree_render.js
 js/project/file_mode.js
 js/project/lista_do_spf.js
+js/project/papel_no_spf.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

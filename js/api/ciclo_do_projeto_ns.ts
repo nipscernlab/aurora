@@ -15,25 +15,23 @@
 import { electronAPI } from '../app/electron_api.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
+import { marcarPapel, type Papel } from '../project/papel_no_spf.js';
 import { ok, err, emit } from './api_core.js';
 
-/** Qual topo: a lista que ele entra, a que ele sai, e os dois ponteiros. */
+/** Qual topo: o papel que ele assume, a lista desse papel e o ponteiro dela. */
 interface TipoDeTopo {
+  papel: Papel;
   lista: 'synthesizableFiles' | 'testbenchFiles';
-  outraLista: 'synthesizableFiles' | 'testbenchFiles';
   ponteiro: 'topLevelFile' | 'testbenchFile';
-  outroPonteiro: 'topLevelFile' | 'testbenchFile';
   falha: string;
 }
 
 const TOPO_DE_SINTESE: TipoDeTopo = {
-  lista: 'synthesizableFiles', outraLista: 'testbenchFiles',
-  ponteiro: 'topLevelFile', outroPonteiro: 'testbenchFile',
+  papel: 'synthesizable', lista: 'synthesizableFiles', ponteiro: 'topLevelFile',
   falha: 'setTopLevel failed',
 };
 const TOPO_DE_SIMULACAO: TipoDeTopo = {
-  lista: 'testbenchFiles', outraLista: 'synthesizableFiles',
-  ponteiro: 'testbenchFile', outroPonteiro: 'topLevelFile',
+  papel: 'testbench', lista: 'testbenchFiles', ponteiro: 'testbenchFile',
   falha: 'setTestbenchTop failed',
 };
 
@@ -59,12 +57,9 @@ async function marcarTopo(tipo: TipoDeTopo, filePath: string | null | undefined)
   try {
     await SpfStore.update(spfPath, (cfg) => {
       const c = cfg as unknown as Record<string, unknown>;
-      const outra = (Array.isArray(c[tipo.outraLista]) ? c[tipo.outraLista] : []) as Entrada[];
-      const semEle = outra.filter((f) => norm(f.path) !== targetKey);
-      if (semEle.length !== outra.length) {
-        c[tipo.outraLista] = semEle;
-        if (norm((c[tipo.outroPonteiro] as string) || '') === targetKey) c[tipo.outroPonteiro] = '';
-      }
+      // Sai das outras listas (inclusive a dos sem papel, TODO 13b) e apaga
+      // o ponteiro que apontava para ele; e o mesmo gesto do botao direito.
+      marcarPapel(c, absPath, tipo.papel, norm);
       const arr = (Array.isArray(c[tipo.lista]) ? c[tipo.lista] : []) as Entrada[];
       let entry = arr.find((f) => norm(f.path) === targetKey);
       if (!entry) { entry = { name, path: absPath, isTopLevel: false }; arr.push(entry); }

@@ -3,18 +3,15 @@
  *
  * Camada de interacao do usuario:
  *   - Drag-and-drop de .v na file tree
- *   - Context menu (right-click numa row) com set/unset top-level,
- *     mark/unmark testbench, delete
+ *   - Context menu (right-click numa row): trocar o papel (sintese ou
+ *     testbench), ser o topo do papel (top level ou testbench atual), delete
  *   - Context menu de area vazia: "New Verilog File"
  *   - Delete inline via botao da row
  *
- * A categoria synth-vs-testbench e adivinhada do conteudo por
- * [verilog_classifier.js](verilog_classifier.js), via this._classifyAll()
- * (definido em file_mode.js). O context menu daqui e o desempate: marcar
- * top level ou testbench move o arquivo para a lista correspondente do .spf,
- * e a partir dai a heuristica nao mexe mais nele (o _classifyAll pula quem
- * tem isTopLevel). Sem esse desempate, um arquivo lido errado ficava lido
- * errado para sempre.
+ * O papel de cada arquivo e o da lista do .spf onde ele esta, e so a pessoa
+ * o muda, por este menu (TODO 13b; papel_no_spf.ts). A abertura do projeto
+ * nao o infere mais do conteudo. A importacao ainda o adivinha pelo
+ * verilog_classifier ate o passo 4.
  *
  * Mixed in via Object.assign(ProjectTreeManager.prototype, ActionsMixin)
  * em file_mode.js. Cada metodo usa `this` da classe, com acesso a:
@@ -41,6 +38,7 @@ import { classifyVerilogContent } from './verilog_classifier.js';
 import { removerDoSpf, reporNoSpf } from './spf_paths.js';
 import { showCardNotification } from '../ui/notification.js';
 import { apagarProcessador } from './processadores_do_spf.js';
+import { marcarPapel } from './papel_no_spf.js';
 import {
     isValidPythonModuleName,
     isValidVerilogFileName,
@@ -898,9 +896,12 @@ async def basic_test(dut):
 
     /**
      * Monta e exibe o context menu de uma row (right-click num arquivo).
-     * Para arquivos .v/.sv, ambas as opcoes (Top Level e Testbench Top)
-     * sao sempre exibidas, o usuario pode setar qualquer .v como
-     * qualquer dos dois sem ficar preso na categoria auto-detectada.
+     *
+     * O papel e da pessoa (TODO 13b): o menu oferece trocar de papel e, dentro
+     * do papel que o arquivo tem, ser o topo dele. Sintese pode virar o top
+     * level, testbench pode virar o testbench atual, e um arquivo sem papel
+     * so oferece escolher um. Header (.vh) recebe papel mas nunca e topo, e
+     * .py e sempre testbench (cocotb nao sintetiza).
      */
     showContextMenu(event, file, index) {
         this.closeAllTreeMenus();
@@ -910,42 +911,33 @@ async def basic_test(dut):
         menu.id = 'verilog-context-menu';
 
         const ext = this.getFileExtension(file.name || '');
-        const isVerilog = ext === '.v' || ext === '.sv';
+        const podeSerTopo = ext === '.v' || ext === '.sv';
+        const temPapel = podeSerTopo || ext === '.vh';
         const isPython = ext === '.py';
-        const canBeTestbench = isVerilog || isPython;
+        const papel = isPython || file.category === 'testbench' ? 'testbench'
+            : file.category === 'unclassified' ? 'unclassified' : 'synthesizable';
 
-        // isTopLevel is relative to the file's current category.
-        // A synthesizable file with isTopLevel=true is the synth top;
-        // a testbench file with isTopLevel=true is the testbench top.
-        const isSynthTop = isVerilog && file.category !== 'testbench' && !!file.isTopLevel;
-        const isTbTop    = canBeTestbench && file.category === 'testbench'  && !!file.isTopLevel;
+        const item = (acao: string, icone: string, chave: string) => `
+                <div class="context-menu-item" data-action="${acao}">
+                    <i class="ph ${icone}"></i>
+                    <span>${tr(chave)}</span>
+                </div>
+            `;
 
         let menuItems = '';
-
-        // Os dois marcadores aparecem juntos em todo .v/.sv, independente da
-        // categoria que a heuristica deu ao arquivo. Mostrar so o marcador da
-        // categoria adivinhada e o que tornava impossivel corrigir a adivinhacao:
-        // um testbench que a heuristica leu como sintetizavel (porque a pessoa
-        // ainda nao escreveu o $dumpvars, ou o arquivo nao se chama *_tb) so
-        // oferecia "definir como top level", e nao havia gesto nenhum para
-        // dizer que aquilo era o testbench. Escolher um move o arquivo para a
-        // lista certa do .spf, entao o menu tambem e por onde se conserta a
-        // classificacao. Arquivo .py e sempre testbench, nao tem a outra opcao.
-        if (isVerilog) {
-            menuItems += `
-                <div class="context-menu-item" data-action="${isSynthTop ? 'remove-top-level' : 'set-top-level'}">
-                    <i class="ph ph-flag"></i>
-                    <span>${isSynthTop ? tr('contextMenu.removeTopLevel') : tr('contextMenu.setTopLevel')}</span>
-                </div>
-            `;
+        if (temPapel) {
+            if (papel !== 'synthesizable') menuItems += item('mark-synth', 'ph-cpu', 'contextMenu.markSynth');
+            if (papel !== 'testbench') menuItems += item('mark-testbench', 'ph-flask', 'contextMenu.markAsTestbench');
         }
-        if (canBeTestbench) {
-            menuItems += `
-                <div class="context-menu-item" data-action="${isTbTop ? 'remove-testbench' : 'set-testbench'}">
-                    <i class="ph ph-flask"></i>
-                    <span>${isTbTop ? tr('contextMenu.unmarkTestbench') : tr('contextMenu.markTestbench')}</span>
-                </div>
-            `;
+        if (podeSerTopo && papel === 'synthesizable') {
+            menuItems += file.isTopLevel
+                ? item('remove-top-level', 'ph-crown-simple', 'contextMenu.removeTopLevel')
+                : item('set-top-level', 'ph-crown-simple', 'contextMenu.setTopLevel');
+        }
+        if ((podeSerTopo || isPython) && papel === 'testbench') {
+            menuItems += file.isTopLevel
+                ? item('remove-testbench', 'ph-stool', 'contextMenu.unmarkTestbench')
+                : item('set-testbench', 'ph-stool', 'contextMenu.markTestbench');
         }
         if (menuItems) menuItems += '<div class="context-menu-divider"></div>';
 
@@ -1135,6 +1127,22 @@ async def basic_test(dut):
         const targetKey = this._normalizePath(file.path);
 
         switch (action) {
+            case 'mark-synth':
+            case 'mark-testbench': {
+                // Trocar de papel: muda de lista no .spf (papel_no_spf.ts). Ja
+                // no papel pedido, nada muda e nada se avisa.
+                const papel = action === 'mark-synth' ? 'synthesizable' : 'testbench';
+                let mudou = false;
+                await SpfStore.update(targetSpfPath, (cfg) => {
+                    mudou = marcarPapel(cfg, file.path, papel, (c) => this._normalizePath(c));
+                });
+                if (mudou) {
+                    const aviso = papel === 'testbench' ? 'notification.tree.roleTestbench' : 'notification.tree.roleSynth';
+                    this.showNotification(tr(aviso, { name: file.name }), 'success', 2000);
+                }
+                break;
+            }
+
             case 'set-top-level': {
                 // AuroraAPI.setTopLevel handles cross-array membership
                 // (moves the file to synthesizableFiles if needed).

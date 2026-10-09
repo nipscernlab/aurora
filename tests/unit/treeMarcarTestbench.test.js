@@ -1,17 +1,12 @@
 // @vitest-environment happy-dom
 //
-// O menu de botao direito da arvore de arquivos (js/project/project_tree_actions.js).
+// O menu de botao direito da arvore de arquivos (js/project/project_tree_actions.ts).
 //
-// A categoria synth-vs-testbench e adivinhada do conteudo do arquivo. A
-// adivinhacao acerta muito, mas nao sempre: um testbench recem escrito, ainda
-// sem $dumpvars e sem "tb" no nome, e lido como sintetizavel. O menu mostrava
-// so o marcador da categoria adivinhada, entao nesse caso a unica opcao
-// oferecida era "definir como top level" e nao havia gesto nenhum para dizer
-// que aquilo era o testbench: a pessoa ficava presa no palpite errado.
-//
-// O que se prova aqui e que os dois marcadores aparecem em todo .v/.sv,
-// qualquer que seja a categoria, e que cada um oferece a acao certa para o
-// estado em que o arquivo esta.
+// Desde o TODO 13b (09/10/2026) o papel de cada arquivo e escolhido pela
+// pessoa, nunca adivinhado do conteudo. O menu oferece trocar de papel
+// ("marcar como sintese" / "marcar como testbench") e, dentro do papel que o
+// arquivo tem, ser o topo dele: top level na sintese, testbench atual no
+// testbench. Um arquivo sem papel so oferece escolher um.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -51,45 +46,36 @@ function acoesPara(file) {
 beforeEach(() => { document.body.innerHTML = ''; });
 afterEach(() => { document.body.innerHTML = ''; });
 
-describe('marcar top level e testbench', () => {
-    it('oferece os dois marcadores num .v lido como sintetizavel', () => {
-        // O caso que travava: sem "marcar como testbench" aqui, um testbench
-        // classificado errado nao tinha como ser corrigido pela interface.
-        const acoes = acoesPara({ name: 'somador_top.v', path: 'C:/p/somador_top.v', category: 'synthesizable' });
-        expect(acoes).toContain('set-top-level');
-        expect(acoes).toContain('set-testbench');
+describe('papel e topo no botao direito', () => {
+    it('sintese: vira testbench, ou vira o top level', () => {
+        expect(acoesPara({ name: 'somador.v', path: 'C:/p/somador.v', category: 'synthesizable' }))
+            .toEqual(['mark-testbench', 'set-top-level', 'delete']);
+        expect(acoesPara({ name: 'top.sv', path: 'C:/p/top.sv', category: 'synthesizable', isTopLevel: true }))
+            .toEqual(['mark-testbench', 'remove-top-level', 'delete']);
     });
 
-    it('oferece os dois marcadores num .v lido como testbench', () => {
-        const acoes = acoesPara({ name: 'somador_tb.v', path: 'C:/p/somador_tb.v', category: 'testbench' });
-        expect(acoes).toContain('set-top-level');
-        expect(acoes).toContain('set-testbench');
-    });
-
-    it('vale para .sv tambem', () => {
-        const acoes = acoesPara({ name: 'algo.sv', path: 'C:/p/algo.sv', category: 'synthesizable' });
-        expect(acoes).toContain('set-top-level');
-        expect(acoes).toContain('set-testbench');
-    });
-
-    it('oferece desmarcar quando o arquivo ja e o top da sua categoria', () => {
-        expect(acoesPara({ name: 'top.v', path: 'C:/p/top.v', category: 'synthesizable', isTopLevel: true }))
-            .toContain('remove-top-level');
+    it('testbench: vira sintese, ou vira o testbench atual', () => {
+        expect(acoesPara({ name: 'tb.v', path: 'C:/p/tb.v', category: 'testbench' }))
+            .toEqual(['mark-synth', 'set-testbench', 'delete']);
         expect(acoesPara({ name: 'tb.v', path: 'C:/p/tb.v', category: 'testbench', isTopLevel: true }))
-            .toContain('remove-testbench');
+            .toEqual(['mark-synth', 'remove-testbench', 'delete']);
     });
 
-    it('num testbench marcado, o outro marcador continua oferecendo virar top level', () => {
-        // A saida do palpite errado tem que existir nos dois sentidos: um synth
-        // lido como testbench precisa poder voltar a ser synth.
-        const acoes = acoesPara({ name: 'tb.v', path: 'C:/p/tb.v', category: 'testbench', isTopLevel: true });
-        expect(acoes).toContain('set-top-level');
+    it('sem papel: so escolher um, sem topo', () => {
+        expect(acoesPara({ name: 'novo.v', path: 'C:/p/novo.v', category: 'unclassified' }))
+            .toEqual(['mark-synth', 'mark-testbench', 'delete']);
+    });
+
+    it('header .vh recebe papel mas nunca e topo', () => {
+        expect(acoesPara({ name: 'defs.vh', path: 'C:/p/defs.vh', category: 'unclassified' }))
+            .toEqual(['mark-synth', 'mark-testbench', 'delete']);
+        expect(acoesPara({ name: 'defs.vh', path: 'C:/p/defs.vh', category: 'synthesizable' }))
+            .toEqual(['mark-testbench', 'delete']);
     });
 
     it('num .py so cabe testbench, cocotb nao sintetiza', () => {
-        const acoes = acoesPara({ name: 'teste.py', path: 'C:/p/teste.py', category: 'testbench' });
-        expect(acoes).toContain('set-testbench');
-        expect(acoes).not.toContain('set-top-level');
+        expect(acoesPara({ name: 'teste.py', path: 'C:/p/teste.py', category: 'testbench' }))
+            .toEqual(['set-testbench', 'delete']);
     });
 
     it('num arquivo que nao e fonte, so sobra apagar', () => {

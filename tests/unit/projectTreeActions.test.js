@@ -605,11 +605,11 @@ describe('menu da linha', () => {
     it('.v sintetizavel, topo de sintese, testbench topo, .py e outro tipo', () => {
         const ctx = contexto();
         ctx.showContextMenu({ pageX: 0, pageY: 0 }, { name: 'a.v' }, 0);
-        expect(itens()).toEqual(['set-top-level', 'set-testbench', 'delete']);
+        expect(itens()).toEqual(['mark-testbench', 'set-top-level', 'delete']);
         ctx.showContextMenu({ pageX: 0, pageY: 0 }, { name: 'a.sv', isTopLevel: true }, 0);
-        expect(itens()).toEqual(['remove-top-level', 'set-testbench', 'delete']);
+        expect(itens()).toEqual(['mark-testbench', 'remove-top-level', 'delete']);
         ctx.showContextMenu({ pageX: 0, pageY: 0 }, { name: 'a.v', category: 'testbench', isTopLevel: true }, 0);
-        expect(itens()).toEqual(['set-top-level', 'remove-testbench', 'delete']);
+        expect(itens()).toEqual(['mark-synth', 'remove-testbench', 'delete']);
         ctx.showContextMenu({ pageX: 0, pageY: 0 }, { name: 't.py' }, 0);
         expect(itens()).toEqual(['set-testbench', 'delete']);
         ctx.showContextMenu({ pageX: 0, pageY: 0 }, {}, 0);
@@ -783,6 +783,29 @@ describe('handleContextMenuAction', () => {
             'notification.tree.setAsTop', 'notification.tree.markedTb',
             'notification.tree.topRemoved', 'notification.tree.tbUnmarked',
         ]);
+    });
+
+    it('marcar como sintese ou testbench muda o arquivo de lista no .spf (TODO 13b)', async () => {
+        const ctx = contexto();
+        disco.spf = {
+            synthesizableFiles: [{ name: 'a.v', path: A, isTopLevel: true }],
+            unclassifiedFiles: [{ name: 'b.v', path: B }],
+            topLevelFile: A,
+        };
+        await ctx.handleContextMenuAction('mark-testbench', { path: A, name: 'a.v' }, 0);
+        await ctx.handleContextMenuAction('mark-synth', { path: B, name: 'b.v' }, 0);
+        expect(disco.spf).toEqual({
+            synthesizableFiles: [{ name: 'b.v', path: B, isTopLevel: false }],
+            testbenchFiles: [{ name: 'a.v', path: A, isTopLevel: false }],
+            unclassifiedFiles: [],
+            topLevelFile: '',
+        });
+        expect(avisos(ctx).map(([k]) => k)).toEqual(['notification.tree.roleTestbench', 'notification.tree.roleSynth']);
+        // Ja no papel pedido: nao grava nem avisa.
+        const escritas = disco.escritas;
+        await ctx.handleContextMenuAction('mark-synth', { path: B, name: 'b.v' }, 0);
+        expect(avisos(ctx)).toHaveLength(2);
+        expect(disco.escritas).toBe(escritas + 1);
     });
 
     it('acao desconhecida, sem projeto, e sem AuroraAPI', async () => {

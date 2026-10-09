@@ -605,15 +605,17 @@
   "contextMenu": {
     "removeTopLevel": "Remove Top Level",
     "setTopLevel": "Set as Top Level",
-    "unmarkTestbench": "Unmark Testbench",
-    "markTestbench": "Mark as Testbench",
+    "unmarkTestbench": "Unset current testbench",
+    "markTestbench": "Set as current testbench",
     "newFile": "New File...",
     "newVerilog": "New Verilog File (.v)",
     "newCocotb": "New cocotb Testbench (.py)",
     "newGitignore": "New .gitignore",
     "saveNewFile": "Save New File",
     "saveNewVerilog": "Save New Verilog File",
-    "saveNewCocotb": "Save New cocotb Testbench"
+    "saveNewCocotb": "Save New cocotb Testbench",
+    "markSynth": "Mark as synthesis",
+    "markAsTestbench": "Mark as testbench"
   },
   "notification": {
     "simulator": {
@@ -649,10 +651,12 @@
       "removeFailed": "Could not remove \"{{name}}\" from the project: {{error}}",
       "setAsTop": "\"{{name}}\" set as Top Level",
       "topRemoved": "Top Level removed from \"{{name}}\"",
-      "markedTb": "\"{{name}}\" marked as Testbench",
-      "tbUnmarked": "Testbench mark removed from \"{{name}}\"",
+      "markedTb": "\"{{name}}\" is the current testbench",
+      "tbUnmarked": "\"{{name}}\" is no longer the current testbench",
       "undo": "Undo",
-      "restored": "Restored \"{{name}}\" to the tree"
+      "restored": "Restored \"{{name}}\" to the tree",
+      "roleSynth": "\"{{name}}\" marked as synthesis",
+      "roleTestbench": "\"{{name}}\" marked as testbench"
     },
     "fileMode": {
       "errorOpen": "Error opening file: {{name}}"

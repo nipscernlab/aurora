@@ -158,6 +158,16 @@ describe('os dois topos', () => {
     expect(cfg.synthesizableFiles.map((f) => f.isTopLevel)).toEqual([true, false]);
   });
 
+  it('arquivo ainda sem papel que vira topo sai da lista dos sem papel (TODO 13b)', async () => {
+    cfg = { synthesizableFiles: [{ path: 'C:\\p\\a.v' }], unclassifiedFiles: [{ name: 'n.v', path: 'C:/p/n.v' }, { path: 'C:/p/m.v' }] };
+    await ciclo.setTopLevel('C:\\p\\n.v');
+    expect(cfg.unclassifiedFiles).toEqual([{ path: 'C:/p/m.v' }]);
+    expect(cfg.synthesizableFiles.map((f) => [f.path, f.isTopLevel])).toEqual([['C:\\p\\a.v', false], ['C:\\p\\n.v', true]]);
+    await ciclo.setTestbenchTop('C:/p/m.v');
+    expect(cfg.unclassifiedFiles).toEqual([]);
+    expect(cfg.testbenchFile).toBe('C:/p/m.v');
+  });
+
   it('topo de simulacao: o espelho, com o outro ponteiro', async () => {
     cfg = { synthesizableFiles: [{ path: 'C:\\p\\tb.v' }], topLevelFile: 'C:\\p\\tb.v' };
     expect((await ciclo.setTestbenchTop('\\tb.v')).data).toEqual({ filePath: 'C:\\p\\tb.v' });

@@ -136,3 +136,24 @@ describe('reporNoSpf: o outro lado do Ctrl+Z', () => {
         expect(s).toEqual(estrutura());
     });
 });
+
+// A terceira lista (TODO 13b, 09/10/2026): arquivo que a pessoa ainda nao
+// classificou acompanha renomear e apagar como os das outras duas.
+describe('unclassifiedFiles', () => {
+    const comIndefinido = () => ({ ...estrutura(), unclassifiedFiles: [{ path: 'C:/proj/novo/x.v', name: 'x.v' }] });
+
+    it('renomear a pasta leva o indefinido junto', () => {
+        const s = comIndefinido();
+        expect(renomearNoSpf(s, 'C:/proj/novo', 'C:/proj/outro')).toBe(1);
+        expect(s.unclassifiedFiles[0]).toEqual({ path: 'C:/proj/outro/x.v', name: 'x.v' });
+    });
+
+    it('apagar tira o indefinido, e desfazer o devolve para a mesma lista', () => {
+        const s = comIndefinido();
+        const retirado = removerDoSpf(s, ['C:/proj/novo/x.v']);
+        expect(retirado.total).toBe(1);
+        expect(s.unclassifiedFiles).toEqual([]);
+        reporNoSpf(s, retirado);
+        expect(s.unclassifiedFiles).toEqual([{ path: 'C:/proj/novo/x.v', name: 'x.v' }]);
+    });
+});

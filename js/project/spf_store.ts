@@ -50,6 +50,8 @@ export interface SpfStructure {
   testbenchFile: string;
   synthesizableFiles: FileEntry[];
   testbenchFiles: FileEntry[];
+  /** Arquivos que a pessoa ainda nao classificou (so existe quando houve algum). */
+  unclassifiedFiles?: FileEntry[];
   // Unknown keys survive the round trip (defaults first, on-disk second).
   [key: string]: unknown;
 }
@@ -122,7 +124,9 @@ function toAbsoluteFromBase(maybeRel: string, baseDir: string): string {
 }
 
 const PATH_FIELDS_SCALAR = ['topLevelFile', 'testbenchFile'] as const;
-const PATH_FIELDS_ARRAY  = ['synthesizableFiles', 'testbenchFiles'] as const;
+// unclassifiedFiles (TODO 13b): o que a pessoa ainda nao classificou. Fica fora
+// dos defaults de proposito, para nao aparecer em todo .spf gravado.
+const PATH_FIELDS_ARRAY  = ['synthesizableFiles', 'testbenchFiles', 'unclassifiedFiles'] as const;
 
 /** In-place: converte paths relativos do structure pra absolutos. */
 function expandStructurePaths(structure: SpfStructure | null | undefined, baseDir: string): void {

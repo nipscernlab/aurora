@@ -322,3 +322,27 @@ describe('SpfStore path normalization (relative-on-disk, absolute-in-memory)', (
         expect(sAfter.synthesizableFiles[2].path).toBe('/proj/teste/b.v');
     });
 });
+
+// A terceira lista (TODO 13b, 09/10/2026): relativa no disco, absoluta em
+// memoria, como as outras duas; e nao aparece num .spf que nao a tem.
+describe('SpfStore e a lista de indefinidos', () => {
+    it('le relativa como absoluta e grava de volta relativa', async () => {
+        window.electronAPI._files.set('/proj/teste.spf', JSON.stringify({
+            structure: { basePath: '/proj/teste', unclassifiedFiles: [{ name: 'x.v', path: 'x.v' }] },
+        }));
+        const s = await SpfStore.read('/proj/teste.spf');
+        expect(s.unclassifiedFiles[0].path).toBe('/proj/teste/x.v');
+        await SpfStore.update('/proj/teste.spf', (cfg) => {
+            cfg.unclassifiedFiles.push({ name: 'y.v', path: '/proj/teste/y.v' });
+        });
+        const noDisco = JSON.parse(window.electronAPI._files.get('/proj/teste.spf'));
+        expect(noDisco.structure.unclassifiedFiles.map((f) => f.path)).toEqual(['x.v', 'y.v']);
+    });
+
+    it('um .spf sem a lista continua sem ela depois de gravado', async () => {
+        window.electronAPI._files.set('/proj/teste.spf', JSON.stringify({ structure: { basePath: '/proj/teste' } }));
+        await SpfStore.update('/proj/teste.spf', (cfg) => { cfg.topLevelFile = '/proj/teste/top.v'; });
+        const noDisco = JSON.parse(window.electronAPI._files.get('/proj/teste.spf'));
+        expect(noDisco.structure).not.toHaveProperty('unclassifiedFiles');
+    });
+});

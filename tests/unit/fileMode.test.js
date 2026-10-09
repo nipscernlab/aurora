@@ -3,16 +3,15 @@
 // js/project/file_mode.js: o ProjectTreeManager, estado + ciclo de vida +
 // persistencia da arvore de arquivos do projeto.
 //
-// Caracterizacao escrita em 09/10/2026, antes de o arquivo virar .ts e antes
-// de a classificacao sintese/testbench passar a ser da pessoa (TODO 13b). Ate
-// aqui nenhum teste de unidade passava pelo arquivo (0% de linhas). O que se
-// prende e o comportamento de HOJE, inclusive o que vai mudar (a heuristica e
-// a ordem alfabetica): quem mudar, muda o teste junto, de proposito.
+// Caracterizacao escrita em 09/10/2026, antes de o arquivo virar .ts. Desde o
+// passo 1 do TODO 13b o papel de cada arquivo vem da lista do .spf onde ele
+// esta (sintese, testbench ou ainda sem papel), nunca do conteudo, e a
+// gravacao nao reordena as listas.
 //
 // Falsos: a ponte com o Electron (um disco em memoria), o SpfStore (um .spf em
 // memoria), o TabManager e os dois mixins de interface, que tem testes
 // proprios (projectTreeRender, projectTreeActions). Reais: ProjectStore,
-// processor_list, processor_source e o classificador.
+// processor_list e processor_source.
 
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 
@@ -231,16 +230,10 @@ describe('ouvintes de eventos', () => {
     expect(m.refreshTree).toHaveBeenCalledTimes(1);
   });
 
-  it('aurora:file-saved so reage a arquivo da arvore (sem diferenca de barra ou caixa)', async () => {
+  it('salvar um arquivo da arvore nao a refaz: o papel nao vem mais do conteudo', async () => {
     const m = await ativo({ synth: [{ name: 'a.v', path: 'C:/p/a.v' }], arquivos: { 'C:/p/a.v': SINTESE } });
-    window.dispatchEvent(new CustomEvent('aurora:file-saved', { detail: { path: 'C:\\P\\b.v' } }));
-    window.dispatchEvent(new CustomEvent('aurora:file-saved', { detail: {} }));
-    expect(m.refreshTree).not.toHaveBeenCalled();
-    window.dispatchEvent(new CustomEvent('aurora:file-saved', { detail: { path: 'C:\\P\\A.v' } }));
-    expect(m.refreshTree).toHaveBeenCalledTimes(1);
-    m.isTreeActive = false;
     window.dispatchEvent(new CustomEvent('aurora:file-saved', { detail: { path: 'C:/p/a.v' } }));
-    expect(m.refreshTree).toHaveBeenCalledTimes(1);
+    expect(m.refreshTree).not.toHaveBeenCalled();
   });
 
   it('aurora:file-created reage a extensao de fonte', async () => {
@@ -415,61 +408,29 @@ describe('_discoverProcessorFiles', () => {
     expect(await m._discoverProcessorFiles()).toEqual({ addedPersist: 0, addedSoftware: 0 });
   });
 
-  it('Verilog entra como sintese (persistivel), fonte do processador como software', async () => {
+  it('o papel vem da pasta: Hardware e sintese, Simulation e .py sao testbench, fonte e software', async () => {
     const m = await novo();
     ProjectStore.setProject(SPF, RAIZ);
     window.availableProcessors = ['cpu'];
-    disco.pastas.set('C:/p/cpu/Hardware', ['cpu.v', 'notas.txt', 42, 'JA.V']);
+    disco.pastas.set('C:/p/cpu/Hardware', ['cpu.v', 'notas.txt', 42, 'JA.V', 'teste.py']);
     disco.pastas.set('C:/p/cpu/Software', ['cpu.cmm', 'cpu.asm']);
-    disco.pastas.set('C:/p/cpu/Simulation', 'nao e lista');
+    disco.pastas.set('C:/p/cpu/Simulation', ['cpu_tb.v']);
     m.verilogFiles = [{ name: 'JA.V', path: 'c:\\p\\cpu\\hardware\\ja.v' }];
-    expect(await m._discoverProcessorFiles()).toEqual({ addedPersist: 1, addedSoftware: 1 });
+    expect(await m._discoverProcessorFiles()).toEqual({ addedPersist: 3, addedSoftware: 1 });
     expect(m.verilogFiles.slice(1)).toEqual([
       { name: 'cpu.v', path: 'C:/p/cpu/Hardware/cpu.v', isTopLevel: false, category: 'synthesizable' },
+      { name: 'teste.py', path: 'C:/p/cpu/Hardware/teste.py', isTopLevel: false, category: 'testbench' },
       { name: 'cpu.cmm', path: 'C:/p/cpu/Software/cpu.cmm', isTopLevel: false, category: 'synthesizable', isSoftware: true },
+      { name: 'cpu_tb.v', path: 'C:/p/cpu/Simulation/cpu_tb.v', isTopLevel: false, category: 'testbench' },
     ]);
   });
-});
 
-describe('_classifyAll', () => {
-  it('pela heuristica: .py e testbench, o conteudo decide o .v, o topo nao muda', async () => {
+  it('pasta que nao lista como lista e pulada', async () => {
     const m = await novo();
-    disco.arquivos.set('C:/p/a.v', SINTESE);
-    disco.arquivos.set('C:/p/tb.v', TESTBENCH);
-    m.verilogFiles = [
-      { name: 'sw.cmm', path: 'C:/p/cpu/Software/sw.cmm', isSoftware: true, category: 'synthesizable' },
-      { name: 't.py', path: 'C:/p/t.py', category: 'synthesizable', isTopLevel: true },
-      { name: 'u.py', path: 'C:/p/u.py', category: 'testbench' },
-      { name: 'top.v', path: 'C:/p/top.v', category: 'synthesizable', isTopLevel: true },
-      { name: 'a.v', path: 'C:/p/a.v', category: 'testbench', isTopLevel: false },
-      { name: 'tb.v', path: 'C:/p/tb.v', category: 'testbench' },
-    ];
-    expect(await m._classifyAll()).toBe(true);
-    expect(m.verilogFiles.map((f) => [f.name, f.category, f.isTopLevel])).toEqual([
-      ['sw.cmm', 'synthesizable', undefined],
-      ['t.py', 'testbench', false],
-      ['u.py', 'testbench', undefined],
-      ['top.v', 'synthesizable', true],
-      ['a.v', 'synthesizable', false],
-      ['tb.v', 'testbench', undefined],
-    ]);
-    // Segunda passada: tudo igual, e o cache por mtime evita reler.
-    electronAPI.readFile.mockClear();
-    expect(await m._classifyAll()).toBe(false);
-    expect(electronAPI.readFile).not.toHaveBeenCalled();
-  });
-
-  it('sem stat le sempre; ilegivel mantem a categoria (ou sintese, sem nenhuma)', async () => {
-    const m = await novo();
-    disco.arquivos.set('C:/p/SEMSTAT.v', TESTBENCH);
-    m.verilogFiles = [
-      { name: 'SEMSTAT.v', path: 'C:/p/SEMSTAT.v', category: 'synthesizable' },
-      { name: 'x.v', path: 'C:/p/x.v', category: 'testbench' },
-      { name: 'y.v', path: 'C:/p/y.v' },
-    ];
-    expect(await m._classifyAll()).toBe(true);
-    expect(m.verilogFiles.map((f) => f.category)).toEqual(['testbench', 'testbench', 'synthesizable']);
-    expect(await m._classifyAll()).toBe(false);
+    ProjectStore.setProject(SPF, RAIZ);
+    window.availableProcessors = ['cpu'];
+    disco.pastas.set('C:/p/cpu/Hardware', 'nao e lista');
+    expect(await m._discoverProcessorFiles()).toEqual({ addedPersist: 0, addedSoftware: 0 });
   });
 });
 
@@ -554,7 +515,7 @@ describe('saveConfiguration', () => {
     expect(SpfStore.update).not.toHaveBeenCalled();
   });
 
-  it('separa sintese e testbench, deixa software de fora, e acha os dois topos', async () => {
+  it('separa as tres listas, deixa software de fora, e acha os dois topos', async () => {
     projeto();
     const m = await novo();
     window.gtkwPickerManager = { refresh: vi.fn() };
@@ -562,6 +523,7 @@ describe('saveConfiguration', () => {
       { name: 'top.v', path: 'C:/p/top.v', isTopLevel: true, category: 'synthesizable' },
       { name: 'a.v', path: 'C:/p/a.v', category: 'synthesizable' },
       { name: 'tb.v', path: 'C:/p/tb.v', isTopLevel: true, category: 'testbench' },
+      { name: 'x.v', path: 'C:/p/x.v', category: 'unclassified' },
       { name: 'cpu.cmm', path: 'C:/p/cpu/Software/cpu.cmm', isSoftware: true, category: 'synthesizable' },
     ];
     await m.saveConfiguration();
@@ -571,6 +533,7 @@ describe('saveConfiguration', () => {
         { name: 'a.v', path: 'C:/p/a.v', isTopLevel: false },
       ],
       testbenchFiles: [{ name: 'tb.v', path: 'C:/p/tb.v', isTopLevel: true }],
+      unclassifiedFiles: [{ name: 'x.v', path: 'C:/p/x.v', isTopLevel: false }],
       topLevelFile: 'C:/p/top.v',
       testbenchFile: 'C:/p/tb.v',
     });
@@ -579,6 +542,24 @@ describe('saveConfiguration', () => {
     m.verilogFiles = [];
     await m.saveConfiguration('C:/outro.spf');
     expect(disco.spf.get('C:/outro.spf')).toMatchObject({ topLevelFile: '', testbenchFile: '' });
+    expect(disco.spf.get('C:/outro.spf')).not.toHaveProperty('unclassifiedFiles');
+  });
+
+  it('nunca reordena: cada lista guarda a ordem do .spf, e o novo vai para o fim', async () => {
+    projeto({ synth: [
+      { name: 'simulacao.v', path: 'C:/p/simulacao.v' },
+      { name: 'z.v', path: 'C:/p/z.v' },
+      { name: 'a.v', path: 'C:/p/a.v' },
+    ] });
+    const m = await novo();
+    m.verilogFiles = [
+      { name: 'a.v', path: 'C:/p/a.v', category: 'synthesizable' },
+      { name: 'b.v', path: 'C:/p/b.v', category: 'synthesizable' },
+      { name: 'simulacao.v', path: 'C:/p/simulacao.v', category: 'synthesizable' },
+      { name: 'z.v', path: 'C:/p/z.v', category: 'synthesizable' },
+    ];
+    await m.saveConfiguration();
+    expect(disco.spf.get(SPF).synthesizableFiles.map((f) => f.name)).toEqual(['simulacao.v', 'z.v', 'a.v', 'b.v']);
   });
 
   it('falha na escrita vai para o console', async () => {
@@ -597,7 +578,7 @@ describe('loadConfiguration', () => {
     expect(console.error).toHaveBeenCalledWith('Spf path not available');
   });
 
-  it('le as duas listas, separa o que sumiu, deduplica, reclassifica, ordena e regrava', async () => {
+  it('le as tres listas: o papel vem de onde o arquivo esta, nunca do conteudo', async () => {
     projeto({
       synth: [
         { name: 'z.v', path: 'C:/p/z.v' },
@@ -605,7 +586,6 @@ describe('loadConfiguration', () => {
         { name: 'sumiu.v', path: 'C:/p/sumiu.v' },
         { name: 'EXPLODE.v', path: 'C:/p/EXPLODE.v' },
         { path: 'C:/p/sem_nome.v' },
-        { name: 'z.v', path: 'c:\\p\\Z.v' },
       ],
       tb: [
         { name: 'tb.v', path: 'C:/p/tb.v', isMarkedTestbench: true },
@@ -615,26 +595,45 @@ describe('loadConfiguration', () => {
         { name: 'sem_caminho.v' },
       ],
       arquivos: {
-        'C:/p/z.v': SINTESE, 'c:\\p\\Z.v': SINTESE, 'C:/p/rng.v': TESTBENCH,
-        'C:/p/tb.v': TESTBENCH, 'C:/p/a.v': SINTESE,
+        'C:/p/z.v': SINTESE, 'C:/p/rng.v': TESTBENCH, 'C:/p/tb.v': TESTBENCH,
+        'C:/p/a.v': SINTESE, 'C:/p/x.v': SINTESE,
       },
     });
+    disco.spf.get(SPF).unclassifiedFiles = [
+      { name: 'x.v', path: 'C:/p/x.v' }, { name: 'longe.v', path: 'C:/p/longe.v' },
+      { name: 'EXPLODE_x.v', path: 'C:/p/EXPLODE_x.v' }, { name: 'sem_caminho.v' },
+    ];
     const m = await novo();
     expect(m.missingFiles).toEqual([
       { name: 'sumiu.v', path: 'C:/p/sumiu.v', category: 'synthesizable' },
       { name: 'foi.v', path: 'C:/p/foi.v', category: 'testbench' },
+      { name: 'longe.v', path: 'C:/p/longe.v', category: 'unclassified' },
     ]);
-    // a.v estava no .spf como topo do testbench: a heuristica nao mexe em topo.
+    // rng.v parece testbench pelo conteudo e a.v parece sintese: ficam onde o
+    // .spf os pos. A arvore exibe com o topo primeiro, depois alfabetico.
     expect(m.verilogFiles.map((f) => [f.name, f.category, f.isTopLevel])).toEqual([
       ['a.v', 'testbench', true],
       ['tb.v', 'testbench', true],
-      ['rng.v', 'testbench', false],
+      ['rng.v', 'synthesizable', false],
+      ['x.v', 'unclassified', false],
       ['z.v', 'synthesizable', false],
     ]);
+    // Nada mudou de papel: o .spf nao foi regravado.
+    expect(SpfStore.update).not.toHaveBeenCalled();
+  });
+
+  it('entrada repetida no .spf: tira a repeticao e regrava na ordem que estava', async () => {
+    projeto({
+      synth: [
+        { name: 'simulacao.v', path: 'C:/p/simulacao.v' },
+        { name: 'b.v', path: 'C:/p/b.v' },
+        { name: 'B.v', path: 'c:\\p\\B.v' },
+      ],
+      arquivos: { 'C:/p/simulacao.v': SINTESE, 'C:/p/b.v': SINTESE, 'c:\\p\\B.v': SINTESE },
+    });
+    await novo();
     expect(console.warn).toHaveBeenCalledWith('Dropped 1 duplicate file entries from .spf');
-    // rng.v mudou de papel: o .spf e regravado, na ordem da arvore.
-    expect(disco.spf.get(SPF).synthesizableFiles.map((f) => f.name)).toEqual(['z.v']);
-    expect(disco.spf.get(SPF).testbenchFiles.map((f) => f.name)).toEqual(['a.v', 'tb.v', 'rng.v']);
+    expect(disco.spf.get(SPF).synthesizableFiles.map((f) => f.name)).toEqual(['simulacao.v', 'b.v']);
   });
 
   it('nada mudou: nao regrava', async () => {
@@ -663,14 +662,10 @@ describe('loadConfiguration', () => {
   });
 
   it('projeto trocado antes de regravar: nao grava no .spf de ninguem', async () => {
-    projeto({ synth: [{ name: 'tb.v', path: 'C:/p/tb.v' }], arquivos: { 'C:/p/tb.v': TESTBENCH } });
+    projeto();
     const m = await novo();
     SpfStore.update.mockClear();
-    m._classifyCache = new Map();
-    disco.spf.get(SPF).synthesizableFiles = [{ name: 'tb.v', path: 'C:/p/tb.v' }];
-    disco.spf.get(SPF).testbenchFiles = [];
-    const orig = m._classifyAll.bind(m);
-    m._classifyAll = async () => { const r = await orig(); m._projectEpoch++; return r; };
+    m._discoverProcessorFiles = async () => { m._projectEpoch++; return { addedPersist: 1, addedSoftware: 0 }; };
     await m.loadConfiguration();
     expect(SpfStore.update).not.toHaveBeenCalled();
     expect(console.log).toHaveBeenCalledWith('loadConfiguration: project switched before save, skipping persist to', SPF);

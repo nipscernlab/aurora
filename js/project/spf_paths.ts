@@ -49,8 +49,8 @@ function reescrever(caminho: unknown, de: string, para: string): string {
 
 /** Os dois campos de caminho único do `.spf`. */
 const CAMPOS_TOPO = ['topLevelFile', 'testbenchFile'];
-/** As duas listas de arquivos do `.spf`. */
-const CAMPOS_LISTA = ['synthesizableFiles', 'testbenchFiles'];
+/** As listas de arquivos do `.spf`: sintese, testbench e os ainda sem papel. */
+const CAMPOS_LISTA = ['synthesizableFiles', 'testbenchFiles', 'unclassifiedFiles'];
 
 /** Último segmento, para manter o `name` das listas coerente com o `path`. */
 function nomeDe(p: unknown): string {

@@ -3,8 +3,12 @@
  *
  * Renderiza a file tree do projeto, a unica vista de arquivos que
  * Aurora mostra hoje. Lista arquivos a partir do .spf
- * (structure.synthesizableFiles + testbenchFiles + per-processador
- * Software/Hardware/Simulation auto-descoberto).
+ * (structure.synthesizableFiles + testbenchFiles + unclassifiedFiles +
+ * per-processador Software/Hardware/Simulation auto-descoberto).
+ *
+ * O papel de cada arquivo (sintese, testbench ou ainda sem papel) e o da
+ * lista onde ele esta, escolhido pela pessoa; nada e inferido do conteudo,
+ * e as listas nunca sao reordenadas ao gravar (TODO 13b).
  *
  * Pontos de entrada externos:
  *   refreshTree()  , UNICO entry point pra atualizar a tree. Faz
@@ -41,7 +45,7 @@ import { setAvailableProcessors, addAvailableProcessor } from './processor_list.
 import { SpfStore } from './spf_store.js';
 import type { ArquivoDaArvore, AcoesDaArvore } from './project_tree_actions.js';
 import type { RenderizacaoDaArvore } from './project_tree_render.js';
-import type { VerilogCategory } from './verilog_classifier.js';
+import { manterOrdem } from './lista_do_spf.js';
 
 /** Quem recebe o aviso de erro ao abrir: o proprio ProjectTreeManager. */
 interface QuemNotifica {
@@ -88,7 +92,6 @@ async function openTreeFile(filePath: string, fileName: string, options: { previ
 }
 import { RenderMixin } from './project_tree_render.js';
 import { ActionsMixin } from './project_tree_actions.js';
-import { classifyVerilogContent } from './verilog_classifier.js';
 import { sourceExtensions } from '../compilation/processor_source.js';
 
 class ProjectTreeManager {
@@ -104,7 +107,6 @@ class ProjectTreeManager {
     };
     declare initPromise: Promise<void> | null;
     declare missingFiles: ArquivoSumido[];
-    declare _classifyCache: Map<string, { mtime: number; category: VerilogCategory }> | undefined;
     declare _refreshPromise: Promise<void> | null | undefined;
     declare _refreshPending: boolean | undefined;
 
@@ -231,22 +233,11 @@ class ProjectTreeManager {
             }
         });
 
-        // Editor save dispatched aurora:file-saved (tab_manager.js#saveFile).
-        // Reclassifica + re-persiste so se o path salvo estiver tracked
-        // em verilogFiles, evita refresh storm em saves de arquivos fora
-        // do projeto Verilog (e.g. .json, .md). Path comparado via
-        // _normalizePath pra cobrir Windows case/sep.
-        window.addEventListener('aurora:file-saved', (event) => {
-            const savedPath = (event as CustomEvent<{ path?: string } | undefined>)?.detail?.path;
-            if (!savedPath || !this.isTreeActive) return;
-            const key = this._normalizePath(savedPath);
-            const tracked = this.verilogFiles.some((f) => this._normalizePath(f.path) === key);
-            if (tracked) this.refreshTree();
-        });
-
-        // Arquivo NOVO. O ouvinte acima so reage ao que ja esta rastreado, o que
-        // por definicao nunca inclui o que acabou de nascer: um .v criado pela
-        // visao Pastas ficava fora da lista de fontes ate um refresh forte.
+        // Salvar um arquivo nao refaz a arvore: o papel de cada arquivo vem do
+        // .spf, nao do conteudo (TODO 13b), entao editar nao muda nada aqui.
+        //
+        // Arquivo NOVO: um .v criado pela visao Pastas ficava fora da lista de
+        // fontes ate um refresh forte.
         // Aqui a decisao e pela extensao, que e o que classifica um fonte.
         window.addEventListener('aurora:file-created', (event) => {
             const p = (event as CustomEvent<{ path?: string } | undefined>)?.detail?.path;
@@ -509,11 +500,16 @@ class ProjectTreeManager {
                     const fullPath = await electronAPI.joinPath(subDir, entry);
                     const key = this._normalizePath(fullPath);
                     if (seen.has(key)) continue;
+                    // O SAPHO gera os dois papeis e a pasta diz qual: o que
+                    // fica em Simulation/ (o <proc>_tb.v) e o .py do cocotb
+                    // sao testbench; o resto, sintese. Quem gerou sabe o
+                    // papel, e a pessoa nao classifica arquivo gerado.
+                    const ehTestbench = subDirName === 'Simulation' || matchedExt === '.py';
                     const fileEntry: ArquivoDaArvore = {
                         name: entry,
                         path: fullPath,
                         isTopLevel: false,
-                        category: 'synthesizable',
+                        category: ehTestbench ? 'testbench' : 'synthesizable',
                     };
                     if (isSoftware) {
                         fileEntry.isSoftware = true;
@@ -527,86 +523,6 @@ class ProjectTreeManager {
             }
         }
         return { addedPersist, addedSoftware };
-    }
-
-    /**
-     * Re-classifica cada arquivo Verilog (.v/.sv/.vh) de this.verilogFiles
-     * como synth ou testbench, lendo o conteudo e decidindo via
-     * heuristica ([verilog_classifier.js](verilog_classifier.js)).
-     * Substitui o antigo toggle manual: a categoria e sempre derivada
-     * do conteudo, nunca de uma marca persistida pelo usuario.
-     *
-     * Roda a cada load/refresh e em todo import, editar um .v e
-     * transforma-lo em testbench faz ele se reclassificar sozinho no
-     * proximo refresh.
-     *
-     * Arquivos software (.cmm/.asm) sao pulados, nao sao Verilog.
-     * Quando a categoria de um arquivo muda, sua marca isTopLevel e
-     * limpa: um synth top nao e a mesma coisa que um testbench top.
-     * Se o conteudo nao puder ser lido, a categoria atual e mantida
-     * (ou 'synthesizable' como default seguro).
-     *
-     * Devolve true se ALGUM arquivo mudou de categoria, o caller usa
-     * pra decidir se precisa re-persistir o .spf.
-     */
-    async _classifyAll() {
-        let changed = false;
-        for (const file of this.verilogFiles) {
-            if (file.isSoftware) continue;
-            // .py files (cocotb testbenches) sao sempre testbench, nao
-            // ha conteudo Verilog pra classificar.
-            if (this.getFileExtension(file.name || file.path || '') === '.py') {
-                if (file.category !== 'testbench') {
-                    file.category = 'testbench';
-                    file.isTopLevel = false;
-                    changed = true;
-                }
-                continue;
-            }
-            // isTopLevel is an explicit user choice (set via context menu or AI tool).
-            // Auto-classification must not override it, that would silently undo the
-            // user's intent every time the tree refreshes. Category is locked to
-            // whatever the user chose when they marked the file.
-            if (file.isTopLevel) continue;
-            // Classification is content-derived, so cache it by mtime: a refresh
-            // that didn't touch the file reuses the result instead of re-reading
-            // the whole .v and re-running the regex (P3, was N+1 full reads on
-            // every refresh). Only files whose mtime moved get read again.
-            const cache = this._classifyCache || (this._classifyCache = new Map());
-            let mtime: number | null = null;
-            try {
-                mtime = (await electronAPI.getFileStats(file.path))?.mtime ?? null;
-            } catch (_) { /* fall through to a full read */ }
-            const hit = mtime != null ? cache.get(file.path) : null;
-            let category: VerilogCategory;
-            if (hit && hit.mtime === mtime) {
-                category = hit.category;
-            } else {
-                let content: string;
-                try {
-                    content = await electronAPI.readFile(file.path);
-                } catch (error) {
-                    console.warn(`Classifier: cannot read ${file.path}:`, error);
-                    if (!file.category) file.category = 'synthesizable';
-                    continue;
-                }
-                category = classifyVerilogContent(content, file.name);
-                if (mtime != null) cache.set(file.path, { mtime, category });
-            }
-            // Chega aqui so quem nao tem marca do usuario (o `continue`
-            // acima ja tirou esses de cena). Se a categoria mudou, o
-            // arquivo foi editado e a heuristica virou de synth pra
-            // testbench ou vice-versa; a marca de top do escopo anterior
-            // nao se aplica mais (synth-top e tb-top sao escopos
-            // distintos), entao limpa isTopLevel. Categoria igual mantem
-            // isTopLevel intacto.
-            if (file.category !== category) {
-                file.category = category;
-                file.isTopLevel = false;
-                changed = true;
-            }
-        }
-        return changed;
     }
 
     // ----- lifecycle ---------------------------------------------------
@@ -787,10 +703,13 @@ class ProjectTreeManager {
             // processador, nao Verilog. Sao auto-redescobertos no
             // proximo load.
             const synthFiles = this.verilogFiles
-                .filter((f) => !f.isSoftware && f.category !== 'testbench')
+                .filter((f) => !f.isSoftware && f.category !== 'testbench' && f.category !== 'unclassified')
                 .map(buildEntry);
             const tbFiles = this.verilogFiles
                 .filter((f) => !f.isSoftware && f.category === 'testbench')
+                .map(buildEntry);
+            const unclassifiedFiles = this.verilogFiles
+                .filter((f) => !f.isSoftware && f.category === 'unclassified')
                 .map(buildEntry);
             const topFile = this.verilogFiles.find(
                 (f) => f.isTopLevel && f.category !== 'testbench',
@@ -801,9 +720,17 @@ class ProjectTreeManager {
             const topPath = topFile ? topFile.path : '';
             const tbPath = tbTopFile ? tbTopFile.path : '';
 
+            // A ordem das listas e a ordem em que o iverilog le os arquivos, e
+            // a Aurora nunca a muda: quem ja estava fica no lugar, quem chegou
+            // vai para o fim (lista_do_spf.ts). A lista dos sem papel so e
+            // escrita quando existe, para nao aparecer em todo .spf.
+            const chave = (c: string) => this._normalizePath(c);
             await SpfStore.update(spfPath, (cfg) => {
-                cfg.synthesizableFiles = synthFiles;
-                cfg.testbenchFiles = tbFiles;
+                cfg.synthesizableFiles = manterOrdem(cfg.synthesizableFiles, synthFiles, chave);
+                cfg.testbenchFiles = manterOrdem(cfg.testbenchFiles, tbFiles, chave);
+                if (unclassifiedFiles.length || Array.isArray(cfg.unclassifiedFiles)) {
+                    cfg.unclassifiedFiles = manterOrdem(cfg.unclassifiedFiles, unclassifiedFiles, chave);
+                }
                 cfg.topLevelFile = topPath;
                 cfg.testbenchFile = tbPath;
             });
@@ -921,6 +848,33 @@ class ProjectTreeManager {
                 }
             }
 
+            // Os que a pessoa ainda nao classificou (TODO 13b).
+            if (Array.isArray(configData.unclassifiedFiles)) {
+                for (const fileData of configData.unclassifiedFiles as EntradaDoSpf[]) {
+                    if (!fileData.path || !fileData.name) continue;
+                    try {
+                        const exists = await electronAPI.fileExists(fileData.path);
+                        if (exists) {
+                            nextFiles.push({
+                                name: fileData.name,
+                                path: fileData.path,
+                                isTopLevel: false,
+                                category: 'unclassified',
+                            });
+                        } else {
+                            console.warn(`File no longer exists: ${fileData.path}`);
+                            this.missingFiles.push({
+                                name: fileData.name,
+                                path: fileData.path,
+                                category: 'unclassified',
+                            });
+                        }
+                    } catch (error) {
+                        console.error(`Error validating file ${fileData.path}:`, error);
+                    }
+                }
+            }
+
             console.log('Loaded', nextFiles.length, 'files from configuration');
 
             // Staleness gate. Reading the .spf + probing every file with
@@ -971,20 +925,19 @@ class ProjectTreeManager {
             // PERSISTIVEL (Hardware) foi adicionado.
             const { addedPersist } = await this._discoverProcessorFiles();
 
-            // Categoria synth-vs-testbench e derivada do conteudo, nao
-            // do .spf. Reclassifica tudo agora; se algo mudou de
-            // categoria (ou se um arquivo persistivel foi descoberto),
-            // re-persiste pra que synthesizableFiles/testbenchFiles do
-            // .spf reflitam a deteccao.
-            const reclassified = await this._classifyAll();
-
+            // O papel de cada arquivo e o da lista do .spf onde ele esta, e
+            // so a pessoa o muda (botao direito). Antes a arvore relia o
+            // conteudo a cada abertura e regravava o .spf pelo que uma
+            // heuristica achava: tirou os rng_*.v do hits da sintese.
+            // Ordem de EXIBICAO (topo primeiro, depois alfabetica). A gravacao
+            // nao a usa: cada lista do .spf guarda a propria ordem.
             this.sortFilesAlphabetically();
-            // Re-persiste se: descobrimos arquivos novos no Hardware/,
-            // a classificacao mudou, OU o dedup acima removeu entries
+            // Re-persiste se: descobrimos arquivos novos do processador,
+            // OU o dedup acima removeu entries
             // (o .spf tinha duplicates, escrever a versao limpa agora
             // para que proximas loads nao precisem dedup'ar de novo).
-            if (addedPersist > 0 || reclassified || dedupRemoved > 0) {
-                // _discoverProcessorFiles + _classifyAll just awaited disk
+            if (addedPersist > 0 || dedupRemoved > 0) {
+                // _discoverProcessorFiles just awaited disk
                 // IO, re-check the epoch before persisting, and write to
                 // the CAPTURED spfPath. This is the line that, pre-fix,
                 // wrote project A's files into project B's .spf.

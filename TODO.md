@@ -2484,7 +2484,10 @@ abrir, a árvore regravava o `.spf`, tirava os três da síntese e ainda punha a
 lista em ordem alfabética, o que mandou o `simulacao.v` (só `` `define ``) do
 primeiro lugar para o último. Pedido do hits e decisão do Luciano:
 
-- [ ] **Três papéis, sempre escolhidos:** síntese, testbench e indefinido.
+- [ ] **Três papéis, sempre escolhidos** (passo 1 feito em e2bd0043: o `.spf`
+      manda ao abrir, `unclassifiedFiles` existe; falta tirar a heurística da
+      importação e do documento sem nome, passo 4; o LSP do slang lê só as
+      duas listas antigas): síntese, testbench e indefinido.
       Nada é inferido do conteúdo; a heurística sai inteira. No `.spf`, uma
       terceira lista `unclassifiedFiles` (a 6.21 a ignora; projetos atuais não
       precisam de conversão).
@@ -2500,12 +2503,12 @@ primeiro lugar para o último. Pedido do hits e decisão do Luciano:
       troca o papel de arquivo da pessoa sem perguntar. Ferramenta nova na API.
 - [ ] **Compilação:** indefinido fica fora do iverilog e do Yosys, e o
       terminal avisa quais são antes de compilar.
-- [ ] **Nunca reordenar** as listas ao gravar (ordem de entrada; o hits depende
+- [x] **Nunca reordenar** (e2bd0043) as listas ao gravar (ordem de entrada; o hits depende
       do `simulacao.v` primeiro).
 - [ ] **Abrir não muda o `.spf`:** saíram o `lastOpened` (ce62d09b) e a troca de
       barras do `basePath` (b0a869a7); falta o `processors[].exists` e a
       formatação do arquivo regravado.
-- [ ] Antes: `file_mode.js` e `project_tree_render.js` viram `.ts`, com teste
+- [x] Antes (3e96bc69): `file_mode.js` e `project_tree_render.js` viram `.ts`, com teste
       de caracterização, em commit separado.
 - [ ] **Depois (lembrete do Luciano):** levar tudo isso ao prompt da IA, ao
       `docs/gabarito-ia.md`, ao manual (docs_aurora), à referência técnica e aos

@@ -729,7 +729,8 @@
       "bannerFailed": "Compilation Failed",
       "switchedFileTree": "Switched to file tree",
       "switchedHierarchical": "Switched to hierarchical module view",
-      "noHierarchyData": "No hierarchy data available. Please compile Verilog first."
+      "noHierarchyData": "No hierarchy data available. Please compile Verilog first.",
+      "unclassified": "Warning: {{count}} file(s) with no role yet are left out of the build: {{names}}. In the tree, right-click and mark them as synthesis or testbench."
     },
     "htest": {
       "start": "Hardware test: \"{{name}}\", starting ({{clocks}} clocks)",

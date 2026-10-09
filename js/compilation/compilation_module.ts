@@ -316,6 +316,19 @@ _buildConfigShape(): FormaDaConfiguracao | null {
         }), 'warning');
     });
 
+    // Arquivo sem papel (TODO 13b) fica fora do iverilog e do Yosys, porque so
+    // a lista de sintese (e o testbench) entram. Sem este aviso, um modulo que
+    // mora num arquivo desses viraria "Unknown module" sem explicacao.
+    const semPapel = (Array.isArray(this.projectConfig.unclassifiedFiles)
+        ? this.projectConfig.unclassifiedFiles as ArquivoDoSpf[] : []).filter(Boolean);
+    if (semPapel.length) {
+        const nomes = semPapel.map((f) => f.name || f.path?.split(/[\\/]/).pop() || '?');
+        this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.unclassified', {
+            count: semPapel.length,
+            names: nomes.join(', '),
+        }), 'warning');
+    }
+
     return {
         topLevelFile:       topEntry ? topEntry.path : null,
         testbenchFile:      foundTb, // may be null

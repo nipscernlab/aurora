@@ -107,6 +107,15 @@ describe('quais pastas o indice precisa alem da raiz', () => {
     expect(extraSourceDirs(projeto)).toEqual([fora, outra].sort());
   });
 
+  it('arquivo sem papel tambem e indexado: o editor continua acusando erro nele (TODO 13b)', () => {
+    const fora = path.join(raiz, 'rtl');
+    escreverSpf({
+      synthesizableFiles: [],
+      unclassifiedFiles: [{ path: path.join(fora, 'novo.v') }],
+    });
+    expect(extraSourceDirs(projeto)).toEqual([fora]);
+  });
+
   it('nao quebra com .spf ausente ou meio escrito', () => {
     const spf = path.join(projeto, 'proj.spf');
     fs.writeFileSync(spf, '{"structure": {"synthesiz');

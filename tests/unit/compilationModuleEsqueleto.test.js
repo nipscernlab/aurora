@@ -159,6 +159,29 @@ describe('a forma da configuracao', () => {
         ]);
     });
 
+    // TODO 13b, passo 5 (09/10/2026): arquivo sem papel fica fora do iverilog
+    // e do Yosys. Sem aviso, um "Unknown module" ficaria sem explicacao.
+    it('arquivos sem papel ficam fora, e o aviso diz quais', async () => {
+        const mod = await novoModulo();
+        mod.projectConfig = {
+            synthesizableFiles: [{ path: PROJ + '/a.v', isTopLevel: true }],
+            unclassifiedFiles: [{ path: PROJ + '/x.v', name: 'x.v' }, { path: PROJ + '/sub/y.v' }, null],
+        };
+        expect(mod.loadConfigUnsafe().synthesizableFiles).toEqual([PROJ + '/a.v']);
+        expect(terminal.calls).toEqual([
+            { term: 'tveri', level: 'warning', msg: 'terminal.veri.unclassified {"count":2,"names":"x.v, y.v"}' },
+        ]);
+    });
+
+    it('sem arquivo sem papel, nenhum aviso', async () => {
+        const mod = await novoModulo();
+        mod.projectConfig = { synthesizableFiles: [{ path: PROJ + '/a.v', isTopLevel: true }], unclassifiedFiles: [] };
+        mod.loadConfigUnsafe();
+        mod.projectConfig = { synthesizableFiles: [{ path: PROJ + '/a.v', isTopLevel: true }], unclassifiedFiles: 'x' };
+        mod.loadConfigUnsafe();
+        expect(terminal.calls).toEqual([]);
+    });
+
     it('sem nome nem caminho, o aviso usa ?', async () => {
         const mod = await novoModulo();
         mod.projectConfig = { synthesizableFiles: [{ isTopLevel: true }, { isTopLevel: true }] };

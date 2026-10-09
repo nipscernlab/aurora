@@ -223,7 +223,9 @@ function extraSourceDirs(projectDir: string) {
     : projectDir;
 
   const dirs = new Map(); // chave comparavel → caminho como esta no disco
-  for (const campo of ['synthesizableFiles', 'testbenchFiles']) {
+  // As tres listas (TODO 13b): arquivo ainda sem papel fica fora da compilacao,
+  // mas o editor continua acusando erro nele.
+  for (const campo of ['synthesizableFiles', 'testbenchFiles', 'unclassifiedFiles']) {
     const arr = Array.isArray(structure[campo]) ? structure[campo] : [];
     for (const entry of arr) {
       const raw = entry && typeof entry.path === 'string' ? entry.path : '';

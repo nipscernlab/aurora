@@ -729,7 +729,8 @@
       "bannerFailed": "Compilação Falhou",
       "switchedFileTree": "Alternado para árvore de arquivos",
       "switchedHierarchical": "Alternado para visão hierárquica de módulos",
-      "noHierarchyData": "Sem dados de hierarquia. Compile o Verilog primeiro."
+      "noHierarchyData": "Sem dados de hierarquia. Compile o Verilog primeiro.",
+      "unclassified": "Aviso: {{count}} arquivo(s) sem papel ficam fora da compilação: {{names}}. Na árvore, clique com o botão direito e marque como síntese ou testbench."
     },
     "htest": {
       "start": "Teste de hardware: \"{{name}}\", iniciando ({{clocks}} clocks)",

@@ -257,3 +257,100 @@ describe('RenderMixin.getFileIcon — os dois topos', () => {
             .toContain('ph-stool');
     });
 });
+
+// Caracterizacao das linhas que faltavam (09/10/2026), antes de o arquivo
+// virar .ts e de os icones passarem a mostrar o papel de cada arquivo.
+describe('RenderMixin, o que faltava cobrir', () => {
+    it('sem container verilog, renderTree e o destaque nao fazem nada', () => {
+        window.treeView = { getContainer: () => null };
+        mgr.verilogFiles = [f('a.v')];
+        mgr.renderTree();
+        mgr.refreshEditorFocusHighlight();
+        expect(container.children.length).toBe(0);
+    });
+
+    it('separador repetido sai, separador existente e reaproveitado, separador orfao sai', () => {
+        mgr.verilogFiles = [f('a.v'), f('cpu/Hardware/cpu.v', { proc: 'cpu' })];
+        mgr.renderTree();
+        const sepCpu = container.querySelector('[data-processor-name="cpu"]');
+        const extra = mgr._createProcessorSeparator('cpu');
+        const velho = mgr._createProcessorSeparator('dsp');
+        container.append(extra, velho);
+        mgr.renderTree();
+        expect(container.querySelectorAll('[data-processor-name="cpu"]')).toHaveLength(1);
+        expect(container.querySelector('[data-processor-name="cpu"]')).toBe(sepCpu);
+        expect(container.querySelector('[data-processor-name="dsp"]')).toBeNull();
+    });
+
+    it('aviso de arquivos sumidos e atualizado no lugar', () => {
+        mgr.missingFiles = [{ name: 'x.v', path: 'C:/x.v' }];
+        mgr.verilogFiles = [f('a.v')];
+        mgr.renderTree();
+        const card = container.querySelector('.verilog-missing-notice');
+        mgr.missingFiles = [{ name: 'x.v', path: 'C:/x.v' }, { name: 'y.v', path: 'C:/y.v' }];
+        mgr.renderTree();
+        expect(container.querySelector('.verilog-missing-notice')).toBe(card);
+        expect(card.querySelectorAll('li')).toHaveLength(2);
+    });
+
+    it('linha existente: icone, tooltip, nome e titulo seguem o arquivo', () => {
+        mgr.verilogFiles = [f('a.v')];
+        mgr.renderTree();
+        const row = container.querySelector('.verilog-file-item');
+        const icone = row.querySelector('.verilog-file-icon');
+        mgr.verilogFiles = [f('a.v', { name: 'novo.v', isTopLevel: true })];
+        mgr.renderTree();
+        expect(icone.className).toBe('ph ph-crown-simple verilog-file-icon');
+        expect(icone.title).toBe('This file is set as the project\'s Top Level module');
+        expect(row.querySelector('.verilog-file-name').textContent).toBe('novo.v');
+        mgr.verilogFiles = [f('a.v', { name: 'nota.txt' })];
+        mgr.renderTree();
+        expect(icone.hasAttribute('title')).toBe(false);
+        icone.title = 'sobra';
+        mgr._updateFileItem(row, f('a.v', { name: 'nota.txt' }));
+        expect(icone.hasAttribute('title')).toBe(false);
+        mgr._updateFileItem(row, f('outro/caminho.v'));
+        expect(row.querySelector('.verilog-file-name').title).toBe('outro/caminho.v');
+    });
+
+    it('linha sem a parte de informacao so troca as classes', () => {
+        const row = document.createElement('div');
+        mgr._updateFileItem(row, f('a.v', { category: 'testbench', isSoftware: true }));
+        expect([...row.classList].sort()).toEqual(['software', 'testbench']);
+    });
+
+    it('restos de versoes antigas (selo e chave de categoria) saem', () => {
+        mgr.verilogFiles = [f('a.v')];
+        mgr.renderTree();
+        const row = container.querySelector('.verilog-file-item');
+        row.querySelector('.verilog-file-info').insertAdjacentHTML('beforeend', '<span class="file-badge"></span>');
+        row.insertAdjacentHTML('beforeend', '<div class="category-toggle-wrapper"></div>');
+        mgr.renderTree();
+        expect(row.querySelector('.file-badge')).toBeNull();
+        expect(row.querySelector('.category-toggle-wrapper')).toBeNull();
+    });
+
+    it('arquivo de software ganha a classe e nao tem lixeira', () => {
+        const row = mgr._createFileItem(f('cpu/Software/cpu.cmm', { isSoftware: true }));
+        expect(row.classList.contains('software')).toBe(true);
+        expect(row.querySelector('[data-action="delete"]')).toBeNull();
+    });
+
+    it('tooltip de .py e de testbench comum', () => {
+        expect(mgr._getIconTooltip(f('t.py', { category: 'testbench' }))).toBe('Python cocotb testbench');
+        expect(mgr._getIconTooltip(f('t.v', { category: 'testbench' }))).toBe('Detected as a testbench');
+    });
+
+    it('icone vem do TabManager quando ele responde; senao, pela extensao', () => {
+        window.TabManager = { getFileIcon: () => 'icone-da-aba' };
+        expect(mgr.getFileIcon('a.v')).toBe('icone-da-aba');
+        delete window.TabManager;
+        const casos = {
+            'a.v': 'ph ph-cpu', 'a.vh': 'ph ph-cpu', 't.py': 'ph ph-file-py',
+            'p.cmm': 'aurora-icon-cmm', 'p.cpp': 'aurora-icon-cpp', 'n.txt': 'ph ph-file-text',
+            'i.PNG': 'ph ph-image', 'x.bin': 'ph ph-file',
+        };
+        for (const [nome, icone] of Object.entries(casos)) expect(mgr.getFileIcon(nome)).toBe(icone);
+        expect(mgr.getFileIcon(null)).toBe('ph ph-file');
+    });
+});

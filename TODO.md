@@ -2476,6 +2476,44 @@ A cadeia, nesta ordem:
 A conversão dos arquivos pequenos para `.ts` segue entre uma coisa e outra
 (seção 14).
 
+## 13b. O papel de cada arquivo é da pessoa, não da heurística (09/10/2026)
+
+Origem: o hits. A heurística (`verilog_classifier.ts`) leu os `rng_*.v` como
+testbench por causa de um `initial` com `$finish` que confere parâmetro; ao
+abrir, a árvore regravava o `.spf`, tirava os três da síntese e ainda punha a
+lista em ordem alfabética, o que mandou o `simulacao.v` (só `` `define ``) do
+primeiro lugar para o último. Pedido do hits e decisão do Luciano:
+
+- [ ] **Três papéis, sempre escolhidos:** síntese, testbench e indefinido.
+      Nada é inferido do conteúdo; a heurística sai inteira. No `.spf`, uma
+      terceira lista `unclassifiedFiles` (a 6.21 a ignora; projetos atuais não
+      precisam de conversão).
+- [ ] **Ícones na árvore:** top level `ph-crown-simple`, testbench atual
+      `ph-stool`, síntese `ph-cpu`, testbench `ph-flask`, indefinido
+      `ph-question` em cor de alerta. Só na árvore; abas seguem pela extensão.
+- [ ] **Botão direito:** marcar como síntese / como testbench. Top level só em
+      síntese, testbench atual só em testbench. Sem voltar para indefinido.
+- [ ] **Entram já classificados:** `.py` (testbench cocotb); o que o SAPHO gera
+      (`Hardware/` como síntese, o `<proc>_tb.v` como testbench). Arquivo novo,
+      importado ou arrastado entra indefinido.
+- [ ] **IA:** classifica só o que ela criou, dizendo que classificou; nunca
+      troca o papel de arquivo da pessoa sem perguntar. Ferramenta nova na API.
+- [ ] **Compilação:** indefinido fica fora do iverilog e do Yosys, e o
+      terminal avisa quais são antes de compilar.
+- [ ] **Nunca reordenar** as listas ao gravar (ordem de entrada; o hits depende
+      do `simulacao.v` primeiro).
+- [ ] **Abrir não muda o `.spf`:** saíram o `lastOpened` (ce62d09b) e a troca de
+      barras do `basePath` (b0a869a7); falta o `processors[].exists` e a
+      formatação do arquivo regravado.
+- [ ] Antes: `file_mode.js` e `project_tree_render.js` viram `.ts`, com teste
+      de caracterização, em commit separado.
+- [ ] **Depois (lembrete do Luciano):** levar tudo isso ao prompt da IA, ao
+      `docs/gabarito-ia.md`, ao manual (docs_aurora), à referência técnica e aos
+      READMEs. Não está resolvido como manter essas fontes em dia a cada
+      mudança; ver a conversa de 07/10 sobre automatizar a documentação.
+- [ ] Conferir no hits com a macro: `USE_SHAPER_LEGACY` descomentado em
+      `simulacao.v` tem de mudar a onda (prova de que a ordem vale).
+
 ## 14. Migração para TypeScript: o que falta (25/09/2026)
 
 O objetivo é não sobrar JavaScript escrito à mão, e arquivo grande também é

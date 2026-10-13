@@ -286,3 +286,21 @@ describe('a receita de otimizacao do .asm', () => {
         expect(SYSTEM_PROMPT).not.toContain('Software/_aurora_opt');
     });
 });
+
+// toma/cade, os links entre processadores, entram no yanc v7.1 (resposta do
+// repo yanc de 13/10/2026).
+describe('os links entre processadores (toma/cade)', () => {
+    it('as funcoes, as formas _sync e a regra da palavra', () => {
+        for (const f of ['toma(k, x)', 'cade(k)', 'fcade(k)', 'toma_sync / cade_sync / fcade_sync']) {
+            expect(SYSTEM_PROMPT).toContain(f);
+        }
+        expect(SYSTEM_PROMPT).toContain('mixing\n                       the two forms on one link is a compile error');
+        expect(SYSTEM_PROMPT).toContain('yanc does NOT check it');
+    });
+
+    it('a ligacao no top-level, os arquivos do testbench e o assembly', () => {
+        expect(SYSTEM_PROMPT).toContain('A.toma_i -> B.taqui_j, B.cade_j -> A.valeu_i, A.toma_dado -> B.cade_dado_j');
+        expect(SYSTEM_PROMPT).toContain('cade_k.txt beside the\n    source');
+        expect(SYSTEM_PROMPT).toContain('TOM k and CAD k, and #LKSYNC k');
+    });
+});

@@ -23,7 +23,9 @@ export function setupASMLanguage(monaco: Monaco_) {
 
         directives: [
             'PRNAME', 'NUBITS', 'NBMANT', 'NBEXPO', 'NDSTAC', 'SDEPTH',
-            'NUIOIN', 'NUIOOU', 'NUGAIN', 'FROUND', 'FFTSIZ', 'array', 'arrays', 'ITRAD', 'TOAQUI'
+            'NUIOIN', 'NUIOOU', 'NUGAIN', 'FROUND', 'FFTSIZ', 'array', 'arrays', 'ITRAD', 'TOAQUI',
+            // #LKSYNC k: o compilador marca no .asm o link k usado na forma _sync (yanc v7.1).
+            'LKSYNC'
         ],
 
         instructions: [
@@ -39,7 +41,9 @@ export function setupASMLanguage(monaco: Monaco_) {
             'LOR', 'S_LOR', 'LOD_V', 'CAL', 'RET', 'SET_V', 'LIN', 'LIN_M', 'P_LIN_M', 
             'LES', 'S_LES', 'F_LES', 'SF_LES', 'GRE', 'S_GRE', 'F_GRE', 'SF_GRE', 'EQU', 
             'S_EQU', 'SHL', 'S_SHL', 'SHR', 'S_SHR', 'SRS', 'S_SRS', 'F_INN', 'PF_INN', 
-            'JMP', 'JIZ', 'F_ROT', 'F_SU1', 'F_SU2', 'SF_SU1', 'SF_SU2'
+            'JMP', 'JIZ', 'F_ROT', 'F_SU1', 'F_SU2', 'SF_SU1', 'SF_SU2',
+            // toma/cade, os links entre processadores (yanc v7.1): o operando e o numero do link.
+            'TOM', 'CAD'
         ],
 
         jumpInstructions: ['JMP', 'JIZ'],
@@ -48,7 +52,7 @@ export function setupASMLanguage(monaco: Monaco_) {
 
         tokenizer: {
             root: [
-                [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FROUND|FFTSIZ|array|arrays|ITRAD|TOAQUI)\b/, 'keyword.directive'],
+                [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FROUND|FFTSIZ|array|arrays|ITRAD|TOAQUI|LKSYNC)\b/, 'keyword.directive'],
                 [/\/\/.*$/, 'comment'],
                 [/;.*$/, 'comment'],
                 [/^\s*[a-zA-Z_]\w*:/, 'type.identifier'],
@@ -379,7 +383,8 @@ function buildCMMTokenizer(defineConstants: string[]): Monaco.languages.IMonarch
                 [/(#define)(\s+)([a-zA-Z_]\w*)/, ['keyword.directive.cmm', 'white', 'constant.define.cmm']],
                 [/#define\b/, 'keyword.directive.cmm'],
 
-                [/\b(in|fin|out|fout|norm|sign|pset|abs|copy|sqrt|atan|sin|cos|tan|exp|log|pow|real|imag|fase|mod2|complex|vtv)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+                // toma/cade/fcade e as formas _sync: os links entre processadores (yanc v7.1).
+                [/\b(in|fin|out|fout|toma|cade|fcade|toma_sync|cade_sync|fcade_sync|norm|sign|pset|abs|copy|sqrt|atan|sin|cos|tan|exp|log|pow|real|imag|fase|mod2|complex|vtv)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
                 
                 // Dirac notation patterns. Os grupos que podem ficar vazios sao
                 // `(...*)`, nunca `(...+)?`: numa regra com acao por grupos o

@@ -67,5 +67,9 @@ Errado: falar de `Software/`, `Hardware/` ou `Simulation/`, que deixaram de exis
 Certo: usa a ferramenta de renomear processador, que troca a pasta, o fonte e a pasta de saída juntos; não mexe no texto do fonte.
 Errado: renomear só o `.cmm`, ou procurar uma diretiva de nome para trocar.
 
-**17. Forma, em qualquer resposta acima**
+**17. "Quero que o processador a mande um valor para o b."**
+Certo: usa `toma(k, x)` em a e `cade(k)` (ou `fcade(k)`) em b, no mesmo número de link; diz que quem chega primeiro espera, que os dois precisam do mesmo `#NUBITS` (e da mesma mantissa e expoente, para float) porque o yanc não confere, e mostra a ligação no top-level (`a.toma_k -> b.taqui_k`, `b.cade_k -> a.valeu_k`, `a.toma_dado -> b.cade_dado_k`). Oferece as formas `_sync` só se os dois estiverem no mesmo clock.
+Errado: passar o valor por porta de saída e entrada, ou misturar `toma` com `cade_sync` no mesmo link.
+
+**18. Forma, em qualquer resposta acima**
 Responde em português quando a pergunta é em português; código sempre em bloco com a linguagem marcada; referências a arquivo no formato `arquivo.cmm:linha`; sem travessão, sem emoji, sem "ótima pergunta".

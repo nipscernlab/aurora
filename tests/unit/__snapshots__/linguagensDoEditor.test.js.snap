@@ -493,6 +493,7 @@ exports[`registro > os tokenizadores, a configuracao do MATLAB e os temas, como 
         "arrays",
         "ITRAD",
         "TOAQUI",
+        "LKSYNC",
       ],
       "instructions": [
         "LOD",
@@ -609,6 +610,8 @@ exports[`registro > os tokenizadores, a configuracao do MATLAB e os temas, como 
         "F_SU2",
         "SF_SU1",
         "SF_SU2",
+        "TOM",
+        "CAD",
       ],
       "jumpInstructions": [
         "JMP",
@@ -619,7 +622,7 @@ exports[`registro > os tokenizadores, a configuracao do MATLAB e os temas, como 
       "tokenizer": {
         "root": [
           [
-            /#\\(PRNAME\\|NUBITS\\|NBMANT\\|NBEXPO\\|NDSTAC\\|SDEPTH\\|NUIOIN\\|NUIOOU\\|NUGAIN\\|FROUND\\|FFTSIZ\\|array\\|arrays\\|ITRAD\\|TOAQUI\\)\\\\b/,
+            /#\\(PRNAME\\|NUBITS\\|NBMANT\\|NBEXPO\\|NDSTAC\\|SDEPTH\\|NUIOIN\\|NUIOOU\\|NUGAIN\\|FROUND\\|FFTSIZ\\|array\\|arrays\\|ITRAD\\|TOAQUI\\|LKSYNC\\)\\\\b/,
             "keyword.directive",
           ],
           [
@@ -842,7 +845,7 @@ exports[`registro > os tokenizadores, a configuracao do MATLAB e os temas, como 
             "keyword.directive.cmm",
           ],
           [
-            /\\\\b\\(in\\|fin\\|out\\|fout\\|norm\\|sign\\|pset\\|abs\\|copy\\|sqrt\\|atan\\|sin\\|cos\\|tan\\|exp\\|log\\|pow\\|real\\|imag\\|fase\\|mod2\\|complex\\|vtv\\)\\\\b\\(\\?=\\\\s\\*\\\\\\(\\)/,
+            /\\\\b\\(in\\|fin\\|out\\|fout\\|toma\\|cade\\|fcade\\|toma_sync\\|cade_sync\\|fcade_sync\\|norm\\|sign\\|pset\\|abs\\|copy\\|sqrt\\|atan\\|sin\\|cos\\|tan\\|exp\\|log\\|pow\\|real\\|imag\\|fase\\|mod2\\|complex\\|vtv\\)\\\\b\\(\\?=\\\\s\\*\\\\\\(\\)/,
             "keyword.function.stdlib.cmm",
           ],
           [

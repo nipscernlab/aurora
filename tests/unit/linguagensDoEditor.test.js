@@ -103,6 +103,22 @@ describe('registro', () => {
         expect(mon.tokenizadores.asm.instructions).toEqual(
             expect.arrayContaining(['QUO', 'REM', 'F_QUO']));
     });
+    it('o assembly e o C± conhecem os links do yanc v7.1 (toma/cade)', () => {
+        const mon = monacoFalso();
+        setupASMLanguage(mon);
+        expect(mon.tokenizadores.asm.instructions).toEqual(expect.arrayContaining(['TOM', 'CAD']));
+        expect(mon.tokenizadores.asm.directives).toContain('LKSYNC');
+        const diretiva = mon.tokenizadores.asm.tokenizer.root[0][0];
+        expect(diretiva.test('#LKSYNC 0')).toBe(true);
+
+        setupCMMLanguage(mon);
+        const regra = mon.tokenizadores.cmm.tokenizer.root
+            .find((r) => r[1] === 'keyword.function.stdlib.cmm')[0];
+        for (const f of ['toma(0, x)', 'cade(1)', 'fcade(2)', 'toma_sync(0, x)', 'cade_sync(0)', 'fcade_sync(0)']) {
+            expect(regra.test(f), f).toBe(true);
+        }
+        expect(regra.test('tomada(0)')).toBe(false);
+    });
 });
 
 describe('os #define do C+-', () => {

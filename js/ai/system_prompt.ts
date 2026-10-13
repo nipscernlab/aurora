@@ -223,6 +223,26 @@ export const SYSTEM_PROMPT = [
   "    out(port, val)   — writes integer val to output port N\n" +
   "    fout(port, val)  — writes float val to output port N\n" +
   "    out(port, c|vec⟩) — outputs vector vec scaled by c to port (Dirac)\n" +
+  "  Links between processors (toma/cade, since yanc v7.1; the same in C± and C++):\n" +
+  "    toma(k, x)       — offers x on link k and WAITS until the partner takes it\n" +
+  "    cade(k)          — waits until link k offers a value and returns it as int\n" +
+  "    fcade(k)         — the same, returned as float\n" +
+  "    toma_sync / cade_sync / fcade_sync — the same for two processors on the SAME clock:\n" +
+  "                       4 cycles less per value. A link uses one form at both ends; mixing\n" +
+  "                       the two forms on one link is a compile error.\n" +
+  "    k is an integer literal from 0. Nothing is lost or read twice; whoever arrives first\n" +
+  "    waits. A processor has as many links as its program uses; each link joins two\n" +
+  "    processors and can carry values both ways. The WORD crosses unconverted: both\n" +
+  "    processors need the same #NUBITS and, for float, the same #NBMANT and #NBEXPO, and\n" +
+  "    yanc does NOT check it, so check it yourself when you write both programs.\n" +
+  "    Pins per link: toma_k and valeu_k on the side that calls toma(k, ...); cade_k, taqui_k\n" +
+  "    and cade_dado_k on the side that calls cade(k)/fcade(k); one toma_dado on any processor\n" +
+  "    that uses toma. Wiring processor A (link i) to B (link j) in the project top level:\n" +
+  "    A.toma_i -> B.taqui_j, B.cade_j -> A.valeu_i, A.toma_dado -> B.cade_dado_j.\n" +
+  "    Simulated alone, the generated testbench plays the partner: cade_k.txt beside the\n" +
+  "    source holds one value per line for each cade(k) (like input_N.txt), and toma_k.txt\n" +
+  "    in the output folder receives each toma(k, x) (like output_N.txt). In the .asm the\n" +
+  "    instructions are TOM k and CAD k, and #LKSYNC k marks a link used in the _sync form.\n" +
   "  Math:\n" +
   "    sqrt(x)          — square root → float; also sqrt(z) on a comp = principal complex root\n" +
   "    atan(x)          — arctangent → float\n" +

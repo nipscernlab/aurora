@@ -107,7 +107,14 @@ export async function getSelectedSourceFile(processor: ProcessorEntry): Promise<
     if (!processor.sourceFile && !processor.cmmFile) {
         throw new Error(tr('error.config.noCmm'));
     }
-    return resolveProcessorSource(processor).sourceFile;
+    const { sourceFile, baseName } = resolveProcessorSource(processor);
+    // Desde o yanc v7.1 o nome do processador e o do arquivo e vira o modulo
+    // Verilog: um `<proc>/outro.cmm` geraria o modulo `outro`, que o projeto
+    // nao conhece. Um processador por pasta, e o fonte com o nome dele.
+    if (processor.name && baseName !== processor.name) {
+        throw new Error(tr('error.compilation.fonteComOutroNome', { arquivo: sourceFile, proc: processor.name }));
+    }
+    return sourceFile;
 }
 
 /** As pastas e o executavel de um passo do yanc para um processador. */

@@ -85,6 +85,23 @@ describe('getSelectedSourceFile', () => {
     });
 });
 
+describe('o fonte tem o nome do processador (yanc v7.1)', () => {
+    it('um fonte com outro nome na pasta do processador e recusado, com a mensagem', async () => {
+        await expect(getSelectedSourceFile({ name: 'ProcX', cmmFile: 'outro.cmm' }))
+            .rejects.toThrow('error.compilation.fonteComOutroNome');
+        await expect(getSelectedSourceFile({ name: 'ProcX', sourceFile: 'procx.cpp' }))
+            .rejects.toThrow('error.compilation.fonteComOutroNome');
+        expect(await getSelectedSourceFile({ name: 'ProcX', sourceFile: 'ProcX.cpp' })).toBe('ProcX.cpp');
+    });
+
+    it('a compilacao com fonte de outro nome para antes de chamar o yanc', async () => {
+        const d = makeDeps();
+        await expect(cmmCompilation(d, { name: 'ProcX', cmmFile: 'outro.cmm' }, vi.fn()))
+            .rejects.toThrow('error.compilation.fonteComOutroNome');
+        expect(runSpec).not.toHaveBeenCalled();
+    });
+});
+
 describe('getTestbenchInfo', () => {
     it('usa o testbench custom (path absoluto) direto', async () => {
         const d = makeDeps();
@@ -99,7 +116,7 @@ describe('getTestbenchInfo', () => {
 });
 
 describe('cmmCompilation (yanc -S; seam lastCompiledCmmPath; o .cmm nunca e tocado)', () => {
-    const proc = { name: 'ProcX', cmmFile: 'foo.cmm', showArrays: false };
+    const proc = { name: 'ProcX', cmmFile: 'ProcX.cmm', showArrays: false };
 
     it('cacheia lastCompiledCmmPath e devolve o asmPath da pasta de saida', async () => {
         const d = makeDeps();
@@ -107,22 +124,22 @@ describe('cmmCompilation (yanc -S; seam lastCompiledCmmPath; o .cmm nunca e toca
         const setLast = vi.fn();
         const asmPath = await cmmCompilation(d, proc, setLast);
         expect(setLast).toHaveBeenCalledTimes(1);
-        expect(setLast).toHaveBeenCalledWith('/proj/ProcX/foo.cmm');
-        expect(asmPath).toBe('/proj/ProcX/ProcX/foo.asm');
+        expect(setLast).toHaveBeenCalledWith('/proj/ProcX/ProcX.cmm');
+        expect(asmPath).toBe('/proj/ProcX/ProcX/ProcX.asm');
     });
 
     it('roda o yanc uma vez, -S -o <saida> --lang <fonte>, e nao toca o .cmm do usuario', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
-        window.electronAPI._files.set('/proj/ProcX/foo.cmm', CMM_WITH_MAIN);
+        window.electronAPI._files.set('/proj/ProcX/ProcX.cmm', CMM_WITH_MAIN);
         await cmmCompilation(d, proc, vi.fn());
         expect(runSpec).toHaveBeenCalledTimes(1);
         const spec = runSpec.mock.calls[0][0];
         expect(spec.step).toBe('cmm');
         expect(spec.binary).toBe('/comp/bin/yanc.exe');
-        expect(spec.args).toEqual(['-S', '-o', '/proj/ProcX/ProcX', '--lang=pt', '/proj/ProcX/foo.cmm']);
+        expect(spec.args).toEqual(['-S', '-o', '/proj/ProcX/ProcX', '--lang=pt', '/proj/ProcX/ProcX.cmm']);
         expect(spec.cwd).toBe('/proj/ProcX');
-        expect(window.electronAPI._files.get('/proj/ProcX/foo.cmm')).toBe(CMM_WITH_MAIN);
+        expect(window.electronAPI._files.get('/proj/ProcX/ProcX.cmm')).toBe(CMM_WITH_MAIN);
     });
 
     it('showArrays do .spf vira --wave-arrays, e o idioma do toggle vira o --lang', async () => {
@@ -131,7 +148,7 @@ describe('cmmCompilation (yanc -S; seam lastCompiledCmmPath; o .cmm nunca e toca
         window.getYancLang = () => 'en';
         await cmmCompilation(d, { ...proc, showArrays: true }, vi.fn());
         expect(runSpec.mock.calls[0][0].args).toEqual(
-            ['-S', '-o', '/proj/ProcX/ProcX', '--wave-arrays', '--lang=en', '/proj/ProcX/foo.cmm']);
+            ['-S', '-o', '/proj/ProcX/ProcX', '--wave-arrays', '--lang=en', '/proj/ProcX/ProcX.cmm']);
     });
 
     it('lanca cmmFailed quando o yanc retorna code != 0', async () => {
@@ -143,7 +160,7 @@ describe('cmmCompilation (yanc -S; seam lastCompiledCmmPath; o .cmm nunca e toca
 });
 
 describe('cppCompilation (yanc -S, que chama o cppcomp)', () => {
-    const proc = { name: 'ProcX', sourceFile: 'foo.cpp' };
+    const proc = { name: 'ProcX', sourceFile: 'ProcX.cpp' };
 
     it('um passo so, como o C±, e devolve o mesmo asmPath', async () => {
         const d = makeDeps();
@@ -153,10 +170,10 @@ describe('cppCompilation (yanc -S, que chama o cppcomp)', () => {
         const spec = runSpec.mock.calls[0][0];
         expect(spec.step).toBe('cpp');
         expect(spec.binary).toBe('/comp/bin/yanc.exe');
-        expect(spec.args).toEqual(['-S', '-o', '/proj/ProcX/ProcX', '--lang=pt', '/proj/ProcX/foo.cpp']);
+        expect(spec.args).toEqual(['-S', '-o', '/proj/ProcX/ProcX', '--lang=pt', '/proj/ProcX/ProcX.cpp']);
         // cwd na pasta do fonte: e a base dos caminhos que o cppcomp poe nos erros
         expect(spec.cwd).toBe('/proj/ProcX');
-        expect(asmPath).toBe('/proj/ProcX/ProcX/foo.asm');
+        expect(asmPath).toBe('/proj/ProcX/ProcX/ProcX.asm');
     });
 
     it('cacheia o .cpp da pessoa antes de rodar, como o cmm faz', async () => {
@@ -165,7 +182,7 @@ describe('cppCompilation (yanc -S, que chama o cppcomp)', () => {
         const setLast = vi.fn();
         await cppCompilation(d, proc, setLast);
         expect(setLast).toHaveBeenCalledTimes(1);
-        expect(setLast).toHaveBeenCalledWith('/proj/ProcX/foo.cpp');
+        expect(setLast).toHaveBeenCalledWith('/proj/ProcX/ProcX.cpp');
         // antes do runSpec: um clique apos falha resolve para o fonte
         expect(setLast.mock.invocationCallOrder[0]).toBeLessThan(runSpec.mock.invocationCallOrder[0]);
     });
@@ -173,7 +190,7 @@ describe('cppCompilation (yanc -S, que chama o cppcomp)', () => {
     it('nao avisa mais da numeracao do pp.cpp: os erros apontam o arquivo escrito', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
-        window.electronAPI._files.set('/proj/ProcX/foo.cpp', '#include "h.hpp"\nvoid main(void) {}\n');
+        window.electronAPI._files.set('/proj/ProcX/ProcX.cpp', '#include "h.hpp"\nvoid main(void) {}\n');
         await cppCompilation(d, proc, vi.fn());
         expect(d.terminalManager.calls.some((c) => /includeWarning|preprocessing/.test(c.msg))).toBe(false);
     });
@@ -201,13 +218,13 @@ describe('cppCompilation (yanc -S, que chama o cppcomp)', () => {
     it('aceita o campo legado cmmFile apontando para um .cpp', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
-        const asmPath = await cppCompilation(d, { name: 'ProcX', cmmFile: 'bar.cpp' }, vi.fn());
-        expect(asmPath).toBe('/proj/ProcX/ProcX/bar.asm');
+        const asmPath = await cppCompilation(d, { name: 'bar', cmmFile: 'bar.cpp' }, vi.fn());
+        expect(asmPath).toBe('/proj/bar/bar/bar.asm');
     });
 });
 
 describe('asmCompilation (yanc no .asm, que chama o asmcomp)', () => {
-    const proc = { name: 'ProcX', cmmFile: 'foo.cmm', clk: '50', numClocks: '100', testbenchFile: 'standard' };
+    const proc = { name: 'ProcX', cmmFile: 'ProcX.cmm', clk: '50', numClocks: '100', testbenchFile: 'standard' };
 
     it('roda o yanc uma vez sobre o .asm da pasta de saida, sem -o, e nao copia testbench', async () => {
         const d = makeDeps();
@@ -217,7 +234,7 @@ describe('asmCompilation (yanc no .asm, que chama o asmcomp)', () => {
         const spec = runSpec.mock.calls[0][0];
         expect(spec.step).toBe('asm');
         expect(spec.binary).toBe('/comp/bin/yanc.exe');
-        expect(spec.args).toEqual(['-f', '50', '-c', '100', '--lang=pt', '/proj/ProcX/ProcX/foo.asm']);
+        expect(spec.args).toEqual(['-f', '50', '-c', '100', '--lang=pt', '/proj/ProcX/ProcX/ProcX.asm']);
         expect(spec.cwd).toBe('/proj/ProcX/ProcX');
         // o _tb.v ja fica pronto na pasta de saida: nada a copiar
         expect(window.electronAPI.copyFile).not.toHaveBeenCalled();
@@ -240,7 +257,7 @@ describe('asmCompilation (yanc no .asm, que chama o asmcomp)', () => {
     it('le o .v gerado da pasta de saida para o resumo', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
-        window.electronAPI._files.set('/proj/ProcX/ProcX/foo.v', 'module foo(input clk, output out);\nendmodule\n');
+        window.electronAPI._files.set('/proj/ProcX/ProcX/ProcX.v', 'module ProcX(input clk, output out);\nendmodule\n');
         await asmCompilation(d, proc, null);
         expect(d.terminalManager.calls.some((c) => c.msg === 'terminal.asm.verilogStats')).toBe(true);
     });

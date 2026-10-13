@@ -855,6 +855,7 @@
       "notLoaded": "Project configuration not loaded."
     },
     "compilation": {
+      "fonteComOutroNome": "The source {{arquivo}} does not have the name of the processor {{proc}}. Since yanc v7.1 the file name is the name of the processor and of the Verilog module: rename the file to {{proc}}.cmm (or .cpp), or move it to the folder of a processor with its name.",
       "cmmFailed": "CMM compilation failed with code {{code}}",
       "cppFailed": "C++ compilation failed with code {{code}}",
       "asmFailed": "ASM compilation failed with code {{code}}",

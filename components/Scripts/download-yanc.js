@@ -25,7 +25,14 @@
  *            v6.0 poe dois registradores dentro de cada divisor (DIV, MOD,
  *            F_DIV): o resultado sai dois ciclos depois, toda divisao vira
  *            `DIV x; NOP; QUO` (REM, F_QUO), e o divisor deixa de limitar o
- *            relogio. SAPHO/ e asmcomp tem de vir da mesma release.)
+ *            relogio. SAPHO/ e asmcomp tem de vir da mesma release.
+ *            v7.1 traz o driver yanc (a Aurora chama so ele), uma pasta de
+ *            saida por processador (<proc>/<proc>/) no lugar de Software/,
+ *            Hardware/, Simulation/ e Temp/, o nome do processador vindo do
+ *            arquivo (#PRNAME vira erro), --lang em todas as ferramentas, o
+ *            cpppp e o appcomp dentro do cppcomp e do asmcomp, UTF-8 e nenhum
+ *            caminho absoluto no Verilog gerado, e os links toma/cade entre
+ *            processadores (TOM e CAD nos opcodes 20 e 21).)
  *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
@@ -70,7 +77,7 @@ const { verifyChecksum } = require('./lib/checksum');
 // release). null = compute + log only (no enforcement yet).
 const EXPECTED_SHA256 = null;
 
-const YANC_TAG      = 'v6.0';
+const YANC_TAG      = 'v7.1';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';

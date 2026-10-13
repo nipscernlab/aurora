@@ -1,9 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-13T17:05:36.405Z",
+  "generatedAt": "2026-10-13T23:37:20.421Z",
   "source": {
     "yancPath": "C:/nipscern/yanc",
-    "yancCommit": "83265903d128"
+    "yancTag": "v7.1",
+    "yancCommit": "6c32d94a0043"
   },
   "language": {
     "keywords": [
@@ -721,25 +722,11 @@
       "en": "Error on line %d: nope! norm(.) is integer-only!\n"
     },
     {
-      "code": "MSG_ERR_SQRT_COMPLEX",
+      "code": "MSG_ERR_FUNC_COMPLEX",
       "severity": "error",
       "category": "stdlib errors and warnings (special functions)",
-      "pt": "Erro na linha %d: não implementei raiz quadrada de número complexo ainda. Se vira!\n",
-      "en": "Error on line %d: I haven't coded up complex square roots yet. You're on your own!\n"
-    },
-    {
-      "code": "MSG_ERR_EXP_COMPLEX",
-      "severity": "error",
-      "category": "stdlib errors and warnings (special functions)",
-      "pt": "Erro na linha %d: exp(.) de número complexo ainda não foi implementado!\n",
-      "en": "Error on line %d: exp(.) of a complex number isn't implemented yet!\n"
-    },
-    {
-      "code": "MSG_ERR_LOG_COMPLEX",
-      "severity": "error",
-      "category": "stdlib errors and warnings (special functions)",
-      "pt": "Erro na linha %d: log(.) de número complexo ainda não foi implementado!\n",
-      "en": "Error on line %d: log(.) of a complex number isn't implemented yet!\n"
+      "pt": "Erro na linha %d: %s(.) não aceita comp.\n",
+      "en": "Error on line %d: %s(.) doesn't take a comp.\n"
     },
     {
       "code": "MSG_ERR_POW_COMPLEX",
@@ -1127,6 +1114,13 @@
       "en": "Error on line %d: check again how many parameters the function '%s' actually takes.\n"
     },
     {
+      "code": "MSG_ERR_TOO_MANY_PARAMS",
+      "severity": "error",
+      "category": "function errors/warnings (funcoes.c)",
+      "pt": "Erro na linha %d: a função '%s' passa de %d parâmetros, o máximo.\n",
+      "en": "Error on line %d: function '%s' has more than %d parameters, the most allowed.\n"
+    },
+    {
       "code": "MSG_ERR_VOID_FUNC_USE",
       "severity": "error",
       "category": "function errors/warnings (funcoes.c)",
@@ -1274,6 +1268,20 @@
       "en": "Error on line %d: there's already an interrupt going on somewhere else before this one!\n"
     },
     {
+      "code": "MSG_ERR_DUP_TOAQUI",
+      "severity": "error",
+      "category": "interrupcao",
+      "pt": "Erro na linha %d: #TOAQUI repetido (só pode um)\n",
+      "en": "Error on line %d: duplicate #TOAQUI marker (only one allowed)\n"
+    },
+    {
+      "code": "MSG_INFO_TOAQUI",
+      "severity": "info",
+      "category": "interrupcao",
+      "pt": "Info na linha %d: marcador #TOAQUI registrado (aciona o pino cheguei)\n",
+      "en": "Info on line %d: #TOAQUI marker registered (drives the cheguei pin)\n"
+    },
+    {
       "code": "MSG_INFO_INTERRUPT_DIRECTIVE",
       "severity": "info",
       "category": "info messages",
@@ -1299,7 +1307,7 @@
       "severity": "info",
       "category": "info messages",
       "pt": "Info: constante %s na linha %d aproximada para %.14f (erro = %.14f)\n",
-      "en": "Info: constant %s on line %d aproximated to %.14f (error = %.14f)\n"
+      "en": "Info: constant %s on line %d approximated to %.14f (error = %.14f)\n"
     },
     {
       "code": "MSG_INFO_SQRT_MACRO",

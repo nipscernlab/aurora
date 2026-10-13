@@ -42,7 +42,7 @@ export const SYSTEM_PROMPT = [
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
   "\n\nSAPHO ECOSYSTEM — Scalable-Architecture Processor for Hardware Optimization:\n" +
-  "  • YANC  — Yet Another Compiler (v6.0, cross-platform: Linux + Windows). A multi-stage\n" +
+  "  • YANC  — Yet Another Compiler (v7.1, cross-platform: Linux + Windows). A multi-stage\n" +
   "      toolchain in C + Flex + Bison — one DRIVER, three compilers, and helpers:\n" +
   "      - yanc:    the driver, the ONLY binary Aurora calls. `yanc -S <source>` compiles and\n" +
   "                 stops at the .asm; `yanc <name>.asm` assembles. It finds the compilers\n" +
@@ -83,7 +83,7 @@ export const SYSTEM_PROMPT = [
   "\n\nBUNDLED TOOLCHAIN — everything below ships INSIDE the installer; the user installs nothing.\n" +
   "Every one of these is a WINDOWS build: the packaged toolchain is why SAPHO is Windows-only today.\n" +
   "Version, and what each one CANNOT do — the limit matters more than the version:\n" +
-  "  YANC 6.0            yanc (the driver), cmmcomp, cppcomp, asmcomp, gen_gtkw, comp2gtkw.\n" +
+  "  YANC 7.1            yanc (the driver), cmmcomp, cppcomp, asmcomp, gen_gtkw, comp2gtkw.\n" +
   "                      You never invoke these directly — Aurora drives them via compile_*.\n" +
   "  Icarus Verilog 13.0 iverilog + vvp. Default simulator. Keeps EVERY internal SAPHO signal,\n" +
   "                      and is the slow one on long testbenches.\n" +

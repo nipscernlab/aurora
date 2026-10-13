@@ -4,7 +4,7 @@ Perguntas para fazer à IA no painel da Aurora depois de cada versão, e o que a
 
 Como usar: abra um projeto de teste vazio, faça as perguntas em conversas novas, e marque o que falhou. Uma falha quase sempre aponta uma frase errada ou ausente no prompt, nas descrições das ferramentas (`main/ai/tools.js`) ou no `resources/sapho_rules.json`. Corrija lá e prenda a correção com um caso em `tests/unit/ai_system_prompt.test.js`.
 
-Os fatos abaixo valem para o yanc v6.0. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
+Os fatos abaixo valem para o yanc v7.1. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
 
 ## Perguntas
 

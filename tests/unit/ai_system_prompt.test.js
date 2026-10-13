@@ -151,10 +151,10 @@ describe('as pilhas ficam com o compilador', () => {
 
     it('os padroes citados sao os do yanc que o instalador baixa', () => {
         // Numeros de Compilers/ASMComp/Sources/eval.c, iguais do v5.6 ao
-        // v6.0. Quando o YANC_TAG mudar, este caso cai de proposito: reconfira
-        // os padroes e o que uma pilha omitida vale, e atualize o prompt, o
-        // docs/gabarito-ia.md e este teste juntos.
-        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v6.0');
+        // v7.1 (conferidos na tag v7.1). Quando o YANC_TAG mudar, este caso cai
+        // de proposito: reconfira os padroes e o que uma pilha omitida vale, e
+        // atualize o prompt, o docs/gabarito-ia.md e este teste juntos.
+        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v7.1');
         expect(SYSTEM_PROMPT).toContain('NUBITS 32, NBMANT 23, NBEXPO 8');
         expect(SYSTEM_PROMPT).toContain('NUGAIN 128, FFTSIZ 3');
         // v5.7: omitida, a profundidade sai do programa (pico + 1, minimo 2).

@@ -150,6 +150,18 @@
 
 .confirm-modal-message strong { color: var(--text); }
 
+/* A lista da conversao da estrutura de pastas antiga (js/project/
+   conversao_na_abertura.ts): um projeto grande move dezenas de arquivos, e a
+   lista rola em vez de empurrar os botoes para fora da tela. */
+.confirm-modal-message .estrutura-antiga-lista {
+  margin: var(--space-2, 8px) 0 0;
+  padding-left: 1.2em;
+  max-height: 40vh;
+  overflow-y: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-xs, 12px);
+}
+
 .confirm-modal-actions {
   display: flex;
   align-items: center;

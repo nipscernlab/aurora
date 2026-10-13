@@ -476,6 +476,18 @@
       "cancel": "Cancelar",
       "error": "Erro"
     },
+    "estruturaAntiga": {
+      "title": "Projeto na estrutura de pastas antiga",
+      "message": "Desde o yanc v7.1 cada processador guarda o fonte e os dados em <proc>/, e o que o yanc gera em <proc>/<proc>/. As pastas Software, Hardware e Simulation deixaram de existir, e este projeto não compila sem a conversão. Os arquivos que você escreveu vão para a pasta do processador, os gerados vão para a pasta de saída, e nada é apagado; a linha #PRNAME, que o yanc agora recusa, sai do fonte. Processadores a converter:",
+      "converter": "Converter",
+      "depois": "Agora não",
+      "feitoTitle": "Projeto convertido",
+      "feito": "{{movidos}} arquivo(s) e pasta(s) movidos. O que mudou:",
+      "pulado": "{{arquivo}} ficou onde estava ({{motivo}}): o destino já existia ou não deu para mover.",
+      "semPrname": "{{arquivo}}: a linha do nome ({{nome}}) saiu. O módulo Verilog agora tem o nome do arquivo.",
+      "nomeInvalido": "O nome \"{{nome}}\" não serve mais de processador (vira módulo Verilog: só letras ASCII, dígitos e _). Renomeie o processador.",
+      "pastaFicou": "{{pasta}} não ficou vazia e continua lá."
+    },
     "newProject": {
       "missingInfoTitle": "Informação Faltando",
       "missingInfoMessage": "Por favor, informe o Nome do Projeto e o Local do Projeto.",

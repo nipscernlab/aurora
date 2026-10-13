@@ -6,6 +6,7 @@ import { fileTreeManager } from '../tree/file_tree_manager.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { ProjectStore } from './project_store.js';
 import { setAvailableProcessors } from './processor_list.js';
+import { oferecerConversao } from './conversao_na_abertura.js';
 import { abrirRelatorioDeFaltantes, apagarRelatorioDeFaltantes } from './arquivos_faltando.js';
 import {
     habilitarBotoesDoProjeto, ligarIndicadorDeProjeto, mostrarInformacaoDoProjeto, mostrarNomeDoProjeto,
@@ -91,6 +92,11 @@ async function loadProject(spfPath: string | null | undefined): Promise<void> {
         // ja faz dedup case-insensitive e normaliza entries string-only
         // ({name} vs "name"), ver processor_list.js.
         setAvailableProcessors(projectData?.structure?.processors);
+
+        // Projeto da estrutura de antes do yanc v7.1 (Software/, Hardware/,
+        // Simulation/): pergunta se converte, ANTES de a arvore carregar, para
+        // ela ja descobrir os arquivos nos lugares novos.
+        await oferecerConversao(spfPath as string, basePath, projectData?.structure?.processors);
 
         mostrarNomeDoProjeto(projectData, spfPath);
         await TabManager.closeAllTabs();

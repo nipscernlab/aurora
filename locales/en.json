@@ -476,6 +476,18 @@
       "cancel": "Cancel",
       "error": "Error"
     },
+    "estruturaAntiga": {
+      "title": "Project in the old folder layout",
+      "message": "Since yanc v7.1 each processor keeps its source and data in <proc>/, and what the yanc generates in <proc>/<proc>/. The Software, Hardware and Simulation folders are gone, and this project does not compile until it is converted. The files you wrote go to the processor folder, the generated ones go to the output folder, and nothing is deleted; the #PRNAME line, which the yanc now refuses, comes out of the source. Processors to convert:",
+      "converter": "Convert",
+      "depois": "Not now",
+      "feitoTitle": "Project converted",
+      "feito": "{{movidos}} file(s) and folder(s) moved. What changed:",
+      "pulado": "{{arquivo}} stayed where it was ({{motivo}}): the destination already existed or it could not be moved.",
+      "semPrname": "{{arquivo}}: the name line ({{nome}}) came out. The Verilog module now has the file's name.",
+      "nomeInvalido": "The name \"{{nome}}\" no longer works as a processor name (it becomes a Verilog module: only ASCII letters, digits and _). Rename the processor.",
+      "pastaFicou": "{{pasta}} was not empty and is still there."
+    },
     "newProject": {
       "missingInfoTitle": "Missing Information",
       "missingInfoMessage": "Please enter both the Project Name and Project Location.",

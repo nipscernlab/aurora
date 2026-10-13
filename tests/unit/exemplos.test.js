@@ -61,21 +61,20 @@ describe('catalogo', () => {
         expect(fs.existsSync(alvo), `${e.chave}: ${rel}`).toBe(true);
       }
       for (const proc of e.processadores || []) {
-        // A convencao da AURORA: <projeto>/<proc>/Software/<proc>.cmm. Fora
-        // dela o processador nao e descoberto e o botao C± nao acha o fonte.
-        const cmm = path.join(pasta, proc, 'Software', `${proc}.cmm`);
-        expect(fs.existsSync(cmm), `${e.chave}: ${proc}/Software/${proc}.cmm`).toBe(true);
+        // A convencao do yanc v7.1: <projeto>/<proc>/<proc>.cmm. Fora dela o
+        // processador nao e descoberto e o botao C± nao acha o fonte.
+        const cmm = path.join(pasta, proc, `${proc}.cmm`);
+        expect(fs.existsSync(cmm), `${e.chave}: ${proc}/${proc}.cmm`).toBe(true);
+        expect(fs.existsSync(path.join(pasta, proc, 'Software')), `${e.chave}: ${proc}/Software`).toBe(false);
       }
     }
   });
 
-  it('o #PRNAME de cada .cmm bate com o nome do processador', () => {
-    // Divergindo, o compilador gera um modulo com um nome e o testbench
-    // instancia outro, e a falha so aparece na elaboracao.
+  it('nenhum .cmm traz #PRNAME, que o yanc v7.1 recusa: o nome e o do arquivo', () => {
     for (const e of CATALOGO) {
       for (const proc of e.processadores || []) {
-        const cmm = fs.readFileSync(path.join(BASE, e.chave, proc, 'Software', `${proc}.cmm`), 'utf8');
-        expect(cmm, `${e.chave}/${proc}`).toMatch(new RegExp(`^#PRNAME\\s+${proc}\\s*$`, 'm'));
+        const cmm = fs.readFileSync(path.join(BASE, e.chave, proc, `${proc}.cmm`), 'utf8');
+        expect(cmm, `${e.chave}/${proc}`).not.toMatch(/^\s*#PRNAME\b/m);
       }
     }
   });
@@ -187,7 +186,7 @@ describe('instalar', () => {
 
   it('instalar de novo na mesma pasta nao sobrescreve o que o aluno mexeu', () => {
     const primeira = instalar(destino, { base: BASE });
-    const alvo = path.join(primeira.pasta, 'media-movel', 'mediamovel', 'Software', 'mediamovel.cmm');
+    const alvo = path.join(primeira.pasta, 'media-movel', 'mediamovel', 'mediamovel.cmm');
     fs.writeFileSync(alvo, '// editado pelo aluno\n');
 
     const r = instalar(destino, { base: BASE });

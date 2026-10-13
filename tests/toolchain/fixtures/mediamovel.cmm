@@ -11,7 +11,6 @@
 // A restricao estrutural NUBITS = NBMANT + NBEXPO + 1 vale aqui:
 // 16 = 10 + 5 + 1.
 
-#PRNAME mediamovel
 #NUBITS 16
 #NDSTAC 4
 #SDEPTH 2

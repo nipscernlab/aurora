@@ -9,8 +9,8 @@
 // `in`. Quando ele tem um resultado ele levanta `out_en`, e o valor esta em
 // `out`. Nao ha protocolo de aperto de mao alem disso.
 //
-// O compilador gera um testbench proprio, em components/Temp, que le os
-// numeros de Simulation/input_0.txt. Este aqui e o oposto: gera os numeros em
+// O compilador gera um testbench proprio, em mediamovel/mediamovel/, que le os
+// numeros de mediamovel/input_0.txt. Este aqui e o oposto: gera os numeros em
 // Verilog mesmo, para o exemplo funcionar sem nenhum arquivo de dados e para
 // voce poder mexer na entrada sem sair do editor.
 module tb_mediamovel;

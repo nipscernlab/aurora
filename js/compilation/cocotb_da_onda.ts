@@ -142,12 +142,12 @@ async function fontesDoCocotb(componentsPath: string, config: ConfigDoCocotb): P
 
 /**
  * As memorias dos processadores (os .mif e o pc_<proc>_mem.txt, que o .v
- * gerado le pelo nome puro) vao para a pasta do build, onde o simulador
- * procura.
+ * gerado le pelo nome puro desde o yanc v7.1) vao para a pasta do projeto: e o
+ * test_dir do runner, o diretorio onde o simulador roda e procura.
  */
-async function copiarMemorias(ctx: ContextoDaCorrida, buildDir: string): Promise<void> {
+async function copiarMemorias(ctx: ContextoDaCorrida): Promise<void> {
     if (!ctx.projectPath) return;
-    await stageProcessorMemoryFiles(ctx, ctx.projectPath, buildDir);
+    await stageProcessorMemoryFiles(ctx, ctx.projectPath, ctx.projectPath);
 }
 
 interface PerfilDoCocotb {
@@ -269,7 +269,7 @@ export async function rodarCocotb(
 
     const buildDir = await electronAPI.joinPath(tools.tempBaseDir, `cocotb_${safeNamePart(cocotbCtx.tbKey)}`);
     await electronAPI.mkdir(buildDir);
-    await copiarMemorias(ctx, buildDir);
+    await copiarMemorias(ctx);
 
     const sources = await fontesDoCocotb(componentsPath, config);
     const selecao = await resolveCocotbWaveSelection(

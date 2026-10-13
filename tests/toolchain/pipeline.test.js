@@ -16,8 +16,8 @@
 // What makes it trustworthy
 // -------------------------
 // The commands are NOT hardcoded here. Each step is assembled with the SAME
-// builder the application calls (`buildCmmSpec`, `buildAsmPreSpec`,
-// `buildAsmSpec`, `buildIverilogBuildSpec`, `buildVvpRunSpec`), so if someone
+// builder the application calls (`buildCmmSpec`, `buildAsmSpec`,
+// `buildIverilogBuildSpec`, `buildVvpRunSpec`), so if someone
 // reorders an argument or renames a flag, this test executes the changed
 // command and fails. A test that re-declared the command lines would happily
 // keep passing while the app broke.
@@ -39,7 +39,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
 import { buildCmmSpec } from '../../js/compilation/builders/cmm.js';
-import { buildAsmPreSpec, buildAsmSpec } from '../../js/compilation/builders/asm.js';
+import { buildAsmSpec } from '../../js/compilation/builders/asm.js';
 import { buildIverilogBuildSpec } from '../../js/compilation/builders/iverilog.js';
 import { buildVvpRunSpec } from '../../js/compilation/builders/vvp.js';
 import {
@@ -77,10 +77,14 @@ const PROC = 'mediamovel';
 // asks Windows for the long name, which every tool in the chain handles.
 const TMP_ROOT = fs.realpathSync.native(os.tmpdir());
 
-/** Everything this test shells out to. Missing any of them means "skip". */
+/**
+ * Everything this test shells out to. Missing any of them means "skip". The
+ * app calls only the yanc driver (yanc v7.1), which finds cmmcomp and asmcomp
+ * beside it; they are listed because the driver is useless without them.
+ */
 const REQUIRED_BINARIES = {
+  yanc: path.join(COMPONENTS, 'bin', 'yanc.exe'),
   cmmcomp: path.join(COMPONENTS, 'bin', 'cmmcomp.exe'),
-  appcomp: path.join(COMPONENTS, 'bin', 'appcomp.exe'),
   asmcomp: path.join(COMPONENTS, 'bin', 'asmcomp.exe'),
   iverilog: path.join(MINGW_BIN, 'iverilog.exe'),
   vvp: path.join(MINGW_BIN, 'vvp.exe'),
@@ -115,42 +119,71 @@ function runSpec(spec) {
   });
 }
 
+/**
+ * The yanc v7.1 folders, as js/compilation/pastas_do_processador.ts lays them
+ * out: the source in <workdir>/<PROC>/, everything generated in
+ * <workdir>/<PROC>/<PROC>/.
+ */
+function pastasDoFixture(workdir) {
+  const sourceDir = path.join(workdir, PROC);
+  const outputDir = path.join(sourceDir, PROC);
+  fs.mkdirSync(sourceDir, { recursive: true });
+  fs.copyFileSync(path.join(HERE, 'fixtures', `${PROC}.cmm`), path.join(sourceDir, `${PROC}.cmm`));
+  return {
+    sourceDir,
+    outputDir,
+    sourcePath: path.join(sourceDir, `${PROC}.cmm`),
+    asmPath: path.join(outputDir, `${PROC}.asm`),
+  };
+}
+
+/** The compile step (TCMM): `yanc -S`, built by the app's own builder. */
+function specDoCmm(p) {
+  return buildCmmSpec({
+    yancPath: REQUIRED_BINARIES.yanc,
+    sourcePath: p.sourcePath,
+    outputDir: p.outputDir,
+    sourceDir: p.sourceDir,
+    processorName: PROC,
+    lang: 'pt',
+    showArrays: false,
+  });
+}
+
+/** The assembly step (TASM): `yanc <PROC>.asm`, in the output folder. */
+function specDoAsm(p) {
+  return buildAsmSpec({
+    yancPath: REQUIRED_BINARIES.yanc,
+    asmFile: p.asmPath,
+    outputDir: p.outputDir,
+    // MHz, not Hz, `clk` in the .spf is megahertz (processor_config_panel
+    // defaults to 100). Passing Hz here produces a testbench whose clock
+    // half-period underflows the 1ps timescale to zero, and iverilog then
+    // rejects it with "always process does not have any delay".
+    freq: 100,
+    clocks: 2000,
+    processorName: PROC,
+    lang: 'pt',
+  });
+}
+
+/** Both steps, for the suites that only need a compiled processor. */
+function compilarFixture(workdir) {
+  const p = pastasDoFixture(workdir);
+  runSpec(specDoCmm(p));
+  runSpec(specDoAsm(p));
+  return p;
+}
+
 describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated processor', () => {
   /** Throwaway project root; the pipeline writes into it. */
   let workdir;
-  /** <workdir>/<PROC>, what the compilers receive as -p. */
-  let projectPath;
-  let softwarePath;
-  let hardwarePath;
-  /** components/Temp/<PROC>, the compilers' scratch dir. */
-  let tempPath;
-  let asmPath;
+  /** The fixture's folders: source, output, and the .asm between the steps. */
+  let p;
 
   beforeAll(() => {
     workdir = fs.mkdtempSync(path.join(TMP_ROOT, 'aurora-toolchain-'));
-    projectPath = path.join(workdir, PROC);
-    softwarePath = path.join(projectPath, 'Software');
-    hardwarePath = path.join(projectPath, 'Hardware');
-    fs.mkdirSync(softwarePath, { recursive: true });
-    fs.mkdirSync(hardwarePath, { recursive: true });
-
-    // Scratch dir for the compilers. The app points this at
-    // components/Temp/<proc>, but the path is a plain `-t` argument, not part
-    // of any contract, so the test keeps it inside its own throwaway workdir.
-    //
-    // Two reasons. It does not clobber a developer's components/Temp, which
-    // may hold artefacts they are mid-debug on. And deleting a shared
-    // directory on Windows fails with EBUSY whenever anything still holds a
-    // handle on it (an open shell, an editor, the app itself), a flake that
-    // would surface in CI as an unexplained failure of the whole suite.
-    tempPath = path.join(workdir, 'Temp', PROC);
-    fs.mkdirSync(tempPath, { recursive: true });
-
-    fs.copyFileSync(
-      path.join(HERE, 'fixtures', `${PROC}.cmm`),
-      path.join(softwarePath, `${PROC}.cmm`),
-    );
-    asmPath = path.join(softwarePath, `${PROC}.asm`);
+    p = pastasDoFixture(workdir);
   });
 
   it('reports which binaries are missing rather than failing obscurely', () => {
@@ -159,115 +192,83 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
     expect(missing).toEqual([]);
   });
 
-  it('step 1 — cmmcomp turns the C± source into assembly', () => {
-    const spec = buildCmmSpec({
-      cmmCompPath: REQUIRED_BINARIES.cmmcomp,
-      inputFile: `${PROC}.cmm`,
-      baseName: PROC,
-      projectPath,
-      macrosPath: path.join(COMPONENTS, 'Macros'),
-      tempPath,
-      processorName: PROC,
-      lang: 'pt',
-      showArrays: false,
-    });
+  it('step 1 — yanc -S turns the C± source into assembly in the output folder', () => {
+    const out = runSpec(specDoCmm(p));
 
-    const out = runSpec(spec);
-
-    expect(fs.existsSync(asmPath)).toBe(true);
-    expect(fs.readFileSync(asmPath, 'utf8').trim().length).toBeGreaterThan(0);
+    expect(fs.existsSync(p.asmPath)).toBe(true);
+    expect(fs.readFileSync(p.asmPath, 'utf8').trim().length).toBeGreaterThan(0);
     // The compiler announces how many instructions it emitted. Zero would mean
     // it "succeeded" on an empty program, which is the failure this catches.
     expect(out).toMatch(/instru/i);
 
-    // cmm_log.txt is what the terminal's clickable "line N" links resolve
-    // against, and what the wave translators read later.
-    expect(fs.existsSync(path.join(tempPath, 'cmm_log.txt'))).toBe(true);
+    // The tables the wave view and asmcomp read, beside the .asm. prog_log.txt
+    // names the language (the source track's name) and the source folder,
+    // where asmcomp reads the user's files.
+    const progLog = fs.readFileSync(path.join(p.outputDir, 'prog_log.txt'), 'utf8');
+    expect(progLog).toMatch(/^lang C\+-\r?$/m);
+    expect(progLog).toMatch(/^srcdir /m);
+    expect(fs.existsSync(path.join(p.outputDir, 'src_lines.txt'))).toBe(true);
+    expect(fs.existsSync(path.join(p.outputDir, `pc_${PROC}_mem.txt`))).toBe(true);
+    // Nothing generated lands beside the source.
+    expect(fs.readdirSync(p.sourceDir).sort()).toEqual([PROC, `${PROC}.cmm`].sort());
   });
 
-  it('step 2 — appcomp expands macros and sizes the memories', () => {
-    const spec = buildAsmPreSpec({
-      appCompPath: REQUIRED_BINARIES.appcomp,
-      asmFile: asmPath,
-      tempPath,
-      processorName: PROC,
-      lang: 'pt',
-    });
-
-    const out = runSpec(spec);
+  it('step 2 — yanc on the .asm emits the Verilog processor, its memories and a testbench', () => {
+    const out = runSpec(specDoAsm(p));
     expect(out).toMatch(/instru/i);
-    expect(fs.existsSync(path.join(tempPath, 'app_log.txt'))).toBe(true);
-  });
 
-  it('step 3 — asmcomp emits the Verilog processor, its memories and a testbench', () => {
-    const spec = buildAsmSpec({
-      asmCompPath: REQUIRED_BINARIES.asmcomp,
-      asmFile: asmPath,
-      projectPath,
-      hdlPath: path.join(COMPONENTS, 'SAPHO'),
-      macrosPath: path.join(COMPONENTS, 'Macros'),
-      tempPath,
-      // MHz, not Hz, `clk` in the .spf is megahertz (processor_config_panel
-      // defaults to 100). Passing Hz here produces a testbench whose clock
-      // half-period underflows the 1ps timescale to zero, and iverilog then
-      // rejects it with "always process does not have any delay".
-      freq: 100,
-      clocks: 2000,
-      processorName: PROC,
-      lang: 'pt',
-    });
-
-    runSpec(spec);
-
-    const verilog = path.join(hardwarePath, `${PROC}.v`);
+    const verilog = path.join(p.outputDir, `${PROC}.v`);
     expect(fs.existsSync(verilog)).toBe(true);
-    expect(fs.readFileSync(verilog, 'utf8')).toMatch(new RegExp(`module\\s+${PROC}`));
+    const v = fs.readFileSync(verilog, 'utf8');
+    expect(v).toMatch(new RegExp(`module\\s+${PROC}`));
+    // The memories by bare name, relative to the simulation's folder.
+    expect(v).toContain(`.DFILE("${PROC}_data.mif")`);
+    expect(v).toContain(`.IFILE("${PROC}_inst.mif")`);
 
     // Instruction and data memories, loaded by the generated Verilog.
-    expect(fs.existsSync(path.join(hardwarePath, `${PROC}_inst.mif`))).toBe(true);
-    expect(fs.existsSync(path.join(hardwarePath, `${PROC}_data.mif`))).toBe(true);
+    expect(fs.existsSync(path.join(p.outputDir, `${PROC}_inst.mif`))).toBe(true);
+    expect(fs.existsSync(path.join(p.outputDir, `${PROC}_data.mif`))).toBe(true);
 
     // Translation tables, GTKWave and Surfer decode Assembly/C± tracks with
     // these, so their absence silently degrades the wave view.
-    expect(fs.existsSync(path.join(tempPath, 'trad_opcode.txt'))).toBe(true);
-    expect(fs.existsSync(path.join(tempPath, 'trad_cmm.txt'))).toBe(true);
+    expect(fs.existsSync(path.join(p.outputDir, 'trad_opcode.txt'))).toBe(true);
+    // The first pass (the old appcomp) and its @fim, read by the hardware test.
+    expect(fs.readFileSync(path.join(p.outputDir, 'app_log.txt'), 'utf8')).toMatch(/^@fim\s+\d+/m);
 
     // The auto-generated testbench, and the clock that broke when freq was
     // passed in the wrong unit. Guard the unit, not just the file's existence.
-    const tb = fs.readFileSync(path.join(tempPath, `${PROC}_tb.v`), 'utf8');
+    const tb = fs.readFileSync(path.join(p.outputDir, `${PROC}_tb.v`), 'utf8');
     const halfPeriod = Number(/always\s+#([\d.]+)\s+clk/.exec(tb)?.[1]);
     expect(Number.isFinite(halfPeriod)).toBe(true);
     // timescale is 1ns/1ps, so anything below 0.001 rounds to a zero delay.
     expect(halfPeriod).toBeGreaterThanOrEqual(0.001);
     expect(halfPeriod).toBeCloseTo(5, 3); // 100 MHz -> 5 ns half period
+    // The inputs beside the source, the outputs here, no absolute path.
+    expect(tb).toContain('$fopen("../input_0.txt", "r")');
+    expect(tb).toContain('$fopen("output_0.txt", "w")');
+    expect(tb).not.toMatch(/\$fopen\("[A-Za-z]:/);
   });
 
-  it('step 4 — iverilog elaborates the processor with its testbench', () => {
-    // Production copies the processor next to the generated testbench before
-    // building; mirror that rather than inventing an include path.
-    fs.copyFileSync(
-      path.join(hardwarePath, `${PROC}.v`),
-      path.join(tempPath, `${PROC}.v`),
-    );
-
+  it('step 3 — iverilog elaborates the processor with its testbench, in the output folder', () => {
     const spec = buildIverilogBuildSpec({
       iveriCompPath: REQUIRED_BINARIES.iverilog,
       hdlPath: path.join(COMPONENTS, 'SAPHO'),
       simTopModule: `${PROC}_tb`,
       outputFile: `${PROC}_tb.vvp`,
       sourceFiles: [`${PROC}_tb.v`, `${PROC}.v`],
-      cwd: tempPath,
+      cwd: p.outputDir,
     });
 
     runSpec(spec);
-    expect(fs.existsSync(path.join(tempPath, `${PROC}_tb.vvp`))).toBe(true);
+    expect(fs.existsSync(path.join(p.outputDir, `${PROC}_tb.vvp`))).toBe(true);
   });
 
-  it('step 5 — vvp runs the simulation and produces a usable dump', () => {
+  it('step 4 — vvp runs the simulation and produces a usable dump', () => {
+    fs.writeFileSync(path.join(p.sourceDir, 'input_0.txt'), '1\n2\n3\n4\n5\n6\n7\n8\n');
     const spec = buildVvpRunSpec({
       vvpBin: REQUIRED_BINARIES.vvp,
       vvpFile: `${PROC}_tb.vvp`,
-      cwd: tempPath,
+      cwd: p.outputDir,
     });
 
     // The builder passes `-fst`, which switches Icarus's dumper to the FST
@@ -286,8 +287,10 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
     // $finish proves the testbench ran to completion instead of stalling.
     expect(out).toMatch(/\$finish/);
 
-    const dump = path.join(tempPath, `${PROC}_tb.vcd`);
+    const dump = path.join(p.outputDir, `${PROC}_tb.vcd`);
     expect(fs.existsSync(dump)).toBe(true);
+    // The program read ../input_0.txt and wrote what it computed here.
+    expect(fs.readFileSync(path.join(p.outputDir, 'output_0.txt'), 'utf8').trim().length).toBeGreaterThan(0);
 
     // FST magic: the container starts with a zero block type, which a text VCD
     // (which would begin with "$date") never does.
@@ -296,7 +299,7 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
     expect(head.toString('utf8')).not.toMatch(/^\$date/);
   });
 
-  it('step 6 — fst2vcd reconstructs a VCD with the real signal hierarchy', () => {
+  it('step 5 — fst2vcd reconstructs a VCD with the real signal hierarchy', () => {
     // The step the wave flow performs before GTKWave opens. Running it here
     // proves the dump is not merely non-empty but actually decodable, and that
     // the signals the testbench asked for made it in. A dump that parses to a
@@ -305,7 +308,7 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
     const fst2vcd = path.join(GTKWAVE_DIR, 'fst2vcd.exe');
     if (!fs.existsSync(fst2vcd)) return; // gtkwave fork not bootstrapped
 
-    const vcd = decodeDump(fst2vcd, path.join(tempPath, `${PROC}_tb.vcd`));
+    const vcd = decodeDump(fst2vcd, path.join(p.outputDir, `${PROC}_tb.vcd`));
 
     expect(vcd).toMatch(/\$enddefinitions/);
     // The processor instance must be in the hierarchy, not just the testbench.
@@ -356,59 +359,11 @@ describe.skipIf(!verilatorReady)('SAPHO toolchain — Verilator simulation', () 
   beforeAll(() => {
     // A processor to simulate. Repeats the C±→Verilog steps rather than
     // reusing the other describe's state, so the two suites stay independent
-    // and either can be run alone with `-t`.
+    // and either can be run alone with `-t`. The simulation runs in the
+    // output folder, as the app runs the generated testbench (yanc v7.1).
     workdir = fs.mkdtempSync(path.join(TMP_ROOT, 'aurora-verilator-'));
-    const projectPath = path.join(workdir, PROC);
-    const softwarePath = path.join(projectPath, 'Software');
-    const hardwarePath = path.join(projectPath, 'Hardware');
-    tempPath = path.join(workdir, 'Temp', PROC);
-    objDir = path.join(tempPath, `obj_dir_${PROC}_tb`);
-    fs.mkdirSync(softwarePath, { recursive: true });
-    fs.mkdirSync(hardwarePath, { recursive: true });
-    fs.mkdirSync(tempPath, { recursive: true });
-
-    fs.copyFileSync(
-      path.join(HERE, 'fixtures', `${PROC}.cmm`),
-      path.join(softwarePath, `${PROC}.cmm`),
-    );
-    const asmFile = path.join(softwarePath, `${PROC}.asm`);
-    const macrosPath = path.join(COMPONENTS, 'Macros');
-    const hdlPath = path.join(COMPONENTS, 'SAPHO');
-
-    runSpec(buildCmmSpec({
-      cmmCompPath: REQUIRED_BINARIES.cmmcomp,
-      inputFile: `${PROC}.cmm`,
-      baseName: PROC,
-      projectPath,
-      macrosPath,
-      tempPath,
-      processorName: PROC,
-      lang: 'pt',
-      showArrays: false,
-    }));
-    runSpec(buildAsmPreSpec({
-      appCompPath: REQUIRED_BINARIES.appcomp,
-      asmFile,
-      tempPath,
-      processorName: PROC,
-      lang: 'pt',
-    }));
-    runSpec(buildAsmSpec({
-      asmCompPath: REQUIRED_BINARIES.asmcomp,
-      asmFile,
-      projectPath,
-      hdlPath,
-      macrosPath,
-      tempPath,
-      freq: 100,
-      clocks: 2000,
-      processorName: PROC,
-      lang: 'pt',
-    }));
-    fs.copyFileSync(
-      path.join(hardwarePath, `${PROC}.v`),
-      path.join(tempPath, `${PROC}.v`),
-    );
+    tempPath = compilarFixture(workdir).outputDir;
+    objDir = path.join(workdir, `obj_dir_${PROC}_tb`);
   });
 
   it('transpiles the design to C++ and compiles a native simulator', () => {
@@ -650,55 +605,17 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
 
   beforeAll(() => {
     workdir = fs.mkdtempSync(path.join(TMP_ROOT, 'aurora-cocotb-'));
-    const projectPath = path.join(workdir, PROC);
-    const softwarePath = path.join(projectPath, 'Software');
-    const hardwarePath = path.join(projectPath, 'Hardware');
-    tempPath = path.join(workdir, 'Temp', PROC);
-    fs.mkdirSync(softwarePath, { recursive: true });
-    fs.mkdirSync(hardwarePath, { recursive: true });
-    fs.mkdirSync(tempPath, { recursive: true });
-
-    fs.copyFileSync(
-      path.join(HERE, 'fixtures', `${PROC}.cmm`),
-      path.join(softwarePath, `${PROC}.cmm`),
-    );
-    const asmFile = path.join(softwarePath, `${PROC}.asm`);
-    const macrosPath = path.join(COMPONENTS, 'Macros');
+    const { outputDir } = compilarFixture(workdir);
     const hdlPath = path.join(COMPONENTS, 'SAPHO');
-
-    runSpec(buildCmmSpec({
-      cmmCompPath: REQUIRED_BINARIES.cmmcomp,
-      inputFile: `${PROC}.cmm`,
-      baseName: PROC,
-      projectPath,
-      macrosPath,
-      tempPath,
-      processorName: PROC,
-      lang: 'pt',
-      showArrays: false,
-    }));
-    runSpec(buildAsmPreSpec({
-      appCompPath: REQUIRED_BINARIES.appcomp,
-      asmFile,
-      tempPath,
-      processorName: PROC,
-      lang: 'pt',
-    }));
-    runSpec(buildAsmSpec({
-      asmCompPath: REQUIRED_BINARIES.asmcomp,
-      asmFile,
-      projectPath,
-      hdlPath,
-      macrosPath,
-      tempPath,
-      freq: 100,
-      clocks: 2000,
-      processorName: PROC,
-      lang: 'pt',
-    }));
-
-    const generated = path.join(tempPath, `${PROC}.v`);
-    fs.copyFileSync(path.join(hardwarePath, `${PROC}.v`), generated);
+    // The runner's test_dir, where the simulator runs. The generated .v reads
+    // its memories by bare name since yanc v7.1, so they are copied there, as
+    // stageProcessorMemoryFiles does for the app (the project folder).
+    tempPath = path.join(workdir, 'Temp', PROC);
+    fs.mkdirSync(tempPath, { recursive: true });
+    for (const f of [`${PROC}_inst.mif`, `${PROC}_data.mif`, `pc_${PROC}_mem.txt`]) {
+      fs.copyFileSync(path.join(outputDir, f), path.join(tempPath, f));
+    }
+    const generated = path.join(outputDir, `${PROC}.v`);
 
     // The generated processor instantiates modules from the bundled HDL
     // library (processor.v, core.v, ula.v …). _collectCocotbSources adds every
@@ -822,57 +739,15 @@ describe.skipIf(!prismReady)('SAPHO toolchain — PRISM schematic', () => {
 
   beforeAll(() => {
     workdir = fs.mkdtempSync(path.join(TMP_ROOT, 'aurora-prism-'));
-    const projectPath = path.join(workdir, PROC);
-    const softwarePath = path.join(projectPath, 'Software');
-    const hardwarePath = path.join(projectPath, 'Hardware');
-    tempPath = path.join(workdir, 'Temp', PROC);
-    fs.mkdirSync(softwarePath, { recursive: true });
-    fs.mkdirSync(hardwarePath, { recursive: true });
-    fs.mkdirSync(tempPath, { recursive: true });
-
-    fs.copyFileSync(
-      path.join(HERE, 'fixtures', `${PROC}.cmm`),
-      path.join(softwarePath, `${PROC}.cmm`),
-    );
-    const asmFile = path.join(softwarePath, `${PROC}.asm`);
-    const macrosPath = path.join(COMPONENTS, 'Macros');
+    const { outputDir } = compilarFixture(workdir);
     const hdlPath = path.join(COMPONENTS, 'SAPHO');
-
-    runSpec(buildCmmSpec({
-      cmmCompPath: REQUIRED_BINARIES.cmmcomp,
-      inputFile: `${PROC}.cmm`,
-      baseName: PROC,
-      projectPath,
-      macrosPath,
-      tempPath,
-      processorName: PROC,
-      lang: 'pt',
-      showArrays: false,
-    }));
-    runSpec(buildAsmPreSpec({
-      appCompPath: REQUIRED_BINARIES.appcomp,
-      asmFile,
-      tempPath,
-      processorName: PROC,
-      lang: 'pt',
-    }));
-    runSpec(buildAsmSpec({
-      asmCompPath: REQUIRED_BINARIES.asmcomp,
-      asmFile,
-      projectPath,
-      hdlPath,
-      macrosPath,
-      tempPath,
-      freq: 100,
-      clocks: 2000,
-      processorName: PROC,
-      lang: 'pt',
-    }));
+    tempPath = path.join(workdir, 'Temp', PROC);
+    fs.mkdirSync(tempPath, { recursive: true });
 
     // Forward slashes: yosys.exe is a native Windows binary and rejects the
     // MSYS-style `/c/...` form a shell may hand it.
     const fwd = (p) => p.split(path.sep).join('/');
-    sources = [fwd(path.join(hardwarePath, `${PROC}.v`))];
+    sources = [fwd(path.join(outputDir, `${PROC}.v`))];
     for (const name of fs.readdirSync(hdlPath)) {
       if (name.endsWith('.v') && !name.includes('_tb')) {
         sources.push(fwd(path.join(hdlPath, name)));

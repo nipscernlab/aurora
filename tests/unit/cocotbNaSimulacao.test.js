@@ -213,10 +213,11 @@ describe('a execucao do cocotb', () => {
         expect(api._arquivos.get(TEMP + '/filtro.fst')).toBe('FST');
         expect(TabManager.saveAllFiles).toHaveBeenCalled();
         expect(api.mkdir).toHaveBeenCalledWith(BUILD);
-        // As memorias do processador vao para a pasta do build, onde o simulador procura.
-        expect(api._arquivos.get(BUILD + '/pc_fir_mem.txt')).toBe('0101');
-        expect(api._arquivos.get(BUILD + '/fir_inst.mif')).toBe('INST');
-        expect(api._arquivos.has(BUILD + '/outra.txt')).toBe(false);
+        // As memorias do processador saem da pasta de saida dele...
+        // ...para a pasta do projeto, o test_dir onde o simulador roda.
+        expect(api._arquivos.get(PROJ + '/pc_fir_mem.txt')).toBe('0101');
+        expect(api._arquivos.get(PROJ + '/fir_inst.mif')).toBe('INST');
+        expect(api._arquivos.has(PROJ + '/outra.txt')).toBe(false);
         expect(api._arquivos.get(RUNNER)).toBe(COCOTB_RUNNER_SOURCE);
         expect(resolveCocotbWaveSelection).toHaveBeenCalledWith(
             expect.objectContaining({ projectPath: PROJ }), CTX, CONFIG, FONTES);

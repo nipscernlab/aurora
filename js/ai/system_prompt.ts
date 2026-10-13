@@ -555,29 +555,36 @@ export const SYSTEM_PROMPT = [
   "  back-jump loops with constant trip-count → unroll if NDSTAC allows (counter is just a SET/ADD pair)\n" +
   "\nOPTIMISATION WORKFLOW (the only safe way to shrink an .asm):\n" +
   "  1. analyze_asm({processorName: \"<p>\"})    — find total + the hottest loop\n" +
-  "  2. read_file(\"<p>/Software/<p>.asm\")        — read the current canonical .asm\n" +
+  "  2. read_file(\"<p>/<p>/<p>.asm\")            — the compiled .asm, in the output folder\n" +
   "  3. (reason: identify P_<op>_M / SET_P opportunities, dead PSH/POP, unrolling)\n" +
-  "  4. create_file(\"<p>/Software/_aurora_opt/<p>.asm\", content: <rewritten asm>)\n" +
-  "     — SAME basename so the tooling matches it; sandbox folder so the canonical\n" +
-  "       .asm is untouched.\n" +
-  "  5. set_command_override({                 — redirect the next asm step's -i\n" +
-  "       step: \"asm\",\n" +
-  "       processorName: \"<p>\",\n" +
-  "       removeArgs:  [\"-i\", \"<root>/<p>/Software/<p>.asm\"],\n" +
-  "       appendArgs:  [\"-i\", \"<root>/<p>/Software/_aurora_opt/<p>.asm\"] })\n" +
-  "     Verify with preview_compile_command before setting if unsure.\n" +
-  "  6. compile_step(\"asm\")                    — asmcomp + iverilog -tnull. Does\n" +
-  "     NOT regenerate the .asm from .cmm, so the sandbox version is consumed.\n" +
-  "     Confirms the optimised .asm produces a valid Verilog module.\n" +
-  "  7. analyze_asm({filePath: \"<root>/<p>/Software/_aurora_opt/<p>.asm\"})\n" +
+  "  4. create_file(\"<p>/_aurora_opt/<p>.asm\", content: <rewritten asm>)\n" +
+  "     — the SAME name <p>.asm: since yanc v7.1 the module is named after the .asm file,\n" +
+  "       so another name assembles another module. The sandbox lives beside the source,\n" +
+  "       never in the output folder <p>/<p>/ (rule 6). yanc looks for the data files\n" +
+  "       (input_N.txt, cade_k.txt, the files that initialise arrays) in the .asm's own\n" +
+  "       folder: copy each one the program uses into <p>/_aurora_opt/ too, or the\n" +
+  "       assembly fails.\n" +
+  "  5. preview_compile_command({step: \"asm\", processorName: \"<p>\"}) — the .asm is the\n" +
+  "     LAST argument; copy it exactly. Then set_command_override({\n" +
+  "       step: \"asm\", processorName: \"<p>\",\n" +
+  "       removeArgs: [\"<the .asm path from the preview>\"],\n" +
+  "       appendArgs: [\"<root>\\\\<p>\\\\_aurora_opt\\\\<p>.asm\"] })\n" +
+  "     There is no -i: the .asm is the argument without an option.\n" +
+  "  6. compile_step(\"asm\")                    — yanc assembles the sandbox .asm; everything\n" +
+  "     it generates lands in <p>/_aurora_opt/. A zero exit confirms the optimised .asm\n" +
+  "     is a valid processor. The iverilog -tnull that follows checks the PROJECT, which\n" +
+  "     still uses the processor compiled from the source in <p>/<p>/, not the sandbox.\n" +
+  "  7. analyze_asm({filePath: \"<root>/<p>/_aurora_opt/<p>.asm\"})\n" +
   "     — measure delta vs. step 1. Report savings in the summary.\n" +
-  "  8. If valid AND smaller: ask the user whether to promote the .asm to\n" +
-  "     <p>/Software/<p>.asm (rename_file) or keep it sandboxed.\n" +
-  "     If broken or unchanged: clear_command_override({step:\"asm\", processorName:\"<p>\"}).\n" +
-  "\nNEVER call compile_step(\"cmm\"|\"verilog\"|\"wave\"|\"prism\") on a processor whose\n" +
-  ".asm has been hand-optimised before you've promoted it — cmmcomp regenerates\n" +
-  "the canonical .asm from the .cmm and your optimisation is lost. The `asm` step\n" +
-  "is the ONLY step that bypasses cmmcomp.\n" +
+  "  8. clear_command_override({step:\"asm\", processorName:\"<p>\"}) and report. The\n" +
+  "     optimised processor stays in the sandbox: the project's simulation always uses the\n" +
+  "     processor compiled from the source, because every Verilog / Wave / PRISM run\n" +
+  "     recompiles it. Never copy the sandbox .asm into <p>/<p>/: the next compile\n" +
+  "     overwrites it, and pc_<p>_mem.txt (the PC → source-line table the compiler wrote)\n" +
+  "     would no longer match, so the waveform would show the wrong source lines. A .asm\n" +
+  "     assembled in the sandbox has no prog_log.txt beside it, so its own waveform has\n" +
+  "     no source track and no source variable names, only the assembly: that is expected.\n" +
+  "     To keep a gain for good, carry it back to the C± or C++ source.\n" +
   "\nCMM-LEVEL OPTIMISATIONS that reduce .asm size (do these first when possible):\n" +
   "  • Hoist invariants out of `while` loops (CMM has no for-loop, so every loop\n" +
   "    is a while — invariants are expensive to repeat).\n" +

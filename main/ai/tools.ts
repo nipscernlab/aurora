@@ -444,7 +444,9 @@ const TOOL_MANIFEST: ToolDef[] = [
       '(cmmcomp for a .cmm, cppcomp for a .cpp), then `yanc <proc>.asm` runs asmcomp, all in the ' +
       'output folder <proc>/<proc>/; ' +
       '"asm" SKIPS the front end and assembles the .asm already in <proc>/<proc>/, then runs ' +
-      'iverilog -tnull (use this to test an .asm you hand-optimised); "verilog" elaborates the ' +
+      'iverilog -tnull (use this to test an .asm you hand-optimised: put it in <proc>/_aurora_opt/<proc>.asm ' +
+      'and point the asm step at it with set_command_override, removing the .asm path, the last ' +
+      'argument, and appending the sandbox one; it assembles there); "verilog" elaborates the ' +
       'project Verilog; "wave" opens GTKWave; "prism" opens the PRISM RTL viewer; ' +
       '"verilator-proc" runs the ACTIVE processor\'s generated top-level under Verilator as a ' +
       'hardware test; "verilator-fast" runs the testbench headless under Verilator (no waveform, ' +

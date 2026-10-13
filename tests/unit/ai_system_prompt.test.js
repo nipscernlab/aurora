@@ -268,3 +268,21 @@ describe('o yanc v7.1', () => {
         expect(SYSTEM_PROMPT).toContain('`#NUGAIN` is OPTIONAL');
     });
 });
+
+// A receita de otimizacao do .asm desde o yanc v7.1 (decidida em 13/10/2026):
+// montar numa pasta a parte, com o nome <p>.asm, e nunca escrever na de saida.
+describe('a receita de otimizacao do .asm', () => {
+    it('monta numa pasta a parte, com o mesmo nome, e copia os arquivos de dados', () => {
+        expect(SYSTEM_PROMPT).toContain('create_file(\\"<p>/_aurora_opt/<p>.asm\\"'.replace(/\\"/g, '"'));
+        expect(SYSTEM_PROMPT).toContain('the module is named after the .asm file');
+        expect(SYSTEM_PROMPT).toContain('copy each one the program uses into <p>/_aurora_opt/ too');
+        expect(SYSTEM_PROMPT).toContain('There is no -i: the .asm is the argument without an option.');
+    });
+
+    it('diz que o projeto continua simulando o processador do fonte, e por que nao promover', () => {
+        expect(SYSTEM_PROMPT).toContain('still uses the processor compiled from the source');
+        expect(SYSTEM_PROMPT).toContain('Never copy the sandbox .asm into <p>/<p>/');
+        expect(SYSTEM_PROMPT).toContain('no source track and no source variable names');
+        expect(SYSTEM_PROMPT).not.toContain('Software/_aurora_opt');
+    });
+});

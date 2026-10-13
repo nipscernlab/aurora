@@ -206,10 +206,10 @@ describe('a forma da configuracao', () => {
 });
 
 describe('o que a instancia entrega', () => {
-    it('ensureDirectories cria a Temp do projeto e a do processador', async () => {
+    it('ensureDirectories cria a Temp do projeto e a pasta de saida do processador', async () => {
         const mod = await novoModulo();
-        expect(await mod.ensureDirectories('fir')).toBe(TEMP + '/fir');
-        expect(api.mkdir.mock.calls).toEqual([[TEMP], [TEMP + '/fir']]);
+        expect(await mod.ensureDirectories('fir')).toBe(PROJ + '/fir/fir');
+        expect(api.mkdir.mock.calls).toEqual([[TEMP], [PROJ + '/fir/fir']]);
     });
 
     it('ensureDirectories que falha sobe o erro', async () => {

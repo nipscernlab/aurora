@@ -39,23 +39,21 @@ export interface SpecShape {
 }
 
 export const RULES: Record<string, ProtectedFlagRule> = {
+  // Os tres passos do processador sao o driver yanc (builders/cmm.ts,
+  // cpp.ts e asm.ts). Na compilacao, o -S para no .asm, que e o que o passo
+  // de montagem le, e o -o e a pasta de saida onde o resto da AURORA procura
+  // o que foi gerado. Na montagem nao ha -o (o yanc o recusa com um .asm):
+  // -f e -c sao o clock e a duracao do testbench, que vem do .spf.
   'cmm': {
-    flagWithValue: ['-i', '-n', '-p', '-m', '-t'],
-  },
-  // O front end C++ (builders/cpp.ts). O -o do cpppp e o -i do cppcomp sao
-  // o mesmo pp.cpp: tirar um deles deixa o outro sem arquivo. O cppcomp nao
-  // tem -m, por isso a lista e mais curta que a do cmm.
-  'cpp-pp': {
-    flagWithValue: ['-i', '-o', '-I'],
+    literalArgs: ['-S'],
+    flagWithValue: ['-o'],
   },
   'cpp': {
-    flagWithValue: ['-i', '-p', '-n', '-t'],
-  },
-  'asm-pre': {
-    flagWithValue: ['-i', '-t'],
+    literalArgs: ['-S'],
+    flagWithValue: ['-o'],
   },
   'asm': {
-    flagWithValue: ['-i', '-p', '-d', '-m', '-t', '-f', '-c'],
+    flagWithValue: ['-f', '-c'],
   },
   'iverilog-check': {
     literalArgs: ['-tnull'],

@@ -140,25 +140,14 @@ async function fontesDoCocotb(componentsPath: string, config: ConfigDoCocotb): P
     return [...fileSet];
 }
 
-/** As memorias do processador (pc_*_mem.txt) vao para a pasta do build, onde o simulador procura. */
-async function copiarMemorias(ctx: ContextoDaCorrida, tempBaseDir: string, buildDir: string): Promise<void> {
-    await stageProcessorMemoryFiles(ctx, tempBaseDir);
-    let entries: unknown[] = [];
-    try {
-        entries = await electronAPI.listFilesInDirectory(tempBaseDir);
-    } catch (_e) {
-        return;
-    }
-    for (const name of entries || []) {
-        if (typeof name !== 'string') continue;
-        if (!name.startsWith('pc_') || !name.endsWith('_mem.txt')) continue;
-        try {
-            await electronAPI.copyFile(
-                await electronAPI.joinPath(tempBaseDir, name),
-                await electronAPI.joinPath(buildDir, name),
-            );
-        } catch (_copyErr) { /* melhor esforco: o simulador acusa o arquivo que faltar */ }
-    }
+/**
+ * As memorias dos processadores (os .mif e o pc_<proc>_mem.txt, que o .v
+ * gerado le pelo nome puro) vao para a pasta do build, onde o simulador
+ * procura.
+ */
+async function copiarMemorias(ctx: ContextoDaCorrida, buildDir: string): Promise<void> {
+    if (!ctx.projectPath) return;
+    await stageProcessorMemoryFiles(ctx, ctx.projectPath, buildDir);
 }
 
 interface PerfilDoCocotb {
@@ -280,7 +269,7 @@ export async function rodarCocotb(
 
     const buildDir = await electronAPI.joinPath(tools.tempBaseDir, `cocotb_${safeNamePart(cocotbCtx.tbKey)}`);
     await electronAPI.mkdir(buildDir);
-    await copiarMemorias(ctx, tools.tempBaseDir, buildDir);
+    await copiarMemorias(ctx, buildDir);
 
     const sources = await fontesDoCocotb(componentsPath, config);
     const selecao = await resolveCocotbWaveSelection(

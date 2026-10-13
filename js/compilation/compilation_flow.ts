@@ -97,7 +97,7 @@ const STEP_TERMINALS = Object.freeze({
     // (processor_dispatch.ts) escolhe o front end. Aceito como nome
     // alternativo para a IA e a API poderem dizer o que querem dizer.
     cpp:     ['tcmm', 'tasm'],
-    // ASM-only: pula cmmcomp e roda apenas asmcomp + iverilog -tnull.
+    // ASM-only: pula a compilacao do fonte e roda so a montagem + iverilog -tnull.
     // Esse passo existe para a Aurora Intelligence testar um .asm
     // otimizado a mao (com override em -i apontando pra _aurora_opt/)
     // sem regenerar o .asm a partir do .cmm. Limpa o terminal do asm
@@ -338,9 +338,9 @@ async function runProjectPipeline(compiler: CompiladorDoProjeto & { runGtkWave()
 /**
  * Botao C± (e o passo 'cpp' da API): roda o pipeline completo do
  * processador a partir do fonte aberto no Monaco, .cmm ou .cpp:
- *   1. cmmcomp.exe (ou cpppp + cppcomp) -> Software/<base>.asm + cmm_log.txt
- *   2. asmcomp.exe   -> Hardware/<proc>.v + pc_<proc>_mem.txt +
- *                       Simulation/<proc>_tb.v
+ *   1. yanc -S (cmmcomp ou cppcomp) -> <proc>/<proc>/<base>.asm + prog_log.txt
+ *   2. yanc <base>.asm (asmcomp)      -> <proc>.v + .mif + <proc>_tb.v, na
+ *                                        mesma pasta de saida
  *
  * Antes (pre-2026-05) este botao parava no passo 1. Foi unificado pra
  * deixar o fluxo "do .cmm ate o .v" num clique so, quem quer parar
@@ -388,7 +388,7 @@ async function handleCmmStep() {
         if (!procFromPath) {
             throw new Error(
                 `Cannot resolve a processor for "${editingPath}". ` +
-                `The file must live in <project>/<processor>/{Software,Hardware,Simulation}/.`,
+                `The file must live in <project>/<processor>/ or in its output folder <project>/<processor>/<processor>/.`,
             );
         }
 
@@ -404,12 +404,12 @@ async function handleCmmStep() {
 
         await compiler.ensureDirectories(overrideProcessor.name);
 
-        // Passo 1, o front end da linguagem (cmmcomp, ou cpppp + cppcomp)
+        // Passo 1, o front end da linguagem (yanc -S, que chama o cmmcomp ou o cppcomp)
         switchTerminal('terminal-tcmm');
         await compileProcessorSource(compiler, overrideProcessor);
 
-        // Passo 2, ASM (asmcomp). Foco vai pro tasm pra que o output
-        // do asmcomp apareca no terminal certo.
+        // Passo 2, a montagem (yanc no .asm, que chama o asmcomp). Foco vai
+        // pro tasm pra que a saida apareca no terminal certo.
         switchTerminal('terminal-tasm');
         await compiler.asmCompilation(overrideProcessor, null);
     } catch (error) {
@@ -493,7 +493,7 @@ async function handleWaveStep() {
  * Botao Verilator (processador CMM): roda o top-level <proc>.v gerado
  * pelo compilador CMM com Verilator, usando a fiacao previsivel do
  * processador SAPHO (req_in/out_en one-hot, input_<N>.txt/output_<N>.txt
- * decimais, na pasta Simulation/ do processador). Pre-compila cmm+asm
+ * decimais: entradas na pasta do processador, saidas na de saida). Pre-compila cmm+asm
  * pra ter <proc>.v/_tb.v/.mif frescos antes de dumpar/buildar/rodar.
  */
 async function handleVerilatorProcStep() {

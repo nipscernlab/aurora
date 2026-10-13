@@ -85,7 +85,9 @@ describe('allowlist e catalogo andam juntos', () => {
   it('donoDoBinario responde pelo nome do arquivo', () => {
     expect(donoDoBinario('gtkwave.exe')).toBe('gtkwave');
     expect(donoDoBinario('GTKWAVE.EXE')).toBe('gtkwave');
-    expect(donoDoBinario('cmmcomp.exe')).toBe('yanc');
+    expect(donoDoBinario('yanc.exe')).toBe('yanc');
+    // Desde o yanc v7.1 so o driver e chamado; os compiladores nao sao de ninguem.
+    expect(donoDoBinario('cmmcomp.exe')).toBeNull();
     expect(donoDoBinario('nao-existe.exe')).toBeNull();
   });
 

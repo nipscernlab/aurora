@@ -7,7 +7,7 @@
  * e cada passo mora num modulo proprio que a recebe como contexto:
  *
  *   loadConfig()            le o .spf em this.projectConfig
- *   ensureDirectories(name) cria a Temp do projeto e Temp/<name>
+ *   ensureDirectories(name) cria a Temp do projeto e a pasta de saida <name>/<name>
  *   cmmCompilation(proc)    processor_compiler.ts
  *   asmCompilation(proc, ...)
  *   verilogSyntaxCheck()    checagem_de_sintaxe.ts, e a hierarquia pelo
@@ -48,6 +48,7 @@ import { TerminalManager } from '../terminal/terminal_module.js';
 import { SpfStore, type SpfStructure } from '../project/spf_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { projectTempDir } from '../project/project_temp.js';
+import { segmentosDaSaida } from './pastas_do_processador.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { statusUpdater } from '../ui/status_updater.js';
@@ -245,6 +246,14 @@ async loadConfig(): Promise<void> {
     }
 }
 
+    /**
+     * Cria a Temp do projeto (a das simulacoes) e a pasta de saida do
+     * processador, <proj>/<name>/<name>, onde o yanc escreve. O yanc tambem a
+     * cria se faltar; criar aqui deixa o passo de montagem achar a pasta
+     * mesmo quando a compilacao do fonte foi pulada.
+     *
+     * @returns a pasta de saida
+     */
     async ensureDirectories(name: string): Promise<string> {
         try {
             // Havia aqui um `mkdir(joinPath('components'))`: o canal join-path
@@ -252,13 +261,12 @@ async loadConfig(): Promise<void> {
             // lugar ANTIGO da toolchain (ela mora em %LOCALAPPDATA%\SAPHO desde
             // que passou a ser baixada; em dev caia em Documents\components). A
             // linha so criava uma pasta vazia fora do lugar a cada compilacao,
-            // e o guarda de escrita do main passou a recusa-la. A pasta que
-            // importa e a Temp do projeto, logo abaixo (project_temp.js).
+            // e o guarda de escrita do main passou a recusa-la.
             const tempBaseDir = await projectTempDir(this.projectPath);
             await electronAPI.mkdir(tempBaseDir);
-            const tempProcessorDir = await electronAPI.joinPath(tempBaseDir, name);
-            await electronAPI.mkdir(tempProcessorDir);
-            return tempProcessorDir;
+            const outputDir = await electronAPI.joinPath(this.projectPath, ...segmentosDaSaida(name));
+            await electronAPI.mkdir(outputDir);
+            return outputDir;
         } catch (error) {
             console.error("Failed to ensure directories:", error);
             throw error;
@@ -272,7 +280,7 @@ async loadConfig(): Promise<void> {
         );
     }
 
-    // O front end C++ (cpppp + cppcomp), irmao do cmmCompilation: mesmo seam
+    // O front end C++ (yanc -S, que chama o cppcomp), irmao do cmmCompilation: mesmo seam
     // do lastCompiledCmmPath, que aponta para o .cpp da pessoa.
     async cppCompilation(processor: EntradaDeProcessador): Promise<string> {
         return cppCompilation(

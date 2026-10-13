@@ -27,35 +27,35 @@ function disco(...existentes) {
 }
 
 describe('locateProcessorSource: o .spf nao declara nada (todo projeto de hoje)', () => {
-    it('acha o <nome>.cmm em Software/, como sempre achou', async () => {
-        const d = disco('/proj/ProcX/Software/ProcX.cmm');
+    it('acha o <nome>.cmm na pasta do processador', async () => {
+        const d = disco('/proj/ProcX/ProcX.cmm');
         expect(await locateProcessorSource('/proj', { name: 'ProcX' }, d)).toEqual({
-            language: 'cmm', sourceFile: 'ProcX.cmm', sourcePath: '/proj/ProcX/Software/ProcX.cmm',
+            language: 'cmm', sourceFile: 'ProcX.cmm', sourcePath: '/proj/ProcX/ProcX.cmm',
         });
     });
 
     it('acha o <nome>.cpp quando so ele existe, em vez de pular o processador', async () => {
-        const d = disco('/proj/ProcX/Software/ProcX.cpp');
+        const d = disco('/proj/ProcX/ProcX.cpp');
         expect(await locateProcessorSource('/proj', { name: 'ProcX' }, d)).toEqual({
-            language: 'cpp', sourceFile: 'ProcX.cpp', sourcePath: '/proj/ProcX/Software/ProcX.cpp',
+            language: 'cpp', sourceFile: 'ProcX.cpp', sourcePath: '/proj/ProcX/ProcX.cpp',
         });
     });
 
     it('com os dois no disco, o .cmm vence: a ordem das linguagens e C+- primeiro', async () => {
-        const d = disco('/proj/ProcX/Software/ProcX.cmm', '/proj/ProcX/Software/ProcX.cpp');
+        const d = disco('/proj/ProcX/ProcX.cmm', '/proj/ProcX/ProcX.cpp');
         expect((await locateProcessorSource('/proj', { name: 'ProcX' }, d)).language).toBe('cmm');
         expect(languagesInSearchOrder()).toEqual(['cmm', 'cpp']);
     });
 
     it('nenhum dos dois: null, que e o "pular" do pre-flight', async () => {
-        const d = disco('/proj/ProcX/Hardware/ProcX.v', '/proj/ProcX/Software/ProcX.asm');
+        const d = disco('/proj/ProcX/ProcX/ProcX.v', '/proj/ProcX/ProcX/ProcX.asm');
         expect(await locateProcessorSource('/proj', { name: 'ProcX' }, d)).toBeNull();
         // e a busca olhou as duas extensoes antes de desistir
         expect(d.fileExists).toHaveBeenCalledTimes(2);
     });
 
-    it('so olha dentro de Software/ do proprio processador', async () => {
-        const d = disco('/proj/Outro/Software/ProcX.cmm', '/proj/ProcX.cmm');
+    it('so olha na pasta do proprio processador, e nao no Software/ do formato antigo', async () => {
+        const d = disco('/proj/Outro/ProcX.cmm', '/proj/ProcX.cmm', '/proj/ProcX/Software/ProcX.cmm');
         expect(await locateProcessorSource('/proj', { name: 'ProcX' }, d)).toBeNull();
     });
 });
@@ -64,7 +64,7 @@ describe('locateProcessorSource: o .spf declara', () => {
     it('sourceFile declarado vale, exista ou nao no disco', async () => {
         const d = disco();
         expect(await locateProcessorSource('/proj', { name: 'P', sourceFile: 'meu.cpp' }, d)).toEqual({
-            language: 'cpp', sourceFile: 'meu.cpp', sourcePath: '/proj/P/Software/meu.cpp',
+            language: 'cpp', sourceFile: 'meu.cpp', sourcePath: '/proj/P/meu.cpp',
         });
         expect(d.fileExists).not.toHaveBeenCalled();
     });
@@ -72,13 +72,13 @@ describe('locateProcessorSource: o .spf declara', () => {
     it('cmmFile legado tambem e declaracao', async () => {
         const d = disco();
         const r = await locateProcessorSource('/proj', { name: 'P', cmmFile: 'velho.cmm' }, d);
-        expect(r).toEqual({ language: 'cmm', sourceFile: 'velho.cmm', sourcePath: '/proj/P/Software/velho.cmm' });
+        expect(r).toEqual({ language: 'cmm', sourceFile: 'velho.cmm', sourcePath: '/proj/P/velho.cmm' });
     });
 
     it('language sozinha monta o nome com a extensao da linguagem', async () => {
         const d = disco();
         const r = await locateProcessorSource('/proj', { name: 'P', language: 'cpp' }, d);
-        expect(r).toEqual({ language: 'cpp', sourceFile: 'P.cpp', sourcePath: '/proj/P/Software/P.cpp' });
+        expect(r).toEqual({ language: 'cpp', sourceFile: 'P.cpp', sourcePath: '/proj/P/P.cpp' });
     });
 });
 

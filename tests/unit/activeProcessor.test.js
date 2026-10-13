@@ -23,18 +23,21 @@ const foco = (p) => TabManager.getEditingFilePath.mockReturnValue(p);
 beforeEach(() => TabManager.getEditingFilePath.mockReset());
 
 describe('getActiveProcessorName', () => {
-    it('acha o processador pela pasta Software/, que e robusta a rename do fonte', () => {
-        foco('C:\\proj\\ProcX\\Software\\qualquer.cmm');
+    it('acha o processador pela pasta do fonte, que e robusta a rename do fonte', () => {
+        foco('C:\\proj\\ProcX\\qualquer.cmm');
         expect(getActiveProcessorName(PROCS)).toBe('ProcX');
-        foco('/proj/soma/Software/outro.cmm');
+        foco('/proj/soma/outro.cpp');
         expect(getActiveProcessorName(PROCS)).toBe('soma');
     });
 
-    it('a pasta e comparada sem caixa, o nome do processador com caixa', () => {
-        foco('C:\\proj\\ProcX\\SOFTWARE\\x.cmm');
-        expect(getActiveProcessorName(PROCS)).toBe('ProcX');
-        foco('C:\\proj\\procx\\Software\\x.cmm');
+    it('a pasta e comparada com caixa, como o nome do processador', () => {
+        foco('C:\\proj\\procx\\x.cmm');
         // 'procx' nao esta na lista; cai no basename, que tambem nao esta
+        expect(getActiveProcessorName(PROCS)).toBeNull();
+    });
+
+    it('a pasta Software/ do formato antigo nao e mais processador', () => {
+        foco('C:\\proj\\ProcX\\Software\\x.cmm');
         expect(getActiveProcessorName(PROCS)).toBeNull();
     });
 

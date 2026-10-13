@@ -14,7 +14,7 @@
  *     main/ai/tools.js mandar o modelo ler o `thtest`.
  *
  * Nao confundir com o `STEP_IDS` do command_spec.ts, que e outra coisa: la
- * sao os passos da TOOLCHAIN, uma entrada por ferramenta que roda (`cpp-pp`,
+ * sao os passos da TOOLCHAIN, uma entrada por ferramenta que roda (`cmm`,
  * `iverilog-build`, `fst2vcd`...). Aqui sao os passos da API, que e o que um
  * botao da barra ou uma chamada da IA pede. Um passo daqui vira varios de la.
  *
@@ -26,8 +26,8 @@
  * Os passos que `compileStep` aceita, na ordem do pipeline.
  *
  * `cpp` e `cmm` sao O MESMO passo: o despacho por linguagem
- * (processor_dispatch.ts) escolhe o front end pelo fonte em foco, cmmcomp
- * para um `.cmm` e cpppp mais cppcomp para um `.cpp`.
+ * (processor_dispatch.ts) escolhe o front end pelo fonte em foco: o driver
+ * yanc chama o cmmcomp para um `.cmm` e o cppcomp para um `.cpp`.
  */
 export const PASSOS_DA_API = Object.freeze([
   'cmm', 'cpp', 'asm', 'verilog', 'wave', 'prism',
@@ -50,8 +50,8 @@ export function ehPassoDaApi(passo: unknown): passo is PassoDaApi {
  * lado de quem executa, que simplesmente procura o painel pelo id.
  */
 export const TERMINAIS: Readonly<Record<string, string>> = Object.freeze({
-  tcmm: 'language front end (cmmcomp, or cpppp + cppcomp)',
-  tasm: 'assembler (appcomp and asmcomp)',
+  tcmm: 'language front end (yanc -S, which runs cmmcomp or cppcomp)',
+  tasm: 'assembler (yanc on the .asm, which runs asmcomp)',
   tveri: 'project Verilog elaboration',
   twave: 'simulation and waveform (iverilog, vvp, GTKWave)',
   thtest: 'Verilator hardware test (the processor Verilator button)',

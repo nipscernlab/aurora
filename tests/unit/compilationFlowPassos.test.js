@@ -98,7 +98,7 @@ describe('cada botao compila no projeto aberto, nas fases certas', () => {
 
   it('o pre-flight compila cada processador com fonte antes do passo', async () => {
     config.processors = [{ name: 'P' }];
-    existe.add('C:/p/P/Software/P.cmm');
+    existe.add('C:/p/P/P.cmm');
     await fm.runSingleStep('wave');
     expect(chamadas).toEqual(['new:C:/p', 'loadConfig', 'dirs:P', 'cmm:P.cmm', 'asm:P', 'wave']);
   });
@@ -136,14 +136,14 @@ describe('cada botao compila no projeto aberto, nas fases certas', () => {
 describe('botao C±', () => {
   it('com o fonte em foco, compila o processador dele: front end e ASM', async () => {
     config.processors = [{ name: 'P' }];
-    foco.caminho = 'C:/p/P/Software/P.cpp';
+    foco.caminho = 'C:/p/P/P.cpp';
     await fm.runSingleStep('cmm');
     expect(chamadas).toEqual(['new:C:/p', 'loadConfig', 'dirs:P', 'cpp:P.cpp', 'asm:P']);
   });
 
   it('sem fonte em foco, mira o ultimo processador que esteve em foco', async () => {
     window.availableProcessors = ['A', 'B'];
-    existe.add('C:/p/B/Software/B.cmm');
+    existe.add('C:/p/B/B.cmm');
     fm.initialize();
     ativo.nome = 'B';
     document.dispatchEvent(new Event('aurora:editing-file-changed'));

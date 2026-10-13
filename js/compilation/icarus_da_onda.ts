@@ -16,7 +16,7 @@ import * as CommandSpec from './command_spec.js';
 import type { CommandSpec as SpecDeComando } from './command_spec.js';
 import { moduleStemFromPath } from './compilation_helpers.js';
 import { nomesDeDumpEsperados } from './dump_guard.js';
-import { copiarDadosDoTestbench, exigirDumpGravavel } from './arquivos_da_simulacao.js';
+import { copiarDadosDoTestbench, diretorioDaSimulacao, exigirDumpGravavel } from './arquivos_da_simulacao.js';
 import { consumirProgresso, avisarSeNaBateria, vigiarTamanhoDoDump, type TerminalDaSimulacao } from './durante_a_simulacao.js';
 import { prepararWave, type ContextoDoPreparo } from './preparo_da_onda.js';
 import { stageProcessorMemoryFiles, type TerminalManager } from './processor_compiler.js';
@@ -204,11 +204,12 @@ export async function simularNoIcarus(
 ): Promise<string> {
     const terminal = ctx.terminalManager;
     const config = ctx.loadConfigUnsafe();
-    const simCwd = ctx.projectPath || tools.tempBaseDir;
+    const simCwd = await diretorioDaSimulacao(
+        ctx.projectPath, ctx.projectConfig?.processors, config.testbenchFile, tools.tempBaseDir);
 
     // O .v gerado do processador le os pc_<proc>_mem.txt por $readmemb com
     // nome RELATIVO; eles vao para a pasta da simulacao. Sem processador, nada.
-    await stageProcessorMemoryFiles(ctx, tools.tempBaseDir, simCwd);
+    await stageProcessorMemoryFiles(ctx, ctx.projectPath, simCwd);
     if (config.testbenchFile) {
         await copiarDadosDoTestbench(terminal, simCwd, config.testbenchFile);
     }

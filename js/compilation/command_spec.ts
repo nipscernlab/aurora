@@ -20,7 +20,7 @@
  */
 
 export type CompileStepId =
-  | 'cmm' | 'cpp-pp' | 'cpp' | 'asm-pre' | 'asm'
+  | 'cmm' | 'cpp' | 'asm'
   | 'iverilog-check' | 'iverilog-build'
   | 'vvp-run' | 'cocotb-run'
   | 'verilator-build' | 'verilator-run'
@@ -68,7 +68,7 @@ export interface SpecDiff {
 }
 
 export const STEP_IDS = Object.freeze([
-  'cmm', 'cpp-pp', 'cpp', 'asm-pre', 'asm',
+  'cmm', 'cpp', 'asm',
   'iverilog-check', 'iverilog-build',
   'vvp-run',
   'cocotb-run',
@@ -79,11 +79,9 @@ export const STEP_IDS = Object.freeze([
 ] as const);
 
 export const STEP_DESCRIPTIONS: Record<CompileStepId, string> = Object.freeze({
-  'cmm':              'CMM compiler (cmmcomp.exe) — .cmm → .asm + cmm_log.txt',
-  'cpp-pp':           'C++ preprocessor (cpppp.exe) — .cpp → Temp/pp.cpp (resolves #include / #define)',
-  'cpp':              'C++ compiler (cppcomp.exe) — Temp/pp.cpp → .asm + cmm_log.txt (same assembly the CMM compiler emits)',
-  'asm-pre':          'Assembly preprocessor (appcomp.exe) — expand macros into Temp/',
-  'asm':              'Assembly compiler (asmcomp.exe) — .asm → Hardware/<proc>.v + pc_*_mem.txt + Simulation/<proc>_tb.v',
+  'cmm':              'C± compiler (yanc -S, which runs cmmcomp) — <proc>.cmm → <proc>/<proc>/<proc>.asm + prog_log.txt + src_lines.txt',
+  'cpp':              'C++ compiler (yanc -S, which runs cppcomp) — <proc>.cpp → <proc>/<proc>/<proc>.asm + prog_log.txt + src_lines.txt (same assembly the C± compiler emits)',
+  'asm':              'Assembler (yanc on the .asm, which runs asmcomp) — <proc>/<proc>/<proc>.asm → <proc>.v + .mif + pc_<proc>_mem.txt + <proc>_tb.v + app_log.txt, in the same folder',
   'iverilog-check':   'Icarus Verilog syntax/elab check (iverilog -tnull) — Verilog button + Wave-Config gate',
   'iverilog-build':   'Icarus Verilog build (iverilog -o) — produces .vvp consumed by vvp',
   'vvp-run':          'vvp — full simulation with -fst, produces FST waveform (header pulled from the FST)',

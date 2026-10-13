@@ -13,6 +13,7 @@ import { electronAPI } from '../app/electron_api.js';
 import { basenameOfPath } from './compilation_helpers.js';
 import { dumpEstaFresco } from './dump_guard.js';
 import { comAjuda } from '../ui/help_link.js';
+import { nomesDosProcessadores, segmentosDaSimulacao } from './pastas_do_processador.js';
 
 const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
@@ -42,6 +43,23 @@ function arquivosLidosPeloTestbench(content: string): Set<string> {
         }
     }
     return filenames;
+}
+
+/**
+ * O diretorio de trabalho de uma simulacao com `testbenchFile`: a pasta de
+ * saida do processador quando o testbench e o <proc>_tb.v que o yanc gerou
+ * (ele nomeia tudo relativo a ela), e a pasta do projeto para qualquer outro.
+ * `reserva` vale quando nao ha projeto.
+ */
+export async function diretorioDaSimulacao(
+    projectPath: string | null | undefined,
+    processors: unknown,
+    testbenchFile: string | null | undefined,
+    reserva: string,
+): Promise<string> {
+    if (!projectPath) return reserva;
+    const segs = segmentosDaSimulacao(testbenchFile, projectPath, nomesDosProcessadores(processors));
+    return segs ? electronAPI.joinPath(projectPath, ...segs) : projectPath;
 }
 
 /**

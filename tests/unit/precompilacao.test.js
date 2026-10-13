@@ -45,30 +45,24 @@ beforeEach(async () => {
 describe('findProcessorForPath', () => {
   const procs = ['Proc', { name: 'Outro', clk: 10 }];
   it('acha pelo segmento da pasta, sem caixa e com barra invertida', () => {
-    expect(pre.findProcessorForPath('C:\\P\\proc\\Software\\proc.cmm', 'C:/p', procs)).toEqual({ name: 'Proc' });
-    expect(pre.findProcessorForPath('C:/p/outro/Hardware/o.v', 'C:/p', procs)).toEqual({ name: 'Outro', clk: 10 });
+    expect(pre.findProcessorForPath('C:\\P\\proc\\proc.cmm', 'C:/p', procs)).toEqual({ name: 'Proc' });
+    expect(pre.findProcessorForPath('C:/p/outro/outro/o.v', 'C:/p', procs)).toEqual({ name: 'Outro', clk: 10 });
   });
-  it('fora do projeto, fora das tres subpastas, raso demais ou sem par, null', () => {
-    expect(pre.findProcessorForPath('D:/x/Proc/Software/a.cmm', 'C:/p', procs)).toBeNull();
+  it('fora do projeto, numa subpasta que nao e a de saida, raso demais ou sem par, null', () => {
+    expect(pre.findProcessorForPath('D:/x/Proc/a.cmm', 'C:/p', procs)).toBeNull();
     expect(pre.findProcessorForPath('C:/p/Proc/Docs/a.cmm', 'C:/p', procs)).toBeNull();
-    expect(pre.findProcessorForPath('C:/p/Proc/a.cmm', 'C:/p', procs)).toBeNull();
-    expect(pre.findProcessorForPath('C:/p/Nada/Software/a.cmm', 'C:/p', procs)).toBeNull();
+    expect(pre.findProcessorForPath('C:/p/Proc/Software/a.cmm', 'C:/p', procs)).toBeNull();
+    expect(pre.findProcessorForPath('C:/p/Proc', 'C:/p', procs)).toBeNull();
+    expect(pre.findProcessorForPath('C:/p/Nada/a.cmm', 'C:/p', procs)).toBeNull();
     expect(pre.findProcessorForPath(null, 'C:/p', procs)).toBeNull();
-    expect(pre.findProcessorForPath('C:/p/Proc/Software/a.cmm', 'C:/p', null)).toBeNull();
-  });
-});
-
-describe('collectProcessors', () => {
-  it('le a lista do projeto, aceitando nome ou objeto, e descarta o vazio', () => {
-    window.availableProcessors = ['A', { name: 'B' }, '', null, {}];
-    expect(pre.collectProcessors()).toEqual([{ name: 'A' }, { name: 'B' }]);
+    expect(pre.findProcessorForPath('C:/p/Proc/a.cmm', 'C:/p', null)).toBeNull();
   });
 });
 
 describe('precompileAllProcessors', () => {
   it('compila cada processador do .spf no projeto do compilador, com a config dele', async () => {
-    existe.add('C:/p/A/Software/A.cmm');
-    existe.add('C:/p/B/Software/B.cpp');
+    existe.add('C:/p/A/A.cmm');
+    existe.add('C:/p/B/B.cpp');
     ProjectStore.setProject('C:/outro/o.spf', 'C:/outro');   // aberto agora e outro: nao importa
     const c = compilador([{ name: 'A', clk: 20 }, 'B']);
     expect(await pre.precompileAllProcessors(c, 'tveri', tm)).toBe(2);
@@ -79,7 +73,7 @@ describe('precompileAllProcessors', () => {
 
   it('sem entries no .spf, usa a lista de nomes do projeto', async () => {
     window.availableProcessors = ['A'];
-    existe.add('C:/p/A/Software/A.cmm');
+    existe.add('C:/p/A/A.cmm');
     const c = compilador(undefined);
     expect(await pre.precompileAllProcessors(c, 'twave', tm)).toBe(1);
   });
@@ -89,8 +83,8 @@ describe('precompileAllProcessors', () => {
     expect(await pre.precompileAllProcessors(c, 'tveri', tm)).toBe(0);
     const avisos = linhas.filter((l) => l.tipo === 'warning').map((l) => l.texto);
     expect(avisos).toEqual([
-      'Warning: no A.cmm / A.cpp in A/Software — skipping A.',
-      'Warning: no B.cpp in B/Software — skipping B.',
+      'Warning: no A.cmm / A.cpp in A/ — skipping A.',
+      'Warning: no B.cpp in B/ — skipping B.',
     ]);
   });
 
@@ -101,7 +95,7 @@ describe('precompileAllProcessors', () => {
   });
 
   it('cancelado entre processadores, para', async () => {
-    existe.add('C:/p/A/Software/A.cmm');
+    existe.add('C:/p/A/A.cmm');
     cancelamento.pedirCancelamento();
     await expect(pre.precompileAllProcessors(compilador(['A']), 'tveri', tm)).rejects.toThrow();
   });
@@ -109,13 +103,13 @@ describe('precompileAllProcessors', () => {
 
 describe('precompileAsmOnly', () => {
   it('monta todos sem rodar o front end; sem fonte no disco, a base e <nome>.cmm', async () => {
-    existe.add('C:/p/B/Software/B.cpp');
+    existe.add('C:/p/B/B.cpp');
     const c = compilador(['A', 'B']);
     expect(await pre.precompileAsmOnly(c, 'tasm', tm)).toBe(2);
     expect(c.feito).toEqual(['dirs:A', 'asm:A:100', 'dirs:B', 'asm:B:100']);
     expect(c.asmCompilation.mock.calls.map(([p]) => p.sourceFile)).toEqual(['A.cmm', 'B.cpp']);
     expect(c.cmmCompilation).not.toHaveBeenCalled();
-    expect(linhas[0].texto).toContain('without re-running cmmcomp');
+    expect(linhas[0].texto).toContain('without recompiling the source');
   });
 
   it('projeto sem processador nao faz nada', async () => {
@@ -142,13 +136,13 @@ describe('resolveFallbackCmmPath', () => {
 
   it('o ultimo processador em foco vence; com um so, e ele; com varios e nenhum em foco, null', async () => {
     window.availableProcessors = ['A', 'B'];
-    existe.add('C:/p/A/Software/A.cmm');
-    existe.add('C:/p/B/Software/B.cpp');
-    expect(await pre.resolveFallbackCmmPath('B')).toBe('C:/p/B/Software/B.cpp');
+    existe.add('C:/p/A/A.cmm');
+    existe.add('C:/p/B/B.cpp');
+    expect(await pre.resolveFallbackCmmPath('B')).toBe('C:/p/B/B.cpp');
     expect(await pre.resolveFallbackCmmPath(null)).toBeNull();
     expect(await pre.resolveFallbackCmmPath('Sumiu')).toBeNull();
     window.availableProcessors = ['A'];
-    expect(await pre.resolveFallbackCmmPath(null)).toBe('C:/p/A/Software/A.cmm');
+    expect(await pre.resolveFallbackCmmPath(null)).toBe('C:/p/A/A.cmm');
   });
 
   it('processador sem fonte no disco, null', async () => {

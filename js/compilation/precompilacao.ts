@@ -23,6 +23,7 @@ import { lerConfigDeSimulacao } from '../project/processor_sim_config.js';
 import { checkCancellation } from './cancelamento.js';
 import { compileProcessorSource, locateProcessorSource, type FrontEnds } from './processor_dispatch.js';
 import type { EntradaDeProcessador } from './processor_source.js';
+import { nomesDosProcessadores, processadorDoCaminho } from './pastas_do_processador.js';
 
 /** O pedaco do terminal que a pre-compilacao usa. */
 export interface Terminal {
@@ -48,29 +49,20 @@ const comNome = (p: unknown): Entrada | null => {
 
 /**
  * Resolve a qual processador um arquivo pertence olhando seu path:
- *   <projectPath>/<procName>/{Hardware|Software|Simulation}/<arquivo>
+ *   <projectPath>/<procName>/<arquivo>          (o fonte e os dados)
+ *   <projectPath>/<procName>/<procName>/<arquivo>  (o que o yanc gera)
  * Devolve o objeto do processador (preservando casing original) ou null.
- *
- * Mirrors ProjectTreeManager._getProcessorForFile (replicado aqui pra
- * evitar acoplamento entre o pipeline de compilacao e o file tree).
+ * Quem sabe as duas pastas e o pastas_do_processador.ts.
  */
 export function findProcessorForPath(filePath: string | null | undefined, projectPath: string | null | undefined, processors: unknown): Entrada | null {
   if (!filePath || !projectPath || !Array.isArray(processors)) return null;
-  const norm = (p: string): string => p.replace(/\\/g, '/').toLowerCase();
-  const fp = norm(filePath);
-  const pp = norm(projectPath);
-  if (!fp.startsWith(pp)) return null;
-  const rel = fp.slice(pp.length).replace(/^\/+/, '');
-  const segs = rel.split('/');
-  if (segs.length < 3) return null;
-  const sub = segs[1];
-  if (sub !== 'hardware' && sub !== 'software' && sub !== 'simulation') return null;
-  const procNameLower = segs[0];
+  const lugar = processadorDoCaminho(filePath, projectPath, nomesDosProcessadores(processors));
+  if (!lugar) return null;
   // Tolera entrada como string (window.availableProcessors) ou
   // objeto com .name (.spf structure.processors).
   const match = processors.find((p: unknown) => {
     const n = typeof p === 'string' ? p : (p as Entrada | null)?.name;
-    return n && n.toLowerCase() === procNameLower;
+    return n === lugar.nome;
   });
   if (!match) return null;
   return typeof match === 'string' ? { name: match } : match as Entrada;
@@ -101,7 +93,7 @@ function processadoresDe(compiler: CompiladorDoProjeto): Entrada[] {
  * Pre-flight comum aos botoes Verilog / Wave / PRISM: pra cada processador
  * conhecido, roda o front end da linguagem + asmCompilation.
  *
- * Pulamos processadores sem fonte em <proj>/<proc>/Software/ (nem .cmm nem
+ * Pulamos processadores sem fonte em <proj>/<proc>/ (nem .cmm nem
  * .cpp; o front end falharia). Quem acha o fonte e o processor_dispatch.
  *
  * @returns contagem de processadores efetivamente compilados.
@@ -128,7 +120,7 @@ export async function precompileAllProcessors(compiler: CompiladorDoProjeto, ter
     if (!fonte || !(await electronAPI.fileExists(fonte.sourcePath))) {
       tm?.appendToTerminal?.(
         terminalId,
-        `Warning: no ${fonte ? fonte.sourceFile : `${proc.name}.cmm / ${proc.name}.cpp`} in ${proc.name}/Software — skipping ${proc.name}.`,
+        `Warning: no ${fonte ? fonte.sourceFile : `${proc.name}.cmm / ${proc.name}.cpp`} in ${proc.name}/ — skipping ${proc.name}.`,
         'warning',
       );
       continue;
@@ -165,7 +157,7 @@ export async function precompileAsmOnly(compiler: CompiladorDoProjeto, terminalI
 
   tm?.appendToTerminal?.(
     terminalId,
-    `Info: assembling ${procs.length} processor(s) without re-running cmmcomp.`,
+    `Info: assembling ${procs.length} processor(s) without recompiling the source.`,
     'tips',
   );
 
@@ -194,7 +186,7 @@ export async function precompileAsmOnly(compiler: CompiladorDoProjeto, terminalI
  * (caso tipico de um compile disparado pela Aurora Intelligence). Ordem:
  *   1. o ultimo processador que esteve em foco (sticky), se ainda existe;
  *   2. se o projeto tem exatamente um processador, esse.
- * Retorna o path `<proj>/<proc>/Software/<proc>.<cmm|cpp>` (o que existir,
+ * Retorna o path `<proj>/<proc>/<proc>.<cmm|cpp>` (o que existir,
  * por locateProcessorSource) ou null se nao da pra decidir com seguranca
  * (varios processadores e nenhum foi focado ainda, ou nenhum fonte no disco).
  */

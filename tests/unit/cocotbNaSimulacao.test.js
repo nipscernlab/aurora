@@ -198,9 +198,11 @@ describe('quem e o DUT', () => {
 
 describe('a execucao do cocotb', () => {
     it('Wave no Icarus: o runner recebe o ambiente, a saida vira barra ou linha, e a onda e adotada', async () => {
-        api._arquivos.set(TEMP + '/pc_fir_mem.txt', '0101');
-        api._arquivos.set(TEMP + '/outra.txt', 'x');
-        const mod = await novoModulo();
+        // As memorias saem da pasta de saida do processador (yanc v7.1).
+        api._arquivos.set(PROJ + '/fir/fir/pc_fir_mem.txt', '0101');
+        api._arquivos.set(PROJ + '/fir/fir/fir_inst.mif', 'INST');
+        api._arquivos.set(PROJ + '/fir/fir/outra.txt', 'x');
+        const mod = await novoModulo({ ...CONFIG, processors: [{ name: 'fir' }] });
         const passos = ligarRunner({
             saida: [{ type: 'stdout', data: 'filtro: 2/4 samples processed\n  PASS test_a\n\n' }, null],
         });
@@ -213,6 +215,7 @@ describe('a execucao do cocotb', () => {
         expect(api.mkdir).toHaveBeenCalledWith(BUILD);
         // As memorias do processador vao para a pasta do build, onde o simulador procura.
         expect(api._arquivos.get(BUILD + '/pc_fir_mem.txt')).toBe('0101');
+        expect(api._arquivos.get(BUILD + '/fir_inst.mif')).toBe('INST');
         expect(api._arquivos.has(BUILD + '/outra.txt')).toBe(false);
         expect(api._arquivos.get(RUNNER)).toBe(COCOTB_RUNNER_SOURCE);
         expect(resolveCocotbWaveSelection).toHaveBeenCalledWith(
@@ -402,12 +405,10 @@ describe('a execucao do cocotb', () => {
             expect(JSON.parse(passos[0].env.AURORA_COCOTB_SOURCES_JSON)).toEqual([DUT]);
         });
 
-        it('memoria que nao copia e nome estranho na Temp sao ignorados', async () => {
-            api._arquivos.set(TEMP + '/pc_a_mem.txt', 'a');
-            api.listFilesInDirectory.mockImplementation(async (dir) => (
-                dir === TEMP ? [42, 'pc_a_mem.txt'] : []));
+        it('memoria que nao copia vira aviso e a corrida segue', async () => {
+            api._arquivos.set(PROJ + '/a/a/pc_a_mem.txt', 'a');
             api.copyFile.mockRejectedValueOnce(new Error('EPERM'));
-            const mod = await novoModulo();
+            const mod = await novoModulo({ ...CONFIG, processors: ['a'] });
             ligarRunner({ dump: null });
             await expect(chamar.rodar(mod, CTX, TOOLS, CONFIG, { wave: false })).resolves.toBeNull();
         });

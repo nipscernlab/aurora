@@ -91,175 +91,210 @@ describe('getTestbenchInfo', () => {
         const r = await getTestbenchInfo(d, { name: 'P', testbenchFile: '/abs/my_tb.v' }, 'base');
         expect(r).toEqual({ tbModule: 'my_tb', tbFile: '/abs/my_tb.v' });
     });
-    it('cai na convencao <base>_tb.v em Simulation/ quando standard', async () => {
+    it('cai no <base>_tb.v da pasta de saida <proc>/<proc>/ quando standard', async () => {
         const d = makeDeps();
         const r = await getTestbenchInfo(d, { name: 'ProcX', testbenchFile: 'standard' }, 'foo');
-        expect(r).toEqual({ tbModule: 'foo_tb', tbFile: '/proj/ProcX/Simulation/foo_tb.v' });
+        expect(r).toEqual({ tbModule: 'foo_tb', tbFile: '/proj/ProcX/ProcX/foo_tb.v' });
     });
 });
 
-describe('cmmCompilation (seam lastCompiledCmmPath; o .cmm nunca e tocado)', () => {
+describe('cmmCompilation (yanc -S; seam lastCompiledCmmPath; o .cmm nunca e tocado)', () => {
     const proc = { name: 'ProcX', cmmFile: 'foo.cmm', showArrays: false };
 
-    it('cacheia lastCompiledCmmPath e devolve o asmPath em sucesso', async () => {
+    it('cacheia lastCompiledCmmPath e devolve o asmPath da pasta de saida', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
         const setLast = vi.fn();
         const asmPath = await cmmCompilation(d, proc, setLast);
         expect(setLast).toHaveBeenCalledTimes(1);
-        expect(setLast).toHaveBeenCalledWith('/proj/ProcX/Software/foo.cmm');
-        expect(asmPath).toBe('/proj/ProcX/Software/foo.asm');
+        expect(setLast).toHaveBeenCalledWith('/proj/ProcX/foo.cmm');
+        expect(asmPath).toBe('/proj/ProcX/ProcX/foo.asm');
     });
 
-    it('roda so o cmmcomp, com as opcoes nomeadas, e nao toca o .cmm do usuario', async () => {
+    it('roda o yanc uma vez, -S -o <saida> --lang <fonte>, e nao toca o .cmm do usuario', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
-        window.electronAPI._files.set('/proj/ProcX/Software/foo.cmm', CMM_WITH_MAIN);
+        window.electronAPI._files.set('/proj/ProcX/foo.cmm', CMM_WITH_MAIN);
         await cmmCompilation(d, proc, vi.fn());
         expect(runSpec).toHaveBeenCalledTimes(1);
         const spec = runSpec.mock.calls[0][0];
         expect(spec.step).toBe('cmm');
-        expect(spec.args).toEqual(expect.arrayContaining(['-i', 'foo.cmm', '-n', 'foo']));
-        expect(spec.args).not.toContain('-c');
-        expect(window.electronAPI._files.get('/proj/ProcX/Software/foo.cmm')).toBe(CMM_WITH_MAIN);
+        expect(spec.binary).toBe('/comp/bin/yanc.exe');
+        expect(spec.args).toEqual(['-S', '-o', '/proj/ProcX/ProcX', '--lang=pt', '/proj/ProcX/foo.cmm']);
+        expect(spec.cwd).toBe('/proj/ProcX');
+        expect(window.electronAPI._files.get('/proj/ProcX/foo.cmm')).toBe(CMM_WITH_MAIN);
     });
 
-    it('lanca cmmFailed quando o cmmcomp retorna code != 0', async () => {
+    it('showArrays do .spf vira --wave-arrays, e o idioma do toggle vira o --lang', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValue({ code: 0 });
+        window.getYancLang = () => 'en';
+        await cmmCompilation(d, { ...proc, showArrays: true }, vi.fn());
+        expect(runSpec.mock.calls[0][0].args).toEqual(
+            ['-S', '-o', '/proj/ProcX/ProcX', '--wave-arrays', '--lang=en', '/proj/ProcX/foo.cmm']);
+    });
+
+    it('lanca cmmFailed quando o yanc retorna code != 0', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 2 });
         await expect(cmmCompilation(d, proc, vi.fn())).rejects.toThrow('error.compilation.cmmFailed');
+        expect(logged('error')).toBe(true);
     });
 });
 
-describe('cppCompilation (cpppp + cppcomp, irmao do cmmCompilation)', () => {
+describe('cppCompilation (yanc -S, que chama o cppcomp)', () => {
     const proc = { name: 'ProcX', sourceFile: 'foo.cpp' };
-    const CPP_SEM_INCLUDE = '#pragma yanc prname foo\nvoid main(void) { int a = 1; }\n';
-    const CPP_COM_INCLUDE = '#include <cstdint>\n' + CPP_SEM_INCLUDE;
 
-    it('roda cpppp e depois cppcomp, nessa ordem, e devolve o mesmo asmPath do cmm', async () => {
+    it('um passo so, como o C±, e devolve o mesmo asmPath', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
-        window.electronAPI._files.set('/proj/ProcX/Software/foo.cpp', CPP_SEM_INCLUDE);
         const asmPath = await cppCompilation(d, proc, vi.fn());
-        expect(runSpec).toHaveBeenCalledTimes(2);
-        const [pp, cpp] = runSpec.mock.calls.map((c) => c[0]);
-        expect(pp.step).toBe('cpp-pp');
-        expect(cpp.step).toBe('cpp');
-        // o cpppp recebe o fonte por caminho absoluto e escreve na Temp do projeto
-        expect(pp.args).toEqual(expect.arrayContaining(['-i', '/proj/ProcX/Software/foo.cpp', '-I', '/comp/Header']));
-        expect(pp.args[pp.args.indexOf('-o') + 1]).toMatch(/\/proj\/\.aurora\/Temp\/ProcX.pp\.cpp$/);
-        // o cppcomp le o que o cpppp escreveu, e o -n segue a base do fonte
-        expect(cpp.args[cpp.args.indexOf('-i') + 1]).toBe(pp.args[pp.args.indexOf('-o') + 1]);
-        expect(cpp.args).toEqual(expect.arrayContaining(['-n', 'foo', '-p', '/proj/ProcX']));
-        expect(asmPath).toBe('/proj/ProcX/Software/foo.asm');
+        expect(runSpec).toHaveBeenCalledTimes(1);
+        const spec = runSpec.mock.calls[0][0];
+        expect(spec.step).toBe('cpp');
+        expect(spec.binary).toBe('/comp/bin/yanc.exe');
+        expect(spec.args).toEqual(['-S', '-o', '/proj/ProcX/ProcX', '--lang=pt', '/proj/ProcX/foo.cpp']);
+        // cwd na pasta do fonte: e a base dos caminhos que o cppcomp poe nos erros
+        expect(spec.cwd).toBe('/proj/ProcX');
+        expect(asmPath).toBe('/proj/ProcX/ProcX/foo.asm');
     });
 
-    it('cacheia o .cpp da pessoa (nao o pp.cpp) antes de rodar, como o cmm faz', async () => {
+    it('cacheia o .cpp da pessoa antes de rodar, como o cmm faz', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
         const setLast = vi.fn();
         await cppCompilation(d, proc, setLast);
         expect(setLast).toHaveBeenCalledTimes(1);
-        expect(setLast).toHaveBeenCalledWith('/proj/ProcX/Software/foo.cpp');
-        // antes do primeiro runSpec: um clique apos falha resolve para o fonte
+        expect(setLast).toHaveBeenCalledWith('/proj/ProcX/foo.cpp');
+        // antes do runSpec: um clique apos falha resolve para o fonte
         expect(setLast.mock.invocationCallOrder[0]).toBeLessThan(runSpec.mock.invocationCallOrder[0]);
     });
 
-    it('avisa da numeracao de linha so quando o fonte tem #include', async () => {
+    it('nao avisa mais da numeracao do pp.cpp: os erros apontam o arquivo escrito', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
-        window.electronAPI._files.set('/proj/ProcX/Software/foo.cpp', CPP_COM_INCLUDE);
+        window.electronAPI._files.set('/proj/ProcX/foo.cpp', '#include "h.hpp"\nvoid main(void) {}\n');
         await cppCompilation(d, proc, vi.fn());
-        expect(d.terminalManager.calls.some((c) => c.msg === 'terminal.cpp.includeWarning')).toBe(true);
-
-        const d2 = makeDeps();
-        window.electronAPI._files.set('/proj/ProcX/Software/foo.cpp', CPP_SEM_INCLUDE);
-        await cppCompilation(d2, proc, vi.fn());
-        expect(d2.terminalManager.calls.some((c) => c.msg === 'terminal.cpp.includeWarning')).toBe(false);
+        expect(d.terminalManager.calls.some((c) => /includeWarning|preprocessing/.test(c.msg))).toBe(false);
     });
 
-    it('diz uma vez que o lado C++ so fala ingles', async () => {
+    it('em portugues diz uma vez que o cppcomp so fala ingles; em ingles, nada', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
         await cppCompilation(d, proc, vi.fn());
         expect(d.terminalManager.calls.filter((c) => c.msg === 'terminal.cpp.englishOnly')).toHaveLength(1);
+
+        window.getYancLang = () => 'en';
+        const d2 = makeDeps();
+        await cppCompilation(d2, proc, vi.fn());
+        expect(d2.terminalManager.calls.filter((c) => c.msg === 'terminal.cpp.englishOnly')).toHaveLength(0);
+        expect(runSpec.mock.calls[1][0].args).toContain('--lang=en');
     });
 
-    it('falha do cpppp para antes do cppcomp, com cppPpFailed', async () => {
+    it('falha do yanc lanca cppFailed', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValueOnce({ code: 1 });
-        await expect(cppCompilation(d, proc, vi.fn())).rejects.toThrow('error.compilation.cppPpFailed');
-        expect(runSpec).toHaveBeenCalledTimes(1);
-    });
-
-    it('falha do cppcomp lanca cppFailed', async () => {
-        const d = makeDeps();
-        runSpec.mockResolvedValueOnce({ code: 0 }).mockResolvedValueOnce({ code: 1 });
         await expect(cppCompilation(d, proc, vi.fn())).rejects.toThrow('error.compilation.cppFailed');
-        expect(runSpec).toHaveBeenCalledTimes(2);
+        expect(runSpec).toHaveBeenCalledTimes(1);
     });
 
     it('aceita o campo legado cmmFile apontando para um .cpp', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
         const asmPath = await cppCompilation(d, { name: 'ProcX', cmmFile: 'bar.cpp' }, vi.fn());
-        expect(asmPath).toBe('/proj/ProcX/Software/bar.asm');
+        expect(asmPath).toBe('/proj/ProcX/ProcX/bar.asm');
     });
 });
 
-describe('asmCompilation', () => {
+describe('asmCompilation (yanc no .asm, que chama o asmcomp)', () => {
     const proc = { name: 'ProcX', cmmFile: 'foo.cmm', clk: '50', numClocks: '100', testbenchFile: 'standard' };
 
-    it('copia o testbench auto-gerado quando standard (sucesso nos 2 passos)', async () => {
+    it('roda o yanc uma vez sobre o .asm da pasta de saida, sem -o, e nao copia testbench', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
         await asmCompilation(d, proc, null);
-        expect(window.electronAPI.copyFile).toHaveBeenCalledTimes(1);
-        // O tb gerado sai da Temp DO PROJETO, <projeto>/.aurora/Temp/<proc>/,
-        // nunca de components/Temp (js/project/project_temp.js).
-        expect(window.electronAPI.copyFile).toHaveBeenCalledWith(
-            '/proj/.aurora/Temp/ProcX/foo_tb.v', '/proj/ProcX/Simulation/foo_tb.v',
-        );
-    });
-
-    it('NAO copia testbench quando o processador usa um tb custom', async () => {
-        const d = makeDeps();
-        runSpec.mockResolvedValue({ code: 0 });
-        await asmCompilation(d, { ...proc, testbenchFile: '/abs/custom_tb.v' }, null);
+        expect(runSpec).toHaveBeenCalledTimes(1);
+        const spec = runSpec.mock.calls[0][0];
+        expect(spec.step).toBe('asm');
+        expect(spec.binary).toBe('/comp/bin/yanc.exe');
+        expect(spec.args).toEqual(['-f', '50', '-c', '100', '--lang=pt', '/proj/ProcX/ProcX/foo.asm']);
+        expect(spec.cwd).toBe('/proj/ProcX/ProcX');
+        // o _tb.v ja fica pronto na pasta de saida: nada a copiar
         expect(window.electronAPI.copyFile).not.toHaveBeenCalled();
     });
 
-    it('lanca asmPrepFailed quando o appcomp falha', async () => {
+    it('clock que nao e numero vira 0, e o yanc e quem recusa', async () => {
         const d = makeDeps();
-        runSpec.mockResolvedValueOnce({ code: 1 }); // appcomp falha no 1o passo
-        await expect(asmCompilation(d, proc, null)).rejects.toThrow('error.compilation.asmPrepFailed');
+        runSpec.mockResolvedValue({ code: 0 });
+        await asmCompilation(d, { ...proc, clk: 'x', numClocks: undefined }, null);
+        expect(runSpec.mock.calls[0][0].args.slice(0, 4)).toEqual(['-f', '0', '-c', '0']);
+    });
+
+    it('o preambulo aparece depois do clear', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValue({ code: 0 });
+        await asmCompilation(d, proc, 'recompilei');
+        expect(d.terminalManager.calls[0]).toMatchObject({ term: 'tasm', msg: 'recompilei', level: 'tips' });
+    });
+
+    it('le o .v gerado da pasta de saida para o resumo', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValue({ code: 0 });
+        window.electronAPI._files.set('/proj/ProcX/ProcX/foo.v', 'module foo(input clk, output out);\nendmodule\n');
+        await asmCompilation(d, proc, null);
+        expect(d.terminalManager.calls.some((c) => c.msg === 'terminal.asm.verilogStats')).toBe(true);
+    });
+
+    it('lanca asmFailed quando o yanc falha', async () => {
+        const d = makeDeps();
+        runSpec.mockResolvedValueOnce({ code: 1 });
+        await expect(asmCompilation(d, proc, null)).rejects.toThrow('error.compilation.asmFailed');
     });
 });
 
 describe('stageProcessorMemoryFiles', () => {
     it('no-op silencioso em projeto sem processador', async () => {
         const d = makeDeps({ projectConfig: { processors: [] } });
-        await stageProcessorMemoryFiles(d, '/comp/Temp');
+        await stageProcessorMemoryFiles(d, '/proj', '/proj');
         expect(deps.terminalManager.calls).toEqual([]);
-        expect(window.electronAPI.getFolderFiles).not.toHaveBeenCalled();
+        expect(window.electronAPI.copyFile).not.toHaveBeenCalled();
     });
 
-    it('copia os pc_*_mem.txt dos subdirs (sucesso silencioso)', async () => {
-        const d = makeDeps({ projectConfig: { processors: [{ name: 'ProcX' }] } });
-        window.electronAPI._folders['/comp/Temp'] = [{ isDirectory: true, path: '/comp/Temp/ProcX' }];
-        window.electronAPI._dirFiles['/comp/Temp/ProcX'] = ['pc_ProcX_mem.txt', 'other.txt'];
-        await stageProcessorMemoryFiles(d, '/comp/Temp');
-        expect(window.electronAPI.copyFile).toHaveBeenCalledWith(
-            '/comp/Temp/ProcX/pc_ProcX_mem.txt', '/comp/Temp/pc_ProcX_mem.txt',
-        );
-        expect(logged('warning')).toBe(false); // staged > 0 → sem warning
+    it('copia os .mif e o pc_<proc>_mem.txt de cada pasta de saida (sucesso silencioso)', async () => {
+        const d = makeDeps({ projectConfig: { processors: [{ name: 'ProcX' }, 'B'] } });
+        for (const f of ['ProcX_inst.mif', 'ProcX_data.mif', 'pc_ProcX_mem.txt']) {
+            window.electronAPI._files.set(`/proj/ProcX/ProcX/${f}`, 'x');
+        }
+        window.electronAPI._files.set('/proj/B/B/pc_B_mem.txt', 'x');
+        await stageProcessorMemoryFiles(d, '/proj', '/proj');
+        expect(window.electronAPI.copyFile.mock.calls).toEqual([
+            ['/proj/ProcX/ProcX/ProcX_inst.mif', '/proj/ProcX_inst.mif'],
+            ['/proj/ProcX/ProcX/ProcX_data.mif', '/proj/ProcX_data.mif'],
+            ['/proj/ProcX/ProcX/pc_ProcX_mem.txt', '/proj/pc_ProcX_mem.txt'],
+            ['/proj/B/B/pc_B_mem.txt', '/proj/pc_B_mem.txt'],
+        ]);
+        expect(logged('warning')).toBe(false);
     });
 
-    it('avisa quando ha processador mas nenhum pc_*_mem.txt', async () => {
+    it('a simulacao na propria pasta de saida nao copia nada sobre si mesmo', async () => {
         const d = makeDeps({ projectConfig: { processors: [{ name: 'ProcX' }] } });
-        window.electronAPI._folders['/comp/Temp'] = [{ isDirectory: true, path: '/comp/Temp/ProcX' }];
-        window.electronAPI._dirFiles['/comp/Temp/ProcX'] = ['readme.txt'];
-        await stageProcessorMemoryFiles(d, '/comp/Temp');
+        window.electronAPI._files.set('/proj/ProcX/ProcX/pc_ProcX_mem.txt', 'x');
+        await stageProcessorMemoryFiles(d, '/proj', '/proj/procx/ProcX/');
+        expect(window.electronAPI.copyFile).not.toHaveBeenCalled();
+        expect(logged('warning')).toBe(false);
+    });
+
+    it('avisa quando ha processador mas nenhum arquivo de memoria', async () => {
+        const d = makeDeps({ projectConfig: { processors: [{ name: 'ProcX' }] } });
+        await stageProcessorMemoryFiles(d, '/proj', '/proj');
         expect(logged('warning')).toBe(true);
+    });
+
+    it('copia que falha vira aviso com o nome do arquivo', async () => {
+        const d = makeDeps({ projectConfig: { processors: ['ProcX'] } });
+        window.electronAPI._files.set('/proj/ProcX/ProcX/pc_ProcX_mem.txt', 'x');
+        window.electronAPI.copyFile.mockRejectedValueOnce(new Error('EPERM'));
+        await stageProcessorMemoryFiles(d, '/proj', '/sim');
+        expect(d.terminalManager.calls.some((c) => c.msg === 'terminal.wave.copyMemFailed')).toBe(true);
     });
 });

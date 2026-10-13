@@ -1,29 +1,17 @@
 /**
- * builders/cpp.ts, os dois CommandSpec do front end C++ do yanc.
+ * builders/cpp.ts, o CommandSpec do passo de compilacao do C++ (TCMM).
  *
- * O C++ chega ao mesmo assembly que o C±, mas em dois passos em vez de um:
+ * Desde o yanc v7.1 o C++ e um passo so, como o C±: o cppcomp pre-processa
+ * o fonte em memoria (o cpppp deixou de existir), e a AURORA o chama pelo
+ * driver `yanc`:
  *
- *   cpppp  -i <fonte.cpp> -o <temp>/pp.cpp -I <Header> -I <Software>
- *   cppcomp -i <temp>/pp.cpp -p <projectPath> -n <baseName> -t <temp>
+ *   yanc -S -o <pasta de saida> -I <pasta>... --lang=pt|en <fonte.cpp>
  *
- * Espelha Scripts/single_proc_cpp.bat do yanc. Tres diferencas em relacao ao
- * cmmcomp valem ser ditas, porque nenhuma delas se adivinha do cmm.ts:
- *
- *  - o cppcomp NAO recebe `-m`: os macros (`Macros/`) sao do asmcomp e do
- *    cmmcomp; o lado C++ traz os proprios cabecalhos em `Header/`, e eles
- *    entram pelo `-I` do cpppp, nao do compilador;
- *  - o que o cppcomp compila e o `pp.cpp` que o cpppp deixou na Temp, nao o
- *    arquivo da pessoa. Por isso os erros do cppcomp apontam para esse
- *    pp.cpp: e o preco de ter `#include`, e o terminal avisa;
- *  - o cpppp recebe o fonte por caminho ABSOLUTO, enquanto o cmmcomp recebe
- *    so o nome e resolve contra o `-p`. Os dois `-I` sao a pasta dos
- *    cabecalhos e a pasta do proprio fonte, nessa ordem, para que um
- *    `#include "meu.h"` ao lado do .cpp seja achado.
- *
- * O `-pt` / `-en` NAO entra aqui: nenhum dos dois binarios do lado C++ tem a
- * parse_lang_flag que o cmmcomp e o asmcomp tem, e passar a bandeira faria o
- * cpppp reclamar de opcao desconhecida. As mensagens do lado C++ saem so em
- * ingles, e isso e divida registrada do yanc.
+ * Um `#include "x"` e procurado na pasta do arquivo que inclui, depois nas
+ * pastas -I, depois em Header/, que o yanc acha ao lado de bin/. As mensagens
+ * de erro apontam para o arquivo e a linha que a pessoa escreveu
+ * (`fonte.cpp:12`, `./h.hpp:3`), e nao mais para um pp.cpp expandido. O
+ * `--lang` vale para todo o yanc; o cppcomp aceita e continua em ingles.
  *
  * Compilado por `tsc` (npm run build:ts) num cpp.js ao lado, e esse .js que o
  * runtime carrega; os imports usam a extensao `.js`.
@@ -31,73 +19,31 @@
 
 import type { CommandSpec } from '../command_spec.js';
 
-/** O nome do arquivo que o cpppp escreve e o cppcomp le, dentro da Temp. */
-export const ARQUIVO_PRE_PROCESSADO = 'pp.cpp';
-
-export interface CppPpBuilderCtx {
-  /** caminho absoluto de cpppp.exe */
-  cppPpPath: string;
-  /** caminho ABSOLUTO do .cpp da pessoa (o cpppp nao resolve contra -p) */
-  inputFile: string;
-  /** onde o pp.cpp vai ser escrito, e o -t do cppcomp: <projeto>/.aurora/Temp/<proc> */
-  tempPath: string;
-  /** components/Header, os cabecalhos C++ do yanc */
-  headerPath: string;
-  /** <projeto>/<proc>/Software, para um #include ao lado do fonte */
-  softwarePath: string;
-  processorName: string;
-}
-
 export interface CppBuilderCtx {
-  /** caminho absoluto de cppcomp.exe */
-  cppCompPath: string;
-  /** a MESMA Temp que o cpppp usou: e de la que sai o pp.cpp */
-  tempPath: string;
-  /** pasta do processador, onde nascem Software/<base>.asm e Hardware/ */
-  projectPath: string;
-  /** nome do fonte sem extensao; vira o -n e o nome do .asm */
-  baseName: string;
+  /** caminho absoluto de components/bin/yanc.exe */
+  yancPath: string;
+  /** caminho absoluto do .cpp, na pasta do processador */
+  sourcePath: string;
+  /** <proj>/<proc>/<proc>, onde o yanc escreve o .asm e as tabelas */
+  outputDir: string;
+  /** <proj>/<proc>, a pasta do fonte: e o cwd, base dos caminhos dos erros */
+  sourceDir: string;
+  /** pastas extras de #include, na ordem; vazio no uso normal */
+  includeDirs?: string[];
   processorName: string;
+  lang: 'pt' | 'en';
 }
 
-/** O caminho do pp.cpp dentro de uma Temp. Um so lugar decide esse nome. */
-export function caminhoPreProcessado(tempPath: string, separador = '\\'): string {
-  return `${tempPath}${separador}${ARQUIVO_PRE_PROCESSADO}`;
-}
-
-/** Passo 1: cpppp, o pre-processador (#include, #define, #if, #pragma once). */
-export function buildCppPpSpec(ctx: CppPpBuilderCtx): CommandSpec {
-  const args = [
-    '-i', ctx.inputFile,
-    '-o', caminhoPreProcessado(ctx.tempPath),
-    '-I', ctx.headerPath,
-    '-I', ctx.softwarePath,
-  ];
-
-  return {
-    step: 'cpp-pp',
-    binary: ctx.cppPpPath,
-    args,
-    cwd: ctx.tempPath,
-    processorName: ctx.processorName,
-    label: `cpp-pp: ${ctx.processorName}`,
-  };
-}
-
-/** Passo 2: cppcomp, que compila o pp.cpp no mesmo .asm do cmmcomp. */
 export function buildCppSpec(ctx: CppBuilderCtx): CommandSpec {
-  const args = [
-    '-i', caminhoPreProcessado(ctx.tempPath),
-    '-p', ctx.projectPath,
-    '-n', ctx.baseName,
-    '-t', ctx.tempPath,
-  ];
+  const args = ['-S', '-o', ctx.outputDir];
+  for (const dir of ctx.includeDirs ?? []) args.push('-I', dir);
+  args.push(`--lang=${ctx.lang}`, ctx.sourcePath);
 
   return {
     step: 'cpp',
-    binary: ctx.cppCompPath,
+    binary: ctx.yancPath,
     args,
-    cwd: ctx.projectPath,
+    cwd: ctx.sourceDir,
     processorName: ctx.processorName,
     label: `cpp: ${ctx.processorName}`,
   };

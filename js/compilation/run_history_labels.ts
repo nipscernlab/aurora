@@ -25,11 +25,9 @@
  */
 export const PASSOS: Readonly<Record<string, string>> = Object.freeze({
   'cmm': 'runHistory.step.cmm',
-  // O front end do C++ sao dois passos: o cpppp resolve `#include` e `#define`
-  // num pp.cpp na Temp, e o cppcomp compila esse pp.cpp.
-  'cpp-pp': 'runHistory.step.cppPp',
+  // Desde o yanc v7.1 o C++ e um passo so (o cppcomp pre-processa sozinho) e
+  // a montagem tambem (o appcomp virou a primeira passada do asmcomp).
   'cpp': 'runHistory.step.cpp',
-  'asm-pre': 'runHistory.step.asmPre',
   'asm': 'runHistory.step.asm',
   'iverilog-check': 'runHistory.step.iverilogCheck',
   'iverilog-build': 'runHistory.step.iverilogBuild',

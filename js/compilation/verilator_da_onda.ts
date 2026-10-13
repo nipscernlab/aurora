@@ -28,7 +28,7 @@ import { foiCancelada } from './cancelamento.js';
 import * as CommandSpec from './command_spec.js';
 import { isPythonFile } from './compilation_helpers.js';
 import { nomesDeDumpEsperados } from './dump_guard.js';
-import { copiarDadosDoTestbench, exigirDumpGravavel } from './arquivos_da_simulacao.js';
+import { copiarDadosDoTestbench, diretorioDaSimulacao, exigirDumpGravavel } from './arquivos_da_simulacao.js';
 import { consumirProgresso, avisarSeNaBateria, vigiarTamanhoDoDump, type TerminalDaSimulacao } from './durante_a_simulacao.js';
 import { stageProcessorMemoryFiles, type TerminalManager } from './processor_compiler.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
@@ -265,8 +265,9 @@ export async function simularNoVerilator(
 ): Promise<string> {
     const terminal = ctx.terminalManager;
     const config = ctx.loadConfigUnsafe();
-    const simCwd = ctx.projectPath || tools.tempBaseDir;
-    await stageProcessorMemoryFiles(ctx, tools.tempBaseDir, simCwd);
+    const simCwd = await diretorioDaSimulacao(
+        ctx.projectPath, ctx.projectConfig?.processors, config.testbenchFile, tools.tempBaseDir);
+    await stageProcessorMemoryFiles(ctx, ctx.projectPath, simCwd);
     if (config.testbenchFile) {
         await copiarDadosDoTestbench(terminal, simCwd, config.testbenchFile);
     }

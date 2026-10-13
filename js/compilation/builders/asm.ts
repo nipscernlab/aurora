@@ -1,10 +1,14 @@
 /**
- * builders/asm.ts, CommandSpec builders for the two ASM steps:
- * appcomp (macro preprocessor) and asmcomp (final compiler).
+ * builders/asm.ts, o CommandSpec do passo de montagem (TASM).
  *
- * Mirror the call sites in compilation_module.js asmCompilation().
- * Lang flag (-pt/-en) goes first; the rest are named options
- * (APP/Sources/args.c and ASM/Sources/args.c).
+ * Desde o yanc v7.1 o appcomp virou a primeira passada do asmcomp, e a AURORA
+ * chama os dois pelo driver `yanc`, dando o .asm:
+ *
+ *   yanc -f <MHz> -c <clocks> --lang=pt|en <pasta de saida>/<nome>.asm
+ *
+ * Tudo sai na pasta do .asm: <nome>.v, os .mif, <nome>_tb.v, app_log.txt e
+ * trad_opcode.txt. O yanc recusa `-o` com um .asm, e acha Macros/ e SAPHO/
+ * sozinho ao lado de bin/.
  *
  * Compilado por `tsc` (npm run build:ts) num asm.js ao lado, é esse .js que o
  * runtime carrega; os imports usam a extensão `.js`.
@@ -12,46 +16,16 @@
 
 import type { CommandSpec } from '../command_spec.js';
 
-export interface AsmPreBuilderCtx {
-  /** absolute path to appcomp.exe */
-  appCompPath: string;
-  /** input .asm path */
-  asmFile: string;
-  /** components/Temp/<processor> */
-  tempPath: string;
-  processorName: string;
-  lang: 'pt' | 'en';
-}
-
-export function buildAsmPreSpec(ctx: AsmPreBuilderCtx): CommandSpec {
-  const args = [
-    `-${ctx.lang}`,
-    '-i', ctx.asmFile,
-    '-t', ctx.tempPath,
-  ];
-  return {
-    step: 'asm-pre',
-    binary: ctx.appCompPath,
-    args,
-    cwd: ctx.tempPath,
-    processorName: ctx.processorName,
-    label: `asm-pre: ${ctx.processorName}`,
-  };
-}
-
 export interface AsmBuilderCtx {
-  asmCompPath: string;
+  /** caminho absoluto de components/bin/yanc.exe */
+  yancPath: string;
+  /** caminho absoluto do .asm, na pasta de saida */
   asmFile: string;
-  /** per-processor project dir */
-  projectPath: string;
-  /** components/SAPHO */
-  hdlPath: string;
-  /** components/Macros */
-  macrosPath: string;
-  tempPath: string;
-  /** -f (positive int) */
+  /** a pasta do .asm, onde a montagem escreve: e o cwd */
+  outputDir: string;
+  /** -f, clock do testbench em MHz (inteiro positivo) */
   freq: number;
-  /** -c (positive int) */
+  /** -c, quantos clocks o testbench simula (inteiro positivo) */
   clocks: number;
   processorName: string;
   lang: 'pt' | 'en';
@@ -59,21 +33,17 @@ export interface AsmBuilderCtx {
 
 export function buildAsmSpec(ctx: AsmBuilderCtx): CommandSpec {
   const args = [
-    `-${ctx.lang}`,
-    '-i', ctx.asmFile,
-    '-p', ctx.projectPath,
-    '-d', ctx.hdlPath,
-    '-m', ctx.macrosPath,
-    '-t', ctx.tempPath,
     '-f', String(ctx.freq),
     '-c', String(ctx.clocks),
+    `--lang=${ctx.lang}`,
+    ctx.asmFile,
   ];
 
   return {
     step: 'asm',
-    binary: ctx.asmCompPath,
+    binary: ctx.yancPath,
     args,
-    cwd: ctx.tempPath,
+    cwd: ctx.outputDir,
     processorName: ctx.processorName,
     label: `asm: ${ctx.processorName}`,
   };

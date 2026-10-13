@@ -39,16 +39,17 @@ function folha(chave) {
 }
 
 describe('nomeDoPasso: todo passo da toolchain tem rotulo', () => {
-    it('nenhum dos 18 passos sai como o id cru', () => {
+    it('nenhum dos 16 passos sai como o id cru', () => {
         // Sem `window.t`, o shim devolve a CHAVE de traducao. O que se afirma
         // e que a tabela conhece o passo, e nao que a traducao ja subiu.
         const semRotulo = STEP_IDS.filter((id) => nomeDoPasso(id) === id);
         expect(semRotulo, `sem rotulo: ${semRotulo.join(', ')}`).toEqual([]);
     });
 
-    it('os dois passos do C++ estao entre eles', () => {
-        expect(nomeDoPasso('cpp-pp')).toBe('runHistory.step.cppPp');
+    it('o passo do C++ esta entre eles, e o cpp-pp e o asm-pre sairam com o yanc v7.1', () => {
         expect(nomeDoPasso('cpp')).toBe('runHistory.step.cpp');
+        expect(STEP_IDS).not.toContain('cpp-pp');
+        expect(STEP_IDS).not.toContain('asm-pre');
     });
 
     it('um passo desconhecido ainda sai como veio, que e melhor que escondido', () => {

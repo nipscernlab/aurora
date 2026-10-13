@@ -157,7 +157,7 @@ export const COMPONENTES: Componente[] = [
     chave: 'yanc',
     icone: 'yanc.svg',
     nome: 'YANC',
-    resumo: 'O compilador do SAPHO: cmmcomp, asmcomp, appcomp e comp2gtkw, que traduzem C± em processador.',
+    resumo: 'O compilador do SAPHO: o yanc, com cmmcomp, cppcomp, asmcomp e comp2gtkw, que traduzem C± e C++ em processador.',
     sentinela: 'bin/cppcomp.exe',
     // O YANC nao e so o bin/: o release dele traz tambem SAPHO/ (a biblioteca
     // Verilog do processador), Header/ (shims de C++) e Macros/ (ponto
@@ -166,7 +166,7 @@ export const COMPONENTES: Componente[] = [
     // sentinela, e o que faz o doctor enxergar um SAPHO/ apagado ou uma
     // atualizacao pela metade como o que sao: YANC incompleto.
     arquivosChave: [
-      'bin/cmmcomp.exe', 'bin/asmcomp.exe', 'bin/appcomp.exe',
+      'bin/yanc.exe', 'bin/cmmcomp.exe', 'bin/asmcomp.exe',
       'SAPHO/core.v', 'SAPHO/processor.v',
       'Header/cmath',
       'Macros/float_sin.asm',

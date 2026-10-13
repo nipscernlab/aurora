@@ -8,7 +8,7 @@
  * persisted/ephemeral overrides on top, and hand back the result for
  * display.
  *
- * For per-processor steps (cmm, cpp-pp, cpp, asm-pre, asm), `processorName` is
+ * For per-processor steps (cmm, cpp, asm), `processorName` is
  * required, otherwise we pick the first processor in the project (or
  * fail with a helpful message). For pipeline-wide steps (iverilog-*,
  * vvp-*, verilator-*, gtkwave, prism-yosys), processor is ignored.
@@ -21,10 +21,12 @@ import { electronAPI } from '../app/electron_api.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { projectTempDir } from '../project/project_temp.js';
+import { diretorioDaSimulacao } from './arquivos_da_simulacao.js';
+import { arquivosDaSaida, segmentosDaSaida, segmentosDoFonte } from './pastas_do_processador.js';
 import {
   buildCmmSpec,
-  buildCppPpSpec, buildCppSpec,
-  buildAsmPreSpec, buildAsmSpec,
+  buildCppSpec,
+  buildAsmSpec,
   buildIverilogCheckSpec, buildIverilogBuildSpec,
   buildVvpRunSpec,
   buildCocotbRunSpec,
@@ -127,76 +129,33 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
   if (!projectPath) throw new Error('No project is open');
 
   const lang = (window.getYancLang?.() ?? 'pt') as 'pt' | 'en';
-  const macrosPath  = await joinComponents('Macros');
   const hdlPath     = await joinComponents('SAPHO');
   // Intermediarios na Temp DO PROJETO, nunca na compartilhada (project_temp.js).
   const tempBaseDir = await projectTempDir(projectPath);
 
-  if (step === 'cmm') {
+  // Os tres passos do processador passam pelo driver yanc, com as pastas do
+  // yanc v7.1 (pastas_do_processador.ts). Os caminhos espelham os do
+  // processor_compiler.ts, para a previa ser o que de fato roda.
+  if (step === 'cmm' || step === 'cpp' || step === 'asm') {
     const proc = await loadProcessorContext(processorName);
-    const cmmCompPath = await joinComponents('bin', 'cmmcomp.exe');
-    const procDir     = await electronAPI.joinPath(projectPath, proc.name);
-    const tempPath    = await electronAPI.joinPath(tempBaseDir, proc.name);
-    const baseName    = proc.source.baseName;
+    const yancPath   = await joinComponents('bin', 'yanc.exe');
+    const sourceDir  = await electronAPI.joinPath(projectPath, ...segmentosDoFonte(proc.name));
+    const outputDir  = await electronAPI.joinPath(projectPath, ...segmentosDaSaida(proc.name));
+    if (step === 'asm') {
+      const asmFile = await electronAPI.joinPath(outputDir, arquivosDaSaida(proc.source.baseName).asm);
+      return buildAsmSpec({
+        yancPath, asmFile, outputDir,
+        freq: proc.clk, clocks: proc.numClocks,
+        processorName: proc.name, lang,
+      });
+    }
+    const sourcePath = await electronAPI.joinPath(sourceDir, proc.source.sourceFile);
+    if (step === 'cpp') {
+      return buildCppSpec({ yancPath, sourcePath, outputDir, sourceDir, processorName: proc.name, lang });
+    }
     return buildCmmSpec({
-      cmmCompPath,
-      inputFile: proc.source.sourceFile,
-      baseName,
-      projectPath: procDir,
-      macrosPath,
-      tempPath,
-      processorName: proc.name,
-      lang,
-      showArrays: proc.showArrays,
-    });
-  }
-
-  // O front end C++: dois passos que convergem no mesmo .asm do cmm. Os
-  // caminhos espelham o cppCompilation (processor_compiler.ts).
-  if (step === 'cpp-pp' || step === 'cpp') {
-    const proc = await loadProcessorContext(processorName);
-    const procDir      = await electronAPI.joinPath(projectPath, proc.name);
-    const tempPath     = await electronAPI.joinPath(tempBaseDir, proc.name);
-    if (step === 'cpp-pp') {
-      const cppPpPath    = await joinComponents('bin', 'cpppp.exe');
-      const headerPath   = await joinComponents('Header');
-      const softwarePath = await electronAPI.joinPath(procDir, 'Software');
-      const inputFile    = await electronAPI.joinPath(softwarePath, proc.source.sourceFile);
-      return buildCppPpSpec({ cppPpPath, inputFile, tempPath, headerPath, softwarePath, processorName: proc.name });
-    }
-    const cppCompPath = await joinComponents('bin', 'cppcomp.exe');
-    return buildCppSpec({
-      cppCompPath,
-      tempPath,
-      projectPath: procDir,
-      baseName: proc.source.baseName,
-      processorName: proc.name,
-    });
-  }
-
-  if (step === 'asm-pre' || step === 'asm') {
-    const proc = await loadProcessorContext(processorName);
-    const appCompPath = await joinComponents('bin', 'appcomp.exe');
-    const asmCompPath = await joinComponents('bin', 'asmcomp.exe');
-    const procDir     = await electronAPI.joinPath(projectPath, proc.name);
-    const tempPath    = await electronAPI.joinPath(tempBaseDir, proc.name);
-    const softwareDir = await electronAPI.joinPath(procDir, 'Software');
-    const baseName    = proc.source.baseName;
-    const asmFile     = await electronAPI.joinPath(softwareDir, `${baseName}.asm`);
-    if (step === 'asm-pre') {
-      return buildAsmPreSpec({ appCompPath, asmFile, tempPath, processorName: proc.name, lang });
-    }
-    return buildAsmSpec({
-      asmCompPath,
-      asmFile,
-      projectPath: procDir,
-      hdlPath,
-      macrosPath,
-      tempPath,
-      freq: proc.clk,
-      clocks: proc.numClocks,
-      processorName: proc.name,
-      lang,
+      yancPath, sourcePath, outputDir, sourceDir,
+      processorName: proc.name, lang, showArrays: proc.showArrays,
     });
   }
 
@@ -273,12 +232,13 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
 
   const verilogSimTopModule = tb && !tbIsPython ? simTopModule : topLevelModuleName;
 
-  // Simulation-run cwd, mirror of compilation_module._waveSimCwd, so the
-  // command preview / overrides match what the wave flow actually runs:
-  // ALWAYS the project folder (the .spf directory), the same base the
-  // .spf's own relative paths resolve against. Generated SAPHO memory
-  // files are staged there by the wave flow before the run.
-  const simRunCwd = projectPath || tempBaseDir;
+  // Simulation-run cwd, mirror of diretorioDaSimulacao in the wave flow, so
+  // the command preview / overrides match what actually runs: the project
+  // folder (the .spf directory), where the processors' memory files are
+  // staged before the run, or a processor's output folder when the testbench
+  // is the <proc>_tb.v the yanc generated there.
+  const simRunCwd = await diretorioDaSimulacao(
+    projectPath, structure.processors, tb && !tbIsPython ? tb : null, tempBaseDir);
 
   if (step === 'iverilog-check') {
     return buildIverilogCheckSpec({

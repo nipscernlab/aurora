@@ -101,3 +101,19 @@ describe('override_badges', () => {
     expect(document.querySelectorAll('.has-ai-override')).toHaveLength(0);
   });
 });
+
+describe('override_badges, os passos do processador desde o yanc v7.1', () => {
+  it('um override no passo cpp tambem marca o botao do C±', async () => {
+    overrides.lista = [{ key: 'cpp:filtro', step: 'cpp', processorName: 'filtro', scope: 'ephemeral', override: {} }];
+    botoes();
+    await repintar();
+    expect(document.getElementById('cmmcomp').classList.contains('has-ai-override')).toBe(true);
+  });
+
+  it('o asm-pre, que saiu com o appcomp, nao marca mais nada', async () => {
+    overrides.lista = [{ key: 'asm-pre:filtro', step: 'asm-pre', processorName: 'filtro', scope: 'ephemeral', override: {} }];
+    botoes();
+    await repintar();
+    expect(document.querySelectorAll('.has-ai-override')).toHaveLength(0);
+  });
+});

@@ -1,10 +1,12 @@
-// processor_compiler.ts: SAPHO processor compile steps (C±/.cmm → .asm → .v).
+// processor_compiler.ts: os passos de compilacao de um processador SAPHO
+// (fonte → .asm → .v), pelo driver `yanc` (yanc v7.1).
 //
 // Extracted from compilation_module.js (A2 god-file decomposition #5, the last
-// one). These drive the per-processor toolchain: cmmcomp (.cmm → .asm), then
-// appcomp + asmcomp (.asm → <proc>.v + pc_*_mem.txt + <base>_tb.v), plus the
-// helpers that resolve which .cmm/testbench to use and stage processor memory
-// files into Temp/.
+// one). Sao dois passos, cada um no seu terminal: `yanc -S` compila o .cmm ou o
+// .cpp no TCMM, e `yanc <proc>.asm` monta no TASM. O yanc acha o cmmcomp, o
+// cppcomp e o asmcomp ao lado dele e repassa as mensagens sem mudanca. Tudo o
+// que eles geram vai para a pasta de saida <proj>/<proc>/<proc>/
+// (pastas_do_processador.ts); o fonte e os dados ficam em <proj>/<proc>/.
 //
 // They are NOT pure, they run external .exe via runSpec, save editor buffers,
 // drive the status bar, and stream to the terminal. Rather than capture instance
@@ -21,11 +23,6 @@
 //     `setLastCompiledCmmPath` callback and cmmCompilation invokes it at the same
 //     point, the field is written inside the class, not here.
 //
-// The Verilator button used to need a #TOAQUI in the .cmm (so the <proc>.v
-// would grow a `cheguei` pin) and inserted one into the user's source. It no
-// longer does: the harness reads the program counter and stops at @fim
-// (verilator_tb.ts), so nothing here touches the source or the opcode set.
-//
 // Kept on `electronAPI` (live global) rather than the ../app/electron_api
 // re-export so the module stays unit-testable with the repo's
 // `globalThis.window = { electronAPI: fake }` pattern, migrating these globals
@@ -36,14 +33,13 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec } from './spec_runner.js';
 import { foiCancelada } from './cancelamento.js';
-import {
-    buildCmmSpec, buildAsmPreSpec, buildAsmSpec,
-    buildCppPpSpec, buildCppSpec,
-} from './builders/index.js';
+import { buildCmmSpec, buildAsmSpec, buildCppSpec } from './builders/index.js';
 import * as CommandSpec from './command_spec.js';
 import { moduleStemFromPath } from './compilation_helpers.js';
 import { analisarVerilog, totaisDoVerilog } from './verilog_stats.js';
-import { projectTempDir } from '../project/project_temp.js';
+import {
+    arquivosDaSaida, arquivosLidosPeloVerilog, nomesDosProcessadores, segmentosDaSaida, segmentosDoFonte,
+} from './pastas_do_processador.js';
 import {
     resolveProcessorSource,
     stripSourceExtension,
@@ -114,15 +110,38 @@ export async function getSelectedSourceFile(processor: ProcessorEntry): Promise<
     return resolveProcessorSource(processor).sourceFile;
 }
 
+/** As pastas e o executavel de um passo do yanc para um processador. */
+interface CaminhosDoPasso {
+    /** components/bin/yanc.exe */
+    yancPath: string;
+    /** <proj>/<proc>, onde ficam o fonte e os dados */
+    sourceDir: string;
+    /** <proj>/<proc>/<proc>, onde o yanc escreve tudo o que gera */
+    outputDir: string;
+    /** <outputDir>/<base>.asm */
+    asmPath: string;
+}
+
+async function caminhosDoPasso(deps: CompileDeps, name: string, baseName: string): Promise<CaminhosDoPasso> {
+    const yancPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'yanc.exe');
+    const sourceDir = await electronAPI.joinPath(deps.projectPath, ...segmentosDoFonte(name));
+    const outputDir = await electronAPI.joinPath(deps.projectPath, ...segmentosDaSaida(name));
+    const asmPath = await electronAPI.joinPath(outputDir, arquivosDaSaida(baseName).asm);
+    return { yancPath, sourceDir, outputDir, asmPath };
+}
+
+/** O idioma do toggle da AURORA, que vira o --lang de toda chamada do yanc. */
+function idiomaDoYanc(): 'pt' | 'en' {
+    return (window.getYancLang?.() ?? 'pt') as 'pt' | 'en';
+}
+
 /**
- * Resolve qual testbench o asmCompilation vai copiar pra
- * <proj>/<proc>/Simulation/. Duas formas:
+ * Resolve qual testbench o processador usa. Duas formas:
  *
  *   - processor.testbenchFile e um path absoluto → usa direto
  *     (testbench custom, salvo no .spf).
- *   - caso contrario → convencao "<cmmBase>_tb.v" dentro de
- *     <proj>/<proc>/Simulation/ (testbench auto-gerado pelo
- *     asmcomp).
+ *   - caso contrario → o "<base>_tb.v" que o yanc gera na pasta de saida
+ *     <proj>/<proc>/<proc>/, pronto para rodar dali.
  *
  */
 export async function getTestbenchInfo(
@@ -139,8 +158,8 @@ export async function getTestbenchInfo(
         tbModule = moduleStemFromPath(tbFileName);
     } else {
         tbModule = `${cmmBaseName}_tb`;
-        const simulationPath = await electronAPI.joinPath(deps.projectPath, processor.name, 'Simulation');
-        tbFile = await electronAPI.joinPath(simulationPath, `${tbModule}.v`);
+        const outputDir = await electronAPI.joinPath(deps.projectPath, ...segmentosDaSaida(processor.name));
+        tbFile = await electronAPI.joinPath(outputDir, arquivosDaSaida(cmmBaseName).testbench);
     }
 
     return {
@@ -150,7 +169,9 @@ export async function getTestbenchInfo(
 }
 
 /**
- * Compila o .cmm do processador via cmmcomp.exe → <proj>/<proc>/Software/<base>.asm.
+ * Compila o .cmm do processador com `yanc -S`: <proj>/<proc>/<proc>.cmm →
+ * <proj>/<proc>/<proc>/<proc>.asm, mais prog_log.txt, src_lines.txt e
+ * pc_<proc>_mem.txt na mesma pasta.
  *
  * @param setLastCompiledCmmPath  cacheia o .cmm corrente na instancia (lido pelo terminal)
  * @returns asmPath
@@ -168,54 +189,32 @@ export async function cmmCompilation(
     try {
         const selectedCmmFile = await getSelectedSourceFile(processor);
         const cmmBaseName = stripSourceExtension(selectedCmmFile);
-
-        // 1. Caminhos
-        const macrosPath = await electronAPI.joinPath(deps.componentsPath, 'Macros');
-
-        // A pasta temporaria do processador: <projeto>/.aurora/Temp/{name}
-        // (ver project_temp.js: por projeto, para duas janelas nao se pisarem).
-        const tempPath = await electronAPI.joinPath(await projectTempDir(deps.projectPath), name);
-
-        // Cria a pasta se nao existir; o { recursive: true } do backend cria
-        // .aurora, Temp e {name} de uma vez.
-        await electronAPI.createDirectory(tempPath);
-
-        const cmmCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'cmmcomp.exe');
-        const projectPath = await electronAPI.joinPath(deps.projectPath, name);
-        const softwarePath = await electronAPI.joinPath(deps.projectPath, name, 'Software');
-        const asmPath = await electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
+        const { yancPath, sourceDir, outputDir, asmPath } = await caminhosDoPasso(deps, name, cmmBaseName);
+        const sourcePath = await electronAPI.joinPath(sourceDir, selectedCmmFile);
 
         await TabManager.saveAllFiles();
 
         statusUpdater.startCompilation('cmm');
 
-        // yanc v4 usa named options (CMMComp/Sources/args.c):
-        //   -i input  -n name  -p proc-dir  -m macros-dir  -t temp-dir  [-A]
-        // -pt / -en vem do toggle de locale (UI + compiler unified) e vai
-        // PRIMEIRO: parse_lang_flag() consome essa flag e a remove de argv
-        // antes do cli_parse() ler o resto. Explicito pra que a UI mande,
-        // ignorando qualquer env var preexistente do shell.
-        //
-        // -A / --array liga o showArrays do .spf (campo per-processador):
-        // dump de arrays no waveform. Era -P no yanc v3.
-        const lang = (window.getYancLang?.() ?? 'pt') as 'pt' | 'en';
+        // O --lang vem do toggle de locale (UI e compilador na mesma lingua),
+        // explicito para que a UI mande e nao um YANC_LANG do shell.
+        // --wave-arrays liga o showArrays do .spf (campo por processador):
+        // cada elemento de vetor como sinal proprio na forma de onda.
         const cmmSpec = buildCmmSpec({
-            cmmCompPath,
-            inputFile: selectedCmmFile,
-            baseName: cmmBaseName,
-            projectPath,
-            macrosPath,
-            tempPath,
+            yancPath,
+            sourcePath,
+            outputDir,
+            sourceDir,
             processorName: name,
-            lang,
+            lang: idiomaDoYanc(),
             showArrays: !!showArrays,
         });
 
         // Track which .cmm this run is compiling so the terminal's
         // "line N" click handler can resolve the file even when verbose
-        // is off (the cmmcomp.exe echo is hidden in that mode, so DOM
+        // is off (the yanc echo is hidden in that mode, so DOM
         // scraping would find nothing).
-        setLastCompiledCmmPath(await electronAPI.joinPath(softwarePath, selectedCmmFile));
+        setLastCompiledCmmPath(sourcePath);
 
         // internal:true marca como 'plain', entao o filtro de
         // verbose esconde a linha de comando quando verbose=off.
@@ -244,16 +243,15 @@ export async function cmmCompilation(
 }
 
 /**
- * Compila o .cpp do processador via cpppp.exe + cppcomp.exe ->
- * <proj>/<proc>/Software/<base>.asm. Irmao do cmmCompilation: mesmo terminal,
- * mesmo .asm de saida, mesmo contrato de erro. Do asmCompilation em diante o
- * pipeline nao sabe qual das duas linguagens passou por aqui.
+ * Compila o .cpp do processador com `yanc -S`, que chama o cppcomp:
+ * <proj>/<proc>/<proc>.cpp → <proj>/<proc>/<proc>/<proc>.asm. Irmao do
+ * cmmCompilation: mesmo terminal, mesmo .asm de saida, mesmo contrato de
+ * erro. Do asmCompilation em diante o pipeline nao sabe qual das duas
+ * linguagens passou por aqui.
  *
- * Dois passos em vez de um. O cpppp resolve #include/#define e escreve um
- * pp.cpp na Temp; o cppcomp compila ESSE pp.cpp. E por isso que as linhas que
- * o cppcomp reporta sao as do arquivo expandido, e nao as do fonte da pessoa,
- * e e por isso que o terminal avisa quando o fonte tem #include: sem o aviso,
- * um "line 812" num arquivo de 40 linhas nao faz sentido nenhum.
+ * O cppcomp pre-processa o fonte em memoria, e as mensagens apontam para o
+ * arquivo e a linha que a pessoa escreveu, inclusive dentro de um header:
+ * `filtro.cpp:12`, `./coefs.hpp:3`, relativos a pasta do fonte, que e o cwd.
  *
  * @param setLastCompiledCmmPath  cacheia o fonte corrente na instancia (lido pelo terminal)
  * @returns asmPath
@@ -271,20 +269,8 @@ export async function cppCompilation(
     try {
         const sourceFile = await getSelectedSourceFile(processor);
         const baseName = stripSourceExtension(sourceFile);
-
-        // 1. Caminhos
-        const tempPath = await electronAPI.joinPath(await projectTempDir(deps.projectPath), name);
-        await electronAPI.createDirectory(tempPath);
-
-        const cppPpPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'cpppp.exe');
-        const cppCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'cppcomp.exe');
-        // Header/ e o lado C++ do yanc (array, cmath, cstdint, vector...),
-        // irmao do Macros/ que o cmmcomp e o asmcomp usam.
-        const headerPath = await electronAPI.joinPath(deps.componentsPath, 'Header');
-        const projectPath = await electronAPI.joinPath(deps.projectPath, name);
-        const softwarePath = await electronAPI.joinPath(projectPath, 'Software');
-        const sourcePath = await electronAPI.joinPath(softwarePath, sourceFile);
-        const asmPath = await electronAPI.joinPath(softwarePath, `${baseName}.asm`);
+        const { yancPath, sourceDir, outputDir, asmPath } = await caminhosDoPasso(deps, name, baseName);
+        const sourcePath = await electronAPI.joinPath(sourceDir, sourceFile);
 
         await TabManager.saveAllFiles();
 
@@ -292,52 +278,25 @@ export async function cppCompilation(
 
         // O mesmo seam do cmmCompilation, e ANTES de rodar: um clique no
         // terminal depois de uma compilacao que FALHOU tem que resolver para
-        // o fonte que falhou. Aponta para o .cpp da pessoa, nao para o
-        // pp.cpp: o pp.cpp ja vem no texto dos erros do cppcomp, e o que
-        // falta ao terminal e justamente o arquivo de origem.
+        // o fonte que falhou.
         setLastCompiledCmmPath(sourcePath);
 
-        // O cppcomp nao tem parse_lang_flag: as mensagens do lado C++ saem so
-        // em ingles. Dizer isso uma vez e melhor do que deixar a pessoa achar
-        // que o toggle de idioma quebrou.
-        deps.terminalManager.appendToTerminal('tcmm', tr('terminal.cpp.englishOnly'), 'tips');
-
-        // 2. cpppp, o pre-processador
-        deps.terminalManager.appendToTerminal('tcmm', tr('terminal.cpp.preprocessing'), 'info');
-        const ppSpec = buildCppPpSpec({
-            cppPpPath,
-            inputFile: sourcePath,
-            tempPath,
-            headerPath,
-            softwarePath,
-            processorName: name,
-        });
-        deps.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd: CommandSpec.formatSpec(ppSpec) }), 'info', { internal: true });
-        const ppResult = await runSpec(ppSpec, { consumeEphemeral: true });
-        deps.terminalManager.processExecutableOutput('tcmm', ppResult);
-
-        if (ppResult.code !== 0) {
-            statusUpdater.compilationError('cpp', `C++ preprocessing failed with code ${ppResult.code}`);
-            throw new Error(tr('error.compilation.cppPpFailed', { code: ppResult.code }));
+        // O cppcomp aceita o --lang como todo o yanc, mas as mensagens dele
+        // continuam em ingles. Dizer isso uma vez e melhor do que deixar a
+        // pessoa achar que o toggle de idioma quebrou; em ingles nao ha o
+        // que avisar.
+        const lang = idiomaDoYanc();
+        if (lang !== 'en') {
+            deps.terminalManager.appendToTerminal('tcmm', tr('terminal.cpp.englishOnly'), 'tips');
         }
 
-        // Aviso de numeracao de linha, depois do cpppp ter corrido: se o
-        // fonte tem #include, o que o cppcomp vai numerar e o expandido.
-        // Leitura de cortesia, falhando nao atrapalha a compilacao.
-        try {
-            const fonte = await electronAPI.readFile(sourcePath, { encoding: 'utf8' });
-            if (/^[ \t]*#\s*include\b/m.test(fonte)) {
-                deps.terminalManager.appendToTerminal('tcmm', tr('terminal.cpp.includeWarning', { name: sourceFile }), 'warning');
-            }
-        } catch (_e) { /* o aviso e cortesia; a compilacao segue */ }
-
-        // 3. cppcomp, que compila o pp.cpp no mesmo .asm do cmmcomp
         const cppSpec = buildCppSpec({
-            cppCompPath,
-            tempPath,
-            projectPath,
-            baseName,
+            yancPath,
+            sourcePath,
+            outputDir,
+            sourceDir,
             processorName: name,
+            lang,
         });
         deps.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd: CommandSpec.formatSpec(cppSpec) }), 'info', { internal: true });
         const result = await runSpec(cppSpec, { consumeEphemeral: true });
@@ -361,9 +320,10 @@ export async function cppCompilation(
 }
 
 /**
- * Compila o .asm via appcomp.exe (preprocess) + asmcomp.exe → <proc>.v +
- * pc_*_mem.txt; copia o testbench auto-gerado pra <proc>/Simulation/ quando
- * o processador usa o testbench "standard".
+ * Monta o .asm com `yanc <proc>.asm`, que chama o asmcomp (as duas passadas,
+ * a do antigo appcomp inclusive). Tudo sai na pasta do .asm, a de saida:
+ * <proc>.v, <proc>_inst.mif, <proc>_data.mif, <proc>_tb.v, app_log.txt e
+ * trad_opcode.txt. O <proc>_tb.v ja fica pronto para rodar dali.
  *
  */
 export async function asmCompilation(
@@ -379,8 +339,8 @@ export async function asmCompilation(
     await deps.terminalManager.clearTerminal('tasm');
 
     // Mensagem opcional logada APOS o clear, usada pelo handler
-    // do botao ASM pra avisar quando o C+- foi recompilado por
-    // falta de cmm_log.txt. Antes do clear ela era apagada antes
+    // do botao ASM pra avisar quando o fonte foi recompilado por
+    // falta do prog_log.txt. Antes do clear ela era apagada antes
     // do usuario ver.
     if (preamble) {
         deps.terminalManager.appendToTerminal('tasm', preamble, 'tips');
@@ -389,65 +349,27 @@ export async function asmCompilation(
     deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.starting', { name }));
 
     try {
-        const projectPath = await electronAPI.joinPath(deps.projectPath, name);
-        const tempPath = await electronAPI.joinPath(await projectTempDir(deps.projectPath), name);
-        const appCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'appcomp.exe');
-        const asmCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'asmcomp.exe');
-        const hdlPath = await electronAPI.joinPath(deps.componentsPath, 'SAPHO');
         const selectedCmmFile = await getSelectedSourceFile(processor);
         const cmmBaseName = stripSourceExtension(selectedCmmFile);
-        const softwarePath = await electronAPI.joinPath(deps.projectPath, name, 'Software');
-        const asmPath = await electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
-        const macrosPath = await electronAPI.joinPath(deps.componentsPath, 'Macros');
-
-        const {
-            tbFile
-        } = await getTestbenchInfo(deps, processor, cmmBaseName);
+        const { yancPath, outputDir, asmPath } = await caminhosDoPasso(deps, name, cmmBaseName);
 
         statusUpdater.startCompilation('asm');
         await TabManager.saveAllFiles();
 
-        // -pt / -en vem do toggle de locale. Vai PRIMEIRO: parse_lang_flag()
-        // consome a flag antes do cli_parse() ler as named options. Aplicado
-        // igual em appcomp e asmcomp pra que stdout/stderr dos dois passos
-        // saiam na mesma lingua.
-        const lang = (window.getYancLang?.() ?? 'pt') as 'pt' | 'en';
-
-        // appcomp: named options -i input  -t temp-dir (APP/Sources/args.c).
-        const asmPreSpec = buildAsmPreSpec({
-            appCompPath,
-            asmFile: asmPath,
-            tempPath,
-            processorName: name,
-            lang,
-        });
-        deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingPrep', { cmd: CommandSpec.formatSpec(asmPreSpec) }), 'info', { internal: true });
-        const appResult = await runSpec(asmPreSpec, { consumeEphemeral: true });
-        deps.terminalManager.processExecutableOutput('tasm', appResult);
-
-        if (appResult.code !== 0) {
-            statusUpdater.compilationError('asm', `ASM Preprocessor failed with code ${appResult.code}`);
-            throw new Error(tr('error.compilation.asmPrepFailed', { code: appResult.code }));
-        }
-
-        // asmcomp v4: named options -i -p -d -m -t -f -c (ASM/Sources/args.c).
         // -f/-c TEM que ser inteiros, o yanc rejeita valor nao-numerico
-        // e sai com usage. O -P (project mode = sem $finish no _tb.v) foi
-        // removido no v4: o $finish agora e sempre emitido; multi-proc
-        // workflows ignoram o _tb.v individual e usam um top-level proprio.
+        // e sai com usage. O $finish e sempre emitido no _tb.v; os
+        // projetos com varios processadores ignoram o _tb.v individual e
+        // usam um top-level proprio.
         const freq = Number.parseInt(String(clk), 10) || 0;
         const clocks = Number.parseInt(String(numClocks), 10) || 0;
         const asmSpec = buildAsmSpec({
-            asmCompPath,
+            yancPath,
             asmFile: asmPath,
-            projectPath,
-            hdlPath,
-            macrosPath,
-            tempPath,
+            outputDir,
             freq,
             clocks,
             processorName: name,
-            lang,
+            lang: idiomaDoYanc(),
         });
         deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingComp', { cmd: CommandSpec.formatSpec(asmSpec) }), 'info', { internal: true });
 
@@ -461,35 +383,14 @@ export async function asmCompilation(
             throw new Error(tr('error.compilation.asmFailed', { code: asmResult.code }));
         }
 
-        // Copia o testbench auto-gerado (asmcomp escreve em tempPath)
-        // pra <proc>/Simulation/<base>_tb.v sempre que o processador
-        // usa o testbench "standard", i.e., nao tem um testbench
-        // customizado configurado. O testbench auto-gerado e
-        // per-processador (Simulation/<base>_tb.v), distinto do
-        // testbench-top que o .spf aponta, entao nao
-        // conflita com nada.
-        const usesStandardTestbench =
-            !processor.testbenchFile || processor.testbenchFile === 'standard';
-        if (usesStandardTestbench) {
-            const tbFileName = tbFile.split(/[\\\\/]/)
-                .pop() ?? '';
-            const sourceTestbench = await electronAPI.joinPath(tempPath, tbFileName);
-            const destinationTestbench = tbFile;
-
-            // Path-cheio so em verbose; o resumo "Testbench
-            // atualizado" (tips) e o que aparece sem verbose.
-            deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.copyingTb', { src: sourceTestbench, dst: destinationTestbench }), 'info', { internal: true });
-            await electronAPI.copyFile(sourceTestbench, destinationTestbench);
-            deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.tbUpdated'), 'tips');
-        }
-
         // O que o asmcomp acabou de gerar, lido do proprio arquivo: modulos,
         // portas e instancias do <proc>.v. E o resumo que o terminal mostra
         // do hardware gerado; sem ele a compilacao terminava sem dizer o que
         // tinha produzido. Leitura de cortesia: falhando, a compilacao ja
         // deu certo e segue.
         try {
-            const hardwareVerilog = await electronAPI.joinPath(projectPath, 'Hardware', `${name}.v`);
+            const nomeDoV = arquivosDaSaida(cmmBaseName).verilog;
+            const hardwareVerilog = await electronAPI.joinPath(outputDir, nomeDoV);
             const fonte = await electronAPI.readFile(hardwareVerilog, { encoding: 'utf8' });
             const analise = analisarVerilog(fonte);
             const t = totaisDoVerilog(analise);
@@ -498,7 +399,7 @@ export async function asmCompilation(
                     m.instances.map((i) => `${i.module} ${i.name}`))
                 .join(', ');
             deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.verilogStats', {
-                file: `${name}.v`,
+                file: nomeDoV,
                 modules: t.modules,
                 ports: t.ports,
                 inputs: t.inputs,
@@ -521,60 +422,45 @@ export async function asmCompilation(
 }
 
 /**
- * Copia os pc_*_mem.txt (gerados por cmmcomp em Temp/<proc>/) pra destDir:
- * o CWD da simulacao, onde o $readmemb do <proc>.v procura. O fluxo Wave
- * passa a pasta do projeto (regra uniforme: simulacao roda na pasta do
- * .spf); o cocotb usa o default (raiz de tempBaseDir) e re-copia pro
- * buildDir dele. No-op (silencioso) em projeto sem processador; warning
- * claro quando ha processador mas nenhum pc_*_mem.txt foi achado.
+ * Copia, de cada processador do projeto, os arquivos que o Verilog gerado le
+ * pelo nome puro (<proc>_inst.mif, <proc>_data.mif e pc_<proc>_mem.txt) da
+ * pasta de saida dele para `destDir`, o diretorio de uma simulacao que nao
+ * roda la: a do projeto, com o top-level e os varios processadores, ou a do
+ * build do cocotb. Antes os .mif saiam com caminho absoluto e so os
+ * pc_*_mem.txt precisavam da copia; desde o yanc v7.1 os tres precisam.
+ *
+ * No-op (silencioso) em projeto sem processador; warning claro quando ha
+ * processador mas nenhum desses arquivos foi achado.
  *
  */
 export async function stageProcessorMemoryFiles(
     deps: Pick<CompileDeps, 'projectConfig' | 'terminalManager'>,
-    tempBaseDir: string,
-    destDir: string = tempBaseDir,
+    projectPath: string,
+    destDir: string,
 ): Promise<void> {
-    // Projeto sem processador no .spf nunca gera pc_*_mem.txt, o
-    // $readmemb que consome esses arquivos so existe dentro do .v do
-    // processador SAPHO. Pular o staging inteiro (incluindo o warning
-    // "no pc_*_mem.txt found") nesse caso: procurar arquivos de memoria
-    // de processador num design que nao tem processador so confunde.
-    const procs = Array.isArray(deps.projectConfig?.processors)
-        ? deps.projectConfig.processors.filter(
-            (p) => p && (typeof p === 'string' ? p.trim() : (p as { name?: string }).name))
-        : [];
-    if (procs.length === 0) return;
+    // Projeto sem processador no .spf nao tem memoria de processador
+    // nenhuma a copiar. Pular o staging inteiro (incluindo o warning) nesse
+    // caso: procurar arquivos de memoria num design que nao tem
+    // processador so confunde.
+    const nomes = nomesDosProcessadores(deps.projectConfig?.processors);
+    if (nomes.length === 0) return;
 
-    let entries: unknown;
-    try {
-        entries = await electronAPI.getFolderFiles(tempBaseDir);
-    } catch (_e) {
-        deps.terminalManager.appendToTerminal(
-            'twave',
-            tr('terminal.wave.couldNotList', { path: tempBaseDir }),
-            'warning',
-        );
-        return;
-    }
-    if (!Array.isArray(entries)) return;
+    const normal = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+    const mesmaPasta = (a: string, b: string): boolean => normal(a) === normal(b);
 
     let staged = 0;
-    const failedSubdirs: string[] = [];
-    for (const entry of entries as Array<{ isDirectory?: boolean, path: string }>) {
-        if (!entry?.isDirectory) continue;
-        const subDir = entry.path;
-        let subFiles: unknown;
-        try {
-            subFiles = await electronAPI.listFilesInDirectory(subDir);
-        } catch (_e) {
-            failedSubdirs.push(subDir);
+    for (const nome of nomes) {
+        const outputDir = await electronAPI.joinPath(projectPath, ...segmentosDaSaida(nome));
+        // A simulacao do proprio <proc>_tb.v roda na pasta de saida: os
+        // arquivos ja estao la, e copiar um arquivo sobre ele mesmo pode
+        // trunca-lo no Windows.
+        if (mesmaPasta(outputDir, destDir)) {
+            staged++;
             continue;
         }
-        if (!Array.isArray(subFiles)) continue;
-        for (const fileName of subFiles) {
-            if (typeof fileName !== 'string') continue;
-            if (!fileName.startsWith('pc_') || !fileName.endsWith('_mem.txt')) continue;
-            const src = await electronAPI.joinPath(subDir, fileName);
+        for (const fileName of arquivosLidosPeloVerilog(nome)) {
+            const src = await electronAPI.joinPath(outputDir, fileName);
+            if (!await electronAPI.fileExists(src)) continue;
             const dst = await electronAPI.joinPath(destDir, fileName);
             try {
                 await electronAPI.copyFile(src, dst);
@@ -582,7 +468,7 @@ export async function stageProcessorMemoryFiles(
             } catch (_e) {
                 deps.terminalManager.appendToTerminal(
                     'twave',
-                    tr('terminal.wave.copyMemFailed', { name: fileName, path: subDir }),
+                    tr('terminal.wave.copyMemFailed', { name: fileName, path: outputDir }),
                     'warning',
                 );
             }
@@ -590,14 +476,14 @@ export async function stageProcessorMemoryFiles(
     }
 
     if (staged === 0) {
-        // Sem nenhum pc_*_mem.txt → o $readmemb do .v do processador
-        // vai falhar logo a seguir. Avisar claramente em vez de deixar
-        // o erro do vvp ser a unica pista. O caminho de sucesso e
-        // silencioso por design: copiar arquivos de mem entre pastas
-        // e plumbing interno, nao algo que o usuario precisa saber.
+        // Sem nenhum desses arquivos, o $readmemb e os .mif do .v do
+        // processador vao falhar logo a seguir. Avisar claramente em vez de
+        // deixar o erro do simulador ser a unica pista. O caminho de sucesso
+        // e silencioso por design: copiar arquivos de memoria entre pastas e
+        // plumbing interno, nao algo que o usuario precisa saber.
         deps.terminalManager.appendToTerminal(
             'twave',
-            tr('terminal.wave.noMemFiles', { path: tempBaseDir }),
+            tr('terminal.wave.noMemFiles', { path: projectPath }),
             'warning',
         );
     }

@@ -29,19 +29,16 @@ import { isProcessorSourcePath, stripSourceExtension } from '../compilation/proc
 /**
  * Determina o processador "ativo" a partir do fonte em foco (.cmm ou
  * .cpp; quem sabe quais extensoes sao fonte e o processor_source.ts).
- * Aceita o caminho convencional `<projectDir>/<procName>/Software/<x>`
- * (prioriza o segmento de pasta, robusto a renames do fonte) e cai
- * pro basename como fallback. Retorna null se o arquivo em foco
- * nao for fonte de processador ou nao casar com nenhum processador.
+ * Aceita o caminho convencional `<projectDir>/<procName>/<x>` (prioriza a
+ * pasta, robusta a renames do fonte) e cai pro basename como fallback.
+ * Retorna null se o arquivo em foco nao for fonte de processador ou nao
+ * casar com nenhum processador.
  */
 function matchProcessorFromPath(filePath: string, processors: readonly string[]): string | null {
     if (!isProcessorSourcePath(filePath)) return null;
     const parts = filePath.split(/[\\/]/);
-    const swIdx = parts.findIndex((p) => p.toLowerCase() === 'software');
-    if (swIdx > 0) {
-        const candidate = parts[swIdx - 1];
-        if (processors.includes(candidate)) return candidate;
-    }
+    const pasta = parts.length >= 2 ? parts[parts.length - 2] : '';
+    if (processors.includes(pasta)) return pasta;
     const base = stripSourceExtension(parts[parts.length - 1]);
     if (processors.includes(base)) return base;
     return null;

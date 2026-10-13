@@ -23,7 +23,7 @@ import { listOverrides, clearOverride, type OverrideListEntry } from './command_
 type ApiComSubscribe = { subscribe?(evento: string, fn: () => unknown): unknown } | undefined;
 
 const BUTTON_TO_STEPS: Record<string, string[]> = {
-  cmmcomp:   ['cmm', 'asm-pre', 'asm'],
+  cmmcomp:   ['cmm', 'cpp', 'asm'],
   vericomp:  ['iverilog-check', 'iverilog-build'],
   wavecomp:  [
     'iverilog-build',

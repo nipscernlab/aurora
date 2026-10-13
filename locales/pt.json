@@ -685,16 +685,11 @@
     },
     "cpp": {
       "starting": "Iniciando a compilação C++ de {{name}}...",
-      "preprocessing": "Pré-processando com o cpppp (resolvendo #include / #define)...",
-      "includeWarning": "Atenção: este fonte tem #include, então o cppcomp indica as linhas do arquivo expandido (Temp/pp.cpp), e não as de {{name}}.",
       "englishOnly": "Atenção: o front end C++ só reporta em inglês."
     },
     "asm": {
       "starting": "Iniciando processo de compilação ASM para {{name}}...",
-      "executingPrep": "Executando Pré-processador ASM: {{cmd}}",
       "executingComp": "Executando Compilador ASM: {{cmd}}",
-      "copyingTb": "Copiando testbench de \"{{src}}\" para \"{{dst}}\"",
-      "tbUpdated": "Testbench atualizado na pasta do projeto.",
       "verilogStats": "Verilog gerado: {{file}} com {{modules}} módulo(s), {{ports}} portas ({{inputs}} de entrada, {{outputs}} de saída) e {{instances}} instância(s): {{instanceList}}"
     },
     "veri": {
@@ -793,8 +788,7 @@
       "procBuilding": "Compilando o harness do processador (--cc --exe --build)...",
       "procRunning": "Rodando \"{{name}}\" por {{clocks}} clocks...",
       "procDone": "Concluído. Saídas escritas em {{dir}}: {{outputs}}",
-      "noMemFiles": "Aviso: nenhum pc_*_mem.txt encontrado em subdiretórios de {{path}}. Esses arquivos são gerados pelo compilador C± (cmmcomp) por processador, rode C± pelo menos uma vez para cada processador antes de simular.",
-      "couldNotList": "Aviso: não foi possível listar {{path}} para preparar arquivos de memória do processador.",
+      "noMemFiles": "Aviso: nenhum arquivo de memória de processador (<proc>_inst.mif, <proc>_data.mif, pc_<proc>_mem.txt) nas pastas de saída <proc>/<proc>/ de {{path}}. O compilador os escreve lá; rode C± pelo menos uma vez para cada processador antes de simular.",
       "copyMemFailed": "Aviso: falha ao copiar {{name}} de {{path}}",
       "couldNotStageTbFile": "Aviso: não foi possível preparar \"{{name}}\" referenciado pelo testbench ({{reason}}).",
       "dumpfileMismatch": "Nota: $dumpfile do testbench aponta para \"{{name}}\" em vez de {{expected}}.vcd; usando esse arquivo para a visualização.",
@@ -850,10 +844,8 @@
     },
     "compilation": {
       "cmmFailed": "Compilação CMM falhou com código {{code}}",
-      "cppPpFailed": "O pré-processamento C++ falhou com o código {{code}}",
       "cppFailed": "A compilação C++ falhou com o código {{code}}",
       "asmFailed": "Compilação ASM falhou com código {{code}}",
-      "asmPrepFailed": "Pré-processador ASM falhou com código {{code}}",
       "iverilogFailedBuild": "Compilação Iverilog falhou com código {{code}}",
       "iverilogFailedCheck": "Verificação de sintaxe Iverilog falhou com código {{code}}",
       "yosysFailed": "Síntese Yosys falhou com código {{code}}",
@@ -1254,9 +1246,7 @@
     "concurrentHint": "Duas compilações rodavam ao mesmo tempo; este passo pode ser de qualquer uma.",
     "step": {
       "cmm": "Compilador C±",
-      "cppPp": "Pre-processador C++",
       "cpp": "Compilador C++",
-      "asmPre": "Expansão de macros",
       "asm": "Montador",
       "iverilogCheck": "Checagem do Verilog (Icarus)",
       "iverilogBuild": "Construção da simulação (Icarus)",

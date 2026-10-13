@@ -4,7 +4,7 @@
  * O override pode ACRESCENTAR o que quiser; nao pode remover nem esvaziar o
  * que o pipeline da AURORA depende para o passo seguinte achar o arquivo. O
  * modulo nao tinha teste; este fixa a verificacao nos tres tipos de regra e
- * o retrato que o list_allowed_flags mostra, e cobre os passos do C++.
+ * o retrato que o list_allowed_flags mostra, e cobre os passos do processador.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -14,30 +14,30 @@ import { RULES, check, describe as descrever } from '../../main/compile/protecte
 const spec = (args, env) => ({ args, ...(env ? { env } : {}) });
 
 describe('check: flagWithValue', () => {
-    const base = spec(['-i', 'a.cmm', '-n', 'a', '-p', '/p', '-m', '/m', '-t', '/t']);
+    const base = spec(['-S', '-o', '/p/a/a', '--lang=pt', '/p/a/a.cmm']);
 
     it('aceita a spec intacta e a que so acrescenta', () => {
         expect(check('cmm', base, base)).toEqual({ ok: true });
-        expect(check('cmm', base, spec([...base.args, '-A']))).toEqual({ ok: true });
+        expect(check('cmm', base, spec([...base.args, '--wave-arrays']))).toEqual({ ok: true });
     });
 
     it('aceita trocar o VALOR de uma flag protegida: a AURORA regenera por corrida', () => {
-        expect(check('cmm', base, spec(['-i', 'outro.cmm', '-n', 'a', '-p', '/p', '-m', '/m', '-t', '/t']))).toEqual({ ok: true });
+        expect(check('cmm', base, spec(['-S', '-o', '/outra', '--lang=pt', '/p/a/a.cmm']))).toEqual({ ok: true });
     });
 
     it('recusa remover a flag', () => {
-        const r = check('cmm', base, spec(['-n', 'a', '-p', '/p', '-m', '/m', '-t', '/t']));
+        const r = check('cmm', base, spec(['-S', '--lang=pt', '/p/a/a.cmm']));
         expect(r.ok).toBe(false);
-        expect(r.error).toMatch(/cannot remove protected flag -i/);
+        expect(r.error).toMatch(/cannot remove protected flag -o/);
     });
 
     it('recusa deixar a flag sem valor (no fim, ou seguida de outra flag)', () => {
-        expect(check('cmm', base, spec(['-n', 'a', '-p', '/p', '-m', '/m', '-t', '/t', '-i'])).ok).toBe(false);
-        expect(check('cmm', base, spec(['-i', '-n', 'a', '-p', '/p', '-m', '/m', '-t', '/t'])).ok).toBe(false);
+        expect(check('cmm', base, spec(['-S', '--lang=pt', '/p/a/a.cmm', '-o'])).ok).toBe(false);
+        expect(check('cmm', base, spec(['-S', '-o', '--lang=pt', '/p/a/a.cmm'])).ok).toBe(false);
     });
 
-    it('so protege flag que a base tinha: a base sem -A nao obriga -A', () => {
-        expect(check('asm', spec(['-i', 'x.asm', '-t', '/t']), spec(['-i', 'x.asm', '-t', '/t']))).toEqual({ ok: true });
+    it('so protege flag que a base tinha: a base sem -f nao obriga -f', () => {
+        expect(check('asm', spec(['--lang=pt', 'x.asm']), spec(['--lang=pt', 'x.asm']))).toEqual({ ok: true });
     });
 });
 
@@ -61,23 +61,32 @@ describe('check: literalArgs e envKeys', () => {
     });
 });
 
-describe('os passos do front end C++', () => {
-    it('cpp-pp protege -i, -o e -I; cpp protege -i, -p, -n e -t (sem -m: nao tem)', () => {
-        expect(RULES['cpp-pp']).toEqual({ flagWithValue: ['-i', '-o', '-I'] });
-        expect(RULES['cpp']).toEqual({ flagWithValue: ['-i', '-p', '-n', '-t'] });
+describe('os passos do processador, pelo driver yanc', () => {
+    it('cmm e cpp protegem o -S e o -o; asm protege -f e -c', () => {
+        expect(RULES['cmm']).toEqual({ literalArgs: ['-S'], flagWithValue: ['-o'] });
+        expect(RULES['cpp']).toEqual({ literalArgs: ['-S'], flagWithValue: ['-o'] });
+        expect(RULES['asm']).toEqual({ flagWithValue: ['-f', '-c'] });
+        expect(RULES['cpp-pp']).toBeUndefined();
+        expect(RULES['asm-pre']).toBeUndefined();
     });
 
-    it('um override que tira o -o do cpppp deixa o cppcomp sem pp.cpp: recusado', () => {
-        const base = spec(['-i', 'a.cpp', '-o', '/t/pp.cpp', '-I', '/h', '-I', '/s']);
-        expect(check('cpp-pp', base, spec(['-i', 'a.cpp', '-I', '/h', '-I', '/s'])).ok).toBe(false);
-        expect(check('cpp', spec(['-i', '/t/pp.cpp', '-p', '/p', '-n', 'a', '-t', '/t']), spec(['-p', '/p', '-n', 'a', '-t', '/t'])).ok).toBe(false);
+    it('um override que tira o -S faria o yanc montar no passo de compilacao: recusado', () => {
+        const base = spec(['-S', '-o', '/p/a/a', '--lang=en', '/p/a/a.cpp']);
+        expect(check('cpp', base, spec(['-o', '/p/a/a', '--lang=en', '/p/a/a.cpp'])).ok).toBe(false);
+        expect(check('cpp', base, spec([...base.args, '-I', '/inc'])).ok).toBe(true);
+    });
+
+    it('a montagem nao deixa sumir o clock do testbench', () => {
+        const base = spec(['-f', '100', '-c', '1000', '--lang=pt', '/p/a/a/a.asm']);
+        expect(check('asm', base, spec(['-c', '1000', '--lang=pt', '/p/a/a/a.asm'])).ok).toBe(false);
+        expect(check('asm', base, spec(['-f', '50', '-c', '1000', '--lang=pt', '/p/a/a/a.asm'])).ok).toBe(true);
     });
 });
 
 describe('describe: o retrato para list_allowed_flags', () => {
     it('devolve as tres listas, vazias quando a regra nao tem', () => {
-        expect(descrever('cpp')).toEqual({
-            step: 'cpp', protectedLiteralArgs: [], protectedFlagWithValue: ['-i', '-p', '-n', '-t'], protectedEnv: [],
+        expect(descrever('asm')).toEqual({
+            step: 'asm', protectedLiteralArgs: [], protectedFlagWithValue: ['-f', '-c'], protectedEnv: [],
         });
         expect(descrever('nada')).toEqual({ step: 'nada', protectedLiteralArgs: [], protectedFlagWithValue: [], protectedEnv: [] });
     });

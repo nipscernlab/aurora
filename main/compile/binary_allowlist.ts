@@ -42,18 +42,13 @@ import { anunciarAusencia } from '../components/notify.js';
  * main/components/registry.js.
  */
 export const RAW_ALLOWLIST: Array<[string, string[], string]> = [
-  ['cmmcomp.exe',   ['bin'], 'yanc'],
-  ['appcomp.exe',   ['bin'], 'yanc'],
-  ['asmcomp.exe',   ['bin'], 'yanc'],
-
-  // O front end C++ do yanc, que converge no mesmo .asm que o cmmcomp
-  // produz: o cpppp resolve #include/#define e escreve um pp.cpp na Temp, e o
-  // cppcomp compila esse pp.cpp. Do appcomp em diante o pipeline e o mesmo.
-  // Os dois ja vem no mesmo bin/ do yanc, e por isso o componente tambem e o
-  // 'yanc': quem nao tiver o componente instalado e barrado aqui como ja era
-  // barrado para o cmmcomp.
-  ['cpppp.exe',     ['bin'], 'yanc'],
-  ['cppcomp.exe',   ['bin'], 'yanc'],
+  // Desde o yanc v7.1 a AURORA chama so o driver `yanc`, que acha o
+  // cmmcomp, o cppcomp e o asmcomp ao lado dele e repassa as mensagens. Os
+  // tres nao entram aqui: nem a AURORA nem um override da IA os chamam
+  // direto. O cpppp e o appcomp deixaram de
+  // existir: o cppcomp pre-processa sozinho, e o appcomp virou a primeira
+  // passada do asmcomp.
+  ['yanc.exe',      ['bin'], 'yanc'],
 
   // Unified mingw bundle: iverilog, vvp, verilator, perl, g++, make, yosys
   // (+ python, handled by the python branch in isAllowed) all live in

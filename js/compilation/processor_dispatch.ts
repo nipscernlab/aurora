@@ -9,7 +9,7 @@
  *
  *   - locateProcessorSource: qual e o fonte deste processador, no disco. Se
  *     o .spf declara (sourceFile, cmmFile ou language), vale o declarado. Se
- *     nao declara, o que existe em Software/ decide, na ordem das
+ *     nao declara, o que existe na pasta do processador decide, na ordem das
  *     linguagens: <nome>.cmm, depois <nome>.cpp. Um projeto antigo, so com
  *     `{ name }`, continua achando o .cmm exatamente como antes; um projeto
  *     com so o .cpp passa a ser achado em vez de pulado.
@@ -32,6 +32,7 @@ import {
   type EntradaDeProcessador,
   type ProcessorLanguage,
 } from './processor_source.js';
+import { segmentosDoFonte } from './pastas_do_processador.js';
 
 /** O I/O que a busca no disco precisa, na forma do electronAPI. */
 export interface DiscoDoProjeto {
@@ -42,9 +43,9 @@ export interface DiscoDoProjeto {
 /** O fonte de um processador, achado no disco ou declarado no .spf. */
 export interface FonteLocalizado {
   language: ProcessorLanguage;
-  /** nome do arquivo, dentro de Software/ */
+  /** nome do arquivo, dentro da pasta do processador */
   sourceFile: string;
-  /** caminho absoluto, <projeto>/<proc>/Software/<sourceFile> */
+  /** caminho absoluto, <projeto>/<proc>/<sourceFile> */
   sourcePath: string;
 }
 
@@ -60,7 +61,7 @@ export function languagesInSearchOrder(): ProcessorLanguage[] {
  * Declarado no .spf: devolve o declarado, exista ou nao no disco. Quem chama
  * decide o que fazer com um declarado ausente (o compilador vai falhar com a
  * mensagem certa). Nao declarado: o primeiro `<nome>.<ext>` que existir em
- * Software/, na ordem das linguagens; `null` se nenhum existir, que e o caso
+ * <projeto>/<proc>/, na ordem das linguagens; `null` se nenhum existir, que e o caso
  * "pular este processador" do pre-flight.
  */
 export async function locateProcessorSource(
@@ -71,12 +72,12 @@ export async function locateProcessorSource(
   const declarou = !!(proc.sourceFile || proc.cmmFile || proc.language);
   if (declarou) {
     const fonte = resolveProcessorSource(proc);
-    const sourcePath = await disco.joinPath(projectPath, proc.name, 'Software', fonte.sourceFile);
+    const sourcePath = await disco.joinPath(projectPath, ...segmentosDoFonte(proc.name), fonte.sourceFile);
     return { language: fonte.language, sourceFile: fonte.sourceFile, sourcePath };
   }
   for (const language of languagesInSearchOrder()) {
     const sourceFile = `${proc.name}${extensionForLanguage(language)}`;
-    const sourcePath = await disco.joinPath(projectPath, proc.name, 'Software', sourceFile);
+    const sourcePath = await disco.joinPath(projectPath, ...segmentosDoFonte(proc.name), sourceFile);
     if (await disco.fileExists(sourcePath)) return { language, sourceFile, sourcePath };
   }
   return null;

@@ -15,6 +15,7 @@ import { SharedModelRegistry } from '../editor/shared_models.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from '../project/project_store.js';
 import { analisarAsm } from '../compilation/analise_asm.js';
+import { arquivosDaSaida, segmentosDaSaida } from '../compilation/pastas_do_processador.js';
 import { ok, err } from './api_core.js';
 import { loadRules } from './rules_ns.js';
 
@@ -25,7 +26,7 @@ export const analiseDoAsm = {
    *
    * Resolution order (one of these must work):
    *   1. explicit `filePath` (absolute, or relative to project root)
-   *   2. `processorName`  → <root>/<proc>/Software/<proc>.asm
+   *   2. `processorName`  → <root>/<proc>/<proc>/<proc>.asm (a pasta de saida)
    *   3. neither          → active editor (must be .asm)
    *
    * The returned shape lets the AI ask "how many instructions are in
@@ -40,7 +41,7 @@ export const analiseDoAsm = {
       target = String(filePath).trim();
     } else if (processorName) {
       if (!root) return err('No project open');
-      target = `${root}\\${processorName}\\Software\\${processorName}.asm`;
+      target = [root, ...segmentosDaSaida(processorName), arquivosDaSaida(processorName).asm].join('\\');
     } else {
       const active = TabManager.getEditingFilePath?.();
       if (!active || !active.toLowerCase().endsWith('.asm')) {

@@ -826,7 +826,7 @@ exports[`registro > os tokenizadores, a configuracao do MATLAB e os temas, como 
         ],
         "root": [
           [
-            /#\\(PRNAME\\|NUBITS\\|NBMANT\\|NBEXPO\\|NDSTAC\\|SDEPTH\\|NUIOIN\\|NUIOOU\\|NUGAIN\\|FROUND\\|FFTSIZ\\|PRACA\\|TOAQUI\\)/,
+            /#\\(NUBITS\\|NBMANT\\|NBEXPO\\|NDSTAC\\|SDEPTH\\|NUIOIN\\|NUIOOU\\|NUGAIN\\|FROUND\\|FFTSIZ\\|PRACA\\|TOAQUI\\)/,
             "keyword.directive.cmm",
           ],
           [

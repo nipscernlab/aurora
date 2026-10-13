@@ -16,10 +16,20 @@ import { motivoDe } from '../app/api_reply.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
-import { criarProcessador, apagarProcessador, renomearProcessador } from '../project/processadores_do_spf.js';
+import {
+  apagarProcessador, caminhoRenomeado, criarProcessador, renomearProcessador,
+} from '../project/processadores_do_spf.js';
 import { configComTempo } from '../project/processor_sim_config.js';
 import { parseProcessorHeader } from '../compilation/processor_header.js';
-import { resolveProcessorSource, type EntradaDeProcessador } from '../compilation/processor_source.js';
+import {
+  isProcessorSourcePath, resolveProcessorSource, type EntradaDeProcessador,
+} from '../compilation/processor_source.js';
+import { problemaNoNomeDoProcessador, segmentosDoFonte } from '../compilation/pastas_do_processador.js';
+
+/** A regra do nome, para a mensagem que volta a IA quando o nome nao serve. */
+const REGRA_DO_NOME = 'since yanc v7.1 the processor name is the source file name and the Verilog module, '
+  + 'so it takes only ASCII letters, digits and _, cannot start with a digit or __, '
+  + 'and cannot be a Verilog keyword';
 import { processorConfigPanel } from '../processors/processor_config_panel.js';
 import { ok, err, emit } from './api_core.js';
 import { arquivosAbertos, atualizarArvore, fecharEmTodoLugar } from './abas_e_arvore.js';
@@ -46,8 +56,8 @@ export const processadoresDoProjeto = {
    *             outputPorts, gain }
    *
    * `language` e 'cmm' (o padrao, e o que todo projeto de hoje tem) ou
-   * 'cpp'. Em C++ so o nome e as duas contagens de porta viram fonte, como
-   * `#pragma yanc prname/nuioin/nuioou`; os outros campos numericos sao
+   * 'cpp'. Em C++ so as duas contagens de porta viram fonte, como
+   * `#pragma yanc nuioin/nuioou`; os outros campos numericos sao
    * ignorados, porque o cppcomp assume o float de precisao simples sozinho.
    * A linguagem tambem vai para a entrada do processador no .spf, e e ela
    * que tira a ambiguidade quando ha um .cmm e um .cpp com o mesmo nome.
@@ -61,6 +71,8 @@ export const processadoresDoProjeto = {
     if (!root) return err('No project open');
     if (!config || !config.processorName) return err('processorName required');
     const name = config.processorName;
+    const problema = problemaNoNomeDoProcessador(name);
+    if (problema) return err(`"${name}" cannot be a processor name (${problema}): ${REGRA_DO_NOME}`);
     try {
       // Anti-duplicata pela FILE TREE (a pasta real no disco), nao so o .spf:
       // se a pasta <root>/<name> existe, e um processador REAL ja feito:
@@ -118,8 +130,8 @@ export const processadoresDoProjeto = {
 
   /**
    * Rename a processor everywhere it matters: the working directory, the
-   * .cmm file, the `#PRNAME` directive, the auto-generated build artifacts
-   * and every .spf reference. The main process does the on-disk work (see the
+   * source file (whose name IS the processor's name since yanc v7.1), the
+   * output folder with its generated artifacts and every .spf reference. The main process does the on-disk work (see the
    * `rename-processor` IPC) and the .spf changes through the SpfStore
    * (renomearProcessador); here we additionally re-point any open
    * editor tabs that lived under the old folder so the user never ends up
@@ -133,9 +145,8 @@ export const processadoresDoProjeto = {
     const newNm = String(newName || '').trim();
     if (!oldNm) return err('processorName required');
     if (!newNm) return err('newName required');
-    if (/[^A-Za-z0-9_-]/.test(newNm)) {
-      return err('newName may only contain letters, numbers, _ and -');
-    }
+    const problema = problemaNoNomeDoProcessador(newNm);
+    if (problema) return err(`newName "${newNm}" cannot be a processor name (${problema}): ${REGRA_DO_NOME}`);
     const root = ProjectStore.getProjectPath();
     if (!root) return err('No project open');
     if (typeof electronAPI?.renameProcessor !== 'function') {
@@ -164,19 +175,14 @@ export const processadoresDoProjeto = {
 
     const realOld = r?.oldName || oldNm;
     const realNew = r?.newName || newNm;
-    const oldDir = r?.oldDir || `${root}${sep}${realOld}`;
-    const newDir = r?.newDir || `${root}${sep}${realNew}`;
-    const escOld = realOld.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const artifactRe = new RegExp(`([\\\\/])${escOld}(_tb)?(\\.v|\\.sv|\\.asm|\\.cmm)$`, 'i');
-    const remap = (p: string) => {
-      const np = newDir + p.slice(oldDir.length);
-      return np.replace(artifactRe, (_m, slash, tb, ext) => `${slash}${realNew}${tb || ''}${ext}`);
-    };
+    // O mesmo remapeamento do .spf: a pasta do processador, a de saida
+    // <proc>/<proc>/ e os arquivos nomeados por ele (processadores_do_spf.ts).
+    const remap = (p: string) => caminhoRenomeado(p, root, realOld, realNew);
 
     // Re-point open tabs: the old paths no longer exist on disk.
     let reopenCmm: string | null = null;
     for (const oldPath of openUnderOld) {
-      if (/\.cmm$/i.test(oldPath)) reopenCmm = remap(oldPath);
+      if (isProcessorSourcePath(oldPath)) reopenCmm = remap(oldPath);
       await fecharEmTodoLugar(oldPath);
     }
     if (reopenCmm) {
@@ -224,7 +230,7 @@ export const processadoresDoProjeto = {
             const { language, sourceFile } = resolveProcessorSource(
               typeof p === 'string' ? { name } : raw as EntradaDeProcessador,
             );
-            const fonte = await electronAPI.joinPath(project, name, 'Software', sourceFile);
+            const fonte = await electronAPI.joinPath(project, ...segmentosDoFonte(name), sourceFile);
             cfg.header = parseProcessorHeader(await electronAPI.readFile(fonte), language);
           } catch (_) { /* fonte ausente — tudo bem */ }
         }

@@ -112,7 +112,8 @@ describe('documento sem nome', () => {
     const e = m.editores.getEditorForFile(p);
     TabManager.unsavedChanges.clear();
     e.setValue('  $cmm ');
-    expect(e.getValue()).toMatch(/#PRNAME processor/);
+    expect(e.getValue()).toMatch(/^#NUBITS 23/);
+    expect(e.getValue()).not.toMatch(/#PRNAME/);
     expect(TabManager.untitledDocuments.get(p)).toMatchObject({ detectedType: 'cmm', snippetApplied: true });
     expect(mon.editor.setModelLanguage).toHaveBeenCalledWith(e.getModel(), 'cmm');
     expect(e.posicao).toEqual({ lineNumber: 13, column: 5 });
@@ -259,21 +260,20 @@ describe('salvar o sem nome', () => {
     expect(m.spf.estrutura.unclassifiedFiles).toEqual([{ name: 'novo.v', path: 'C:/p/novo.v', isTopLevel: false }]);
   });
 
-  it('C+- no projeto: cria as pastas do processador, grava o .cmm com o #PRNAME e registra', async () => {
+  it('C+- no projeto: cria a pasta do processador, grava o .cmm sem #PRNAME e registra', async () => {
     m.projeto.caminho = 'C:/p';
     m.projeto.spf = 'C:/p/p.spf';
     m.spf.estrutura = { processors: ['OUTRO'] };
     const p = await semNome('#PRNAME velho\nint main() {}');
     m.ponte.showSaveDialog = async () => ({ filePath: 'C:/p/cpu.cmm' });
     expect(await TabManager.saveUntitledFile(p)).toBe(true);
-    expect(m.chamadas.filter((c) => c[0] === 'mkdir').map((c) => c[1])).toEqual([
-      'C:/p/cpu/Software', 'C:/p/cpu/Hardware', 'C:/p/cpu/Simulation',
-    ]);
-    expect(escritas()[0][0]).toBe('C:/p/cpu/Software/cpu.cmm');
-    expect(escritas()[0][1]).toMatch(/#PRNAME cpu/);
+    expect(m.chamadas.filter((c) => c[0] === 'mkdir').map((c) => c[1])).toEqual(['C:/p/cpu']);
+    expect(escritas()[0][0]).toBe('C:/p/cpu/cpu.cmm');
+    // O #PRNAME velho, que o yanc v7.1 recusa, sai; o resto fica como veio.
+    expect(escritas()[0][1]).toBe('int main() {}');
     expect(m.spf.estrutura.processors).toEqual(['OUTRO', { name: 'cpu' }]);
     expect(m.processadores).toEqual(['cpu']);
-    expect(TabManager.tabs.has('C:/p/cpu/Software/cpu.cmm')).toBe(true);
+    expect(TabManager.tabs.has('C:/p/cpu/cpu.cmm')).toBe(true);
 
     // Ja registrado: nao duplica.
     await TabManager.registerProcessor('CPU');
@@ -404,7 +404,8 @@ describe('arquivo novo pelo dialogo', () => {
   it('C+- cria o processador; nome invalido, cancelar e recusar sobrescrever desistem', async () => {
     m.ponte.showSaveDialog = async () => ({ filePath: 'C:/x/cpu.cmm' });
     expect(await TabManager.createNewFileFromDialog()).toBe(true);
-    expect(escritas()[0]).toEqual(['C:/x/cpu.cmm', expect.stringContaining('#PRNAME cpu')]);
+    expect(escritas()[0]).toEqual(['C:/x/cpu.cmm', expect.stringContaining('#NUBITS 23')]);
+    expect(escritas()[0][1]).not.toContain('#PRNAME');
     expect(m.ponte.showSaveDialog).toBeDefined();
 
     m.ponte.fileExists = async () => true;
@@ -423,21 +424,22 @@ describe('arquivo novo pelo dialogo', () => {
   });
 
   it('o conteudo inicial por tipo', () => {
-    expect(TabManager.initialContentForType('cmm', 'C:/x/meu-proc.cmm')).toMatch(/#PRNAME meu-proc/);
+    expect(TabManager.initialContentForType('cmm', 'C:/x/meu-proc.cmm')).toMatch(/^#NUBITS 23/);
     expect(TabManager.initialContentForType('python', 'x.py')).toMatch(/@cocotb.test\(\)/);
     expect(TabManager.initialContentForType('verilog', 'x.v')).toBe('');
   });
 
-  it('o alvo do processador: com projeto, as quatro pastas; sem, o proprio caminho', async () => {
+  it('o alvo do processador: com projeto, a pasta dele; sem, o proprio caminho', async () => {
     expect(await TabManager.getProcessorCmmTarget('C:/x/meu proc.cmm')).toEqual({
       processorName: 'meu_proc', cmmPath: 'C:/x/meu proc.cmm', projectPath: null,
     });
     m.projeto.caminho = 'C:/p';
     expect(await TabManager.getProcessorCmmTarget('C:/x/cpu.cmm')).toEqual({
-      processorName: 'cpu', processorPath: 'C:/p/cpu', softwarePath: 'C:/p/cpu/Software',
-      hardwarePath: 'C:/p/cpu/Hardware', simulationPath: 'C:/p/cpu/Simulation',
-      cmmPath: 'C:/p/cpu/Software/cpu.cmm', projectPath: 'C:/p',
+      processorName: 'cpu', processorPath: 'C:/p/cpu',
+      cmmPath: 'C:/p/cpu/cpu.cmm', projectPath: 'C:/p',
     });
+    // O nome segue a regra do yanc: o hifen, que o Verilog nao aceita, vira _.
+    expect((await TabManager.getProcessorCmmTarget('C:/x/meu-proc.cmm')).cmmPath).toBe('C:/p/meu_proc/meu_proc.cmm');
   });
 });
 

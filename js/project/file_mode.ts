@@ -4,7 +4,7 @@
  * Renderiza a file tree do projeto, a unica vista de arquivos que
  * Aurora mostra hoje. Lista arquivos a partir do .spf
  * (structure.synthesizableFiles + testbenchFiles + unclassifiedFiles +
- * per-processador Software/Hardware/Simulation auto-descoberto).
+ * por processador, a pasta dele e a de saida do yanc, auto-descobertas).
  *
  * O papel de cada arquivo (sintese, testbench ou ainda sem papel) e o da
  * lista onde ele esta, escolhido pela pessoa; nada e inferido do conteudo,
@@ -93,6 +93,7 @@ async function openTreeFile(filePath: string, fileName: string, options: { previ
 import { RenderMixin } from './project_tree_render.js';
 import { ActionsMixin } from './project_tree_actions.js';
 import { sourceExtensions } from '../compilation/processor_source.js';
+import { processadorDoCaminho, segmentosDaSaida, segmentosDoFonte } from '../compilation/pastas_do_processador.js';
 
 class ProjectTreeManager {
     declare ALLOWED_EXTENSIONS: string[];
@@ -118,8 +119,8 @@ class ProjectTreeManager {
         // dropping one here is rejected with the same notification a
         // .txt would get.
         this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.vh', '.py'];
-        // Extensoes "software", moram em <proc>/Software/, nao em
-        // Hardware/. Aparecem na arvore agrupadas com o processador,
+        // Extensoes "software", o fonte em <proc>/, e nao o que o yanc gera
+        // em <proc>/<proc>/. Aparecem na arvore agrupadas com o processador,
         // mas nao recebem toggle synth/tb, delete, nem entram no
         // synthesizableFiles do .spf.
         // .asm e GERADO (C± → ASM) e nao deve poluir a arvore, so o
@@ -342,8 +343,8 @@ class ProjectTreeManager {
         // os .cmm e .asm que o template gera) ate proximo restart ou
         // ate o usuario clicar Refresh manualmente.
         //
-        // _discoverProcessorFiles() varre as pastas <proj>/<proc>/{Hardware,
-        // Software,Simulation}/ pra cada nome em window.availableProcessors.
+        // _discoverProcessorFiles() varre <proj>/<proc>/ e a pasta de saida
+        // <proj>/<proc>/<proc>/ pra cada nome em window.availableProcessors.
         // Essa lista so e populada em projectManager.loadProject, entao
         // precisamos sincroniza-la aqui antes de refreshTree(), senao
         // o varredor pula a pasta do processador recem-criado e os
@@ -420,40 +421,38 @@ class ProjectTreeManager {
 
     /**
      * Dado um arquivo, devolve o nome do processador "dono" se o path
-     * cair em <projeto>/<proc>/{Hardware,Software,Simulation}/, senao
-     * null. Lista canonica de processadores e window.availableProcessors
-     * (semeada no load do .spf por project_manager).
+     * cair na pasta dele, <projeto>/<proc>/, ou na pasta de saida do yanc,
+     * <projeto>/<proc>/<proc>/; senao null. Quem sabe as duas pastas e o
+     * pastas_do_processador.ts. Lista canonica de processadores e
+     * window.availableProcessors (semeada no load do .spf por project_manager).
      */
     _getProcessorForFile(file: Partial<ArquivoDaArvore> | null | undefined): string | null {
         const projectPath = ProjectStore.getProjectPath();
         if (!projectPath || !file?.path) return null;
         const procs = Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
         if (procs.length === 0) return null;
-        const np = this._normalizePath(file.path);
-        const projN = this._normalizePath(projectPath);
-        if (!np.startsWith(projN)) return null;
-        const rel = np.slice(projN.length).replace(/^\/+/, '');
-        const segs = rel.split('/');
-        // Esperamos <proc>/{Hardware|Software|Simulation}/<arquivo>:
-        // pelo menos 3 segs e o segundo precisa ser uma das tres
-        // subpastas reconhecidas.
-        if (segs.length < 3) return null;
-        if (segs[1] !== 'hardware' && segs[1] !== 'software' && segs[1] !== 'simulation') {
-            return null;
-        }
-        const candidate = segs[0];
-        for (const p of procs) {
-            if (p.toLowerCase() === candidate) return p;
-        }
-        return null;
+        return processadorDoCaminho(file.path, projectPath, procs)?.nome ?? null;
     }
 
     /**
-     * Varre <projeto>/<proc>/{Hardware,Software,Simulation}/ pra cada
-     * processador configurado e adiciona qualquer .v/.sv/.vh ainda
-     * nao listado em this.verilogFiles como synth, e qualquer .cmm
-     * como software (nao persistido). Devolve quantos de cada:
-     * caller usa pra decidir se vale chamar saveConfiguration().
+     * Varre, para cada processador configurado, a pasta dele e a pasta de
+     * saida do yanc, e adiciona o que ainda nao esta em this.verilogFiles.
+     * Devolve quantos de cada: caller usa pra decidir se vale chamar
+     * saveConfiguration().
+     *
+     *   <proc>/        .cmm / .cpp   software, isSoftware=true, NAO persistido
+     *                                (re-descoberto a cada load pra evitar
+     *                                loop com o file watcher)
+     *                  .py           testbench do cocotb, persistido
+     *                  .v / .sv / .vh  sem papel, persistido: o arquivo e da
+     *                                pessoa, e o papel ela escolhe no botao
+     *                                direito
+     *   <proc>/<proc>/ <proc>_tb.v   testbench, persistido
+     *                  outro .v      sintese, persistido (o <proc>.v)
+     *
+     * O que o yanc gera tem papel sabido (quem gerou sabe), e a pessoa nao
+     * classifica arquivo gerado. O .asm e os .txt gerados ficam fora da
+     * arvore; a compilacao os le direto do disco.
      *
      * Nao-destrutivo: nao remove arquivos que sumiram do disco aqui
      * (isso fica a cargo do filtro fileExists em loadConfiguration).
@@ -467,26 +466,17 @@ class ProjectTreeManager {
         const seen = new Set(this.verilogFiles.map((f) => this._normalizePath(f.path)));
         let addedPersist = 0;
         let addedSoftware = 0;
-
-        // Para cada processador, varremos as TRES subpastas reconhecidas
-        // (Hardware/, Software/, Simulation/) e aceitamos qualquer
-        // arquivo com extensao Verilog ou Software, independente da
-        // pasta. A categoria (synth vs software) e decidida pela
-        // EXTENSAO, nao pela pasta:
-        //   .v / .sv / .vh   → synth, persistido no .spf
-        //   .cmm             → software, isSoftware=true, NAO persistido
-        //                       (.asm e gerado e fica fora da arvore;
-        //                       re-descoberto a cada load pra evitar
-        //                       loop com o file watcher)
-        const subfolders = ['Hardware', 'Software', 'Simulation'];
         const allExts = [...this.ALLOWED_EXTENSIONS, ...this.SOFTWARE_EXTENSIONS];
 
         for (const procName of procs) {
-            for (const subDirName of subfolders) {
-                const subDir = await electronAPI.joinPath(projectPath, procName, subDirName);
+            const pastas: Array<{ dir: string; saida: boolean }> = [
+                { dir: await electronAPI.joinPath(projectPath, ...segmentosDoFonte(procName)), saida: false },
+                { dir: await electronAPI.joinPath(projectPath, ...segmentosDaSaida(procName)), saida: true },
+            ];
+            for (const { dir, saida } of pastas) {
                 let entries: unknown;
                 try {
-                    entries = await electronAPI.listFilesInDirectory(subDir);
+                    entries = await electronAPI.listFilesInDirectory(dir);
                 } catch {
                     continue;
                 }
@@ -497,19 +487,27 @@ class ProjectTreeManager {
                     const matchedExt = allExts.find((ext) => lower.endsWith(ext));
                     if (!matchedExt) continue;
                     const isSoftware = this.SOFTWARE_EXTENSIONS.includes(matchedExt);
-                    const fullPath = await electronAPI.joinPath(subDir, entry);
+                    // O fonte so vale na pasta do processador; na de saida
+                    // nao ha fonte (e um .py la nao e de ninguem).
+                    if (saida && (isSoftware || matchedExt === '.py')) continue;
+                    const fullPath = await electronAPI.joinPath(dir, entry);
                     const key = this._normalizePath(fullPath);
                     if (seen.has(key)) continue;
-                    // O SAPHO gera os dois papeis e a pasta diz qual: o que
-                    // fica em Simulation/ (o <proc>_tb.v) e o .py do cocotb
-                    // sao testbench; o resto, sintese. Quem gerou sabe o
-                    // papel, e a pessoa nao classifica arquivo gerado.
-                    const ehTestbench = subDirName === 'Simulation' || matchedExt === '.py';
+                    let category: ArquivoDaArvore['category'];
+                    if (saida) {
+                        category = /_tb\.s?v$/i.test(entry) ? 'testbench' : 'synthesizable';
+                    } else if (matchedExt === '.py') {
+                        category = 'testbench';
+                    } else if (isSoftware) {
+                        category = 'synthesizable';
+                    } else {
+                        category = 'unclassified';
+                    }
                     const fileEntry: ArquivoDaArvore = {
                         name: entry,
                         path: fullPath,
                         isTopLevel: false,
-                        category: ehTestbench ? 'testbench' : 'synthesizable',
+                        category,
                     };
                     if (isSoftware) {
                         fileEntry.isSoftware = true;
@@ -698,7 +696,7 @@ class ProjectTreeManager {
                 path: f.path,
                 isTopLevel: f.isTopLevel || false,
             });
-            // Software files (.cmm/.asm de <proc>/Software/) nao entram
+            // Software files (o .cmm/.cpp de <proc>/) nao entram
             // em synthesizableFiles nem testbenchFiles, sao codigo do
             // processador, nao Verilog. Sao auto-redescobertos no
             // proximo load.
@@ -752,7 +750,7 @@ class ProjectTreeManager {
 
     /**
      * Le o .spf e popula this.verilogFiles. Inclui auto-discovery dos
-     * arquivos das pastas <proc>/{Hardware,Software,Simulation}/.
+     * arquivos de <proc>/ e da pasta de saida <proc>/<proc>/.
      *
      * Build da lista LOCALMENTE primeiro, only swap into
      * `this.verilogFiles` no fim. Duas razoes:
@@ -910,19 +908,18 @@ class ProjectTreeManager {
                 console.warn(`Dropped ${dedupRemoved} duplicate file entries from .spf`);
             }
 
-            // Auto-descobre arquivos dentro das pastas Hardware/ e
-            // Software/ de cada processador configurado. Hardware/
-            // entra como synth e PRECISA ser persistido no .spf (e o
-            // que o iverilog le). Software/ aparece na arvore mas nao
-            // e persistido, sao re-descobertos a cada load.
+            // Auto-descobre os arquivos de cada processador configurado
+            // (_discoverProcessorFiles). O <proc>.v da pasta de saida
+            // entra como synth e PRECISA ser persistido no .spf (e o que
+            // o iverilog le). O fonte aparece na arvore mas nao e
+            // persistido, e re-descoberto a cada load.
             //
-            // Persistir tambem os de Software causaria loop: o save
-            // mudaria o mtime do .spf, o file watcher dispararia
-            // refresh, refresh chamaria loadConfiguration, que re-
-            // descobriria os mesmos Software files (porque o filtro
-            // do save os exclui da .spf), e assim por diante. Por
-            // isso so chamamos saveConfiguration quando algo
-            // PERSISTIVEL (Hardware) foi adicionado.
+            // Persistir tambem o fonte causaria loop: o save mudaria o
+            // mtime do .spf, o file watcher dispararia refresh, refresh
+            // chamaria loadConfiguration, que re-descobriria o mesmo
+            // fonte (porque o filtro do save o exclui da .spf), e assim
+            // por diante. Por isso so chamamos saveConfiguration quando
+            // algo PERSISTIVEL foi adicionado.
             const { addedPersist } = await this._discoverProcessorFiles();
 
             // O papel de cada arquivo e o da lista do .spf onde ele esta, e

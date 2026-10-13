@@ -65,7 +65,7 @@ const NAMESPACES: Readonly<Record<string, Readonly<Record<string, string>>>> = O
     renameFile:         'Rename or move a file',
     listProcessors:     'Processors of the open project + their config',
     createProcessor:    'Generate a processor in the open project, C± or C++ (refuses to duplicate one whose folder already exists on disk; recreates a name that is only a dangling .spf reference)',
-    renameProcessor:    'Rename a processor (dir, .cmm, #PRNAME, .spf, artifacts)',
+    renameProcessor:    'Rename a processor (folder, source file, output folder, .spf)',
     createProject:      'Create a new SAPHO project and open it',
     renameProject:      'Rename the open project (folder + .spf + every stored path)',
     getRenameStatus:    'Progress or final verdict of a renameProject job',

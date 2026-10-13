@@ -79,7 +79,7 @@ export interface ArquivoDaArvore {
     path: string;
     isTopLevel?: boolean;
     category?: string;
-    /** Fonte de processador (.cmm/.cpp em <proc>/Software/): fica fora do .spf. */
+    /** Fonte de processador (.cmm/.cpp em <proc>/): fica fora do .spf. */
     isSoftware?: boolean;
 }
 

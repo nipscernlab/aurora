@@ -10,6 +10,7 @@
 import { getExtensionForDocumentType, type DocumentType } from '../editor/document_type_detector.js';
 import { glyphClassForFile } from '../ui/language_glyph.js';
 import { cmmTemplatePadrao } from '../project/processor_defaults.js';
+import { problemaNoNomeDoProcessador } from '../compilation/pastas_do_processador.js';
 
 
 
@@ -50,13 +51,23 @@ export function sanitizePythonModuleName(baseName: unknown): string {
     return cleaned;
 }
 
+/**
+ * Um nome de arquivo virado nome de processador valido. Desde o yanc v7.1 o
+ * nome do processador e o do arquivo e vira o modulo Verilog, entao a regra e
+ * a do yanc (pastas_do_processador.ts): so letras ASCII, digitos e `_`, sem
+ * digito nem `__` no inicio, nenhuma palavra reservada. O que nao serve e
+ * trocado em vez de recusado, porque aqui o nome sai de um "salvar como".
+ */
 export function sanitizeProcessorName(baseName: unknown): string {
-    const cleaned = String(baseName || 'processor')
+    let cleaned = String(baseName || 'processor')
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/[^a-zA-Z0-9_]+/g, '_')
         .replace(/_+/g, '_')
-        .replace(/^[_-]+|[_-]+$/g, '');
-    return cleaned || 'processor';
+        .replace(/^_+|_+$/g, '');
+    if (!cleaned) return 'processor';
+    if (/^[0-9]/.test(cleaned)) cleaned = `p_${cleaned}`;
+    if (problemaNoNomeDoProcessador(cleaned) === 'reservada') cleaned = `${cleaned}_proc`;
+    return cleaned;
 }
 
 /**
@@ -72,14 +83,21 @@ export function createCmmTemplate(processorName = 'processor'): string {
     return cmmTemplatePadrao(processorName);
 }
 
-export function ensureCmmPrname(content: unknown, processorName: string): string {
+/**
+ * O texto de um `.cmm` salvo como processador novo: o que a pessoa escreveu,
+ * ou o modelo quando ela nao escreveu nada.
+ *
+ * Desde o yanc v7.1 o nome do processador e o do arquivo, e um `#PRNAME` ou
+ * `#pragma yanc prname` no fonte e erro de compilacao. Uma linha dessas,
+ * colada de um programa antigo, sai aqui: e a mesma linha que a AURORA ja
+ * reescrevia sozinha quando o nome vinha dela.
+ */
+export function conteudoDoFonteNovo(content: unknown, processorName: string): string {
     const source = String(content || '').trim()
         ? String(content)
         : createCmmTemplate(processorName);
-    if (/^#PRNAME\s+.+$/mi.test(source)) {
-        return source.replace(/^#PRNAME\s+.+$/mi, `#PRNAME ${processorName}`);
-    }
-    return `#PRNAME ${processorName}\n${source.replace(/^\s+/, '')}`;
+    return source.replace(/^[ \t]*#PRNAME[ \t]+\S+[ \t]*\r?\n?/gmi, '')
+        .replace(/^[ \t]*#[ \t]*pragma[ \t]+yanc[ \t]+prname[ \t]+\S+[ \t]*\r?\n?/gmi, '');
 }
 
 export function typeFromExtension(filePath: unknown): DocumentType | null {

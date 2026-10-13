@@ -380,22 +380,23 @@ describe('ajudantes de caminho', () => {
     expect(m._normalizePath(undefined)).toBe('');
   });
 
-  it('dono de um arquivo: <proj>/<proc>/{Hardware,Software,Simulation}/', async () => {
+  it('dono de um arquivo: <proj>/<proc>/ e a pasta de saida <proj>/<proc>/<proc>/', async () => {
     const m = await novo();
     const f = (path) => m._getProcessorForFile({ path });
-    expect(f('C:/p/cpu/Hardware/cpu.v')).toBeNull(); // sem projeto
+    expect(f('C:/p/cpu/cpu.cmm')).toBeNull(); // sem projeto
     ProjectStore.setProject(SPF, RAIZ);
-    expect(f('C:/p/cpu/Hardware/cpu.v')).toBeNull(); // sem processadores
+    expect(f('C:/p/cpu/cpu.cmm')).toBeNull(); // sem processadores
     window.availableProcessors = ['CPU'];
     expect(m._getProcessorForFile(null)).toBeNull();
-    expect(f('C:/q/cpu/Hardware/cpu.v')).toBeNull();
-    expect(f('C:/p/cpu/cpu.v')).toBeNull();
+    expect(f('C:/q/cpu/cpu.cmm')).toBeNull();
+    expect(f('C:/p/cpu.v')).toBeNull();
     expect(f('C:/p/cpu/Outra/cpu.v')).toBeNull();
-    expect(f('C:\\p\\cpu\\Software\\cpu.cmm')).toBe('CPU');
-    expect(f('C:/p/cpu/Simulation/tb.v')).toBe('CPU');
-    expect(f('C:/p/dsp/Hardware/dsp.v')).toBeNull();
+    expect(f('C:/p/cpu/Software/cpu.cmm')).toBeNull(); // o formato antigo
+    expect(f('C:\\p\\cpu\\cpu.cmm')).toBe('CPU');
+    expect(f('C:/p/cpu/cpu/cpu_tb.v')).toBe('CPU');
+    expect(f('C:/p/dsp/dsp/dsp.v')).toBeNull();
     window.availableProcessors = 'nao e lista';
-    expect(f('C:/p/cpu/Hardware/cpu.v')).toBeNull();
+    expect(f('C:/p/cpu/cpu.cmm')).toBeNull();
   });
 });
 
@@ -408,20 +409,20 @@ describe('_discoverProcessorFiles', () => {
     expect(await m._discoverProcessorFiles()).toEqual({ addedPersist: 0, addedSoftware: 0 });
   });
 
-  it('o papel vem da pasta: Hardware e sintese, Simulation e .py sao testbench, fonte e software', async () => {
+  it('o papel: o .v gerado e sintese, o _tb.v gerado e testbench, .py e testbench, o .v da pessoa fica sem papel, fonte e software', async () => {
     const m = await novo();
     ProjectStore.setProject(SPF, RAIZ);
     window.availableProcessors = ['cpu'];
-    disco.pastas.set('C:/p/cpu/Hardware', ['cpu.v', 'notas.txt', 42, 'JA.V', 'teste.py']);
-    disco.pastas.set('C:/p/cpu/Software', ['cpu.cmm', 'cpu.asm']);
-    disco.pastas.set('C:/p/cpu/Simulation', ['cpu_tb.v']);
-    m.verilogFiles = [{ name: 'JA.V', path: 'c:\\p\\cpu\\hardware\\ja.v' }];
-    expect(await m._discoverProcessorFiles()).toEqual({ addedPersist: 3, addedSoftware: 1 });
+    disco.pastas.set('C:/p/cpu', ['cpu.cmm', 'input_0.txt', 42, 'teste.py', 'meu.v', 'cpu', 'JA.V']);
+    disco.pastas.set('C:/p/cpu/cpu', ['cpu.v', 'cpu_tb.v', 'cpu.asm', 'prog_log.txt', 'outro.cmm', 'x.py']);
+    m.verilogFiles = [{ name: 'JA.V', path: 'c:\\p\\cpu\\ja.v' }];
+    expect(await m._discoverProcessorFiles()).toEqual({ addedPersist: 4, addedSoftware: 1 });
     expect(m.verilogFiles.slice(1)).toEqual([
-      { name: 'cpu.v', path: 'C:/p/cpu/Hardware/cpu.v', isTopLevel: false, category: 'synthesizable' },
-      { name: 'teste.py', path: 'C:/p/cpu/Hardware/teste.py', isTopLevel: false, category: 'testbench' },
-      { name: 'cpu.cmm', path: 'C:/p/cpu/Software/cpu.cmm', isTopLevel: false, category: 'synthesizable', isSoftware: true },
-      { name: 'cpu_tb.v', path: 'C:/p/cpu/Simulation/cpu_tb.v', isTopLevel: false, category: 'testbench' },
+      { name: 'cpu.cmm', path: 'C:/p/cpu/cpu.cmm', isTopLevel: false, category: 'synthesizable', isSoftware: true },
+      { name: 'teste.py', path: 'C:/p/cpu/teste.py', isTopLevel: false, category: 'testbench' },
+      { name: 'meu.v', path: 'C:/p/cpu/meu.v', isTopLevel: false, category: 'unclassified' },
+      { name: 'cpu.v', path: 'C:/p/cpu/cpu/cpu.v', isTopLevel: false, category: 'synthesizable' },
+      { name: 'cpu_tb.v', path: 'C:/p/cpu/cpu/cpu_tb.v', isTopLevel: false, category: 'testbench' },
     ]);
   });
 
@@ -645,8 +646,8 @@ describe('loadConfiguration', () => {
   it('arquivo do processador descoberto: regrava', async () => {
     projeto();
     window.availableProcessors = ['cpu'];
-    disco.pastas.set('C:/p/cpu/Hardware', ['cpu.v']);
-    disco.arquivos.set('C:/p/cpu/Hardware/cpu.v', SINTESE);
+    disco.pastas.set('C:/p/cpu/cpu', ['cpu.v']);
+    disco.arquivos.set('C:/p/cpu/cpu/cpu.v', SINTESE);
     await novo();
     expect(disco.spf.get(SPF).synthesizableFiles.map((f) => f.name)).toEqual(['cpu.v']);
   });

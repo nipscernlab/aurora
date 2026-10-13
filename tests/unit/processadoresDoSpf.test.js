@@ -79,6 +79,14 @@ describe('caminhoRenomeado', () => {
             .toBe('C:\\proj\\alu\\Hardware\\somador.v');
     });
 
+    it('a pasta de saida do yanc, <proc>/<proc>/, troca de nome junto', () => {
+        expect(caminhoRenomeado('C:\\proj\\cpu\\cpu\\cpu.v', P, 'cpu', 'alu')).toBe('C:\\proj\\alu\\alu\\alu.v');
+        expect(caminhoRenomeado('C:/proj/cpu/CPU/cpu_tb.v', 'C:/proj', 'cpu', 'alu')).toBe('C:/proj/alu/alu/alu_tb.v');
+        expect(caminhoRenomeado('C:\\proj\\cpu\\cpu.cmm', P, 'cpu', 'alu')).toBe('C:\\proj\\alu\\alu.cmm');
+        // Uma subpasta mais funda, ou de outro nome, so acompanha a pasta.
+        expect(caminhoRenomeado('C:\\proj\\cpu\\cpu\\x\\cpu.v', P, 'cpu', 'alu')).toBe('C:\\proj\\alu\\cpu\\x\\alu.v');
+    });
+
     it('a pasta em si, barra normal, caixa diferente e projeto com barra no fim', () => {
         expect(caminhoRenomeado('C:\\proj\\cpu', P, 'cpu', 'alu')).toBe('C:\\proj\\alu');
         expect(caminhoRenomeado('C:/proj/cpu/cpu.v', 'C:/proj/', 'cpu', 'alu')).toBe('C:/proj/alu/alu.v');

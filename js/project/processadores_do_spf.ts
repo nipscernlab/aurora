@@ -56,10 +56,11 @@ export function tirarDaLista(estrutura: SpfStructure, nome: string): void {
 /**
  * O caminho de um arquivo depois de a pasta do processador mudar de nome.
  *
- * So mexe no que esta dentro de `<projeto>/<velho>`. Os artefatos nomeados
- * pelo processador (`<velho>.v`, `<velho>_tb.v`, `.sv`, `.asm`, `.cmm`, `.cpp`)
- * trocam de nome junto; arquivo que a pessoa nomeou acompanha a pasta e mantem
- * o nome. Os caminhos chegam absolutos pelo SpfStore, com o separador que
+ * So mexe no que esta dentro de `<projeto>/<velho>`. A pasta de saida do
+ * yanc, `<velho>/<velho>/`, troca de nome junto, e os artefatos nomeados pelo
+ * processador (`<velho>.v`, `<velho>_tb.v`, `.sv`, `.asm`, `.cmm`, `.cpp`)
+ * tambem; arquivo que a pessoa nomeou acompanha a pasta e mantem o nome. O
+ * main/ipc/project.ts faz o mesmo no disco. Os caminhos chegam absolutos pelo SpfStore, com o separador que
  * tiverem. Substitui o remapProcessorPath que o main aplicava sobre o `.spf`
  * cru, onde o SpfStore guarda relativo o que esta dentro do projeto, e por
  * isso nada era remapeado.
@@ -76,7 +77,9 @@ export function caminhoRenomeado(caminho: string, projeto: string, velho: string
 
   const resto = atual.slice(pastaVelha.length);
   const fim = resto.lastIndexOf('/');
-  const pasta = `${barra(projeto).replace(/\/+$/, '')}/${novo}${fim > 0 ? resto.slice(0, fim) : ''}`;
+  const meio = fim > 0 ? resto.slice(0, fim) : '';
+  const meioNovo = meio.toLowerCase() === `/${velho}`.toLowerCase() ? `/${novo}` : meio;
+  const pasta = `${barra(projeto).replace(/\/+$/, '')}/${novo}${meioNovo}`;
   const base = fim >= 0 ? resto.slice(fim + 1) : '';
   const escapado = velho.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const trocado = base.replace(

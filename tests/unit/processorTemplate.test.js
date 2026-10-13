@@ -24,22 +24,27 @@ const P = {
     inputPorts: 2, outputPorts: 3,
 };
 
-describe('cmmTemplate: o cabecalho de sempre', () => {
-    it('sai identico ao que o handler escrevia, diretiva por diretiva', () => {
-        expect(cmmTemplate(P)).toBe(`#PRNAME procTest_00
-#NUBITS 23
+describe('cmmTemplate: o cabecalho desde o yanc v7.1', () => {
+    it('sem #PRNAME (o nome e o do arquivo) e sem o #NUGAIN padrao', () => {
+        expect(cmmTemplate(P)).toBe(`#NUBITS 23
 #NDSTAC 5
 #SDEPTH 5
 #NUIOIN 2
 #NUIOOU 3
 #NBMANT 16
 #NBEXPO 6
-#NUGAIN 128
 
 void main()
 {
     // Øk. Você criou um processador em C±, mas e agora?
 }`);
+    });
+
+    it('um ganho escolhido diferente de 128 entra no cabecalho', () => {
+        const fonte = cmmTemplate({ ...P, gain: 64 });
+        expect(fonte).toContain('#NBEXPO 6\n#NUGAIN 64\n\nvoid main()');
+        expect(cmmTemplate({ ...P, gain: '128' })).not.toContain('#NUGAIN');
+        expect(cmmTemplate({ ...P, gain: undefined })).not.toContain('#NUGAIN');
     });
 });
 
@@ -52,13 +57,11 @@ describe('cmmTemplate: pilha sem valor fica de fora do cabecalho', () => {
     const SEM_PILHAS = { ...P, dataStackSize: undefined, instructionStackSize: undefined };
 
     it('sem as duas, o cabecalho perde as duas linhas e mais nada', () => {
-        expect(cmmTemplate(SEM_PILHAS)).toBe(`#PRNAME procTest_00
-#NUBITS 23
+        expect(cmmTemplate(SEM_PILHAS)).toBe(`#NUBITS 23
 #NUIOIN 2
 #NUIOOU 3
 #NBMANT 16
 #NBEXPO 6
-#NUGAIN 128
 
 void main()
 {
@@ -90,9 +93,8 @@ void main()
 });
 
 describe('cppTemplate: o mesmo dito em pragma', () => {
-    it('traz prname e as duas portas, e nada alem', () => {
-        expect(cppTemplate(P)).toBe(`#pragma yanc prname procTest_00
-#pragma yanc nuioin 2
+    it('traz as duas portas, e nada alem: o nome e o do arquivo', () => {
+        expect(cppTemplate(P)).toBe(`#pragma yanc nuioin 2
 #pragma yanc nuioou 3
 
 void main(void)
@@ -109,7 +111,8 @@ void main(void)
         for (const chave of ['nubits', 'nbmant', 'nbexpo', 'nugain', 'ndstac', 'sdepth']) {
             expect(fonte).not.toContain(chave);
         }
-        expect(fonte.match(/#pragma yanc/g)).toHaveLength(3);
+        expect(fonte.match(/#pragma yanc/g)).toHaveLength(2);
+        expect(fonte).not.toContain('prname');
     });
 
     it('usa a forma dos exemplos do yanc: void main(void)', () => {

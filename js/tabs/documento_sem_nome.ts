@@ -9,7 +9,7 @@
  * acompanha), expande o atalho `$cmm` no molde de processador C+-, e ao salvar
  * pede o nome, grava, entra no .spf do projeto e troca a aba sem nome pela do
  * arquivo, em todos os paineis. Um .cmm salvo dentro de um projeto vira um
- * processador: as tres pastas, o fonte com o #PRNAME e a entrada no .spf.
+ * processador: a pasta dele, o fonte <proc>.cmm dentro e a entrada no .spf.
  */
 
 import { electronAPI } from '../app/electron_api.js';
@@ -27,10 +27,11 @@ import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { registrarArquivo, papelDeEntrada } from '../project/papel_no_spf.js';
 import { addAvailableProcessor } from '../project/processor_list.js';
+import { segmentosDoFonte } from '../compilation/pastas_do_processador.js';
 import {
     basenameOf, withoutExtension, extensionOf, normalizeKey,
     sanitizeProcessorName,
-    createCmmTemplate, ensureCmmPrname, typeFromExtension,
+    createCmmTemplate, conteudoDoFonteNovo, typeFromExtension,
     appendDefaultExtension, validateSaveName,
 } from './tab_utils.js';
 import { nextUntitledPath, type UntitledDocument } from './untitled_docs.js';
@@ -47,7 +48,7 @@ type AlvoDoProcessador =
     | { processorName: string, cmmPath: string, projectPath: null }
     | {
         processorName: string, cmmPath: string, projectPath: string,
-        processorPath: string, softwarePath: string, hardwarePath: string, simulationPath: string,
+        processorPath: string,
     };
 
 /** O que este mixin usa do TabManager. */
@@ -218,12 +219,11 @@ export const documentoSemNome: DocumentoSemNome & ThisType<AnfitriaoDoSemNome & 
             return { processorName, cmmPath: selectedPath, projectPath: null };
         }
 
-        const processorPath = await electronAPI.joinPath(projectPath, processorName);
-        const softwarePath = await electronAPI.joinPath(processorPath, 'Software');
-        const hardwarePath = await electronAPI.joinPath(processorPath, 'Hardware');
-        const simulationPath = await electronAPI.joinPath(processorPath, 'Simulation');
-        const cmmPath = await electronAPI.joinPath(softwarePath, `${processorName}.cmm`);
-        return { processorName, processorPath, softwarePath, hardwarePath, simulationPath, cmmPath, projectPath };
+        // O fonte mora na pasta do processador, <proj>/<proc>/<proc>.cmm; a
+        // pasta de saida o yanc cria na primeira compilacao.
+        const processorPath = await electronAPI.joinPath(projectPath, ...segmentosDoFonte(processorName));
+        const cmmPath = await electronAPI.joinPath(processorPath, `${processorName}.cmm`);
+        return { processorName, processorPath, cmmPath, projectPath };
     },
 
     async choosePathForUntitledFile(filePath, content) {
@@ -305,7 +305,9 @@ export const documentoSemNome: DocumentoSemNome & ThisType<AnfitriaoDoSemNome & 
 
     async saveCmmProcessorFile(selectedPath, content) {
         const target = await this.getProcessorCmmTarget(selectedPath);
-        const finalContent = ensureCmmPrname(content, target.processorName);
+        // O nome do processador e o do arquivo (yanc v7.1): o texto vai como
+        // a pessoa escreveu, e um vazio ganha o modelo.
+        const finalContent = conteudoDoFonteNovo(content, target.processorName);
 
         if (!target.projectPath) {
             const finalPath = appendDefaultExtension(selectedPath, 'cmm');
@@ -314,9 +316,7 @@ export const documentoSemNome: DocumentoSemNome & ThisType<AnfitriaoDoSemNome & 
             return { filePath: finalPath, content: finalContent, processorName: target.processorName };
         }
 
-        await electronAPI.mkdir(target.softwarePath);
-        await electronAPI.mkdir(target.hardwarePath);
-        await electronAPI.mkdir(target.simulationPath);
+        await electronAPI.mkdir(target.processorPath);
 
         if (!await this.confirmOverwrite(target.cmmPath)) return null;
 

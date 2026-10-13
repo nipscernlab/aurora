@@ -199,7 +199,8 @@ export const renomearProjeto = {
    * the job finishes, and the project reopens itself.
    *
    * Processor folders move with the root, a project rename never touches
-   * #PRNAME or per-processor names (use rename_processor for those).
+   * the processors' names, which are their source file names (use
+   * rename_processor for those).
    */
   async renameProject({ newName }: { newName?: string } = {}) {
     const newNm = String(newName || '').trim();

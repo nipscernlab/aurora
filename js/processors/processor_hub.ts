@@ -2,6 +2,7 @@ import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { PADROES_DO_CPPCOMP as PADROES } from '../project/processor_defaults.js';
 import { criarProcessador } from '../project/processadores_do_spf.js';
+import { problemaNoNomeDoProcessador } from '../compilation/pastas_do_processador.js';
 
 /*
  * Compilado por `tsc` (npm run build:ts) num processor_hub.js ao lado, e esse
@@ -35,8 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // O seletor de linguagem e os campos que ele governa.
     //
-    // O front end C++ do yanc (cpppp + cppcomp) le do fonte so o nome e as
-    // duas contagens de porta, como `#pragma yanc prname/nuioin/nuioou`. Para
+    // O front end C++ do yanc (o cppcomp) le do fonte so as duas contagens
+    // de porta, como `#pragma yanc nuioin/nuioou`; o nome e o do arquivo. Para
     // largura, mantissa, expoente e ganho ele usa os padroes dele
     // (Compilers/CPPComp/Headers/config.h), e escrever ali os numeros deste
     // formulario cravaria no fonte um valor que ninguem escolheu. Por isso, em
@@ -112,21 +113,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Rule A: Name Validation
-    // Allowed: a-z, A-Z, 0-9, - (dash), _ (underscore)
-    // Disallowed: Spaces, symbols (!@#$), accents, punctuation
+    // O nome vira o arquivo fonte, a pasta e o modulo Verilog (yanc v7.1), e
+    // a regra e a do yanc: letras ASCII, digitos e _, sem digito nem __ no
+    // inicio, nenhuma palavra reservada do Verilog (pastas_do_processador.ts).
     const checkName = () => {
-        return validateField(inputs.name, (val) => {
-            if (!val) return false; // Empty check
-
-            // Regex Explanation:
-            // ^             : Start of line
-            // [a-zA-Z0-9_-] : Character set allowing letters, numbers, dash, underscore
-            // +             : One or more of the preceding set
-            // $             : End of line
-            const validNameRegex = /^[a-zA-Z0-9_-]+$/;
-
-            return validNameRegex.test(val);
-        });
+        return validateField(inputs.name, (val) => problemaNoNomeDoProcessador(val) === null);
     };
 
     // Rule B: Positive Integers (> 0). Empty strings are rejected explicitly

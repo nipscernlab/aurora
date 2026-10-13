@@ -67,9 +67,9 @@ export class SpfDaArvore {
      * O nome do processador cuja pasta e `caminho`, ou null.
      *
      * A arvore recusa renomear e apagar essa pasta. Renomear e o primeiro de
-     * cinco passos (pasta, `.cmm`, `#PRNAME`, `.spf` e artefatos), e fazer so o
+     * quatro passos (pasta, fonte, pasta de saida e `.spf`), e fazer so o
      * primeiro deixa um projeto que nao compila sem dizer por que; quem faz os
-     * cinco e o `renameProcessor` da API.
+     * quatro e o `renameProcessor` da API.
      */
     async processadorEm(caminho: string, raiz: string | null): Promise<string | null> {
         const spf = ProjectStore.getSpfPath?.();

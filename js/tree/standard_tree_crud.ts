@@ -278,7 +278,7 @@ class StandardTreeCrud {
             title: acao,
             message: tr('fileTree.crud.procFolder',
                 '"{name}" is a processor folder. Use the processor tools to rename or remove it, '
-                + 'so its .cmm, #PRNAME and .spf entry stay in sync.', { name: nome }),
+                + 'so its source file, output folder and .spf entry stay in sync.', { name: nome }),
             variant: 'warning',
             buttons: [{ label: tr('dialog.common.understood', 'Got it'), action: 'ok', type: 'primary' }],
         });

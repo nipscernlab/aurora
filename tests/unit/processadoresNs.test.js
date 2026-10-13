@@ -127,7 +127,9 @@ describe('renomear', () => {
   it('valida o nome novo e o canal', async () => {
     expect(msg(await pr.renameProcessor())).toBe('processorName required');
     expect(msg(await pr.renameProcessor({ processorName: 'P' }))).toBe('newName required');
-    expect(msg(await pr.renameProcessor({ processorName: 'P', newName: 'R 2' }))).toMatch(/only contain/);
+    expect(msg(await pr.renameProcessor({ processorName: 'P', newName: 'R 2' }))).toMatch(/cannot be a processor name \(caracteres\)/);
+    expect(msg(await pr.renameProcessor({ processorName: 'P', newName: 'my-proc' }))).toMatch(/\(caracteres\)/);
+    expect(msg(await pr.renameProcessor({ processorName: 'P', newName: 'wire' }))).toMatch(/\(reservada\)/);
     const canal = electronAPI.renameProcessor;
     delete electronAPI.renameProcessor;
     expect(msg(await pr.renameProcessor({ processorName: 'P', newName: 'R' }))).toBe('rename-processor IPC unavailable');
@@ -169,7 +171,7 @@ describe('renomear', () => {
 
 describe('config de simulacao', () => {
   it('le de todos, com o cabecalho do fonte quando ele existe', async () => {
-    disco.set('C:/p/P/Software/P.cmm', '#NUBITS 32\n');
+    disco.set('C:/p/P/P.cmm', '#NUBITS 32\n');
     const r = await pr.getProcessorConfig();
     expect(r.data.map((c) => c.name)).toEqual(['P', 'Q']);
     expect(r.data[0]).toMatchObject({ name: 'P', clk: 100, numClocks: 2000 });

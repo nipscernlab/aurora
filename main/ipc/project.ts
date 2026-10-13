@@ -34,11 +34,29 @@ import { parseProcessorHeader } from '../../js/compilation/processor_header.js';
 import { resolveProcessorSource } from '../../js/compilation/processor_source.js';
 import { parseSpfTolerant } from '../../js/project/spf_parse.js';
 import { configComTempo } from '../../js/project/processor_sim_config.js';
+import { artefatosDoProcessador } from './processor_rename.js';
 import {
-  artefatosDoProcessador,
-  fontesPossiveis,
-  reescreverNomeNoFonte,
-} from './processor_rename.js';
+  problemaNoNomeDoProcessador,
+  segmentosDoFonte,
+} from '../../js/compilation/pastas_do_processador.js';
+
+/**
+ * A mensagem para um nome que nao serve de processador, na regra do yanc
+ * (js/compilation/pastas_do_processador.ts), ou `null` quando serve. O nome
+ * vira o arquivo fonte, a pasta e o modulo Verilog.
+ */
+function erroDoNome(nome: string): string | null {
+  const problema = problemaNoNomeDoProcessador(nome);
+  if (!problema) return null;
+  const motivo = {
+    vazio: 'it is empty',
+    caracteres: 'use only ASCII letters, digits and underscore',
+    digito: 'it cannot start with a digit',
+    sublinhado: 'it cannot start with two underscores',
+    reservada: `"${nome}" is a Verilog keyword`,
+  }[problema];
+  return `Invalid processor name "${nome}": ${motivo}. The name becomes the source file and the Verilog module.`;
+}
 import { createRequire } from 'node:module';
 
 const requireTarde = createRequire(__filename);
@@ -663,18 +681,15 @@ function register() {
     try {
       if (!formData.projectLocation) throw new Error('Project location is required');
 
-      // SECURITY: processorName goes straight into path.join below, so it must
-      // be confined to a single path segment, same allowlist the rename
-      // handlers use. Without this, "..\\.." would create the Software/Hardware/
-      // Simulation tree outside the project (path traversal).
-      if (!/^[A-Za-z0-9_-]+$/.test(formData.processorName || '')) {
-        throw new Error('Invalid processor name: use only letters, numbers, hyphen and underscore');
-      }
+      // O nome vira o arquivo fonte, a pasta e o modulo Verilog (yanc v7.1),
+      // entao a regra e a do yanc, conferida aqui para a pessoa saber na hora
+      // e nao so na compilacao. SECURITY: a mesma regra confina o nome a um
+      // segmento de caminho; sem ela, "..\\.." criaria a pasta fora do
+      // projeto (path traversal).
+      const erro = erroDoNome(String(formData.processorName || ''));
+      if (erro) throw new Error(erro);
 
-      const processorPath = path.join(formData.projectLocation, formData.processorName);
-      const softwarePath = path.join(processorPath, 'Software');
-      const hardwarePath = path.join(processorPath, 'Hardware');
-      const simulationPath = path.join(processorPath, 'Simulation');
+      const processorPath = path.join(formData.projectLocation, ...segmentosDoFonte(formData.processorName));
 
       try {
         await fse.access(processorPath);
@@ -682,16 +697,15 @@ function register() {
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
 
+        // So a pasta do processador: a de saida, <proc>/<proc>/, o yanc cria
+        // na primeira compilacao.
         await fse.mkdir(processorPath, { recursive: true });
-        await fse.mkdir(softwarePath, { recursive: true });
-        await fse.mkdir(hardwarePath, { recursive: true });
-        await fse.mkdir(simulationPath, { recursive: true });
 
         // A linguagem decide o nome e o conteudo do fonte: as diretivas
         // `#NUBITS` do C+- ou os `#pragma yanc` do C++. Ver
         // js/project/processor_defaults.ts. Sem `language`, C+-, como sempre.
         const { fileName, content } = processorSourceFile(formData, formData.language);
-        const sourceFilePath = path.join(softwarePath, fileName);
+        const sourceFilePath = path.join(processorPath, fileName);
         await fse.writeFile(sourceFilePath, content, 'utf8');
 
         // A entrada do .spf vai para quem chamou gravar pelo SpfStore
@@ -729,7 +743,7 @@ function register() {
     async function lerCabecalho(projectDir: any, proc: any) {
       const entrada = typeof proc === 'string' ? { name: proc } : proc;
       const { language, sourceFile } = resolveProcessorSource(entrada);
-      const caminho = path.join(projectDir, entrada.name, 'Software', sourceFile);
+      const caminho = path.join(projectDir, ...segmentosDoFonte(entrada.name), sourceFile);
       try {
         return parseProcessorHeader(await fse.readFile(caminho, 'utf8'), language);
       } catch (_) {
@@ -840,14 +854,15 @@ function register() {
   });
 
   /**
-   * Rename a processor across every SAPHO-internal surface:
-   *   - the processor working directory  <root>/<old>  →  <root>/<new>
-   *   - the source file  Software/<old>.cmm  →  Software/<new>.cmm
-   *   - the `#PRNAME` directive inside that .cmm (directive line ONLY:
-   *     user comments and code are never touched)
-   *   - the auto-generated build artifacts (asm / Hardware .v / Simulation
-   *     _tb.v) so stale-named files don't linger; they regenerate on the
-   *     next compile anyway
+   * Rename a processor across every SAPHO-internal surface. Since yanc v7.1
+   * the processor's name is the source file's name, so there is no directive
+   * to rewrite inside the source:
+   *   - the processor folder  <root>/<old>  →  <root>/<new>
+   *   - the source file  <new>/<old>.cmm  →  <new>/<new>.cmm
+   *   - the output folder  <new>/<old>/  →  <new>/<new>/, and the generated
+   *     files in it that carry the name (.asm, .v, _tb.v, .mif,
+   *     pc_<proc>_mem.txt) so stale-named files don't linger; they
+   *     regenerate on the next compile anyway
    *   - NOT the .spf: the processors[] entry and the path references move in
    *     the renderer, through the SpfStore (renomearProcessador in
    *     js/project/processadores_do_spf.ts), from the oldName/newName/
@@ -866,9 +881,8 @@ function register() {
       const newNm = String(newName || '').trim();
       if (!oldNm) throw new Error('Current processor name is required');
       if (!newNm) throw new Error('New processor name is required');
-      if (!/^[A-Za-z0-9_-]+$/.test(newNm)) {
-        throw new Error('Processor name may contain only letters, numbers, underscore or hyphen');
-      }
+      const erroDoNovo = erroDoNome(newNm);
+      if (erroDoNovo) throw new Error(erroDoNovo);
 
       const spfData = parseSpfTolerant(await fse.readFile(spfPath, 'utf8'));
       const projectDir = spfData.structure.basePath;
@@ -924,30 +938,34 @@ function register() {
         await moveWithRetry(oldDir, newDir, { overwrite: false });
       }
 
-      // 2. Rename the SAPHO-managed files that carry the processor name.
+      // 2. A pasta de saida, <new>/<old>/ → <new>/<new>/. Numa troca so de
+      // caixa o nome do disco ja e o novo; o salto pela pasta temporaria
+      // faz o Windows trocar a caixa de verdade.
+      const saidaVelha = path.join(newDir, currentName);
+      const saidaNova = path.join(newDir, newNm);
+      if (await fse.pathExists(saidaVelha)) {
+        if (caseOnly) {
+          const tmpSaida = path.join(newDir, `__rename_${Date.now()}__`);
+          await moveWithRetry(saidaVelha, tmpSaida, { overwrite: false });
+          await moveWithRetry(tmpSaida, saidaNova, { overwrite: false });
+        } else if (!(await fse.pathExists(saidaNova))) {
+          await moveWithRetry(saidaVelha, saidaNova, { overwrite: false });
+        }
+      }
+
+      // 3. Rename the SAPHO-managed files that carry the processor name.
       // A lista vem do processor_rename.ts, que conhece as duas linguagens:
       // os fontes das duas entram, e o que nao existir no disco e pulado logo
       // abaixo. Ver o comentario de la sobre por que nao se filtra por
       // linguagem declarada.
-      for (const { sub, de, para } of artefatosDoProcessador(currentName, newNm)) {
+      for (const { pasta, de, para } of artefatosDoProcessador(currentName, newNm)) {
         if (de === para) continue;
-        const fromP = path.join(newDir, sub, de);
-        const toP = path.join(newDir, sub, para);
+        const dir = pasta === 'saida' ? saidaNova : newDir;
+        const fromP = path.join(dir, de);
+        const toP = path.join(dir, para);
         if (await fse.pathExists(fromP)) {
           await fse.move(fromP, toP, { overwrite: true });
         }
-      }
-
-      // 3. Reescreve o nome DENTRO do fonte, e so a linha da diretiva:
-      // `#PRNAME` no C+-, `#pragma yanc prname` no C++. Procura os dois
-      // arquivos porque o rename nao pergunta a linguagem a ninguem; o que
-      // existir e o que vale.
-      for (const { language, arquivo } of fontesPossiveis(newNm)) {
-        const fontePath = path.join(newDir, 'Software', arquivo);
-        if (!await fse.pathExists(fontePath)) continue;
-        const raw = await fse.readFile(fontePath, 'utf8');
-        const patched = reescreverNomeNoFonte(raw, newNm, language);
-        if (patched !== raw) await fse.writeFile(fontePath, patched, 'utf8');
       }
 
       // 4. A entrada e os caminhos do .spf mudam por quem chamou, pelo
@@ -982,8 +1000,8 @@ function register() {
    * state + the recents/jumplist are updated to the new .spf path; the
    * renderer reopens the project there.
    *
-   * Processor folders are subdirectories of the root, so they move with it
-   *, their #PRNAME directives and per-processor names are unaffected by a
+   * Processor folders are subdirectories of the root, so they move with it;
+   * the processors' names (the source file names) are unaffected by a
    * project rename (use rename_processor for those).
    */
   ipcMain.handle('rename-project', async (event, newName) => {

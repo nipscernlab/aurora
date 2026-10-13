@@ -89,18 +89,18 @@ describe('analyzeAsm', () => {
     ({ ProjectStore } = await import('../../js/project/project_store.js'));
     ({ analiseDoAsm: ns } = await import('../../js/api/analise_asm_ns.js'));
     ProjectStore.setProject('C:\\p\\p.spf', 'C:\\p');
-    disco.set('C:\\p\\P\\Software\\P.asm', 'LOD 1\nADD 2');
+    disco.set('C:\\p\\P\\P\\P.asm', 'LOD 1\nADD 2');
   });
 
   it('pelo processador, pelo caminho relativo, ou pelo arquivo em foco', async () => {
-    expect((await ns.analyzeAsm({ processorName: 'P' })).data).toMatchObject({ filePath: 'C:\\p\\P\\Software\\P.asm', total: 2 });
-    expect((await ns.analyzeAsm({ filePath: '\\P\\Software\\P.asm' })).data.filePath).toBe('C:\\p\\P\\Software\\P.asm');
-    foco.caminho = 'C:\\p\\P\\Software\\P.asm';
+    expect((await ns.analyzeAsm({ processorName: 'P' })).data).toMatchObject({ filePath: 'C:\\p\\P\\P\\P.asm', total: 2 });
+    expect((await ns.analyzeAsm({ filePath: '\\P\\P\\P.asm' })).data.filePath).toBe('C:\\p\\P\\P\\P.asm');
+    foco.caminho = 'C:\\p\\P\\P\\P.asm';
     expect((await ns.analyzeAsm()).data.total).toBe(2);
   });
 
   it('o arquivo aberto e analisado pelo buffer, com o que nao foi salvo', async () => {
-    modelos.set('C:\\p\\P\\Software\\P.asm', { getValue: () => 'LOD 1' });
+    modelos.set('C:\\p\\P\\P\\P.asm', { getValue: () => 'LOD 1' });
     expect((await ns.analyzeAsm({ processorName: 'P' })).data.total).toBe(1);
   });
 

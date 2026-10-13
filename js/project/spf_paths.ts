@@ -180,10 +180,10 @@ export function reporNoSpf(structure: Record<string,any>, retirado: { topo?: Rec
  * O nome do processador cuja pasta é `caminho`, ou null.
  *
  * Serve para a árvore RECUSAR renomear ou apagar a pasta de um processador
- * pela visão Pastas. Renomear a pasta é só o primeiro dos cinco passos que um
- * processador exige (pasta, `.cmm`, `#PRNAME`, `.spf` e artefatos), e fazer só
- * o primeiro deixa o projeto num estado que não compila e não avisa. Quem faz
- * os cinco é o `renameProcessor`.
+ * pela visão Pastas. Renomear a pasta é só o primeiro dos quatro passos que um
+ * processador exige (pasta, fonte, pasta de saída e `.spf`), e fazer só o
+ * primeiro deixa o projeto num estado que não compila e não avisa. Quem faz os
+ * quatro é o `renameProcessor`.
  *
  * @param raiz pasta do projeto
  * @param caminho pasta candidata

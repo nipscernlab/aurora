@@ -149,7 +149,7 @@ export const RenderMixin: RenderizacaoDaArvore & ThisType<AnfitriaoDoRender & Re
         container.querySelector('.verilog-empty-state')?.remove();
 
         // Agrupa arquivos por processador. Arquivos "comuns" (que nao
-        // moram em <proc>/{Hardware,Software,Simulation}/) ficam num
+        // moram em <proc>/ ou na pasta de saida <proc>/<proc>/) ficam num
         // grupo sem nome que aparece primeiro, sem separador. Os
         // grupos por processador aparecem depois, em ordem alfabetica,
         // cada um precedido por um separador horizontal com o nome.
@@ -403,7 +403,7 @@ export const RenderMixin: RenderizacaoDaArvore & ThisType<AnfitriaoDoRender & Re
         const icon = this.getFileIcon(file);
         const iconTitle = this._getIconTooltip(file);
 
-        // Arquivos software (.cmm/.asm de <proc>/Software/) nao
+        // Arquivos software (o .cmm/.cpp de <proc>/) nao
         // aparecem com botao de delete (sao gerenciados pelo proprio
         // processador). Apenas o icone + nome. Clicar abre o arquivo,
         // igual aos demais.

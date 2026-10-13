@@ -369,7 +369,9 @@ function buildCMMTokenizer(defineConstants: string[]): Monaco.languages.IMonarch
 
         tokenizer: {
             root: [
-                [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FROUND|FFTSIZ|PRACA|TOAQUI)/, 'keyword.directive.cmm'],
+                // Sem PRNAME desde o yanc v7.1 (o nome e o do arquivo); no
+                // .asm, la em cima, ele continua: o compilador o escreve.
+                [/#(NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FROUND|FFTSIZ|PRACA|TOAQUI)/, 'keyword.directive.cmm'],
 
                 // Object-like macro: `#define NAME body`. The directive + the
                 // name being defined are coloured here; every later use of NAME

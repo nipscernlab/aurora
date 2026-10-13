@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     basenameOf, withoutExtension, extensionOf, normalizeKey,
     sanitizeVerilogFileName, sanitizePythonModuleName, sanitizeProcessorName,
-    createCmmTemplate, ensureCmmPrname, typeFromExtension,
+    createCmmTemplate, conteudoDoFonteNovo, typeFromExtension,
     isValidPythonModuleName, isValidVerilogFileName,
     isImageFile, isPdfFile, isBinaryFile, getFileIcon,
     appendDefaultExtension, validateSaveName,
@@ -40,9 +40,14 @@ describe('name sanitizers', () => {
         expect(sanitizePythonModuleName('My Mod')).toBe('My_Mod');
         expect(sanitizePythonModuleName('')).toBe('test_dut');
     });
-    it('processor: keeps hyphen/underscore, falls back to processor', () => {
+    it('processor: follows the yanc rule (the name becomes the Verilog module)', () => {
         expect(sanitizeProcessorName('Proc X')).toBe('Proc_X');
-        expect(sanitizeProcessorName('a-b_c')).toBe('a-b_c');
+        expect(sanitizeProcessorName('a-b_c')).toBe('a_b_c');
+        expect(sanitizeProcessorName('média')).toBe('media');
+        expect(sanitizeProcessorName('2fast')).toBe('p_2fast');
+        expect(sanitizeProcessorName('__x')).toBe('x');
+        expect(sanitizeProcessorName('begin')).toBe('begin_proc');
+        expect(sanitizeProcessorName('---')).toBe('processor');
         expect(sanitizeProcessorName('')).toBe('processor');
     });
 });
@@ -58,23 +63,24 @@ describe('typeFromExtension', () => {
 });
 
 describe('cmm template', () => {
-    it('createCmmTemplate stamps the name + default header', () => {
+    it('createCmmTemplate stamps the default header, without #PRNAME', () => {
         const t = createCmmTemplate('Foo');
-        expect(t).toContain('#PRNAME Foo');
+        expect(t).not.toContain('#PRNAME');
         expect(t).toContain('#NUBITS 23');
         expect(t).toContain('void main()');
     });
-    it('ensureCmmPrname rewrites an existing #PRNAME', () => {
-        expect(ensureCmmPrname('#PRNAME Old\nvoid main(){}', 'New'))
-            .toContain('#PRNAME New');
+    it('conteudoDoFonteNovo keeps what the person wrote', () => {
+        expect(conteudoDoFonteNovo('#NUBITS 16\nvoid main(){}', 'New')).toBe('#NUBITS 16\nvoid main(){}');
     });
-    it('ensureCmmPrname prepends #PRNAME when missing', () => {
-        const out = ensureCmmPrname('void main(){}', 'New');
-        expect(out.startsWith('#PRNAME New')).toBe(true);
+    it('conteudoDoFonteNovo drops an old #PRNAME or #pragma yanc prname line', () => {
+        expect(conteudoDoFonteNovo('#PRNAME Old\n#NUBITS 16\nvoid main(){}', 'New'))
+            .toBe('#NUBITS 16\nvoid main(){}');
+        expect(conteudoDoFonteNovo('  #prname x  \r\nvoid main(){}', 'New')).toBe('void main(){}');
+        expect(conteudoDoFonteNovo('#pragma yanc prname old\nvoid main(void){}', 'New')).toBe('void main(void){}');
     });
-    it('ensureCmmPrname uses the template for empty content', () => {
-        const out = ensureCmmPrname('   ', 'Empty');
-        expect(out).toContain('#PRNAME Empty');
+    it('conteudoDoFonteNovo uses the template for empty content', () => {
+        const out = conteudoDoFonteNovo('   ', 'Empty');
+        expect(out).toBe(createCmmTemplate('Empty'));
         expect(out).toContain('#NUBITS 23');
     });
 });

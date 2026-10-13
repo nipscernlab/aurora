@@ -102,18 +102,27 @@ const linhaDaPilha = (diretiva: string, v: ParametrosDoProcessador['dataStackSiz
   (semValor(v) ? '' : `${diretiva} ${v}\n`);
 
 /**
- * O fonte C+-: as diretivas do cabecalho e um main vazio. Sao sete, ou nove
- * quando a API pede pilhas de tamanho fixo.
+ * A linha do `#NUGAIN`, ou nada quando o ganho e o padrao do yanc (128): o
+ * modelo so escreve o que a pessoa escolheu de diferente.
+ */
+const linhaDoGanho = (v: ParametrosDoProcessador['gain']): string =>
+  (semValor(v ?? null) || Number(v) === PADROES_DO_CMM.gain ? '' : `#NUGAIN ${v}\n`);
+
+/**
+ * O fonte C+-: as diretivas do cabecalho e um main vazio.
+ *
+ * Nao ha `#PRNAME`: desde o yanc v7.1 o nome do processador e o nome do
+ * arquivo, e a diretiva virou erro de compilacao. As pilhas (`#NDSTAC`,
+ * `#SDEPTH`) e o `#NUGAIN` tem padrao no yanc e so entram quando alguem pede
+ * um valor: as pilhas pela API, o ganho quando difere de 128.
  */
 export function cmmTemplate(p: ParametrosDoProcessador): string {
-  return `#PRNAME ${p.processorName}
-#NUBITS ${p.nBits}
+  return `#NUBITS ${p.nBits}
 ${linhaDaPilha('#NDSTAC', p.dataStackSize)}${linhaDaPilha('#SDEPTH', p.instructionStackSize)}#NUIOIN ${p.inputPorts}
 #NUIOOU ${p.outputPorts}
 #NBMANT ${p.nbMantissa}
 #NBEXPO ${p.nbExponent}
-#NUGAIN ${p.gain}
-
+${linhaDoGanho(p.gain)}
 void main()
 {
     // Øk. Você criou um processador em C±, mas e agora?
@@ -121,9 +130,10 @@ void main()
 }
 
 /**
- * O fonte C++: tres pragmas e um main vazio.
+ * O fonte C++: dois pragmas e um main vazio. O nome do processador e o do
+ * arquivo; o `#pragma yanc prname` deixou de existir no yanc v7.1.
  *
- * So tres, e nao nove, porque o Processor Hub so pergunta nome e portas
+ * So dois, e nao oito, porque o Processor Hub so pergunta nome e portas
  * quando a linguagem e C++. Largura, mantissa, expoente, ganho e as duas
  * pilhas ficam com o que o cppcomp assume sozinho, que e o float de precisao
  * simples; escrever esses pragmas aqui seria cravar no fonte de todo mundo um
@@ -134,8 +144,7 @@ void main()
  * (Compilers/CPPComp/Tests/proc_cpp).
  */
 export function cppTemplate(p: ParametrosDoProcessador): string {
-  return `#pragma yanc prname ${p.processorName}
-#pragma yanc nuioin ${p.inputPorts}
+  return `#pragma yanc nuioin ${p.inputPorts}
 #pragma yanc nuioou ${p.outputPorts}
 
 void main(void)

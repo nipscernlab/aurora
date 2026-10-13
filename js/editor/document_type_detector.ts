@@ -57,9 +57,11 @@ function metaFor(type: string | null | undefined): TypeMeta | undefined {
     return undefined;
 }
 
-const CMM_DIRECTIVE_RE = /^#(?:PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FROUND)\b/i;
-// O cabecalho de um processador C++: `#pragma yanc <chave> <valor>` (prname,
-// nubits, ndstac...), o equivalente das diretivas #PRNAME/#NUBITS do C+-.
+// Sem #PRNAME: desde o yanc v7.1 o nome do processador e o do arquivo, e a
+// diretiva virou erro de compilacao.
+const CMM_DIRECTIVE_RE = /^#(?:NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FROUND)\b/i;
+// O cabecalho de um processador C++: `#pragma yanc <chave> <valor>` (nubits,
+// ndstac...), o equivalente das diretivas #NUBITS do C+-.
 const CPP_PRAGMA_RE = /^#\s*pragma\s+yanc\b/i;
 const COMMENT_ONLY_RE = /^(?:\/\/|#(?!!)|\/\*|\*)/;
 

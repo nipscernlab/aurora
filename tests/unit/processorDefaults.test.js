@@ -90,18 +90,17 @@ describe('cmmTemplatePadrao', () => {
             .toBe(`${cmmTemplate({ processorName: 'Foo', ...PADROES_DO_CMM })}\n`);
     });
 
-    it('carimba as sete diretivas com os valores do formulario, sem as pilhas', () => {
+    it('carimba as cinco diretivas com os valores do formulario, sem nome, pilhas nem ganho padrao', () => {
         const t = cmmTemplatePadrao('Foo');
-        expect(t).toContain('#PRNAME Foo');
+        expect(t).not.toMatch(/#PRNAME|Foo/);
         expect(t).toContain(`#NUBITS ${PADROES_DO_CMM.nBits}`);
         expect(t).toContain(`#NBMANT ${PADROES_DO_CMM.nbMantissa}`);
         expect(t).toContain(`#NBEXPO ${PADROES_DO_CMM.nbExponent}`);
-        expect(t).toContain(`#NUGAIN ${PADROES_DO_CMM.gain}`);
-        expect(t).not.toMatch(/#NDSTAC|#SDEPTH/);
-        expect(t.match(/^#[A-Z]{6} /gm)).toHaveLength(7);
+        expect(t).not.toMatch(/#NDSTAC|#SDEPTH|#NUGAIN/);
+        expect(t.match(/^#[A-Z]{6} /gm)).toHaveLength(5);
     });
 
-    it('cai em "processor" quando ninguem passa nome', () => {
-        expect(cmmTemplatePadrao()).toContain('#PRNAME processor');
+    it('sem nome tambem sai o mesmo cabecalho: o nome e o do arquivo', () => {
+        expect(cmmTemplatePadrao()).toBe(cmmTemplatePadrao('outro'));
     });
 });

@@ -144,12 +144,15 @@ function registrar(ev, spf) {
 }
 
 /** Um processador em disco, com os artefatos que o rename move. */
-function processadorEmDisco(raiz, nome, fonte = `#PRNAME ${nome}\n`) {
-  for (const sub of ['Software', 'Hardware', 'Simulation']) fs.mkdirSync(path.join(raiz, nome, sub), { recursive: true });
-  fs.writeFileSync(path.join(raiz, nome, 'Software', `${nome}.cmm`), fonte);
-  fs.writeFileSync(path.join(raiz, nome, 'Software', `${nome}.asm`), 'asm');
-  fs.writeFileSync(path.join(raiz, nome, 'Hardware', `${nome}.v`), 'module x; endmodule');
-  fs.writeFileSync(path.join(raiz, nome, 'Simulation', `${nome}_tb.v`), 'tb');
+/** Um processador no disco, nas pastas do yanc v7.1: o fonte em <nome>/ e o gerado em <nome>/<nome>/. */
+function processadorEmDisco(raiz, nome, fonte = `#NUBITS 16\n`) {
+  fs.mkdirSync(path.join(raiz, nome, nome), { recursive: true });
+  fs.writeFileSync(path.join(raiz, nome, `${nome}.cmm`), fonte);
+  fs.writeFileSync(path.join(raiz, nome, 'input_0.txt'), '1\n');
+  fs.writeFileSync(path.join(raiz, nome, nome, `${nome}.asm`), 'asm');
+  fs.writeFileSync(path.join(raiz, nome, nome, `${nome}.v`), 'module x; endmodule');
+  fs.writeFileSync(path.join(raiz, nome, nome, `${nome}_tb.v`), 'tb');
+  fs.writeFileSync(path.join(raiz, nome, nome, `pc_${nome}_mem.txt`), '0');
 }
 
 const errno = (code) => Object.assign(new Error(code), { code });
@@ -621,7 +624,7 @@ describe('create-processor-project', () => {
     ...extra,
   });
 
-  it('cria as tres pastas e o fonte C+-, e devolve a entrada sem tocar no .spf', async () => {
+  it('cria a pasta e o fonte C+- dentro, e devolve a entrada sem tocar no .spf', async () => {
     const p = projeto();
     const antes = fs.readFileSync(p.spf, 'utf8');
     const ev = evento();
@@ -630,10 +633,11 @@ describe('create-processor-project', () => {
       success: true, path: path.join(p.raiz, 'cpu'), spfPath: p.spf, entrada: { name: 'cpu' },
     });
 
-    for (const sub of ['Software', 'Hardware', 'Simulation']) {
-      expect(fs.existsSync(path.join(p.raiz, 'cpu', sub))).toBe(true);
-    }
-    expect(fs.readFileSync(path.join(p.raiz, 'cpu', 'Software', 'cpu.cmm'), 'utf8')).toMatch(/#PRNAME cpu/);
+    // So a pasta do processador: a de saida o yanc cria na primeira compilacao.
+    expect(fs.readdirSync(path.join(p.raiz, 'cpu'))).toEqual(['cpu.cmm']);
+    const fonte = fs.readFileSync(path.join(p.raiz, 'cpu', 'cpu.cmm'), 'utf8');
+    expect(fonte).toMatch(/^#NUBITS /);
+    expect(fonte).not.toMatch(/#PRNAME/);
     // O .spf e do renderer (js/project/processadores_do_spf.ts); o aviso sai
     // do project:write-spf quando a gravacao dele chega.
     expect(fs.readFileSync(p.spf, 'utf8')).toBe(antes);
@@ -643,7 +647,7 @@ describe('create-processor-project', () => {
   it('C++ grava o .cpp, e a entrada leva a linguagem', async () => {
     const p = projeto();
     const r = await chamar('create-processor-project', evento(), form(p, { language: 'CPP' }));
-    expect(fs.existsSync(path.join(p.raiz, 'cpu', 'Software', 'cpu.cpp'))).toBe(true);
+    expect(fs.existsSync(path.join(p.raiz, 'cpu', 'cpu.cpp'))).toBe(true);
     expect(r.entrada).toEqual({ name: 'cpu', language: 'cpp' });
   });
 
@@ -655,6 +659,12 @@ describe('create-processor-project', () => {
       .rejects.toThrow(/Invalid processor name/);
     await expect(chamar('create-processor-project', evento(), form(p, { processorName: undefined })))
       .rejects.toThrow(/Invalid processor name/);
+    // A regra do yanc: o nome vira o modulo Verilog.
+    for (const [nome, motivo] of [['my-cpu', /ASCII letters/], ['2fast', /digit/], ['__x', /two underscores/], ['wire', /Verilog keyword/]]) {
+      await expect(chamar('create-processor-project', evento(), form(p, { processorName: nome })))
+        .rejects.toThrow(motivo);
+      expect(fs.existsSync(path.join(p.raiz, nome))).toBe(false);
+    }
     fs.mkdirSync(path.join(p.raiz, 'cpu'));
     await expect(chamar('create-processor-project', evento(), form(p)))
       .rejects.toThrow('A processor with name "cpu" already exists');
@@ -669,14 +679,14 @@ describe('get-available-processors', () => {
     const p = projeto(undefined, {
       processors: ['cpu', { name: 'dsp', clk: 50, numClocks: 3 }, { name: 'cc', language: 'cpp' }],
     });
-    processadorEmDisco(p.raiz, 'cpu', '#PRNAME cpu\n#NUBITS 16\n');
+    processadorEmDisco(p.raiz, 'cpu', '#NUBITS 16\n');
     const ev = evento();
     registrar(ev, p.spf);
 
     const r = await chamar('get-available-processors', ev);
 
     expect(r.map((x) => x.name)).toEqual(['cpu', 'dsp', 'cc']);
-    expect(r[0].header).toEqual({ PRNAME: 'cpu', NUBITS: '16' });
+    expect(r[0].header).toEqual({ NUBITS: '16' });
     expect(r[1]).toMatchObject({ clk: 50, numClocks: 3, header: {} });
     expect(r[2].header).toEqual({});
   });
@@ -743,15 +753,15 @@ describe('delete-processor', () => {
 // ---- rename-processor ----
 
 describe('rename-processor', () => {
-  it('move a pasta e os artefatos e reescreve a diretiva; o .spf fica para o renderer', async () => {
+  it('move a pasta, o fonte, a pasta de saida e os artefatos; o fonte nao muda; o .spf fica para o renderer', async () => {
     const p = projeto(undefined, { processors: [{ name: 'cpu', clk: 50 }, 'dsp'] });
     const antes = fs.readFileSync(p.spf, 'utf8');
-    processadorEmDisco(p.raiz, 'cpu', '// meu cpu\n#PRNAME cpu\n');
+    processadorEmDisco(p.raiz, 'cpu', '// meu cpu\n#NUBITS 16\n');
     const ev = evento();
     registrar(ev, p.spf);
     const dir = { watcher: { close: vi.fn() } };
     state.activeDirectoryWatchers.set(p.raiz, dir);
-    state.activeWatchers.set('chave', { watcher: { close: vi.fn() }, filePath: path.join(p.raiz, 'cpu', 'Software', 'cpu.cmm') });
+    state.activeWatchers.set('chave', { watcher: { close: vi.fn() }, filePath: path.join(p.raiz, 'cpu', 'cpu.cmm') });
     state.activeWatchers.set(path.join(tmp.raiz, 'longe.v'), { watcher: { close: vi.fn() } });
 
     const r = await chamar('rename-processor', ev, 'CPU', 'alu');
@@ -762,10 +772,10 @@ describe('rename-processor', () => {
       spfPath: p.spf, projectDir: p.raiz,
     });
     expect(fs.existsSync(path.join(p.raiz, 'cpu'))).toBe(false);
-    expect(fs.readFileSync(path.join(novo, 'Software', 'alu.cmm'), 'utf8')).toBe('// meu cpu\n#PRNAME alu\n');
-    for (const f of [['Software', 'alu.asm'], ['Hardware', 'alu.v'], ['Simulation', 'alu_tb.v']]) {
-      expect(fs.existsSync(path.join(novo, ...f))).toBe(true);
-    }
+    expect(fs.readFileSync(path.join(novo, 'alu.cmm'), 'utf8')).toBe('// meu cpu\n#NUBITS 16\n');
+    expect(fs.existsSync(path.join(novo, 'input_0.txt'))).toBe(true);
+    expect(fs.existsSync(path.join(novo, 'cpu'))).toBe(false);
+    expect(fs.readdirSync(path.join(novo, 'alu')).sort()).toEqual(['alu.asm', 'alu.v', 'alu_tb.v', 'pc_alu_mem.txt']);
     expect(fs.readFileSync(p.spf, 'utf8')).toBe(antes);
     expect(dir.watcher.close).toHaveBeenCalled();
     expect(state.activeDirectoryWatchers.size).toBe(0);
@@ -789,7 +799,9 @@ describe('rename-processor', () => {
 
     expect(r.newName).toBe('CPU');
     expect(fs.readdirSync(p.raiz)).toContain('CPU');
-    expect(fs.readFileSync(path.join(p.raiz, 'CPU', 'Software', 'CPU.cmm'), 'utf8')).toBe('sem diretiva\n');
+    expect(fs.readdirSync(path.join(p.raiz, 'CPU'))).toContain('CPU');
+    expect(fs.readFileSync(path.join(p.raiz, 'CPU', 'CPU.cmm'), 'utf8')).toBe('sem diretiva\n');
+    expect(fs.existsSync(path.join(p.raiz, 'CPU', 'CPU', 'CPU.v'))).toBe(true);
     expect(ev.sender.enviados).toEqual([]);
   });
 
@@ -841,7 +853,9 @@ describe('rename-processor', () => {
     const casos = [
       [undefined, 'b', 'Current processor name is required'],
       ['cpu', ' ', 'New processor name is required'],
-      ['cpu', 'a b', /letters, numbers/],
+      ['cpu', 'a b', /ASCII letters/],
+      ['cpu', 'a-b', /ASCII letters/],
+      ['cpu', 'module', /Verilog keyword/],
       ['nada', 'b', 'Processor "nada" not found in this project'],
       ['../fora', 'b', 'Processor "../fora" has a folder name the project cannot handle'],
       ['cpu', 'DSP', 'A processor named "DSP" already exists'],

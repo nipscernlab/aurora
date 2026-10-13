@@ -486,7 +486,10 @@
       "pulado": "{{arquivo}} ficou onde estava ({{motivo}}): o destino já existia ou não deu para mover.",
       "semPrname": "{{arquivo}}: a linha do nome ({{nome}}) saiu. O módulo Verilog agora tem o nome do arquivo.",
       "nomeInvalido": "O nome \"{{nome}}\" não serve mais de processador (vira módulo Verilog: só letras ASCII, dígitos e _). Renomeie o processador.",
-      "pastaFicou": "{{pasta}} não ficou vazia e continua lá."
+      "pastaFicou": "{{pasta}} não ficou vazia e continua lá.",
+      "renomear": "Antes do yanc v7.1 o módulo Verilog tinha o nome da linha #PRNAME; agora tem o nome do arquivo. Para o top-level do projeto continuar achando o módulo, ou para o nome servir de módulo, a AURORA pode renomear estes processadores (a pasta, o fonte e a pasta de saída):",
+      "renomearBotao": "Renomear",
+      "manterNomes": "Manter os nomes"
     },
     "newProject": {
       "missingInfoTitle": "Informação Faltando",

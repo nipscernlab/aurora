@@ -486,7 +486,10 @@
       "pulado": "{{arquivo}} stayed where it was ({{motivo}}): the destination already existed or it could not be moved.",
       "semPrname": "{{arquivo}}: the name line ({{nome}}) came out. The Verilog module now has the file's name.",
       "nomeInvalido": "The name \"{{nome}}\" no longer works as a processor name (it becomes a Verilog module: only ASCII letters, digits and _). Rename the processor.",
-      "pastaFicou": "{{pasta}} was not empty and is still there."
+      "pastaFicou": "{{pasta}} was not empty and is still there.",
+      "renomear": "Before yanc v7.1 the Verilog module took its name from the #PRNAME line; now it takes the file's name. So that the project's top level still finds the module, or so that the name works as a module, AURORA can rename these processors (the folder, the source and the output folder):",
+      "renomearBotao": "Rename",
+      "manterNomes": "Keep the names"
     },
     "newProject": {
       "missingInfoTitle": "Missing Information",

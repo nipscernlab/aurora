@@ -10,7 +10,7 @@
 import { getExtensionForDocumentType, type DocumentType } from '../editor/document_type_detector.js';
 import { glyphClassForFile } from '../ui/language_glyph.js';
 import { cmmTemplatePadrao } from '../project/processor_defaults.js';
-import { problemaNoNomeDoProcessador } from '../compilation/pastas_do_processador.js';
+import { sugerirNomeDeProcessador } from '../compilation/pastas_do_processador.js';
 
 
 
@@ -59,15 +59,7 @@ export function sanitizePythonModuleName(baseName: unknown): string {
  * trocado em vez de recusado, porque aqui o nome sai de um "salvar como".
  */
 export function sanitizeProcessorName(baseName: unknown): string {
-    let cleaned = String(baseName || 'processor')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9_]+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '');
-    if (!cleaned) return 'processor';
-    if (/^[0-9]/.test(cleaned)) cleaned = `p_${cleaned}`;
-    if (problemaNoNomeDoProcessador(cleaned) === 'reservada') cleaned = `${cleaned}_proc`;
-    return cleaned;
+    return sugerirNomeDeProcessador(baseName);
 }
 
 /**

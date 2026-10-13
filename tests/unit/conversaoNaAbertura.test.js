@@ -12,8 +12,16 @@ vi.mock('../../js/ui/dialog_manager.js', () => ({
 }));
 const spf = vi.hoisted(() => ({ estrutura: null, escritas: 0 }));
 vi.mock('../../js/project/spf_store.js', () => ({
-  SpfStore: { update: vi.fn(async (_p, fn) => { spf.escritas++; fn(spf.estrutura); }) },
+  SpfStore: {
+    update: vi.fn(async (_p, fn) => { spf.escritas++; fn(spf.estrutura); }),
+    read: vi.fn(async () => spf.estrutura),
+  },
 }));
+const lista = vi.hoisted(() => ({ semeada: null }));
+vi.mock('../../js/project/processor_list.js', () => ({
+  setAvailableProcessors: vi.fn((l) => { lista.semeada = l; }),
+}));
+vi.mock('../../js/project/processadores_do_spf.js', () => ({ renomearProcessador: vi.fn() }));
 vi.mock('../../js/app/electron_api.js', () => ({ electronAPI: {} }));
 
 import {
@@ -48,6 +56,7 @@ beforeEach(() => {
   spf.estrutura = { synthesizableFiles: [{ name: 'fir.v', path: 'P/fir/Software/fir.cmm' }], processors: [{ name: 'fir' }] };
   spf.escritas = 0;
   esquecerRecusas();
+  lista.semeada = null;
   delete window.t;
 });
 
@@ -90,6 +99,40 @@ describe('oferecerConversao', () => {
     expect(r.movidos).toEqual([]);
     expect(spf.escritas).toBe(0);
     expect(dialogos.pedidos[1].variant).toBe('warning');
+  });
+
+  it('o #PRNAME antigo diferente do nome: oferece o rename, e com o sim renomeia e semeia a lista', async () => {
+    const d = disco({ 'P/fir/Software/fir.cmm': '#PRNAME filtro\n#NUBITS 16\n' });
+    dialogos.respostas.push('converter', 'renomear');
+    const renomear = vi.fn(async (de, para) => {
+      spf.estrutura.processors = [{ name: para }];
+      return { success: true, de };
+    });
+    const r = await oferecerConversao('P/p.spf', 'P', ['fir'], d, renomear);
+    expect(renomear).toHaveBeenCalledWith('fir', 'filtro');
+    expect(r.renomeados).toEqual([{ de: 'fir', para: 'filtro', motivo: 'modulo' }]);
+    expect(lista.semeada).toEqual([{ name: 'filtro' }]);
+    expect(dialogos.pedidos[1].message).toContain('<li>fir → filtro</li>');
+    expect(dialogos.pedidos[1].buttons.map((b) => b.action)).toEqual(['manter', 'renomear']);
+  });
+
+  it('manter os nomes nao renomeia; rename que falha ou lanca fica de fora', async () => {
+    const d = disco({ 'P/fir/Software/fir.cmm': '#PRNAME filtro\n', 'P/a-b/Software/a-b.cmm': 'x' });
+    dialogos.respostas.push('converter', 'manter');
+    const renomear = vi.fn();
+    expect((await oferecerConversao('P/p.spf', 'P', ['fir', 'a-b'], d, renomear)).renomeados).toEqual([]);
+    expect(renomear).not.toHaveBeenCalled();
+
+    esquecerRecusas();
+    const d2 = disco({ 'P/fir/Software/fir.cmm': '#PRNAME filtro\n', 'P/a-b/Software/a-b.cmm': 'x' });
+    dialogos.respostas.push('converter', 'renomear');
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const falha = vi.fn(async (de) => { if (de === 'fir') return { success: false }; throw new Error('EPERM'); });
+    const r = await oferecerConversao('P/p.spf', 'P', ['fir', 'a-b'], d2, falha);
+    expect(falha.mock.calls).toEqual([['fir', 'filtro'], ['a-b', 'a_b']]);
+    expect(r.renomeados).toEqual([]);
+    expect(lista.semeada).toBeNull();
+    aviso.mockRestore();
   });
 
   it('uma falha no meio nao impede o projeto de abrir', async () => {

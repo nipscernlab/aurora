@@ -19,11 +19,19 @@
 import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { SpfStore } from './spf_store.js';
+import { setAvailableProcessors } from './processor_list.js';
+import { renomearProcessador } from './processadores_do_spf.js';
 import { nomesDosProcessadores } from '../compilation/pastas_do_processador.js';
 import {
-  converter, inspecionar, mapaDosMovidos, remapearEstrutura,
-  type DiscoDaConversao, type EstruturaDoSpf, type ResultadoDaConversao,
+  converter, inspecionar, mapaDosMovidos, remapearEstrutura, renomesSugeridos,
+  type DiscoDaConversao, type EstruturaDoSpf, type RenomeSugerido, type ResultadoDaConversao,
 } from './estrutura_antiga.js';
+
+/** O resultado da conversao, e os renames que a pessoa aceitou e deram certo. */
+export type ResultadoNaAbertura = ResultadoDaConversao & { renomeados: RenomeSugerido[] };
+
+/** Quem renomeia um processador: o mesmo caminho do rename normal (main + .spf). */
+export type Renomeador = (de: string, para: string) => Promise<{ success?: boolean } | null>;
 
 const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
@@ -82,7 +90,8 @@ export function linhasDoRelatorio(projeto: string, r: ResultadoDaConversao): str
 export async function oferecerConversao(
   spfPath: string, projeto: string, processors: unknown,
   disco: DiscoDaConversao = electronAPI as unknown as DiscoDaConversao,
-): Promise<ResultadoDaConversao | null> {
+  renomear: Renomeador = renomearProcessador as Renomeador,
+): Promise<ResultadoNaAbertura | null> {
   try {
     const chave = spfPath.replace(/\\/g, '/').toLowerCase();
     if (recusados.has(chave)) return null;
@@ -109,14 +118,43 @@ export async function oferecerConversao(
       await SpfStore.update(spfPath, (cfg) => remapearEstrutura(cfg as unknown as EstruturaDoSpf, mapa));
     }
 
-    await showDialog({
+    // O rename que mantem o nome do modulo que o top-level instancia (o do
+    // #PRNAME antigo), ou que troca um nome que nao serve mais de modulo.
+    const sugestoes = renomesSugeridos(r, nomesDosProcessadores(processors));
+    const relatorio = mensagemComLista(
+      tr('dialog.estruturaAntiga.feito', { movidos: r.movidos.length }), linhasDoRelatorio(projeto, r));
+    const escolhaDoRename = await showDialog({
       title: tr('dialog.estruturaAntiga.feitoTitle'),
-      message: mensagemComLista(
-        tr('dialog.estruturaAntiga.feito', { movidos: r.movidos.length }), linhasDoRelatorio(projeto, r)),
-      variant: r.pulados.length || r.nomesInvalidos.length ? 'warning' : 'success',
-      buttons: [{ label: tr('dialog.common.ok'), action: 'ok', type: 'primary' }],
+      message: sugestoes.length
+        ? relatorio + mensagemComLista(tr('dialog.estruturaAntiga.renomear'),
+          sugestoes.map((s) => `${s.de} → ${s.para}`))
+        : relatorio,
+      variant: r.pulados.length || r.nomesInvalidos.length || sugestoes.length ? 'warning' : 'success',
+      buttons: sugestoes.length
+        ? [
+          { label: tr('dialog.estruturaAntiga.manterNomes'), action: 'manter', type: 'cancel' },
+          { label: tr('dialog.estruturaAntiga.renomearBotao'), action: 'renomear', type: 'primary' },
+        ]
+        : [{ label: tr('dialog.common.ok'), action: 'ok', type: 'primary' }],
     });
-    return r;
+
+    const renomeados: RenomeSugerido[] = [];
+    if (escolhaDoRename === 'renomear') {
+      for (const s of sugestoes) {
+        try {
+          const resposta = await renomear(s.de, s.para);
+          if (resposta && resposta.success) renomeados.push(s);
+        } catch (e) {
+          console.warn(`[estrutura antiga] nao renomeei ${s.de}:`, e);
+        }
+      }
+      if (renomeados.length) {
+        // A lista de processadores da janela foi semeada antes da conversao.
+        const estrutura = await SpfStore.read(spfPath);
+        setAvailableProcessors(estrutura.processors);
+      }
+    }
+    return { ...r, renomeados };
   } catch (e) {
     console.warn('[estrutura antiga] a conversao nao terminou:', e);
     return null;

@@ -72,6 +72,10 @@ function projetoAntigo(raiz) {
   escrever('Hardware/fir.v', 'module fir; endmodule');
   escrever('Simulation/fir_tb.v', 'module fir_tb; endmodule');
   escrever('Simulation/input_0.txt', '1\n2\n3\n');
+  // Um segundo processador cujo modulo se chamava pelo #PRNAME, diferente da
+  // pasta: e o nome que o top-level instancia, e a conversao oferece voltar a ele.
+  fs.mkdirSync(path.join(raiz, 'dsp', 'Software'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'dsp', 'Software', 'dsp.cmm'), CMM.replace('#PRNAME fir', '#PRNAME filtro'));
 
   const spfPath = path.join(raiz, `${path.basename(raiz)}.spf`);
   fs.writeFileSync(spfPath, JSON.stringify({
@@ -85,7 +89,7 @@ function projetoAntigo(raiz) {
     },
     structure: {
       basePath: raiz,
-      processors: [{ name: 'fir', clk: 100, numClocks: 400, softwarePath: path.join(proc, 'Software') }],
+      processors: [{ name: 'fir', clk: 100, numClocks: 400, softwarePath: path.join(proc, 'Software') }, { name: 'dsp' }],
       folders: [],
       topLevelFile: '',
       testbenchFile: path.join(proc, 'Simulation', 'fir_tb.v'),
@@ -131,12 +135,22 @@ describe('Aurora E2E — o projeto da estrutura antiga e convertido na abertura'
     expect(await window.locator('.confirm-modal-message').textContent()).toContain('fir');
     await converter.click();
 
-    // O relatorio, com o que foi movido.
-    const ok = window.locator('.confirm-modal .confirm-btn[data-action="ok"]');
-    await ok.waitFor({ timeout: 30_000 });
+    // O relatorio, com o que foi movido e o rename que mantem o modulo do dsp.
+    const renomear = window.locator('.confirm-modal .confirm-btn[data-action="renomear"]');
+    await renomear.waitFor({ timeout: 30_000 });
     const relatorio = await window.locator('.confirm-modal-message').textContent();
     expect(relatorio).toContain('fir/Software/fir.cmm');
-    await ok.click();
+    expect(relatorio).toContain('dsp → filtro');
+    await renomear.click();
+
+    // O rename passou pelo caminho normal: a pasta, o fonte e o .spf.
+    const filtro = path.join(projectDir, 'filtro', 'filtro.cmm');
+    const limite = Date.now() + 30_000;
+    while (!fs.existsSync(filtro) && Date.now() < limite) await new Promise((r) => setTimeout(r, 200));
+    expect(fs.existsSync(filtro), fs.readdirSync(projectDir).join(', ')).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, 'dsp'))).toBe(false);
+    await window.waitForFunction(() => (window.availableProcessors || [])
+      .map((p) => (typeof p === 'string' ? p : p && p.name)).includes('filtro'), null, { timeout: 15_000 });
 
     // O disco: o fonte e os dados em fir/, o gerado em fir/fir/, nada apagado.
     expect(fs.readFileSync(path.join(fixture.proc, 'fir.cmm'), 'utf8')).toBe(CMM.replace('#PRNAME fir\n', ''));
@@ -152,6 +166,7 @@ describe('Aurora E2E — o projeto da estrutura antiga e convertido na abertura'
     const spf = JSON.parse(fs.readFileSync(fixture.spfPath, 'utf8')).structure;
     expect(JSON.stringify(spf)).not.toMatch(/Software|Hardware|Simulation/);
     expect(spf.processors[0]).toMatchObject({ name: 'fir', clk: 100, numClocks: 400 });
+    expect(spf.processors.map((p) => p.name)).toEqual(['fir', 'filtro']);
     expect(spf.processors[0]).not.toHaveProperty('softwarePath');
   }, 90_000);
 

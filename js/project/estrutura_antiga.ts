@@ -29,7 +29,9 @@
  * esse .js que o runtime carrega; os imports usam a extensao `.js`.
  */
 
-import { problemaNoNomeDoProcessador, segmentosDaSaida, segmentosDoFonte } from '../compilation/pastas_do_processador.js';
+import {
+  problemaNoNomeDoProcessador, segmentosDaSaida, segmentosDoFonte, sugerirNomeDeProcessador,
+} from '../compilation/pastas_do_processador.js';
 import { languageFromFileName, stripSourceExtension } from '../compilation/processor_source.js';
 
 /** As subpastas que cada processador tinha antes do yanc v7.1. */
@@ -243,8 +245,8 @@ export interface ResultadoDaConversao {
   movidos: Array<{ de: string; para: string }>;
   /** O que ficou onde estava, com o porque (destino ja existia, erro). */
   pulados: Array<{ de: string; para: string; motivo: string }>;
-  /** Fonte cuja linha de nome saiu, e o nome que ela dava. */
-  semPrname: Array<{ arquivo: string; nomeAntigo: string }>;
+  /** Fonte cuja linha de nome saiu, de que processador, e o nome que ela dava. */
+  semPrname: Array<{ processador: string; arquivo: string; nomeAntigo: string }>;
   /** Processador cujo nome nao serve mais (vira modulo Verilog). */
   nomesInvalidos: string[];
   /** Subpastas antigas que ficaram, por nao estarem vazias. */
@@ -278,7 +280,7 @@ export async function converter(
     if (resposta && resposta.success) {
       r.movidos.push({ de, para });
       if (!m.gerado && languageFromFileName(m.para[m.para.length - 1])) {
-        await tirarNomeDoFonte(disco, para, r);
+        await tirarNomeDoFonte(disco, para, m.processador, r);
       }
     } else {
       r.pulados.push({ de, para, motivo: resposta?.code === 'EEXIST' ? 'EEXIST' : (resposta?.error || resposta?.code || '?') });
@@ -300,14 +302,57 @@ export async function converter(
   return r;
 }
 
-async function tirarNomeDoFonte(disco: DiscoDaConversao, arquivo: string, r: ResultadoDaConversao): Promise<void> {
+async function tirarNomeDoFonte(
+  disco: DiscoDaConversao, arquivo: string, processador: string, r: ResultadoDaConversao,
+): Promise<void> {
   try {
     const texto = await disco.readFile(arquivo, { encoding: 'utf8' });
     const { texto: novo, nomeAntigo } = tirarPrname(String(texto));
     if (nomeAntigo === null) return;
     await disco.writeFile(arquivo, novo);
-    r.semPrname.push({ arquivo, nomeAntigo });
+    r.semPrname.push({ processador, arquivo, nomeAntigo });
   } catch { /* fonte ilegivel: a compilacao vai dizer o que falta */ }
+}
+
+/** Um rename que a conversao oferece, e por que. */
+export interface RenomeSugerido {
+  de: string;
+  para: string;
+  /** 'modulo': volta ao nome que o #PRNAME dava ao modulo; 'nome': o nome da pasta nao serve. */
+  motivo: 'modulo' | 'nome';
+}
+
+/**
+ * Os renames que a conversao oferece. Antes do yanc v7.1 o modulo Verilog se
+ * chamava pelo `#PRNAME`, e e esse nome que o top-level do projeto instancia;
+ * agora ele se chama pelo arquivo. Quando os dois diferem, renomear o
+ * processador para o nome antigo do modulo mantem o top-level funcionando.
+ * Quando o nome da pasta nao serve de modulo (um hifen, um acento) e nao ha
+ * `#PRNAME` valido para voltar, a sugestao e o nome mais parecido que serve.
+ * Um nome que outro processador do projeto ja usa nao e sugerido.
+ */
+export function renomesSugeridos(
+  r: Pick<ResultadoDaConversao, 'semPrname'>, nomes: readonly string[],
+): RenomeSugerido[] {
+  const ocupados = new Set(nomes.map((n) => n.toLowerCase()));
+  const sugeridos: RenomeSugerido[] = [];
+  for (const nome of nomes) {
+    const doFonte = r.semPrname.find((s) => s.processador === nome
+      && stripSourceExtension(String(s.arquivo.split(/[\\/]/).pop())) === nome);
+    const antigo = doFonte?.nomeAntigo;
+    let sugestao: RenomeSugerido | null = null;
+    if (antigo && antigo !== nome && !problemaNoNomeDoProcessador(antigo)) {
+      sugestao = { de: nome, para: antigo, motivo: 'modulo' };
+    } else if (problemaNoNomeDoProcessador(nome)) {
+      sugestao = { de: nome, para: sugerirNomeDeProcessador(nome), motivo: 'nome' };
+    }
+    if (!sugestao || sugestao.para === nome) continue;
+    // Troca so de caixa nao colide com o proprio processador.
+    if (sugestao.para.toLowerCase() !== nome.toLowerCase() && ocupados.has(sugestao.para.toLowerCase())) continue;
+    ocupados.add(sugestao.para.toLowerCase());
+    sugeridos.push(sugestao);
+  }
+  return sugeridos;
 }
 
 /**

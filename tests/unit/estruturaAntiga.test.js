@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   chaveDoCaminho, converter, ehGeradoPeloYanc, inspecionar, mapaDosMovidos,
-  planoDeConversao, remapearEstrutura, tirarPrname,
+  planoDeConversao, remapearEstrutura, renomesSugeridos, tirarPrname,
 } from '../../js/project/estrutura_antiga.ts';
 
 describe('ehGeradoPeloYanc', () => {
@@ -188,7 +188,7 @@ describe('inspecionar e converter, no disco', () => {
       'P/fir/input_0.txt', 'P/fir/lut.txt',
     ]);
     expect(d.arquivos.get('P/fir/fir.cmm')).toBe('#NUBITS 16\nvoid main(){}\n');
-    expect(r.semPrname).toEqual([{ arquivo: 'P/fir/fir.cmm', nomeAntigo: 'fir_velho' }]);
+    expect(r.semPrname).toEqual([{ processador: 'fir', arquivo: 'P/fir/fir.cmm', nomeAntigo: 'fir_velho' }]);
     expect(r.pulados).toEqual([]);
     expect(r.pastasQueFicaram).toEqual([]);
     for (const sub of ['Software', 'Hardware', 'Simulation']) expect(d.pastas.has(`P/fir/${sub}`)).toBe(false);
@@ -242,5 +242,41 @@ describe('inspecionar e converter, no disco', () => {
     const d = discoFalso(PROJETO_ANTIGO);
     d.getFolderFiles = async () => null;
     expect(await inspecionar('P', ['fir'], d)).toEqual([]);
+  });
+});
+
+describe('renomesSugeridos', () => {
+  const sem = (processador, arquivo, nomeAntigo) => ({ processador, arquivo, nomeAntigo });
+
+  it('volta ao nome que o #PRNAME dava ao modulo, que e o que o top-level instancia', () => {
+    expect(renomesSugeridos({ semPrname: [sem('fir', 'P/fir/fir.cmm', 'filtro')] }, ['fir']))
+      .toEqual([{ de: 'fir', para: 'filtro', motivo: 'modulo' }]);
+  });
+
+  it('nome da pasta que nao serve: o #PRNAME valido, senao o nome parecido que serve', () => {
+    expect(renomesSugeridos({ semPrname: [sem('my-cpu', 'P/my-cpu/my-cpu.cmm', 'mycpu')] }, ['my-cpu']))
+      .toEqual([{ de: 'my-cpu', para: 'mycpu', motivo: 'modulo' }]);
+    expect(renomesSugeridos({ semPrname: [sem('my-cpu', 'P/my-cpu/my-cpu.cmm', 'my-cpu')] }, ['my-cpu']))
+      .toEqual([{ de: 'my-cpu', para: 'my_cpu', motivo: 'nome' }]);
+    expect(renomesSugeridos({ semPrname: [] }, ['média']))
+      .toEqual([{ de: 'média', para: 'media', motivo: 'nome' }]);
+  });
+
+  it('nada a sugerir: o #PRNAME igual ao nome, invalido, de outro fonte, ou nenhum', () => {
+    expect(renomesSugeridos({ semPrname: [sem('fir', 'P/fir/fir.cmm', 'fir')] }, ['fir'])).toEqual([]);
+    expect(renomesSugeridos({ semPrname: [sem('fir', 'P/fir/fir.cmm', 'wire')] }, ['fir'])).toEqual([]);
+    expect(renomesSugeridos({ semPrname: [sem('fir', 'P/fir/aux.cmm', 'outro')] }, ['fir'])).toEqual([]);
+    expect(renomesSugeridos({ semPrname: [] }, ['fir'])).toEqual([]);
+  });
+
+  it('nao sugere um nome que outro processador ja usa, nem o mesmo duas vezes', () => {
+    expect(renomesSugeridos({ semPrname: [sem('a', 'P/a/a.cmm', 'b')] }, ['a', 'B'])).toEqual([]);
+    expect(renomesSugeridos({ semPrname: [sem('a', 'P/a/a.cmm', 'x'), sem('c', 'P/c/c.cmm', 'x')] }, ['a', 'c']))
+      .toEqual([{ de: 'a', para: 'x', motivo: 'modulo' }]);
+  });
+
+  it('troca so de caixa nao colide com o proprio processador', () => {
+    expect(renomesSugeridos({ semPrname: [sem('fir', 'P/fir/fir.cmm', 'FIR')] }, ['fir']))
+      .toEqual([{ de: 'fir', para: 'FIR', motivo: 'modulo' }]);
   });
 });

@@ -204,6 +204,23 @@ const RESERVADAS: ReadonlySet<string> = new Set([
   'wildcard', 'wire', 'with', 'within', 'wor', 'xnor', 'xor',
 ]);
 
+/**
+ * Um nome qualquer virado nome de processador valido: sem acento, o que nao
+ * e letra, digito ou `_` vira `_`, digito no inicio ganha `p_`, palavra
+ * reservada ganha `_proc`. Vazio no fim vira `processor`.
+ */
+export function sugerirNomeDeProcessador(nome: unknown): string {
+  let n = String(nome || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9_]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  if (!n) return 'processor';
+  if (/^[0-9]/.test(n)) n = `p_${n}`;
+  if (RESERVADAS.has(n)) n = `${n}_proc`;
+  return n;
+}
+
 /** Por que um nome nao serve de processador, na ordem em que o yanc confere. */
 export type ProblemaNoNome = 'vazio' | 'caracteres' | 'digito' | 'sublinhado' | 'reservada';
 

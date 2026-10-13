@@ -42,6 +42,28 @@ describe('buildSpecForStep e o projeto aberto', () => {
     expect(JSON.stringify(spec)).toContain('C:/p/P');
   });
 
+  it('os tres passos do processador sao o yanc, com as pastas do yanc v7.1', async () => {
+    ProjectStore.setProject('C:/p/p.spf', 'C:/p');
+    const cmm = await buildSpecForStep('cmm', 'P');
+    expect(cmm).toMatchObject({
+      step: 'cmm', binary: 'C:/comp/bin/yanc.exe', cwd: 'C:/p/P',
+      args: ['-S', '-o', 'C:/p/P/P', '--lang=pt', 'C:/p/P/P.cmm'],
+    });
+    const cpp = await buildSpecForStep('cpp', 'P');
+    expect(cpp).toMatchObject({ step: 'cpp', args: ['-S', '-o', 'C:/p/P/P', '--lang=pt', 'C:/p/P/P.cmm'] });
+    const asm = await buildSpecForStep('asm', 'P');
+    expect(asm).toMatchObject({
+      step: 'asm', binary: 'C:/comp/bin/yanc.exe', cwd: 'C:/p/P/P',
+      args: ['-f', '10', '-c', '5', '--lang=pt', 'C:/p/P/P/P.asm'],
+    });
+  });
+
+  it('o idioma do toggle vira o --lang da previa', async () => {
+    ProjectStore.setProject('C:/p/p.spf', 'C:/p');
+    window.getYancLang = () => 'en';
+    expect((await buildSpecForStep('asm', 'P')).args).toContain('--lang=en');
+  });
+
   it('passo do fluxo inteiro le o .spf aberto e roda na pasta do projeto', async () => {
     ProjectStore.setProject('C:/p/p.spf', 'C:/p');
     const spec = await buildSpecForStep('iverilog-check');

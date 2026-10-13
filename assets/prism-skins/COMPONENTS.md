@@ -16,19 +16,20 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 | module | source | ports | skin | port list (→in ←out) |
 | ------ | ------ | ----: | ---- | -------------------- |
 | `addr_dec` | `addr_dec.v` | 3 | hand-crafted (`addr_dec.svg`) | →valid_in →index ←valid_out |
-| `core` | `core.v` | 16 | hand-crafted (`core.svg`) | →clk →rst →instr ←instr_addr ←mem_wr ←mem_addr_rd ←mem_addr_wr →mem_data_rd ←mem_data_wr →io_in ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei |
+| `core` | `core.v` | 22 | hand-crafted (`core.svg`) | →clk →rst →instr ←instr_addr ←mem_wr ←mem_addr_rd ←mem_addr_wr →mem_data_rd ←mem_data_wr →io_in ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei ←toma ←cade →valeu →taqui →cade_dado ←toma_dado |
 | `div_array` | `ula.v` | 8 | hand-crafted (`div_array.svg`) | →r0 →nb →d →side ←q ←rem ←side_o →clk |
 | `instr_dec` | `instr_dec.v` | 12 | hand-crafted (`instr_dec.svg`) | →clk →rst →opcode ←push ←pop ←ula_op ←mem_wr ←req_in ←out_en ←ldi ←sti ←fft |
-| `instr_fetch` | `core.v` | 9 | hand-crafted (`instr_fetch.svg`) | →clk →rst →itr ←cheguei →instr ←addr →acc ←opcode ←operand |
+| `instr_fetch` | `core.v` | 11 | hand-crafted (`instr_fetch.svg`) | →clk →rst →itr ←cheguei →tom_go →cad_go →instr ←addr →acc ←opcode ←operand |
 | `io_ctrl` | `core.v` | 9 | hand-crafted (`io_ctrl.svg`) | →clk →rst →req_in →out_en →addr ←en_in ←addr_in ←en_out ←addr_out |
 | `mem_ctrl` | `core.v` | 11 | hand-crafted (`mem_ctrl.svg`) | →sti →ldi →fft →wr →ula →base_addr →stk_ofst ←mem_wr ←mem_addr_rd ←mem_addr_wr ←mem_data_wr |
 | `mem_data` | `processor.v` | 6 | hand-crafted (`mem_data.svg`) | →clk →wr →addr_rd →addr_wr →data_in ←data_out |
 | `mem_instr` | `processor.v` | 3 | hand-crafted (`mem_instr.svg`) | →clk →addr ←data |
+| `myDCFIFO` | `myDCFIFO.v` | 12 | hand-crafted (`myDCFIFO.svg`) | →aclr →wrclk →data →wrreq ←wrfull ←wrusedw →rdclk →rdreq ←rdempty ←rdalmost_empty ←q ←rdusedw |
 | `myFIFO` | `myFIFO.v` | 10 | hand-crafted (`myFIFO.svg`) | →clk →data →rdreq →sclr →wrreq ←almost_empty ←empty ←full ←q ←usedw |
 | `norm_mux` | `ula.v` | 8 | hand-crafted (`norm_mux.svg`) | →op →fadd →fmlt →fdiv →i2f →i2fm →frot ←out |
 | `pc` | `core.v` | 5 | hand-crafted (`pc.svg`) | →clk →rst →load →data ←addr |
-| `prefetch` | `core.v` | 12 | hand-crafted (`prefetch.svg`) | →rst →pc_instr ←opcode ←operand →mem_instr ←instr_addr ←pc_l →is_um ←isp_push ←isp_pop →itr ←cheguei |
-| `processor` | `processor.v` | 10 | hand-crafted (`processor.svg`) | →clk →rst →io_in ←io_out ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei |
+| `prefetch` | `core.v` | 16 | hand-crafted (`prefetch.svg`) | →rst →tom_go →cad_go →self_addr ←pc_self →pc_instr ←opcode ←operand →mem_instr ←instr_addr ←pc_l →is_um ←isp_push ←isp_pop →itr ←cheguei |
+| `processor` | `processor.v` | 16 | hand-crafted (`processor.svg`) | →clk →rst →io_in ←io_out ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei ←toma ←cade →valeu →taqui →cade_dado ←toma_dado |
 | `rel_addr` | `core.v` | 5 | hand-crafted (`rel_addr.svg`) | →use_oft →fft →offset →addr ←out |
 | `stack` | `core.v` | 6 | hand-crafted (`stack.svg`) | →clk →rst →push →pop →in ←out |
 | `ula` | `ula.v` | 5 | hand-crafted (`ula.svg`) | →op →in1 →in2 ←out →clk |

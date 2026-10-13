@@ -1,5 +1,5 @@
 /**
- * override_badges.js: toolbar UX for active command overrides.
+ * override_badges.ts: toolbar UX for active command overrides.
  *
  * Adds a small "✱" marker to compile-toolbar buttons (cmmcomp,
  * vericomp, wavecomp, prismcomp) whenever the corresponding pipeline
@@ -13,9 +13,16 @@
  * and re-paints on each.
  */
 
-import { listOverrides, clearOverride } from './command_overrides.js';
+import { listOverrides, clearOverride, type OverrideListEntry } from './command_overrides.js';
 
-const BUTTON_TO_STEPS = {
+/**
+ * O AuroraAPI visto daqui: o `subscribe` nao existe no tipo da API montada.
+ * As duas assinaturas abaixo sao no-op desde a conversao, como eram no .js;
+ * a conversao preserva o comportamento.
+ */
+type ApiComSubscribe = { subscribe?(evento: string, fn: () => unknown): unknown } | undefined;
+
+const BUTTON_TO_STEPS: Record<string, string[]> = {
   cmmcomp:   ['cmm', 'asm-pre', 'asm'],
   vericomp:  ['iverilog-check', 'iverilog-build'],
   wavecomp:  [
@@ -50,14 +57,14 @@ function ensureStyle() {
   document.head.appendChild(style);
 }
 
-function formatTooltip(items) {
+function formatTooltip(items: OverrideListEntry[]): string {
   const lines = items.map((it) => {
     const ov = it.override || {};
-    const parts = [];
+    const parts: string[] = [];
     if (ov.appendArgs?.length)  parts.push(`+${ov.appendArgs.join(' ')}`);
     if (ov.prependArgs?.length) parts.push(`prepend ${ov.prependArgs.join(' ')}`);
     if (ov.removeArgs?.length)  parts.push(`-${ov.removeArgs.join(' ')}`);
-    const envParts = [];
+    const envParts: string[] = [];
     if (ov.envSet)   for (const [k, v] of Object.entries(ov.envSet)) envParts.push(`${k}=${v}`);
     if (ov.envUnset) for (const k of ov.envUnset) envParts.push(`unset ${k}`);
     if (envParts.length) parts.push(`env: ${envParts.join(', ')}`);
@@ -67,9 +74,9 @@ function formatTooltip(items) {
   return `AI command override active\n${lines.join('\n')}\nRight-click badge to clear.`;
 }
 
-async function repaint() {
+async function repaint(): Promise<void> {
   ensureStyle();
-  let items;
+  let items: OverrideListEntry[];
   try { items = await listOverrides(); } catch (_) { items = []; }
   for (const [btnId, steps] of Object.entries(BUTTON_TO_STEPS)) {
     const btn = document.getElementById(btnId);
@@ -95,7 +102,7 @@ function attachClearHandler() {
   // Single delegated handler, buttons may be re-mounted by other
   // managers; document-level delegation survives re-renders.
   document.addEventListener('contextmenu', async (ev) => {
-    const btn = ev.target?.closest?.('.toolbar-button.has-ai-override');
+    const btn = (ev.target as Element | null)?.closest?.<HTMLElement>('.toolbar-button.has-ai-override');
     if (!btn) return;
     const keys = btn.dataset.aiOverrideKeys;
     if (!keys) return;
@@ -111,7 +118,7 @@ function attachClearHandler() {
       const colonAt = key.indexOf(':');
       const step = colonAt === -1 ? key : key.slice(0, colonAt);
       const processorName = colonAt === -1 ? null : key.slice(colonAt + 1);
-      try { await clearOverride({ step, processorName, scope }); }
+      try { await clearOverride({ step, processorName, scope: scope as OverrideListEntry['scope'] }); }
       catch (_) { /* ignore — repaint will reflect actual state */ }
     }
     await repaint();
@@ -125,12 +132,12 @@ export function initOverrideBadges() {
 
   // Re-paint on every event that can change override state.
   window.addEventListener('aurora:spf-changed', repaint);
-  window.AuroraAPI?.subscribe?.('compile:override-set', repaint);
-  window.AuroraAPI?.subscribe?.('compile:override-cleared', repaint);
+  (window.AuroraAPI as ApiComSubscribe)?.subscribe?.('compile:override-set', repaint);
+  (window.AuroraAPI as ApiComSubscribe)?.subscribe?.('compile:override-cleared', repaint);
   // Aurora's spf-changed event also fires on project open/close;
   // re-painting then clears badges from stale state.
 }
 
 if (typeof window !== 'undefined') {
-  window.initOverrideBadges = initOverrideBadges;
+  (window as Window & { initOverrideBadges?: typeof initOverrideBadges }).initOverrideBadges = initOverrideBadges;
 }

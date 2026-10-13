@@ -82,6 +82,8 @@ components/Macros/
 # inteiro em components/, entao os dois caem la e vem do yanc, como as pastas.
 components/README.md
 components/example/
+components/install.bat
+components/uninstall.bat
 
 # --- Test scratch ---
 coverage/

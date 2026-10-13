@@ -56,8 +56,8 @@ export function regrasDasFerramentas(prosa: ProsaDoMotor): string[] {
     'compiler tools through an MCP server registered as "aurora"; they appear',
     ...prosa.semShell,
     '',
-    'Compilation & simulation — NEVER call any YANC binary (cmmcomp, cppcomp,',
-    'cpppp, appcomp, asmcomp), nor yanc, iverilog, vvp, verilator or gtkwave',
+    'Compilation & simulation — NEVER call any YANC binary (yanc, cmmcomp,',
+    'cppcomp, asmcomp), nor iverilog, vvp, verilator or gtkwave',
     'from a shell. Use:',
     // O que o compile_all faz de verdade, e nao o que se dizia dele: o
     // pipeline completo para nos processadores e na forma de onda. O PRISM e

@@ -297,7 +297,7 @@ const TOOL_MANIFEST: ToolDef[] = [
       type: 'object',
       properties: {
         filePath:      { type: 'string', description: 'Absolute or project-relative path to a .asm file' },
-        processorName: { type: 'string', description: 'Resolves to <root>/<proc>/Software/<proc>.asm' },
+        processorName: { type: 'string', description: 'Resolves to <root>/<proc>/<proc>/<proc>.asm, in the processor output folder' },
       },
     },
   },
@@ -440,11 +440,11 @@ const TOOL_MANIFEST: ToolDef[] = [
     name: 'compile_step',
     description:
       'Run a single compilation step. "cmm" (or "cpp", the same step) regenerates the .asm from the ' +
-      'processor source and assembles: the front end is picked by the source in focus, cmmcomp for ' +
-      'a .cmm, cpppp + cppcomp for a .cpp; ' +
-      '"asm" SKIPS cmmcomp and runs asmcomp + iverilog -tnull (use this to test an .asm you ' +
-      'hand-optimised — typically combined with a `set_command_override` on the asm step\'s ' +
-      '-i flag pointing at <proc>/Software/_aurora_opt/<proc>.asm); "verilog" elaborates the ' +
+      'processor source and assembles: `yanc -S` runs the front end picked by the source in focus ' +
+      '(cmmcomp for a .cmm, cppcomp for a .cpp), then `yanc <proc>.asm` runs asmcomp, all in the ' +
+      'output folder <proc>/<proc>/; ' +
+      '"asm" SKIPS the front end and assembles the .asm already in <proc>/<proc>/, then runs ' +
+      'iverilog -tnull (use this to test an .asm you hand-optimised); "verilog" elaborates the ' +
       'project Verilog; "wave" opens GTKWave; "prism" opens the PRISM RTL viewer; ' +
       '"verilator-proc" runs the ACTIVE processor\'s generated top-level under Verilator as a ' +
       'hardware test; "verilator-fast" runs the testbench headless under Verilator (no waveform, ' +
@@ -465,8 +465,9 @@ const TOOL_MANIFEST: ToolDef[] = [
     description:
       'Run the ACTIVE SAPHO processor\'s generated top-level (<proc>.v) under Verilator as a ' +
       'hardware test — the "Verilator (processor)" toolbar button (id: verilatorproc). Uses ' +
-      'SAPHO\'s predictable wiring (req_in/out_en one-hot, decimal input_<N>.txt/output_<N>.txt ' +
-      'in the processor\'s Simulation/ folder) and recompiles cmm+asm first so the .v/_tb.v/.mif ' +
+      'SAPHO\'s predictable wiring (req_in/out_en one-hot, decimal input_<N>.txt read from the ' +
+      'processor folder <proc>/, output_<N>.txt written to its output folder <proc>/<proc>/) and ' +
+      'recompiles cmm+asm first so the .v/_tb.v/.mif ' +
       'are fresh. Acts on the processor currently focused/shown in the status bar — fails if no ' +
       'processor is active. Output lands in the hardware-test (thtest) terminal; read it with ' +
       'get_terminal_output("thtest"). This can be slow — for long runs prefer ' +
@@ -587,17 +588,17 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'create_processor',
-    description: 'Generate a processor in the open project, in C± (default) or C++ (language: "cpp"). Hardware widths (nBits/nbMantissa/nbExponent) are in bits and apply to C± only.',
+    description: 'Generate a processor in the open project, in C± (default) or C++ (language: "cpp"): the folder <name>/ with the source <name>.cmm or <name>.cpp inside; the yanc creates the output folder <name>/<name>/ on the first compile. Hardware widths (nBits/nbMantissa/nbExponent) are in bits and apply to C± only.',
     access: 'write',
     api: ['project', 'createProcessor'],
     argStyle: 'object',
     inputSchema: {
       type: 'object',
       properties: {
-        processorName: { type: 'string', description: 'Name of the processor. Becomes the folder name and the source basename, so keep it a valid identifier.' },
+        processorName: { type: 'string', description: 'Name of the processor. Becomes the folder name, the source basename and the Verilog module, so it takes only ASCII letters, digits and _, cannot start with a digit or __, and cannot be a Verilog keyword; a bad name is refused with the reason.' },
         language: {
           type: 'string', enum: ['cmm', 'cpp'],
-          description: 'Source language. "cmm" (the default) writes <name>.cmm with the #NUBITS header and uses every numeric field below. "cpp" writes <name>.cpp with `#pragma yanc prname/nuioin/nuioou` and IGNORES the other numeric fields: the C++ front end assumes 32-bit IEEE-754 single unless the source adds the pragma by hand. The language is also recorded in the .spf.',
+          description: 'Source language. "cmm" (the default) writes <name>.cmm with the #NUBITS header and uses every numeric field below. "cpp" writes <name>.cpp with `#pragma yanc nuioin/nuioou` and IGNORES the other numeric fields: the C++ front end assumes 32-bit IEEE-754 single unless the source adds the pragma by hand. The language is also recorded in the .spf.',
         },
         nBits: { type: 'number', description: 'NUBITS — overall data width' },
         nbMantissa: { type: 'number', description: 'NBMANT — mantissa width' },
@@ -606,7 +607,7 @@ const TOOL_MANIFEST: ToolDef[] = [
         instructionStackSize: { type: 'number', description: 'Depth of the instruction (call) stack, in words.' },
         inputPorts: { type: 'number', description: 'How many input ports the processor exposes.' },
         outputPorts: { type: 'number', description: 'How many output ports the processor exposes.' },
-        gain: { type: 'number', description: 'Fixed-point gain: the number of fractional bits.' },
+        gain: { type: 'number', description: 'NUGAIN — the divisor of norm(), a power of two. Omitted or 128 (the default) leaves #NUGAIN out of the header.' },
       },
       required: ['processorName'],
     },
@@ -632,8 +633,8 @@ const TOOL_MANIFEST: ToolDef[] = [
       'Rename the CURRENTLY OPEN SAPHO project everywhere: the project root folder ' +
       '(<location>/<old> → <location>/<new>), the <old>.spf project file, the .spf ' +
       'metadata (projectName/projectPath/basePath) and EVERY absolute path stored in ' +
-      'the .spf. Processor folders move with the root, so their #PRNAME directives are ' +
-      'untouched (use rename_processor for a processor). ' +
+      'the .spf. Processor folders move with the root, so the processors keep their ' +
+      'names, which are their source file names (use rename_processor for a processor). ' +
       'IMPORTANT: this starts a BACKGROUND JOB and returns IMMEDIATELY with a jobId — it ' +
       'does NOT wait for the rename to finish (waiting on it used to time out). After ' +
       'calling this you MUST call get_rename_status with the returned jobId, polling a few ' +
@@ -934,7 +935,7 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'delete_processor',
-    description: 'Delete a processor from the open project: removes its folder (Hardware/Simulation/Software + .cmm) and its SPF entries. Irreversible — prefer backup_project first.',
+    description: 'Delete a processor from the open project: removes its folder (the source, its data and the output folder <proc>/<proc>/) and its SPF entries. Irreversible — prefer backup_project first.',
     access: 'write',
     api: ['project', 'deleteProcessor'],
     argStyle: 'positional',
@@ -948,13 +949,14 @@ const TOOL_MANIFEST: ToolDef[] = [
   {
     name: 'rename_processor',
     description:
-      'Rename an existing processor everywhere SAPHO/Aurora cares: the processor ' +
-      'working directory (<old> to <new>), the Software/<old>.cmm source file, the ' +
-      '#PRNAME directive inside it, the auto-generated build artifacts (.asm, ' +
-      'Hardware/<old>.v, Simulation/<old>_tb.v) and every reference in the .spf ' +
+      'Rename an existing processor everywhere SAPHO/Aurora cares. The processor\'s name IS ' +
+      'its source file\'s name (and its Verilog module), so this renames the processor ' +
+      'folder (<old> to <new>), the <old>.cmm (or .cpp) source inside it, the output folder ' +
+      '<new>/<old>/ to <new>/<new>/ with the generated files that carry the name (.asm, .v, ' +
+      '_tb.v, .mif, pc_<old>_mem.txt) and every reference in the .spf ' +
       '(the processors[] entry — clk/numClocks/showArrays are preserved — plus the ' +
-      'top-level, testbench and synthesizable/testbench file path lists). User comments ' +
-      'and code inside the .cmm are NOT touched, only the #PRNAME directive. Open editor ' +
+      'top-level, testbench and synthesizable/testbench file path lists). The source text ' +
+      'is NOT touched. The new name follows the same rule as create_processor. Open editor ' +
       'tabs are re-pointed automatically. Custom user toplevels/testbenches at the project ' +
       'root are NOT renamed — use rename_file for those.',
     access: 'write',
@@ -1098,7 +1100,7 @@ const TOOL_MANIFEST: ToolDef[] = [
       'Mark a synthesizable Verilog file as the project\'s Top Level module (the synthesizable root). ' +
       'Registers the file in the project if it is not yet tracked, and refreshes the file tree. ' +
       'Call this after create_file and before compiling. ' +
-      'Do NOT use on the auto-generated <proc>.v inside <proc>/Hardware/ — that file is managed by SAPHO.',
+      'Do NOT use on the auto-generated <proc>.v inside the output folder <proc>/<proc>/ — that file is managed by SAPHO.',
     access: 'write',
     api: ['project', 'setTopLevel'],
     argStyle: 'positional',
@@ -1117,7 +1119,7 @@ const TOOL_MANIFEST: ToolDef[] = [
       'Mark a Verilog or cocotb Python file as the project\'s Testbench Top module (the simulation entry point). ' +
       'Registers the file in the project if it is not yet tracked, and refreshes the file tree. ' +
       'Call this after create_file and before compiling. ' +
-      'Do NOT use on the auto-generated <proc>_tb.v inside <proc>/Simulation/ — that file is managed by SAPHO.',
+      'Do NOT use on the auto-generated <proc>_tb.v inside the output folder <proc>/<proc>/ — that file is managed by SAPHO.',
     access: 'write',
     api: ['project', 'setTestbenchTop'],
     argStyle: 'positional',
@@ -1458,7 +1460,7 @@ const TOOL_MANIFEST: ToolDef[] = [
       'window. Optionally load a Surfer layout: a .surf.ron saved state or a .sucl ' +
       'command file. If surfer-aurora.exe is not installed it cleanly falls back to GTKWave, ' +
       'so this always produces a viewer. Pass an ABSOLUTE file path (find one with ' +
-      'get_project_tree — e.g. a <proc>/Simulation/<proc>.vcd or a dump.fst). Unlike ' +
+      'get_project_tree — e.g. a <proc>/<proc>/<proc>_tb.vcd or a dump.fst). Unlike ' +
       'set_waveform_viewer (which only changes what the Wave button uses), this ' +
       'launches the viewer immediately on the file you name.',
     access: 'write',

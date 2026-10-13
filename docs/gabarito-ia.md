@@ -9,11 +9,11 @@ Os fatos abaixo valem para o yanc v6.0. Quando o `YANC_TAG` mudar, revise o gaba
 ## Perguntas
 
 **1. "Crie um processador chamado media, com uma entrada e uma saída."**
-Certo: cria pela ferramenta de processador, e o `.cmm` nasce com sete diretivas (`#PRNAME media`, `#NUBITS`, `#NBMANT`, `#NBEXPO`, `#NUIOIN 1`, `#NUIOOU 1`, `#NUGAIN`).
-Errado: escrever `#NDSTAC` ou `#SDEPTH` sem você pedir.
+Certo: cria pela ferramenta de processador, e o `media/media.cmm` nasce com cinco diretivas (`#NUBITS`, `#NBMANT`, `#NBEXPO`, `#NUIOIN 1`, `#NUIOOU 1`). O nome do processador é o nome do arquivo.
+Errado: escrever `#PRNAME`, que desde o v7.1 é erro de compilação, ou `#NDSTAC`, `#SDEPTH` e `#NUGAIN 128` sem você pedir.
 
 **2. "Quais diretivas o cabeçalho de um .cmm precisa ter?"**
-Certo: as sete acima; `#NDSTAC` e `#SDEPTH` são opcionais e normalmente ficam de fora, porque o compilador calcula a profundidade pelo programa; `#FFTSIZ` e `#FROUND` também são opcionais. Diz que faltar uma diretiva não dá erro de build: o compilador usa o padrão (32 bits, mantissa 23, expoente 8) sem avisar.
+Certo: as cinco acima; `#NDSTAC` e `#SDEPTH` são opcionais e normalmente ficam de fora, porque o compilador calcula a profundidade pelo programa; `#NUGAIN` (padrão 128), `#FFTSIZ` e `#FROUND` também são opcionais. Não há `#PRNAME`: o nome é o do arquivo. Diz que faltar uma diretiva não dá erro de build: o compilador usa o padrão (32 bits, mantissa 23, expoente 8) sem avisar.
 Errado: dizer que são nove obrigatórias, ou que a falta dá erro.
 
 **3. "Posso usar #NUGAIN 100?"**
@@ -34,8 +34,8 @@ Certo: faz a conta `NUBITS = NBMANT + NBEXPO + 1` e chega em `#NBEXPO 5`. Sabe q
 Certo: confere antes que o projeto tem topo e testbench declarados, e usa as ferramentas na ordem do fluxo. Se faltar algo, diz o quê.
 
 **8. "Crie um processador em C++ chamado filtro."**
-Certo: um `.cpp` com só três pragmas (`#pragma yanc prname filtro`, `nuioin`, `nuioou`) e `void main(void)`.
-Errado: acrescentar pragmas de largura, ganho ou pilhas que você não pediu.
+Certo: um `filtro/filtro.cpp` com só dois pragmas (`nuioin`, `nuioou`) e `void main(void)`.
+Errado: escrever `#pragma yanc prname`, que desde o v7.1 é erro, ou acrescentar pragmas de largura, ganho ou pilhas que você não pediu.
 
 **9. "Quem mantém a Aurora?"**
 Certo: o Prof. Luciano.
@@ -55,5 +55,17 @@ Errado: tirar o `NOP` ao otimizar, ou dizer que QUO é uma instrução nova com 
 Certo: desde o v6.0 o divisor não limita mais o relógio; no `sapho_all` passou de 9,43 para 21,9 MHz na DE10-Nano e de 8,80 para 23,98 MHz na ZYBO (um fit por placa, sem pinos). O número do projeto dele sai da síntese, e o limite real na placa ainda depende da varredura. Lembra que `SAPHO/` e `asmcomp` têm de ser da mesma release.
 Errado: sugerir uns 10 MHz para quem divide (era o caso até o v5.7), ou prometer frequência sem síntese.
 
-**14. Forma, em qualquer resposta acima**
+**14. "Crie um processador chamado meu-filtro."**
+Certo: avisa que o nome vira o módulo Verilog e por isso só aceita letras ASCII, dígitos e `_` (sem dígito nem `__` no começo, e nenhuma palavra reservada do Verilog), e propõe `meu_filtro`.
+Errado: criar com hífen, acento ou um nome como `wire`.
+
+**15. "Onde fica o .v do meu processador filtro?"**
+Certo: na pasta de saída que o yanc cria, `filtro/filtro/filtro.v`, junto com o `.asm`, os `.mif` e o `filtro_tb.v`. O fonte e os `input_N.txt` ficam em `filtro/`. Não escreve nada à mão dentro de `filtro/filtro/`.
+Errado: falar de `Software/`, `Hardware/` ou `Simulation/`, que deixaram de existir no v7.1.
+
+**16. "Quero renomear o processador filtro para fir."**
+Certo: usa a ferramenta de renomear processador, que troca a pasta, o fonte e a pasta de saída juntos; não mexe no texto do fonte.
+Errado: renomear só o `.cmm`, ou procurar uma diretiva de nome para trocar.
+
+**17. Forma, em qualquer resposta acima**
 Responde em português quando a pergunta é em português; código sempre em bloco com a linguagem marcada; referências a arquivo no formato `arquivo.cmm:linha`; sem travessão, sem emoji, sem "ótima pergunta".

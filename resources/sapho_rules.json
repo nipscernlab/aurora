@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-07T19:02:00.402Z",
+  "generatedAt": "2026-10-13T17:05:36.405Z",
   "source": {
-    "yancPath": "C:/nipscern/yanc-v6.0-wt",
-    "yancCommit": "6cafe471ca93"
+    "yancPath": "C:/nipscern/yanc",
+    "yancCommit": "83265903d128"
   },
   "language": {
     "keywords": [
@@ -102,6 +102,30 @@
     ],
     "diracTokens": [
       {
+        "symbol": "toma",
+        "token": "TOMA"
+      },
+      {
+        "symbol": "cade",
+        "token": "CADE"
+      },
+      {
+        "symbol": "fcade",
+        "token": "FCADE"
+      },
+      {
+        "symbol": "toma_sync",
+        "token": "TOMAS"
+      },
+      {
+        "symbol": "cade_sync",
+        "token": "CADES"
+      },
+      {
+        "symbol": "fcade_sync",
+        "token": "FCADES"
+      },
+      {
         "symbol": "⟩",
         "token": "BRA"
       },
@@ -132,11 +156,6 @@
     ]
   },
   "directives": {
-    "PRNAME": {
-      "symbol": "#PRNAME",
-      "token": "PRNAME",
-      "description": "processor name"
-    },
     "NUBITS": {
       "symbol": "#NUBITS",
       "token": "NUBITS"
@@ -198,6 +217,8 @@
       "ATAN",
       "BRA",
       "BREAK",
+      "CADE",
+      "CADES",
       "CASE",
       "CEIL",
       "CNUM",
@@ -215,6 +236,8 @@
       "EXP",
       "EYE",
       "FASE",
+      "FCADE",
+      "FCADES",
       "FFTSIZ",
       "FIN",
       "FLOOR",
@@ -265,6 +288,8 @@
       "TANH",
       "THEN",
       "TOAQUI",
+      "TOMA",
+      "TOMAS",
       "TYPE",
       "VZERO",
       "WHILE"
@@ -301,6 +326,7 @@
       "return_call",
       "std_abs",
       "std_atan",
+      "std_cade",
       "std_ceil",
       "std_comp",
       "std_conj",
@@ -309,6 +335,7 @@
       "std_cosh",
       "std_exp",
       "std_fase",
+      "std_fcade",
       "std_fin",
       "std_floor",
       "std_fout",
@@ -328,6 +355,7 @@
       "std_sqrt",
       "std_tan",
       "std_tanh",
+      "std_toma",
       "std_vout",
       "stmt_full",
       "stmt_list",
@@ -425,6 +453,90 @@
       "category": "declaration / assignment / variable-use errors",
       "pt": "Erro na linha %d: a variável '%s' já existe. Vai tomar um Ω³!\n",
       "en": "Error on line %d: the variable '%s' already exists. Go grab an Ω³!\n"
+    },
+    {
+      "code": "MSG_ERR_NAME_TAKEN",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: %s vira '%s' no assembly, e esse nome já é %s. Troque um dos dois nomes.\n",
+      "en": "Error on line %d: %s is '%s' in the assembly, and that name is already %s. Rename one of them.\n"
+    },
+    {
+      "code": "MSG_ERR_NAME_MNEMONIC",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: %s vira '%s' no assembly, que é uma instrução do processador. Troque o nome.\n",
+      "en": "Error on line %d: %s is '%s' in the assembly, which is an instruction of the processor. Rename it.\n"
+    },
+    {
+      "code": "MSG_ERR_NAME_IS_MNEMONIC",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: %s: '%s' é uma instrução do processador. Troque o nome.\n",
+      "en": "Error on line %d: %s: '%s' is an instruction of the processor. Rename it.\n"
+    },
+    {
+      "code": "MSG_ERR_NAME_RESERVED",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: a função não pode se chamar '%s': %s.\n",
+      "en": "Error on line %d: a function can't be called '%s': %s.\n"
+    },
+    {
+      "code": "MSG_ERR_NAME_UNDERSCORES",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: '%s': nomes começando com '__' são do compilador.\n",
+      "en": "Error on line %d: '%s': names starting with '__' belong to the compiler.\n"
+    },
+    {
+      "code": "MSG_NAME_GLOBAL",
+      "severity": "message",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "a global '%s'",
+      "en": "the global '%s'"
+    },
+    {
+      "code": "MSG_NAME_LOCAL",
+      "severity": "message",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "a local '%s' de '%s()'",
+      "en": "the local '%s' of '%s()'"
+    },
+    {
+      "code": "MSG_NAME_FUNC",
+      "severity": "message",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "a função '%s()'",
+      "en": "the function '%s()'"
+    },
+    {
+      "code": "MSG_NAME_IMAG",
+      "severity": "message",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "a parte imaginária de %s",
+      "en": "the imaginary part of %s"
+    },
+    {
+      "code": "MSG_NAME_FIM",
+      "severity": "message",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "o programa termina no rótulo @fim",
+      "en": "the program ends at the label @fim"
+    },
+    {
+      "code": "MSG_NAME_GLOBAL_LOG",
+      "severity": "message",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "'global' marca as variáveis globais no log da simulação",
+      "en": "'global' marks the global variables in the simulation log"
+    },
+    {
+      "code": "MSG_NAME_NUM_INS",
+      "severity": "message",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "'num_ins' é uma chave do log da simulação",
+      "en": "'num_ins' is a key of the simulation log"
     },
     {
       "code": "MSG_ERR_VAR_NOT_FOUND",
@@ -537,6 +649,48 @@
       "category": "i/o errors and warnings",
       "pt": "Atenção na linha %d: se não quiser esse warning, use 'out'.\n",
       "en": "Heads up on line %d: if you don't want this warning, use 'out'.\n"
+    },
+    {
+      "code": "MSG_ERR_PRNAME_GONE",
+      "severity": "error",
+      "category": "stdlib errors and warnings (special functions)",
+      "pt": "Erro na linha %d: #PRNAME não existe mais. O processador tem o nome do arquivo (filtro.cmm vira o processador filtro): apague a linha e, se quiser outro nome, renomeie o arquivo.\n",
+      "en": "Error on line %d: #PRNAME is gone. The processor takes the name of the file (filtro.cmm becomes the processor filtro): delete the line and, for another name, rename the file.\n"
+    },
+    {
+      "code": "MSG_ERR_LINK_NUM",
+      "severity": "error",
+      "category": "stdlib errors and warnings (special functions)",
+      "pt": "Erro na linha %d: o número do link é um inteiro de 0 a %d, e achei %s.\n",
+      "en": "Error on line %d: the link number is an integer from 0 to %d, and I found %s.\n"
+    },
+    {
+      "code": "MSG_ERR_LINK_MIX",
+      "severity": "error",
+      "category": "stdlib errors and warnings (special functions)",
+      "pt": "Erro na linha %d: o link %d já foi usado %s _sync. Um link tem um hardware só: ou o parceiro está no mesmo clock (toma_sync/cade_sync/fcade_sync em todo uso), ou não (toma/cade/fcade em todo uso).\n",
+      "en": "Error on line %d: link %d was already used %s _sync. A link has one hardware: either the partner is on the same clock (toma_sync/cade_sync/fcade_sync in every use) or it is not (toma/cade/fcade in every use).\n"
+    },
+    {
+      "code": "MSG_LINK_WITH",
+      "severity": "message",
+      "category": "stdlib errors and warnings (special functions)",
+      "pt": "com",
+      "en": "with"
+    },
+    {
+      "code": "MSG_LINK_WITHOUT",
+      "severity": "message",
+      "category": "stdlib errors and warnings (special functions)",
+      "pt": "sem",
+      "en": "without"
+    },
+    {
+      "code": "MSG_ERR_CADE_COMP",
+      "severity": "error",
+      "category": "stdlib errors and warnings (special functions)",
+      "pt": "Erro na linha %d: cade() traz uma palavra só, e '%s' é complexo (duas palavras). Receba a parte real e a imaginária separadas.\n",
+      "en": "Error on line %d: cade() brings one word, and '%s' is complex (two words). Take the real and the imaginary parts separately.\n"
     },
     {
       "code": "MSG_ERR_PICK_COMP_INFO",
@@ -1295,6 +1449,48 @@
       "en": "Error: unknown option '%s'.\n"
     },
     {
+      "code": "MSG_ERR_PROC_NAME",
+      "severity": "error",
+      "category": "command-line interface",
+      "pt": "Erro: o arquivo '%s' dá nome ao processador, e '%s' %s. Renomeia o arquivo.\n",
+      "en": "Error: the file '%s' names the processor, and '%s' %s. Rename the file.\n"
+    },
+    {
+      "code": "MSG_PROC_NAME_CHARS",
+      "severity": "message",
+      "category": "command-line interface",
+      "pt": "só pode ter letras, dígitos e '_'",
+      "en": "can only have letters, digits and '_'"
+    },
+    {
+      "code": "MSG_PROC_NAME_DIGIT",
+      "severity": "message",
+      "category": "command-line interface",
+      "pt": "não pode começar com dígito",
+      "en": "can't start with a digit"
+    },
+    {
+      "code": "MSG_PROC_NAME_UNDERSC",
+      "severity": "message",
+      "category": "command-line interface",
+      "pt": "não pode começar com '__' (é do compilador)",
+      "en": "can't start with '__' (that's the compiler's)"
+    },
+    {
+      "code": "MSG_PROC_NAME_KEYWORD",
+      "severity": "message",
+      "category": "command-line interface",
+      "pt": "é palavra reservada do Verilog",
+      "en": "is a Verilog keyword"
+    },
+    {
+      "code": "MSG_ERR_NO_TOOL_DIR",
+      "severity": "error",
+      "category": "command-line interface",
+      "pt": "Erro: cadê a pasta %s? Ela tem que estar ao lado da pasta bin/ do cmmcomp. Instala o YANC de novo.\n",
+      "en": "Error: where's the %s folder? It has to sit next to cmmcomp's bin/ folder. Install YANC again.\n"
+    },
+    {
       "code": "MSG_ERR_CLI_MISSING",
       "severity": "error",
       "category": "command-line interface",
@@ -1312,8 +1508,8 @@
       "code": "MSG_CLI_HELP",
       "severity": "cli",
       "category": "command-line interface",
-      "pt": "cmmcomp - compilador front-end C± do YANC (%s)\n\nUso:\n  cmmcomp [opções] -i <arq.cmm> -n <nome> -p <dir> -m <dir> -t <dir>\n\nOpções obrigatórias:\n  -i, --input <arq>       arquivo-fonte C± (dentro de <dir-proc>/Software)\n  -n, --name <nome>       nome do processador (base do .asm gerado)\n  -p, --proc-dir <dir>    diretório do processador\n  -m, --macros-dir <dir>  diretório de Macros\n  -t, --temp-dir <dir>    diretório Temp\n\nOutras opções:\n  -A, --array             expande cada elemento do array como sinal individual no GTKWave\n  -en, -pt                idioma das mensagens (padrão: -pt)\n  -h, --help              mostra esta ajuda e sai\n  -V, --version           mostra a versão e sai\n",
-      "en": "cmmcomp - YANC C± front-end compiler (%s)\n\nUsage:\n  cmmcomp [options] -i <file.cmm> -n <name> -p <dir> -m <dir> -t <dir>\n\nRequired options:\n  -i, --input <file>      C± source file (inside <proc-dir>/Software)\n  -n, --name <name>       processor name (base name of the .asm output)\n  -p, --proc-dir <dir>    processor directory\n  -m, --macros-dir <dir>  Macros directory\n  -t, --temp-dir <dir>    Temp directory\n\nOther options:\n  -A, --array             emit each array element as a separate GTKWave signal       \n  -en, -pt                diagnostic message language (default: -pt)\n  -h, --help              show this help and exit\n  -V, --version           show version and exit\n"
+      "pt": "cmmcomp - compilador front-end C± do YANC (%s)\n\nUso:\n  cmmcomp [opções] <arq.cmm>\n\nO processador tem o nome do arquivo (<nome>.cmm). Escreve na pasta de saída o\n<nome>.asm e as tabelas (prog_log.txt, pc_<nome>_mem.txt, src_lines.txt) que o\nasmcomp e a forma de onda usam.\n\nOpções:\n  -o, --output <dir>      pasta de saída (padrão: ./<nome>)\n  --wave-arrays           cada elemento de vetor vira um sinal no GTKWave\n  --lang=en|pt            idioma das mensagens (padrão: en, ou YANC_LANG)\n  -h, --help              mostra esta ajuda e sai\n  -V, --version           mostra a versão e sai\n",
+      "en": "cmmcomp - YANC C± front-end compiler (%s)\n\nUsage:\n  cmmcomp [options] <file.cmm>\n\nThe processor takes the name of the file (<name>.cmm). Writes to the output\nfolder the <name>.asm and the tables (prog_log.txt, pc_<name>_mem.txt,\nsrc_lines.txt) that asmcomp and the waveform use.\n\nOptions:\n  -o, --output <dir>      output folder (default: ./<name>)\n  --wave-arrays           each array element as its own GTKWave signal\n  --lang=en|pt            message language (default: en, or YANC_LANG)\n  -h, --help              show this help and exit\n  -V, --version           show version and exit\n"
     }
   ],
   "asm": {
@@ -1575,8 +1771,28 @@
         "description": "subroutine return"
       },
       {
-        "mnemonic": "ADD",
+        "mnemonic": "TOM",
         "opcode": 20,
+        "operandKind": "code_29",
+        "operandCode": 29,
+        "hdlName": "TOM",
+        "family": "other",
+        "variants": [],
+        "description": "toma: offer acc on link <operand>, wait (jump to itself) until taken"
+      },
+      {
+        "mnemonic": "CAD",
+        "opcode": 21,
+        "operandKind": "code_29",
+        "operandCode": 29,
+        "hdlName": "CAD",
+        "family": "other",
+        "variants": [],
+        "description": "cade: wait (jump to itself) until link <operand> offers, then take it into acc"
+      },
+      {
+        "mnemonic": "ADD",
+        "opcode": 22,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "ADD",
@@ -1586,7 +1802,7 @@
       },
       {
         "mnemonic": "ADD_V",
-        "opcode": 20,
+        "opcode": 22,
         "operandKind": "memory_offset",
         "operandCode": 22,
         "hdlName": "ADD",
@@ -1598,7 +1814,7 @@
       },
       {
         "mnemonic": "S_ADD",
-        "opcode": 21,
+        "opcode": 23,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_ADD",
@@ -1610,7 +1826,7 @@
       },
       {
         "mnemonic": "MLT",
-        "opcode": 22,
+        "opcode": 24,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "MLT",
@@ -1620,7 +1836,7 @@
       },
       {
         "mnemonic": "MLT_V",
-        "opcode": 22,
+        "opcode": 24,
         "operandKind": "memory_offset",
         "operandCode": 22,
         "hdlName": "MLT",
@@ -1632,7 +1848,7 @@
       },
       {
         "mnemonic": "S_MLT",
-        "opcode": 23,
+        "opcode": 25,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_MLT",
@@ -1644,7 +1860,7 @@
       },
       {
         "mnemonic": "DIV",
-        "opcode": 24,
+        "opcode": 26,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "DIV",
@@ -1654,7 +1870,7 @@
       },
       {
         "mnemonic": "QUO",
-        "opcode": 24,
+        "opcode": 26,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "DIV",
@@ -1664,7 +1880,7 @@
       },
       {
         "mnemonic": "S_DIV",
-        "opcode": 25,
+        "opcode": 27,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_DIV",
@@ -1676,7 +1892,7 @@
       },
       {
         "mnemonic": "MOD",
-        "opcode": 26,
+        "opcode": 28,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "MOD",
@@ -1686,7 +1902,7 @@
       },
       {
         "mnemonic": "REM",
-        "opcode": 26,
+        "opcode": 28,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "MOD",
@@ -1696,7 +1912,7 @@
       },
       {
         "mnemonic": "S_MOD",
-        "opcode": 27,
+        "opcode": 29,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_MOD",
@@ -1708,7 +1924,7 @@
       },
       {
         "mnemonic": "SGN",
-        "opcode": 28,
+        "opcode": 30,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "SGN",
@@ -1718,7 +1934,7 @@
       },
       {
         "mnemonic": "S_SGN",
-        "opcode": 29,
+        "opcode": 31,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_SGN",
@@ -1730,7 +1946,7 @@
       },
       {
         "mnemonic": "F_ADD",
-        "opcode": 30,
+        "opcode": 32,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_ADD",
@@ -1742,7 +1958,7 @@
       },
       {
         "mnemonic": "F_ADD_V",
-        "opcode": 30,
+        "opcode": 32,
         "operandKind": "memory_offset",
         "operandCode": 22,
         "hdlName": "F_ADD",
@@ -1755,7 +1971,7 @@
       },
       {
         "mnemonic": "SF_ADD",
-        "opcode": 31,
+        "opcode": 33,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "SF_ADD",
@@ -1768,7 +1984,7 @@
       },
       {
         "mnemonic": "F_SU1",
-        "opcode": 32,
+        "opcode": 34,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_SU1",
@@ -1780,7 +1996,7 @@
       },
       {
         "mnemonic": "F_SU2",
-        "opcode": 33,
+        "opcode": 35,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_SU2",
@@ -1792,7 +2008,7 @@
       },
       {
         "mnemonic": "SF_SU1",
-        "opcode": 34,
+        "opcode": 36,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "SF_SU1",
@@ -1805,7 +2021,7 @@
       },
       {
         "mnemonic": "SF_SU2",
-        "opcode": 35,
+        "opcode": 37,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "SF_SU2",
@@ -1818,7 +2034,7 @@
       },
       {
         "mnemonic": "F_MLT",
-        "opcode": 36,
+        "opcode": 38,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_MLT",
@@ -1830,7 +2046,7 @@
       },
       {
         "mnemonic": "F_MLT_V",
-        "opcode": 36,
+        "opcode": 38,
         "operandKind": "memory_offset",
         "operandCode": 22,
         "hdlName": "F_MLT",
@@ -1843,7 +2059,7 @@
       },
       {
         "mnemonic": "SF_MLT",
-        "opcode": 37,
+        "opcode": 39,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "SF_MLT",
@@ -1856,7 +2072,7 @@
       },
       {
         "mnemonic": "F_DIV",
-        "opcode": 38,
+        "opcode": 40,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_DIV",
@@ -1868,7 +2084,7 @@
       },
       {
         "mnemonic": "F_QUO",
-        "opcode": 38,
+        "opcode": 40,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "F_DIV",
@@ -1880,7 +2096,7 @@
       },
       {
         "mnemonic": "SF_DIV",
-        "opcode": 39,
+        "opcode": 41,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "SF_DIV",
@@ -1893,7 +2109,7 @@
       },
       {
         "mnemonic": "F_SGN",
-        "opcode": 40,
+        "opcode": 42,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_SGN",
@@ -1905,7 +2121,7 @@
       },
       {
         "mnemonic": "SF_SGN",
-        "opcode": 41,
+        "opcode": 43,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "SF_SGN",
@@ -1918,7 +2134,7 @@
       },
       {
         "mnemonic": "F_SCL",
-        "opcode": 42,
+        "opcode": 44,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_SCL",
@@ -1930,7 +2146,7 @@
       },
       {
         "mnemonic": "SF_SCL",
-        "opcode": 43,
+        "opcode": 45,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "SF_SCL",
@@ -1943,7 +2159,7 @@
       },
       {
         "mnemonic": "NEG",
-        "opcode": 44,
+        "opcode": 46,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "NEG",
@@ -1953,7 +2169,7 @@
       },
       {
         "mnemonic": "NEG_M",
-        "opcode": 45,
+        "opcode": 47,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "NEG_M",
@@ -1965,7 +2181,7 @@
       },
       {
         "mnemonic": "P_NEG_M",
-        "opcode": 46,
+        "opcode": 48,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "P_NEG_M",
@@ -1978,7 +2194,7 @@
       },
       {
         "mnemonic": "ABS",
-        "opcode": 47,
+        "opcode": 49,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "ABS",
@@ -1988,7 +2204,7 @@
       },
       {
         "mnemonic": "ABS_M",
-        "opcode": 48,
+        "opcode": 50,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "ABS_M",
@@ -2000,7 +2216,7 @@
       },
       {
         "mnemonic": "P_ABS_M",
-        "opcode": 49,
+        "opcode": 51,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "P_ABS_M",
@@ -2013,7 +2229,7 @@
       },
       {
         "mnemonic": "PST",
-        "opcode": 50,
+        "opcode": 52,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "PST",
@@ -2023,7 +2239,7 @@
       },
       {
         "mnemonic": "PST_M",
-        "opcode": 51,
+        "opcode": 53,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "PST_M",
@@ -2035,7 +2251,7 @@
       },
       {
         "mnemonic": "P_PST_M",
-        "opcode": 52,
+        "opcode": 54,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "P_PST_M",
@@ -2048,7 +2264,7 @@
       },
       {
         "mnemonic": "NRM",
-        "opcode": 53,
+        "opcode": 55,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "NRM",
@@ -2058,7 +2274,7 @@
       },
       {
         "mnemonic": "NRM_M",
-        "opcode": 54,
+        "opcode": 56,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "NRM_M",
@@ -2070,7 +2286,7 @@
       },
       {
         "mnemonic": "P_NRM_M",
-        "opcode": 55,
+        "opcode": 57,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "P_NRM_M",
@@ -2083,7 +2299,7 @@
       },
       {
         "mnemonic": "INV",
-        "opcode": 56,
+        "opcode": 58,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "INV",
@@ -2093,7 +2309,7 @@
       },
       {
         "mnemonic": "INV_M",
-        "opcode": 57,
+        "opcode": 59,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "INV_M",
@@ -2105,7 +2321,7 @@
       },
       {
         "mnemonic": "P_INV_M",
-        "opcode": 58,
+        "opcode": 60,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "P_INV_M",
@@ -2118,7 +2334,7 @@
       },
       {
         "mnemonic": "LIN",
-        "opcode": 59,
+        "opcode": 61,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "LIN",
@@ -2128,7 +2344,7 @@
       },
       {
         "mnemonic": "LIN_M",
-        "opcode": 60,
+        "opcode": 62,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "LIN_M",
@@ -2140,7 +2356,7 @@
       },
       {
         "mnemonic": "P_LIN_M",
-        "opcode": 61,
+        "opcode": 63,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "P_LIN_M",
@@ -2153,7 +2369,7 @@
       },
       {
         "mnemonic": "F_NEG",
-        "opcode": 62,
+        "opcode": 64,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "F_NEG",
@@ -2165,7 +2381,7 @@
       },
       {
         "mnemonic": "F_NEG_M",
-        "opcode": 63,
+        "opcode": 65,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_NEG_M",
@@ -2178,7 +2394,7 @@
       },
       {
         "mnemonic": "PF_NEG_M",
-        "opcode": 64,
+        "opcode": 66,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "PF_NEG_M",
@@ -2192,7 +2408,7 @@
       },
       {
         "mnemonic": "F_ABS",
-        "opcode": 65,
+        "opcode": 67,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "F_ABS",
@@ -2204,7 +2420,7 @@
       },
       {
         "mnemonic": "F_ABS_M",
-        "opcode": 66,
+        "opcode": 68,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_ABS_M",
@@ -2217,7 +2433,7 @@
       },
       {
         "mnemonic": "PF_ABS_M",
-        "opcode": 67,
+        "opcode": 69,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "PF_ABS_M",
@@ -2231,7 +2447,7 @@
       },
       {
         "mnemonic": "F_PST",
-        "opcode": 68,
+        "opcode": 70,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "F_PST",
@@ -2243,7 +2459,7 @@
       },
       {
         "mnemonic": "F_PST_M",
-        "opcode": 69,
+        "opcode": 71,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_PST_M",
@@ -2256,7 +2472,7 @@
       },
       {
         "mnemonic": "PF_PST_M",
-        "opcode": 70,
+        "opcode": 72,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "PF_PST_M",
@@ -2270,7 +2486,7 @@
       },
       {
         "mnemonic": "F_ROT",
-        "opcode": 71,
+        "opcode": 73,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "F_ROT",
@@ -2282,7 +2498,7 @@
       },
       {
         "mnemonic": "XPO",
-        "opcode": 72,
+        "opcode": 74,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "XPO",
@@ -2292,7 +2508,7 @@
       },
       {
         "mnemonic": "XPO_M",
-        "opcode": 73,
+        "opcode": 75,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "XPO_M",
@@ -2304,7 +2520,7 @@
       },
       {
         "mnemonic": "I2F",
-        "opcode": 74,
+        "opcode": 76,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "I2F",
@@ -2314,7 +2530,7 @@
       },
       {
         "mnemonic": "I2F_M",
-        "opcode": 75,
+        "opcode": 77,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "I2F_M",
@@ -2326,7 +2542,7 @@
       },
       {
         "mnemonic": "P_I2F_M",
-        "opcode": 76,
+        "opcode": 78,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "P_I2F_M",
@@ -2339,7 +2555,7 @@
       },
       {
         "mnemonic": "F2I",
-        "opcode": 77,
+        "opcode": 79,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "F2I",
@@ -2349,7 +2565,7 @@
       },
       {
         "mnemonic": "F2I_M",
-        "opcode": 78,
+        "opcode": 80,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F2I_M",
@@ -2361,7 +2577,7 @@
       },
       {
         "mnemonic": "P_F2I_M",
-        "opcode": 79,
+        "opcode": 81,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "P_F2I_M",
@@ -2374,7 +2590,7 @@
       },
       {
         "mnemonic": "AND",
-        "opcode": 80,
+        "opcode": 82,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "AND",
@@ -2384,7 +2600,7 @@
       },
       {
         "mnemonic": "S_AND",
-        "opcode": 81,
+        "opcode": 83,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_AND",
@@ -2396,7 +2612,7 @@
       },
       {
         "mnemonic": "ORR",
-        "opcode": 82,
+        "opcode": 84,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "ORR",
@@ -2406,7 +2622,7 @@
       },
       {
         "mnemonic": "S_ORR",
-        "opcode": 83,
+        "opcode": 85,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_ORR",
@@ -2418,7 +2634,7 @@
       },
       {
         "mnemonic": "XOR",
-        "opcode": 84,
+        "opcode": 86,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "XOR",
@@ -2428,7 +2644,7 @@
       },
       {
         "mnemonic": "S_XOR",
-        "opcode": 85,
+        "opcode": 87,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_XOR",
@@ -2440,7 +2656,7 @@
       },
       {
         "mnemonic": "LAN",
-        "opcode": 86,
+        "opcode": 88,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "LAN",
@@ -2450,7 +2666,7 @@
       },
       {
         "mnemonic": "S_LAN",
-        "opcode": 87,
+        "opcode": 89,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_LAN",
@@ -2462,7 +2678,7 @@
       },
       {
         "mnemonic": "LOR",
-        "opcode": 88,
+        "opcode": 90,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "LOR",
@@ -2472,7 +2688,7 @@
       },
       {
         "mnemonic": "S_LOR",
-        "opcode": 89,
+        "opcode": 91,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_LOR",
@@ -2484,7 +2700,7 @@
       },
       {
         "mnemonic": "LES",
-        "opcode": 90,
+        "opcode": 92,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "LES",
@@ -2494,7 +2710,7 @@
       },
       {
         "mnemonic": "S_LES",
-        "opcode": 91,
+        "opcode": 93,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_LES",
@@ -2506,7 +2722,7 @@
       },
       {
         "mnemonic": "GRE",
-        "opcode": 92,
+        "opcode": 94,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "GRE",
@@ -2516,7 +2732,7 @@
       },
       {
         "mnemonic": "S_GRE",
-        "opcode": 93,
+        "opcode": 95,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_GRE",
@@ -2528,7 +2744,7 @@
       },
       {
         "mnemonic": "EQU",
-        "opcode": 94,
+        "opcode": 96,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "EQU",
@@ -2538,7 +2754,7 @@
       },
       {
         "mnemonic": "S_EQU",
-        "opcode": 95,
+        "opcode": 97,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_EQU",
@@ -2550,7 +2766,7 @@
       },
       {
         "mnemonic": "F_LES",
-        "opcode": 96,
+        "opcode": 98,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_LES",
@@ -2562,7 +2778,7 @@
       },
       {
         "mnemonic": "SF_LES",
-        "opcode": 97,
+        "opcode": 99,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "SF_LES",
@@ -2575,7 +2791,7 @@
       },
       {
         "mnemonic": "F_GRE",
-        "opcode": 98,
+        "opcode": 100,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "F_GRE",
@@ -2587,7 +2803,7 @@
       },
       {
         "mnemonic": "SF_GRE",
-        "opcode": 99,
+        "opcode": 101,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "SF_GRE",
@@ -2600,7 +2816,7 @@
       },
       {
         "mnemonic": "SHL",
-        "opcode": 100,
+        "opcode": 102,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "SHL",
@@ -2610,7 +2826,7 @@
       },
       {
         "mnemonic": "S_SHL",
-        "opcode": 101,
+        "opcode": 103,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_SHL",
@@ -2622,7 +2838,7 @@
       },
       {
         "mnemonic": "SHR",
-        "opcode": 102,
+        "opcode": 104,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "SHR",
@@ -2632,7 +2848,7 @@
       },
       {
         "mnemonic": "S_SHR",
-        "opcode": 103,
+        "opcode": 105,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_SHR",
@@ -2644,7 +2860,7 @@
       },
       {
         "mnemonic": "SRS",
-        "opcode": 104,
+        "opcode": 106,
         "operandKind": "memory",
         "operandCode": 18,
         "hdlName": "SRS",
@@ -2654,7 +2870,7 @@
       },
       {
         "mnemonic": "S_SRS",
-        "opcode": 105,
+        "opcode": 107,
         "operandKind": "none",
         "operandCode": 0,
         "hdlName": "S_SRS",

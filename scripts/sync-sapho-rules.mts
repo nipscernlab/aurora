@@ -220,6 +220,35 @@ export function buildDirectives(lexResult: LexResult | null, ...sources: (string
   return out;
 }
 
+/**
+ * Directives the lexer still recognises only to reject them. Since yanc v7.1
+ * `#PRNAME` is lexed so the grammar can say it no longer exists:
+ *
+ *     direct : PRNAME   ID   {fprintf(stderr, MSG_ERR_PRNAME_GONE, ...); exit(...);}
+ *
+ * Every `#`-token of CMMComp.l is a directive to parseLexer, so without this
+ * the rules would keep offering `#PRNAME` to the AI and the editor. A token
+ * whose production in CMMComp.y does nothing but print a `MSG_ERR_*_GONE` is
+ * a directive that left the language.
+ */
+export function diretivasQueSairam(grammarSrc: string | null): Set<string> {
+  const out = new Set<string>();
+  if (!grammarSrc) return out;
+  const re = /\b([A-Z][A-Z0-9_]*)\b[^{}\n]*\{\s*fprintf\s*\(\s*stderr\s*,\s*MSG_ERR_[A-Z0-9_]*_GONE\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(grammarSrc)) !== null) out.add(m[1]);
+  return out;
+}
+
+/** Tira de `directives` (o que buildDirectives montou) as que sairam da linguagem. */
+export function tirarAsQueSairam(directives: Record<string, { token: string }>, grammarSrc: string | null): void {
+  for (const saiu of diretivasQueSairam(grammarSrc)) {
+    for (const [nome, info] of Object.entries(directives)) {
+      if (info.token === saiu) delete directives[nome];
+    }
+  }
+}
+
 /* ============================================================
  *  Message catalog parser  (messages.h)
  *
@@ -572,6 +601,8 @@ function main() {
 
   const lex        = parseLexer(cmm.lex);
   const directives = buildDirectives(lex, cmm.dirC, cmm.dirH);
+  /* v8 ignore next */ // main() so roda pela linha de comando e grava o sapho_rules.json; a regra e testada em tirarAsQueSairam
+  tirarAsQueSairam(directives, cmm.grammar);
   const messages   = parseMessages(cmm.msg);
   const grammar    = parseGrammar(cmm.grammar);
   const opcodes    = parseAsmLexer(asm.lex);

@@ -208,7 +208,8 @@ describe('o yanc v6.0', () => {
         expect(SYSTEM_PROMPT).toContain('DIV leva três palavras');
         expect(SYSTEM_PROMPT).toContain('o programa termina no meio da sequência de DIV');
         expect(SYSTEM_PROMPT).toContain('Never drop the NOP');
-        expect(SYSTEM_PROMPT).toContain('117 mnemonics');
+        // 117 no v6.0; 119 desde que TOM e CAD (toma/cade) entraram no yanc v7.1.
+        expect(SYSTEM_PROMPT).toContain('119 mnemonics');
     });
 
     it('cita o ganho medido e que SAPHO/ e asmcomp vem da mesma release', () => {
@@ -231,5 +232,39 @@ describe('o papel dos arquivos', () => {
         expect(SYSTEM_PROMPT).toMatch(/tell the user which role you gave/i);
         expect(SYSTEM_PROMPT).toMatch(/ask before changing the role/i);
         expect(SYSTEM_PROMPT).toContain('create_file (.v, role)');
+    });
+});
+
+// O que o yanc v7.1 mudou no que o modelo deve dizer (o texto que o repo yanc
+// mandou para a AURORA, 13/10/2026).
+describe('o yanc v7.1', () => {
+    it('o nome do processador e o do arquivo, e #PRNAME e erro', () => {
+        expect(SYSTEM_PROMPT).toContain("THE PROCESSOR'S NAME IS THE SOURCE FILE'S NAME");
+        expect(SYSTEM_PROMPT).toContain('are a COMPILE ERROR');
+        expect(SYSTEM_PROMPT).not.toContain('PRNAME MUST EXACTLY MATCH');
+        expect(SYSTEM_PROMPT).not.toContain('#pragma yanc prname <name>');
+        // A regra do nome e a do yanc: o nome vira modulo Verilog.
+        expect(SYSTEM_PROMPT).toContain('`my-proc` (hyphen)');
+        expect(SYSTEM_PROMPT).toContain('`wire` (keyword)');
+    });
+
+    it('a AURORA chama so o driver, e o cpppp e o appcomp sairam', () => {
+        expect(SYSTEM_PROMPT).toContain('the ONLY binary Aurora calls');
+        expect(SYSTEM_PROMPT).toContain('There is no cpppp any more');
+        expect(SYSTEM_PROMPT).not.toMatch(/→ appcomp →/);
+        expect(SYSTEM_PROMPT).not.toMatch(/cpppp → cppcomp/);
+    });
+
+    it('as pastas sao as do yanc: o fonte em <proc>/ e o gerado em <proc>/<proc>/', () => {
+        expect(SYSTEM_PROMPT).toContain('the OUTPUT FOLDER, flat');
+        expect(SYSTEM_PROMPT).toContain('There are no Software/, Hardware/ or Simulation/ folders any more.');
+        expect(SYSTEM_PROMPT).not.toContain('<proc>/Hardware/<proc>.v');
+        expect(SYSTEM_PROMPT).not.toContain('<proc>/Simulation/');
+    });
+
+    it('cinco diretivas obrigatorias; #NUGAIN opcional, padrao 128', () => {
+        expect(SYSTEM_PROMPT).toContain('FIVE CORE DIRECTIVES');
+        expect(SYSTEM_PROMPT).toContain('#NUBITS, #NBMANT, #NBEXPO, #NUIOIN, #NUIOOU');
+        expect(SYSTEM_PROMPT).toContain('`#NUGAIN` is OPTIONAL');
     });
 });

@@ -176,3 +176,31 @@ describe('classifyMnemonic', () => {
     expect(classifyMnemonic('STA')).not.toBe('indirect');
   });
 });
+
+describe('as diretivas que sairam da linguagem (yanc v7.1)', () => {
+  // O CMMComp.y do yanc v7.1 ainda lexa #PRNAME, so para dizer que ele nao
+  // existe mais. A regra da gramatica e a de Compilers/CMMComp/Sources/CMMComp.y.
+  const GRAMATICA = [
+    'direct : PRNAME   ID   {fprintf(stderr, MSG_ERR_PRNAME_GONE, line_num+1); exit(EXIT_FAILURE);} // the name is the file\'s',
+    '       | NUBITS INUM {dire_exec("#NUBITS",$2,1);}',
+    '       | NUGAIN INUM {dire_exec("#NUGAIN",$2,10);}',
+  ].join('\n');
+
+  it('acha o token cuja regra so imprime um MSG_ERR_*_GONE', async () => {
+    const { diretivasQueSairam } = await import('../../scripts/sync-sapho-rules.mts');
+    expect([...diretivasQueSairam(GRAMATICA)]).toEqual(['PRNAME']);
+    expect([...diretivasQueSairam(null)]).toEqual([]);
+    expect([...diretivasQueSairam('direct : NUBITS INUM {dire_exec("#NUBITS",$2,1);}')]).toEqual([]);
+  });
+
+  it('tira a diretiva da lista pelo token, e deixa as outras', async () => {
+    const { tirarAsQueSairam } = await import('../../scripts/sync-sapho-rules.mts');
+    const diretivas = {
+      PRNAME: { symbol: '#PRNAME', token: 'PRNAME' },
+      NUBITS: { symbol: '#NUBITS', token: 'NUBITS' },
+      NUGAIN: { symbol: '#NUGAIN', token: 'NUGAIN', default: 128 },
+    };
+    tirarAsQueSairam(diretivas, GRAMATICA);
+    expect(Object.keys(diretivas)).toEqual(['NUBITS', 'NUGAIN']);
+  });
+});

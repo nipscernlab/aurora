@@ -11,7 +11,9 @@
  *                                      one-hot, output_<N>.txt <-> out_en one-hot
  *   3. o harness C++ (decimal com sinal, pulso de rst, itr=0 se existir)
  *   4. --cc --exe --build          -> V<proc>.exe
- *   5. roda numClocks no <proc>/Simulation/ (os mesmos arquivos do Icarus)
+ *   5. roda numClocks na pasta de saida <proc>/<proc>/, como o _tb.v do
+ *      Icarus: os .mif e o pc_<proc>_mem.txt pelo nome, as saidas ali, e as
+ *      entradas em ../input_<N>.txt, ao lado do fonte
  *
  * Diferente do botao top-level generico, nao ha templates nem diretivas
  * `# @gate`: a fiacao vem do proprio <proc>.v. Toda falha de etapa sobe como
@@ -27,6 +29,7 @@ import { parseVerilatorPorts, parseProcessorIO, generateVerilatorProcTb } from '
 import { resolveVerilatorTools } from './wave_toolchain.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { projectTempDir } from '../project/project_temp.js';
+import { arquivosDaSaida, segmentosDaSaida } from './pastas_do_processador.js';
 import { lerProgresso } from '../terminal/progress_line.js';
 
 const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
@@ -73,13 +76,14 @@ export function processadorAlvo(
 
 /**
  * Endereco do laco de parada (@fim), lido da linha `@fim <n>` do app_log.txt
- * que o appcomp escreve na Temp. E a MESMA fonte que o asmcomp usa para cravar
- * o $finish do _tb.v do Icarus (labels.c: label "fim" chama sim_set_fim), entao
- * os dois fluxos param no mesmo endereco. null sem o arquivo ou sem a linha.
+ * que o asmcomp escreve na pasta de saida, na primeira passada (a do antigo
+ * appcomp). E a MESMA fonte que o asmcomp usa para cravar o $finish do _tb.v
+ * do Icarus (labels.c: label "fim" chama sim_set_fim), entao os dois fluxos
+ * param no mesmo endereco. null sem o arquivo ou sem a linha.
  */
-export async function enderecoDoFim(tempBaseDir: string, procName: string): Promise<number | null> {
+export async function enderecoDoFim(pastaDeSaida: string): Promise<number | null> {
     try {
-        const logPath = await electronAPI.joinPath(tempBaseDir, procName, 'app_log.txt');
+        const logPath = await electronAPI.joinPath(pastaDeSaida, 'app_log.txt');
         const text = await electronAPI.readFile(logPath, { encoding: 'utf8' });
         const m = /^@fim\s+(\d+)\s*$/m.exec(String(text || ''));
         if (m) return Number(m[1]);
@@ -107,9 +111,9 @@ export async function rodarTesteDeHardware(ctx: ContextoDoTeste): Promise<void> 
     const procName = proc.name;
     const numClocks = Number.isFinite(proc.numClocks) ? proc.numClocks as number : 2000;
 
-    const procDir = await electronAPI.joinPath(ctx.projectPath, procName);
-    const procV = await electronAPI.joinPath(procDir, 'Hardware', `${procName}.v`);
-    const simDir = await electronAPI.joinPath(procDir, 'Simulation');
+    // Tudo o que o yanc gera mora na pasta de saida, e a simulacao roda la.
+    const simDir = await electronAPI.joinPath(ctx.projectPath, ...segmentosDaSaida(procName));
+    const procV = await electronAPI.joinPath(simDir, arquivosDaSaida(procName).verilog);
 
     if (!await electronAPI.fileExists(procV)) {
         throw new Error(tr('error.compilation.procVMissing', { path: procV }));
@@ -154,14 +158,18 @@ export async function rodarTesteDeHardware(ctx: ContextoDoTeste): Promise<void> 
     // declara public_flat) e para quando ela chega ao @fim. Sem o endereco,
     // roda o teto de clocks e avisa. Nenhum pino, nenhuma mudanca no hardware,
     // e o .cmm do usuario nao e tocado.
-    const fimAddr = await enderecoDoFim(tempBaseDir, procName);
+    const fimAddr = await enderecoDoFim(simDir);
     if (fimAddr == null) {
         terminal.appendToTerminal(T, tr('terminal.htest.fimUnknown', { name: procName }), 'warning');
     }
     terminal.appendToTerminal(T, tr('terminal.htest.genCpp', { name: procName }), 'info');
+    // As entradas sao da pessoa e ficam ao lado do fonte, um nivel acima da
+    // pasta de saida, onde o harness roda: o mesmo `../input_<N>.txt` que o
+    // _tb.v do yanc abre.
+    const entradas = wiring.inputs.map((p) => ({ ...p, file: `../${p.file}` }));
     const gen = generateVerilatorProcTb({
         topModule: procName, ports,
-        inputs: wiring.inputs, outputs: wiring.outputs,
+        inputs: entradas, outputs: wiring.outputs,
         numClocks, fimAddr,
     });
     const cppPath = await electronAPI.joinPath(tempBaseDir, `tl_proc_${procName}.cpp`);
@@ -169,7 +177,7 @@ export async function rodarTesteDeHardware(ctx: ContextoDoTeste): Promise<void> 
 
     terminal.appendToTerminal(T,
         tr('terminal.wave.procWiring', {
-            inputs: wiring.inputs.map((p) => `${p.file}@req${p.reqValue}`).join(', ') || '—',
+            inputs: entradas.map((p) => `${p.file}@req${p.reqValue}`).join(', ') || '—',
             outputs: wiring.outputs.map((p) => `${p.file}@en${p.enValue}`).join(', ') || '—',
             itr: gen.hasItr ? 'itr=0' : 'sem itr',
         }), 'info');
@@ -196,7 +204,7 @@ export async function rodarTesteDeHardware(ctx: ContextoDoTeste): Promise<void> 
         exePath = fallback;
     }
 
-    // ---- Passo 5: roda numClocks no Simulation/ (em fluxo, com barra) ----
+    // ---- Passo 5: roda numClocks na pasta de saida (em fluxo, com barra) ----
     terminal.appendToTerminal(T, tr('terminal.wave.procRunning', { name: procName, clocks: numClocks }), 'info');
     const runProcSpec = buildVerilatorTbRunSpec({
         exePath, cwd: simDir,

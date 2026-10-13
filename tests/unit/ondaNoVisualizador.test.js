@@ -485,9 +485,11 @@ describe('_waveResolveSurferSaveFile', () => {
         detectProcessors.mockReturnValue([
             { procType: 'proc_fir' }, { procType: 'proc_fir' }, { procType: 'proc_iir' }, null, {},
         ]);
-        // proc_fir tem os dois tradutores, mais novos que o dump; proc_iir nenhum.
-        api._escrever(TEMP + '/proc_fir/trad_opcode.txt', 'OP', 9_000_000);
-        api._escrever(TEMP + '/proc_fir/trad_cmm.txt', 'CMM', 8_000_000);
+        // proc_fir tem os dois tradutores, mais novos que o dump, e o prog_log
+        // diz C++; proc_iir nenhum. Moram na pasta de saida do yanc v7.1.
+        api._escrever(PROJ + '/proc_fir/proc_fir/trad_opcode.txt', 'OP', 9_000_000);
+        api._escrever(PROJ + '/proc_fir/proc_fir/src_lines.txt', 'SRC', 8_000_000);
+        api._escrever(PROJ + '/proc_fir/proc_fir/prog_log.txt', 'num_ins 3\nlang C++\n', 8_000_000);
         const MAPAS = [{ name: 'a', content: '1' }, { name: 'b', content: '2' }];
         buildSurferLayout.mockReturnValue({ content: 'ESTADO', processorCount: 2, mappings: MAPAS });
         const mod = await novoModulo();
@@ -505,8 +507,8 @@ describe('_waveResolveSurferSaveFile', () => {
             selectedSignals: ['filtro_tb.clk', 'filtro_tb.a', 'filtro_tb.b'],
             modules: modulos,
             tradByProcType: {
-                proc_fir: { opcode: 'OP', cmm: 'CMM' },
-                proc_iir: { opcode: null, cmm: null },
+                proc_fir: { opcode: 'OP', cmm: 'SRC', lang: 'C++' },
+                proc_iir: { opcode: null, cmm: null, lang: null },
             },
             mappingNamespace: `${NS}_${TOP}`,
         });
@@ -515,7 +517,7 @@ describe('_waveResolveSurferSaveFile', () => {
         expect(api.writeSurferMappings).toHaveBeenCalledWith(MAPAS);
         expect(mod._surferTabMappings).toBe(MAPAS);
         expect(msgs()).toContain(
-            'Surfer: os tradutores Assembly/C+- sao mais novos que o dump — recompilou sem re-simular? O decode pode estar desatualizado; re-simule para alinhar.');
+            'Surfer: os tradutores Assembly/fonte sao mais novos que o dump — recompilou sem re-simular? O decode pode estar desatualizado; re-simule para alinhar.');
         expect(msgs().at(-1)).toBe('Surfer layout auto-generated (2 processors, 3 signals from picker, 2 decode maps).');
     });
 

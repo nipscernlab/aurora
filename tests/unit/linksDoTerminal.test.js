@@ -211,16 +211,26 @@ describe('ligar o clique', () => {
     await vi.waitFor(() => expect(TabManager.addTab).toHaveBeenCalledWith('C:/p/Software/b.cmm', 'fonte'));
   });
 
-  it('sem compilacao lembrada, acha o .cmm na linha de comando do cmmcomp mais recente do terminal', async () => {
+  it('sem compilacao lembrada, acha o .cmm na linha de comando do yanc mais recente do terminal', async () => {
     const term = document.createElement('div');
     term.className = 'terminal-content';
     term.innerHTML = `
-      <div class="log-entry">cmmcomp.exe -i "velho.cmm" -p "C:\\velho"</div>
-      <div class="log-entry">cmmcomp.exe -i "novo.cmm" -n "novo" -p "C:\\p\\proc"</div>
-      <div class="log-entry">cmmcomp.exe sem os argumentos</div>`;
+      <div class="log-entry">C:\\comp\\bin\\yanc.exe -S -o C:\\velho\\velho --lang=pt C:\\velho\\velho.cmm</div>
+      <div class="log-entry">C:\\comp\\bin\\yanc.exe -S -o C:\\p\\proc\\proc --lang=pt C:\\p\\proc\\novo.cmm</div>
+      <div class="log-entry">C:\\comp\\bin\\yanc.exe -f 100 -c 10 --lang=pt C:\\p\\proc\\proc\\novo.asm</div>`;
     document.body.appendChild(term);
     bloco('<span class="line-link" data-line="4">x</span>', { dentroDe: term }).querySelector('span').click();
-    await vi.waitFor(() => expect(TabManager.addTab).toHaveBeenCalledWith('C:\\p\\proc\\Software\\novo.cmm', 'fonte'));
+    await vi.waitFor(() => expect(TabManager.addTab).toHaveBeenCalledWith('C:\\p\\proc\\novo.cmm', 'fonte'));
+  });
+
+  it('o fonte com espaco no caminho vem entre aspas na linha de comando', async () => {
+    const term = document.createElement('div');
+    term.className = 'terminal-content';
+    term.innerHTML = `
+      <div class="log-entry">C:\\comp\\bin\\yanc.exe -S -o "C:\\meu proj\\p\\p" --lang=en "C:\\meu proj\\p\\p.cmm"</div>`;
+    document.body.appendChild(term);
+    bloco('<span class="line-link" data-line="2">x</span>', { dentroDe: term }).querySelector('span').click();
+    await vi.waitFor(() => expect(TabManager.addTab).toHaveBeenCalledWith('C:\\meu proj\\p\\p.cmm', 'fonte'));
   });
 
   it('sem nenhum jeito de achar o arquivo, ou fora de um terminal, nao abre nada', async () => {

@@ -121,11 +121,12 @@ function cleanEnv() {
  * than committed.
  */
 function writeProject(rootDir: string) {
-  const softwareDir = path.join(rootDir, 'mediamovel', 'Software');
-  const hardwareDir = path.join(rootDir, 'mediamovel', 'Hardware');
+  // The processor folder holds the source; the yanc writes what it generates
+  // into <proc>/<proc>/ on the first compile (since yanc v7.1).
+  const procDir = path.join(rootDir, 'mediamovel');
   const topDir = path.join(rootDir, 'TopLevel');
   const tbDir = path.join(rootDir, 'Testbench');
-  for (const d of [softwareDir, hardwareDir, topDir, tbDir]) {
+  for (const d of [procDir, topDir, tbDir]) {
     fs.mkdirSync(d, { recursive: true });
   }
 
@@ -135,7 +136,7 @@ function writeProject(rootDir: string) {
   // manual's moving average, and give it a header that describes the program.
   const fixture = fs.readFileSync(FIXTURE_CMM, 'utf8');
   const body = fixture.replace(/^(?:\s*\/\/.*\n)+/, '');
-  const cmmPath = path.join(softwareDir, 'mediamovel.cmm');
+  const cmmPath = path.join(procDir, 'mediamovel.cmm');
   fs.writeFileSync(cmmPath,
     '// Media movel de 4 amostras: le uma porta de entrada, soma as quatro\n'
     + '// ultimas leituras e escreve a media na porta de saida.\n\n'
@@ -160,12 +161,7 @@ function writeProject(rootDir: string) {
     structure: {
       basePath: rootDir,
       processors: [
-        {
-          name: 'mediamovel',
-          cmmFile: cmmPath,
-          softwarePath: softwareDir,
-          hardwarePath: hardwareDir,
-        },
+        { name: 'mediamovel' },
       ],
       folders: [],
       topLevelFile: topPath,

@@ -197,7 +197,7 @@ describe('o .gtkw gerado', () => {
 
         const [entrada] = buildAuroraGtkw.mock.calls[0];
         expect(entrada).toMatchObject({
-            vcdPath: FST, gtkwPath: AUTO, tbModule: TOP, tempBaseDir: TEMP, binDir: COMP + '/bin',
+            vcdPath: FST, gtkwPath: AUTO, tbModule: TOP, projectDir: PROJ, linguagens: {}, binDir: COMP + '/bin',
             selectedSignals: ['filtro_tb.clk', 'filtro_tb.proc.saida', 'filtro_tb.x'], modules: modulos,
         });
         expect(entrada.scopes.map((s) => s.path)).toEqual(['filtro_tb', 'filtro_tb.proc']);

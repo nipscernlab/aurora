@@ -3,6 +3,7 @@ import {
     detectProcessors,
     buildAuroraGtkw,
     buildSignedSet,
+    buildAliasMap,
 } from '../../js/wave/gtkw_proc_writer.ts';
 import { parseVerilogModules } from '../../js/wave/signal_parser.ts';
 
@@ -195,7 +196,7 @@ describe('buildAuroraGtkw', () => {
         ];
         const { content } = buildAuroraGtkw({
             vcdPath: 'a', gtkwPath: 'b', scopes,
-            binDir: 'C:\\bin', tempBaseDir: 'C:\\Temp',
+            binDir: 'C:\\bin', projectDir: 'C:\\proj',
         });
         // Os tres apareem com o alias correto
         expect(content).toContain('int count in global');
@@ -216,7 +217,7 @@ describe('buildAuroraGtkw', () => {
             ]),
         ];
         const { content, processorCount } = buildAuroraGtkw({
-            vcdPath: 'a', gtkwPath: 'b', scopes, binDir: 'C:\\bin', tempBaseDir: 'C:\\Temp',
+            vcdPath: 'a', gtkwPath: 'b', scopes, binDir: 'C:\\bin', projectDir: 'C:\\proj',
         });
         expect(processorCount).toBe(2);
         expect(content).toContain('int acc in global (p1)');
@@ -231,7 +232,7 @@ describe('buildAuroraGtkw', () => {
             ]),
         ];
         const { content } = buildAuroraGtkw({
-            vcdPath: 'a', gtkwPath: 'b', scopes, binDir: 'C:\\bin', tempBaseDir: 'C:\\Temp',
+            vcdPath: 'a', gtkwPath: 'b', scopes, binDir: 'C:\\bin', projectDir: 'C:\\proj',
         });
         expect(content).toContain('int acc in global');
         expect(content).not.toContain('int acc in global (');
@@ -252,7 +253,7 @@ describe('buildAuroraGtkw', () => {
         ];
         const { content } = buildAuroraGtkw({
             vcdPath: 'a', gtkwPath: 'b', scopes,
-            binDir: 'C:\\bin', tempBaseDir: 'C:\\Temp',
+            binDir: 'C:\\bin', projectDir: 'C:\\proj',
         });
         expect(content).toMatch(/\^>\d+ .*comp2gtkw\.exe/);
         expect(content).not.toMatch(/\^\^\d+ .*comp2gtkw\.exe/);
@@ -268,14 +269,37 @@ describe('buildAuroraGtkw', () => {
         ];
         const { content } = buildAuroraGtkw({
             vcdPath: 'a', gtkwPath: 'b', scopes,
-            tempBaseDir: 'C:\\Temp',
+            projectDir: 'C:\\proj',
         });
-        // Uma caret, depois numero, depois espaco, depois path
+        // Uma caret, depois numero, depois espaco, depois path; os tradutores
+        // moram na pasta de saida do yanc, <proj>/<procType>/<procType>/.
         expect(content).toMatch(/\^\d+ .*trad_opcode\.txt/);
-        expect(content).toMatch(/\^\d+ .*trad_cmm\.txt/);
+        expect(content).toMatch(/\^\d+ .*src_lines\.txt/);
+        expect(content).not.toMatch(/trad_cmm/);
         // NAO duas carets nem caret+>
         expect(content).not.toMatch(/\^\^\d+ .*trad_/);
         expect(content).not.toMatch(/\^>\d+ .*trad_/);
+    });
+
+    it('os tradutores na pasta de saida, e a trilha do fonte com a linguagem do prog_log', () => {
+        const scopes = [scope('tb.proc', [{ name: 'valr2' }, { name: 'linetabs' }])];
+        const semLang = buildAuroraGtkw({ vcdPath: 'a', gtkwPath: 'b', scopes, projectDir: 'C:\\proj\\' }).content;
+        expect(semLang).toContain('C:\\proj\\proc\\proc\\trad_opcode.txt');
+        expect(semLang).toContain('C:\\proj\\proc\\proc\\src_lines.txt');
+        expect(semLang).toContain('C+- (proc)');
+        const cpp = buildAuroraGtkw({
+            vcdPath: 'a', gtkwPath: 'b', scopes, projectDir: 'C:\\proj', linguagens: { proc: 'C++' },
+        }).content;
+        expect(cpp).toContain('C++ (proc)');
+        expect(cpp).not.toContain('C+- (proc)');
+        // Sem pasta do projeto, sem file filter.
+        expect(buildAuroraGtkw({ vcdPath: 'a', gtkwPath: 'b', scopes }).content).not.toMatch(/trad_opcode/);
+    });
+
+    it('o alias map do picker usa a mesma linguagem', () => {
+        const scopes = [scope('tb.proc', [{ name: 'valr2' }, { name: 'linetabs' }])];
+        expect(buildAliasMap(scopes).get('tb.proc.linetabs')).toBe('C+-');
+        expect(buildAliasMap(scopes, { proc: 'C++' }).get('tb.proc.linetabs')).toBe('C++');
     });
 
     it('banner usa o instanceName (nao o procType) pra distinguir instancias', () => {

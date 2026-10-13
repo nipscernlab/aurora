@@ -53,13 +53,15 @@ const PROJ = 'C:/proj';
 const COMP = 'C:/comp';
 const TEMP = PROJ + '/.aurora/Temp';
 const PROC = 'fir';
-const PROC_V = `${PROJ}/${PROC}/Hardware/${PROC}.v`;
-const SIM = `${PROJ}/${PROC}/Simulation`;
+// As pastas do yanc v7.1: tudo o que ele gera mora na pasta de saida, e a
+// simulacao roda la; as entradas ficam ao lado do fonte, um nivel acima.
+const SIM = `${PROJ}/${PROC}/${PROC}`;
+const PROC_V = `${SIM}/${PROC}.v`;
 const OBJ = `${TEMP}/obj_dir_proc_${PROC}`;
 const EXE = `${OBJ}/V${PROC}.exe`;
 const JSON_ARVORE = `${OBJ}/V${PROC}.tree.json`;
 const CPP = `${TEMP}/tl_proc_${PROC}.cpp`;
-const APP_LOG = `${TEMP}/${PROC}/app_log.txt`;
+const APP_LOG = `${SIM}/app_log.txt`;
 const MINGW = COMP + '/Packages/msys/mingw64/bin';
 const T = 'thtest';
 
@@ -196,7 +198,8 @@ describe('verilatorProcessorRun', () => {
         expect(parseVerilatorPorts).toHaveBeenCalledWith({ modulesp: [] });
         expect(parseProcessorIO).toHaveBeenCalledWith('module fir(); endmodule');
         expect(generateVerilatorProcTb).toHaveBeenCalledWith({
-            topModule: PROC, ports: PORTAS, inputs: FIACAO.inputs, outputs: FIACAO.outputs,
+            topModule: PROC, ports: PORTAS,
+            inputs: [{ file: '../entrada.txt', reqValue: 1 }], outputs: FIACAO.outputs,
             numClocks: 100, fimAddr: 42,
         });
         expect(api._arquivos.get(CPP)).toBe('// harness');
@@ -239,7 +242,7 @@ describe('verilatorProcessorRun', () => {
             const de = (k) => traduzidas.find(([x]) => x === k)[1];
             expect(de('terminal.htest.start')).toEqual({ name: PROC, clocks: 100 });
             expect(de('terminal.wave.procWiring')).toEqual({
-                inputs: 'entrada.txt@req1', outputs: 'saida.txt@en2, log.txt@en3', itr: 'itr=0',
+                inputs: '../entrada.txt@req1', outputs: 'saida.txt@en2, log.txt@en3', itr: 'itr=0',
             });
             expect(de('terminal.wave.procDone')).toEqual({ dir: SIM, outputs: 'saida.txt, log.txt' });
         } finally {

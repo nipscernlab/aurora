@@ -102,6 +102,7 @@ js/compilation/api_steps.js
 js/compilation/processor_header.js
 js/compilation/run_history_labels.js
 js/compilation/processor_dispatch.js
+js/compilation/tabelas_do_yanc.js
 js/compilation/pastas_do_processador.js
 js/api/api_core.js
 js/api/prism_ns.js

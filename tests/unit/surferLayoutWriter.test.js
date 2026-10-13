@@ -356,6 +356,20 @@ describe('buildSurferLayout — mapping translators (decode Assembly/C+-)', () =
         expect(src.content).toContain('Bits = 20');         // largura do linetabs [19:0]
         expect(src.content).toContain('0xFFFFF INTERNAL');  // negativo convertido
     });
+
+    it('a trilha do fonte leva a linguagem do prog_log (C++), e sem ela fica C+-', () => {
+        const comCpp = buildSurferLayout({
+            vcdPath: 'x.vcd', scopes, tbModule: 'tb',
+            tradByProcType: { proc: { opcode: null, cmm: null, lang: 'C++' } },
+        }).content;
+        expect(comCpp).toContain('manual_name: Some("C++ (proc)")');
+        expect(comCpp).not.toContain('manual_name: Some("C+- (proc)")');
+        const semLang = buildSurferLayout({
+            vcdPath: 'x.vcd', scopes, tbModule: 'tb',
+            tradByProcType: { proc: { opcode: null, cmm: null, lang: null } },
+        }).content;
+        expect(semLang).toContain('manual_name: Some("C+- (proc)")');
+    });
 });
 
 // ---------------------------------------------------------------------------

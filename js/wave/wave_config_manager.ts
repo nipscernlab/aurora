@@ -18,6 +18,7 @@ import { parseVerilogModules, buildHierarchyTree } from './signal_parser.js';
 import type { HierarchyNode, VerilogFile, VerilogSignal } from './signal_parser.js';
 import { parseVcdHeaderFromContent } from './vcd_parser.js';
 import { buildAliasMap } from './gtkw_proc_writer.js';
+import { linguagensDosProcessadores } from '../compilation/tabelas_do_yanc.js';
 import { hasUserDumpCalls } from './testbench_instrumenter.js';
 import { WaveStore } from './wave_state_store.js';
 import { ProjectStore } from '../project/project_store.js';
@@ -640,9 +641,11 @@ class WaveConfigManager {
 
         // Constroi um alias map a partir da hierarquia parseada. Mesmas
         // regras que o gtkw writer aplica, entao o rotulo mostrado no
-        // modal bate com o que vai aparecer no GTKWave.
+        // modal bate com o que vai aparecer no GTKWave, inclusive o nome
+        // da trilha do fonte (C+- ou C++, do prog_log.txt).
         const flatScopes = this._hierarchyToScopes(this.tree);
-        this.aliasMap = buildAliasMap(flatScopes);
+        const linguagens = await linguagensDosProcessadores(projectPath, config.processors);
+        this.aliasMap = buildAliasMap(flatScopes, linguagens);
 
         // Pre-computa o set de scopePaths que carregam (em si ou em
         // descendentes) pelo menos um signal com alias, alimenta o

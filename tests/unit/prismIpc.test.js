@@ -227,9 +227,11 @@ function montarProjeto(spf = {}) {
     escrever(path.join(tmp.raiz, 'fora', 'abs.v'));
     escrever(path.join(PROJETO, 'TopLevel', 'tl.v'));
     escrever(path.join(PROJETO, 'TopLevel', 'tl_tb.v'));
-    escrever(path.join(PROJETO, 'proc1', 'Hardware', 'p1.v'));
-    escrever(path.join(PROJETO, 'proc1', 'Hardware', 'p1_tb.v'));
-    escrever(path.join(PROJETO, 'proc2', 'Hardware', 'p2.v'));
+    // A pasta de saida do yanc v7.1, <proc>/<proc>/; o Hardware/ antigo nao conta.
+    escrever(path.join(PROJETO, 'proc1', 'proc1', 'p1.v'));
+    escrever(path.join(PROJETO, 'proc1', 'proc1', 'p1_tb.v'));
+    escrever(path.join(PROJETO, 'proc2', 'proc2', 'p2.v'));
+    escrever(path.join(PROJETO, 'proc2', 'Hardware', 'velho.v'));
     const structure = {
         topLevelFile: 'rtl/top.v',
         synthesizableFiles: ['rtl/top.v', { path: path.join(tmp.raiz, 'fora', 'abs.v') }, 'nota.txt', null],
@@ -321,10 +323,10 @@ describe('prism-compile-with-paths (o esquematico)', () => {
         expect(opcoes.env).not.toHaveProperty('PATH');
 
         // Os .v coletados: HDL sem testbench nem teste, o .spf (relativo e
-        // absoluto), TopLevel/ e o Hardware/ de cada processador.
+        // absoluto), TopLevel/ e a pasta de saida de cada processador.
         const ys = fs.readFileSync(script, 'utf8');
         for (const f of ['lib.v', 'top.v', 'abs.v', 'tl.v', 'p1.v', 'p2.v']) expect(ys).toContain(f);
-        for (const f of ['lib_tb.v', 'mytest.v', 'leia.txt', 'nota.txt', 'tl_tb.v', 'p1_tb.v']) expect(ys).not.toContain(f);
+        for (const f of ['lib_tb.v', 'mytest.v', 'leia.txt', 'nota.txt', 'tl_tb.v', 'p1_tb.v', 'velho.v']) expect(ys).not.toContain(f);
 
         // Um JSON por modulo clicavel, com o nome limpo.
         const jsons = fs.readdirSync(TEMP_PRISM).filter((f) => f.endsWith('.json')).sort();

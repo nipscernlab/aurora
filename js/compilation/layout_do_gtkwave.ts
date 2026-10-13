@@ -19,6 +19,7 @@ import type { TerminalManager } from './processor_compiler.js';
 import { parseProjectSources } from './wave_signal_validator.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw, detectProcessors } from '../wave/gtkw_proc_writer.js';
+import { linguagensDosProcessadores } from './tabelas_do_yanc.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { parseVcdHeaderFromContent, type VcdScope } from '../wave/vcd_parser.js';
 import { WaveStore } from '../wave/wave_state_store.js';
@@ -31,7 +32,7 @@ type Terminal = Pick<TerminalManager, 'appendToTerminal'>;
 export interface ContextoDoGtkw {
     projectPath: string;
     componentsPath: string | null;
-    projectConfig?: { testbenchFile?: string | null } | null;
+    projectConfig?: { testbenchFile?: string | null; processors?: unknown[] } | null;
     terminalManager: Terminal;
     /** A selecao que o passo Wave acabou de validar, quando houve uma. */
     _validatedWaveSelection?: string[] | null;
@@ -195,7 +196,7 @@ export async function resolverLayoutDoGtkwave(
 
         // As fontes Verilog do projeto dao as declaracoes `signed` (o formato
         // de cada barramento) e o modulo de cada escopo (o procType certo, a
-        // pasta Temp/<procType>/ onde o compilador escreveu os tradutores).
+        // pasta de saida <procType>/<procType>/ onde o yanc escreveu os tradutores).
         // Falha vira null, e o construtor cai nas heuristicas pelo nome.
         const modules = await parseProjectSources({
             projectConfig: ctx.projectConfig as Parameters<typeof parseProjectSources>[0]['projectConfig'],
@@ -203,12 +204,17 @@ export async function resolverLayoutDoGtkwave(
             terminalManager: terminal,
         });
 
+        // O nome da trilha do fonte de cada processador (C+- ou C++), da
+        // linha `lang` do prog_log.txt que o yanc deixa na pasta de saida.
+        const linguagens = await linguagensDosProcessadores(ctx.projectPath, ctx.projectConfig?.processors);
+
         const result = buildAuroraGtkw({
             vcdPath: vcdFile,
             gtkwPath: autoGtkw,
             scopes,
             tbModule: simTopModule,
-            tempBaseDir,
+            projectDir: ctx.projectPath,
+            linguagens,
             binDir,
             selectedSignals: selected.length > 0 ? selected : null,
             modules,

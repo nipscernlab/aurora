@@ -461,11 +461,12 @@ export interface BuildSurferLayoutInput {
   modules?: Map<string, ModuleInfo> | null;
   /**
    * Conteudo cru dos trad files do YANC por procType (lidos do
-   * Temp/<procType>/). `opcode` = trad_opcode.txt (track Assembly/valr2),
-   * `cmm` = trad_cmm.txt (track C+-/linetabs). null/ausente = sem decode
+   * pasta de saida <procType>/<procType>/). `opcode` = trad_opcode.txt (track
+   * Assembly/valr2), `cmm` = src_lines.txt (track do fonte/linetabs), `lang` =
+   * C+- ou C++, da linha `lang` do prog_log.txt. null/ausente = sem decode
    * (o track abre em decimal cru). Vira mapping translators do Surfer.
    */
-  tradByProcType?: Record<string, { opcode?: string | null; cmm?: string | null }> | null;
+  tradByProcType?: Record<string, { opcode?: string | null; cmm?: string | null; lang?: string | null }> | null;
   /** Prefixo p/ nomear os mapping files de forma unica (ex.: top do tb). */
   mappingNamespace?: string | null;
   /**
@@ -691,14 +692,14 @@ function buildIo(scopes: VcdScope[], instancePath: string, filter: Set<string> |
  * asmFormat/srcFormat = nome do mapping translator (decode de mnemonico/linha-
  * fonte) ou o fallback decimal cru.
  */
-function buildInstructions(scopes: VcdScope[], instancePath: string, procName: string, asmFormat: string, srcFormat: string): SurferItem[] {
+function buildInstructions(scopes: VcdScope[], instancePath: string, procName: string, asmFormat: string, srcFormat: string, linguagem = 'C+-'): SurferItem[] {
   const out: SurferItem[] = [];
   const push = (sig: EnrichedSig | null, format: string, manualName: string): void => {
     if (!sig) return; // sem passesFilter: tracks curados sempre aparecem
     out.push({ kind: 'variable', scope: instancePath.split('.'), name: sig.name, format, color: 'Violet', manualName });
   };
   push(slFindSignal(scopes, instancePath, 'valr2'), asmFormat, `Assembly (${procName})`);
-  push(slFindSignal(scopes, instancePath, 'linetabs'), srcFormat, `C+- (${procName})`);
+  push(slFindSignal(scopes, instancePath, 'linetabs'), srcFormat, `${linguagem} (${procName})`);
   return out;
 }
 
@@ -848,7 +849,9 @@ export function buildSurferLayout(input: BuildSurferLayoutInput): { content: str
     pushClk(procItems, filter, scopes, proc.corePath, tbModule, 'itr');
     pushSection(procItems, 'I/O', buildIo(scopes, proc.instancePath, filter));
     const { asmFormat, srcFormat } = resolveProcMappings(scopes, proc, tradByProcType, ns, mappings);
-    pushSection(procItems, 'Instructions', buildInstructions(scopes, proc.instancePath, proc.procType, asmFormat, srcFormat));
+    // O nome da trilha do fonte vem da linha `lang` do prog_log.txt (C+- ou C++).
+    const linguagem = tradByProcType?.[proc.procType]?.lang || 'C+-';
+    pushSection(procItems, 'Instructions', buildInstructions(scopes, proc.instancePath, proc.procType, asmFormat, srcFormat, linguagem));
     pushSection(procItems, 'Variables', buildVariables(scopes, proc.instancePath, procs.length > 1 ? proc.procType : null, filter, cpxFormat));
     pushSection(procItems, 'Flags', buildFlags(scopes, proc.corePath, filter), false); // Flags fecha por padrao (debug secundario)
     items.push(mkGroup(proc.instanceName, procItems, true));

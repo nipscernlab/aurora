@@ -8,7 +8,8 @@
  *   2. sem ele, um `.surf.ron` gerado pelo buildSurferLayout, o espelho
  *      declarativo do `.gtkw` automatico: a mesma selecao do picker e a mesma
  *      deteccao de processadores (secoes, cores, formatos, analogico), com os
- *      tradutores do YANC (opcode e linha de C+-) e os complexos decodificados.
+ *      tradutores do YANC (opcode e linha do fonte, C+- ou C++) e os complexos
+ *      decodificados.
  *
  * Sem nenhum dos dois o Surfer abre o dump cru. Nada aqui lanca: toda falha
  * vira dica no terminal Wave e o visualizador abre do mesmo jeito.
@@ -23,6 +24,7 @@ import { detectProcessors, resolveScopeModules } from '../wave/gtkw_proc_writer.
 import { buildSurferLayout } from '../wave/surfer_layout_writer.js';
 import { hasComplexSignals, ComplexVcdScanner, buildComplexMapping } from '../wave/complex_decode.js';
 import { WaveStore } from '../wave/wave_state_store.js';
+import { arquivosDaSaida, linguagemDoProgLog, segmentosDaSaida } from './pastas_do_processador.js';
 
 type Mapeamento = { name: string; content: string };
 
@@ -74,26 +76,35 @@ async function layoutAtivoDoUsuario(ctx: ContextoDoLayout, tbKey: string): Promi
     return active.path as string;
 }
 
+/** Os tradutores de um processador, e o nome da trilha do fonte. */
+type Tradutores = { opcode: string | null; cmm: string | null; lang: string | null };
+
 /**
- * Os tradutores do YANC de cada tipo de processador (Temp/<procType>/), e o
- * mais novo deles, para o aviso de dump velho. Tradutor ausente deixa aquela
- * trilha em decimal cru, nunca e fatal.
+ * Os tradutores do YANC de cada tipo de processador, na pasta de saida
+ * <proj>/<procType>/<procType>/ (trad_opcode.txt e src_lines.txt), com a
+ * linguagem do fonte que o prog_log.txt anota, e o mais novo deles, para o
+ * aviso de dump velho. Tradutor ausente deixa aquela trilha em decimal cru,
+ * nunca e fatal.
  */
 async function lerTradutores(
-    tempBaseDir: string, processadores: Array<{ procType?: string } | null | undefined>,
-): Promise<{ tradByProcType: Record<string, { opcode: string | null; cmm: string | null }>; maisNovo: number }> {
-    const tradByProcType: Record<string, { opcode: string | null; cmm: string | null }> = {};
+    projectPath: string, processadores: Array<{ procType?: string } | null | undefined>,
+): Promise<{ tradByProcType: Record<string, Tradutores>; maisNovo: number }> {
+    const tradByProcType: Record<string, Tradutores> = {};
     let maisNovo = 0;
     for (const p of processadores) {
         if (!p || !p.procType || tradByProcType[p.procType]) continue;
-        const procDir = await electronAPI.joinPath(tempBaseDir, p.procType);
-        const opPath = await electronAPI.joinPath(procDir, 'trad_opcode.txt');
-        const cmPath = await electronAPI.joinPath(procDir, 'trad_cmm.txt');
+        const nomes = arquivosDaSaida(p.procType);
+        const procDir = await electronAPI.joinPath(projectPath, ...segmentosDaSaida(p.procType));
+        const opPath = await electronAPI.joinPath(procDir, nomes.tradOpcode);
+        const cmPath = await electronAPI.joinPath(procDir, nomes.srcLines);
+        const logPath = await electronAPI.joinPath(procDir, nomes.progLog);
         const opExists = await electronAPI.fileExists(opPath);
         const cmExists = await electronAPI.fileExists(cmPath);
+        const logExists = await electronAPI.fileExists(logPath);
         tradByProcType[p.procType] = {
             opcode: opExists ? await electronAPI.readFile(opPath) : null,
             cmm: cmExists ? await electronAPI.readFile(cmPath) : null,
+            lang: logExists ? linguagemDoProgLog(await electronAPI.readFile(logPath)) : null,
         };
         for (const present of [opExists ? opPath : null, cmExists ? cmPath : null]) {
             if (!present) continue;
@@ -118,7 +129,7 @@ async function avisarSeTradutorMaisNovo(ctx: ContextoDoLayout, vcdFile: string, 
         const fstStat = await electronAPI.getFileStats(vcdFile);
         if (fstStat && maisNovo > (fstStat.mtime as number) + 2000) {
             ctx.terminalManager.appendToTerminal('twave',
-                'Surfer: os tradutores Assembly/C+- sao mais novos que o dump — recompilou sem re-simular? O decode pode estar desatualizado; re-simule para alinhar.', 'tips');
+                'Surfer: os tradutores Assembly/fonte sao mais novos que o dump — recompilou sem re-simular? O decode pode estar desatualizado; re-simule para alinhar.', 'tips');
         }
     } catch { /* sem stat do FST -> pula o check */ }
 }
@@ -164,7 +175,7 @@ export async function resolverLayoutDoSurfer(
         const modules = await parseProjectSources(ctx);
 
         const scopeModules = modules ? resolveScopeModules(scopes, modules) : null;
-        const { tradByProcType, maisNovo } = await lerTradutores(tempBaseDir, detectProcessors(scopes, scopeModules));
+        const { tradByProcType, maisNovo } = await lerTradutores(ctx.projectPath, detectProcessors(scopes, scopeModules));
         await avisarSeTradutorMaisNovo(ctx, vcdFile, maisNovo);
 
         const nsTag = prefixoDoProjeto(ctx.projectPath);

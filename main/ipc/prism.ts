@@ -31,6 +31,7 @@ import { alvoDaSimulacao } from './prism_sim_target.js';
 import { vcdDaSimulacao } from './prism_vcd.js';
 import { isAllowed } from '../compile/binary_allowlist.js';
 import * as protectedFlags from '../compile/protected_flags.js';
+import { segmentosDaSaida } from '../../js/compilation/pastas_do_processador.js';
 import { validarIdentificadorVerilog, caminhoParaScript } from './prism_yosys_script.js';
 import { createRequire } from 'node:module';
 
@@ -410,8 +411,9 @@ async function runYosysCompilationWithPaths(
     }
   }
 
-  // Fallback defensivo: varre <proj>/<proc>/Hardware/*.v para todos os
-  // processadores conhecidos do .spf. No happy-path esses .v ja estao
+  // Fallback defensivo: varre a pasta de saida do yanc, <proj>/<proc>/<proc>/,
+  // atras dos .v de todos os processadores conhecidos do .spf. No happy-path
+  // esses .v ja estao
   // em synthesizableFiles via auto-descoberta, o dedup faz isso ser
   // no-op. Mas em projetos antigos onde synthesizableFiles pode estar
   // vazio, esse scan garante que os modulos do processador entrem no
@@ -425,7 +427,7 @@ async function runYosysCompilationWithPaths(
     }
   }
   for (const procName of processorNames) {
-    const hardwareDir = path.join(projectPath, procName, 'Hardware');
+    const hardwareDir = path.join(projectPath, ...segmentosDaSaida(procName));
     if (!(await fse.pathExists(hardwareDir))) continue;
     const hardwareFiles = await fse.readdir(hardwareDir);
     for (const f of hardwareFiles) {
@@ -868,7 +870,7 @@ async function collectSynthFiles(compilationPaths: any) {
     for (const p of spfStructure.processors) { const n = typeof p === 'string' ? p : p?.name; if (n) procNames.add(n); }
   }
   for (const procName of procNames) {
-    const hwDir = path.join(projectPath, procName, 'Hardware');
+    const hwDir = path.join(projectPath, ...segmentosDaSaida(procName));
     if (!(await fse.pathExists(hwDir))) continue;
     for (const f of await fse.readdir(hwDir)) {
       if (f.endsWith('.v') && !f.includes('_tb')) addV(path.join(hwDir, f));

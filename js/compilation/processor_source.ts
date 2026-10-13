@@ -56,7 +56,7 @@ export interface EntradaDeProcessador {
 /** O que o resto da AURORA precisa saber sobre o fonte de um processador. */
 export interface FonteDoProcessador {
   language: ProcessorLanguage;
-  /** Nome do arquivo dentro de `<proc>/Software/`, com extensao. */
+  /** Nome do arquivo dentro da pasta do processador, `<proc>/`, com extensao. */
   sourceFile: string;
   /** O mesmo nome sem a extensao de linguagem. Base do `.asm` e do `_tb.v`. */
   baseName: string;

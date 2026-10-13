@@ -98,10 +98,13 @@ export function linhaComLinks(text: string): string {
 /**
  * O caminho do arquivo que um link de linha abre.
  *
- *   - com data-file (`<arquivo>:<linha>:` do iverilog, yosys, gcc): o proprio,
- *     com o relativo resolvido contra a pasta do projeto;
- *   - sem data-file (`linha N` do yanc): o ultimo .cmm compilado, e na falta
- *     dele o `-i` da linha de comando do cmmcomp mais recente do terminal.
+ *   - com data-file (`<arquivo>:<linha>:` do iverilog, yosys, gcc, e do
+ *     cppcomp, que da o caminho absoluto do .cpp ou do header porque a AURORA
+ *     passa o fonte assim): o proprio, com o relativo resolvido contra a pasta
+ *     do projeto;
+ *   - sem data-file (`linha N` do C±, que e sempre o fonte compilado): o
+ *     ultimo .cmm compilado, e na falta dele o fonte da linha de comando do
+ *     yanc mais recente do terminal.
  */
 async function arquivoDoLink(link: Element, scopeEl: Element): Promise<string | null> {
   const explicitFile = link.getAttribute('data-file');
@@ -124,15 +127,12 @@ async function arquivoDoLink(link: Element, scopeEl: Element): Promise<string | 
   const logEntries = terminalContent.querySelectorAll('.log-entry');
   for (const entry of Array.from(logEntries).reverse()) {
     const entryText = entry.textContent || '';
-    // cmmcomp.exe usa named flags do yanc v4:
-    //   ... -i "<file.cmm>" -n "<name>" -p "<projectPath>" -m ... -t ...
-    // Precisamos do -i (nome do .cmm) e -p (proc-dir, que e
-    // <projectPath>/<processorName>) pra montar o caminho ate o Software/.
-    if (/cmmcomp\.exe\b/.test(entryText)) {
-      const iMatch = entryText.match(/-i\s+"([^"]+\.cmm)"/);
-      const pMatch = entryText.match(/-p\s+"([^"]+)"/);
-      if (iMatch && pMatch) return electronAPI.joinPath(pMatch[1], 'Software', iMatch[1]);
-    }
+    // A AURORA chama o yanc com o fonte por caminho absoluto, no fim da
+    // linha de comando (builders/cmm.ts):
+    //   yanc.exe -S -o <saida> --lang=pt <proj>\<proc>\<proc>.cmm
+    // O formatSpec poe aspas no caminho que tem espaco.
+    const m = /yanc\.exe\b.*?\s(?:"([^"]+\.cmm)"|(\S+\.cmm))\s*$/m.exec(entryText);
+    if (m) return m[1] || m[2];
   }
   return null;
 }

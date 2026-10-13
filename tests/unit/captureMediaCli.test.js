@@ -281,10 +281,9 @@ describe('o hero, que e o padrao', () => {
       const p = writeProject(raiz);
       const spf = JSON.parse(fs.readFileSync(p.spfPath, 'utf8'));
       expect(spf.metadata).toMatchObject({ projectName: 'mediamovel', computerName: 'capture-media', projectPath: raiz, appVersion: req(path.join(RAIZ, 'package.json')).version });
-      expect(spf.structure.processors[0]).toEqual({
-        name: 'mediamovel', cmmFile: p.cmmPath,
-        softwarePath: path.join(raiz, 'mediamovel', 'Software'), hardwarePath: path.join(raiz, 'mediamovel', 'Hardware'),
-      });
+      // As pastas do yanc v7.1: o fonte em <proc>/, sem campos de pasta no .spf.
+      expect(spf.structure.processors[0]).toEqual({ name: 'mediamovel' });
+      expect(p.cmmPath).toBe(path.join(raiz, 'mediamovel', 'mediamovel.cmm'));
       expect(spf.structure).toMatchObject({ topLevelFile: p.topPath, testbenchFile: p.tbPath });
       const cmm = fs.readFileSync(p.cmmPath, 'utf8');
       expect(cmm.startsWith('// Media movel de 4 amostras:')).toBe(true);

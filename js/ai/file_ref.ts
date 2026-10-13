@@ -1,7 +1,7 @@
 /**
  * file_ref.ts: a que arquivo do projeto uma referencia no texto da IA aponta.
  *
- * Quando o modelo escreve `proc/Software/proc.cmm:42`, o painel transforma
+ * Quando o modelo escreve `proc/proc.cmm:42`, o painel transforma
  * isso num link que abre o arquivo no editor. Decidir QUAL arquivo abrir e o
  * que mora aqui; abrir e do painel.
  *

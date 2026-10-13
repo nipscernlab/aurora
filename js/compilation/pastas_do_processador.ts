@@ -83,6 +83,16 @@ export function arquivosLidosPeloVerilog(nome: string): string[] {
   return [a.instMif, a.dataMif, a.pcMem];
 }
 
+/**
+ * A linguagem do fonte, como o prog_log.txt a anota desde o yanc v7.1: uma
+ * linha `lang C+-` ou `lang C++`. E o nome da trilha do fonte na forma de
+ * onda. `null` quando a linha nao esta la (prog_log de antes da v7.1).
+ */
+export function linguagemDoProgLog(texto: unknown): 'C+-' | 'C++' | null {
+  const m = /^lang[ \t]+(C\+-|C\+\+)[ \t]*\r?$/m.exec(typeof texto === 'string' ? texto : '');
+  return m ? (m[1] as 'C+-' | 'C++') : null;
+}
+
 /** Em que lugar do processador um arquivo esta. */
 export type LugarNoProcessador = 'fonte' | 'saida';
 

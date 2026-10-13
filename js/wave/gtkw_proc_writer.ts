@@ -28,7 +28,8 @@
  *      - out_en_sim_<N> + out_sig_<N> pairs, Yellow, alias "out_en N" / "output N"
  *   4. "Instructions *******"
  *      - valr2: Decimal, Indigo, alias "Assembly", file filter trad_opcode.txt
- *      - linetabs: Signed Decimal, Violet, alias "C±", file filter trad_cmm.txt
+ *      - linetabs: Signed Decimal, Violet, alias "C+-" ou "C++" (a linha `lang`
+ *        do prog_log.txt), file filter src_lines.txt
  *   5. "Variables **********"
  *      - me1_f_<func>_v_<var>_e_: Signed Decimal, Orange, "int <var> in <func>"
  *      - me2_f_<func>_v_<var>_e_: BitsToReal, Orange, "float <var> in <func>"
@@ -63,7 +64,7 @@ interface ProcessorInstance {
     procType: string;
     corePath: string | null;
 }
-/** Per-processor translator file paths resolved under Temp/<procType>/. */
+/** Per-processor translator file paths, na pasta de saida <proj>/<procType>/<procType>/. */
 interface ProcPaths {
     tradOpcode: string | null;
     tradCmm: string | null;
@@ -87,7 +88,10 @@ interface BuildAuroraGtkwInput {
     gtkwPath: string;
     scopes: VcdScope[];
     tbModule?: string | null;
-    tempBaseDir?: string | null;
+    /** A pasta do projeto: os tradutores ficam na pasta de saida de cada processador. */
+    projectDir?: string | null;
+    /** O nome da trilha do fonte por procType ("C+-" ou "C++"); ausente vale "C+-". */
+    linguagens?: Record<string, string> | null;
     binDir?: string | null;
     selectedSignals?: string[] | null;
     modules?: Map<string, ModuleInfo> | null;
@@ -95,6 +99,7 @@ interface BuildAuroraGtkwInput {
 
 // Color codes used after [color] directives.
 import { monitorMirrorName } from './signal_parser.js';
+import { arquivosDaSaida, segmentosDaSaida } from '../compilation/pastas_do_processador.js';
 
 const COLOR_NORMAL = 0;
 // const COLOR_RED = 1;
@@ -263,7 +268,7 @@ export function detectProcessors(scopes: ScopeLike[], scopeModules: Map<string, 
 
         // procType e corePath sao resolvidos SEPARADAMENTE:
         //
-        // procType (= nome do module / pasta Temp/<procType>/ com trad
+        // procType (= nome do module / pasta de saida <procType>/<procType>/ com trad
         // files), preferencia: scopeModules (resolvido pelo source) >
         // pattern `<inst>.p_<X>.core` no VCD > heuristica parent _inst
         // > fallback root _tb > instanceName.
@@ -287,7 +292,7 @@ export function detectProcessors(scopes: ScopeLike[], scopeModules: Map<string, 
         }
 
         // (1) Preferido: moduleType resolvido pelo source. Bate com
-        // Temp/<procType>/ onde cmmcomp escreve os trad files.
+        // <procType>/<procType>/, a pasta de saida onde o yanc escreve os trad files.
         if (scopeModules) {
             const mod = scopeModules.get(scope.path);
             if (mod) procType = mod;
@@ -412,7 +417,7 @@ function emitGroupEnd(lines: string[], text: string): void {
  *
  * @param {object} [opts]
  * @param {string} [opts.fileFilterPath]  caminho absoluto pro .txt
- *      de file filter (trad_opcode.txt, trad_cmm.txt). Acende
+ *      de file filter (trad_opcode.txt, src_lines.txt). Acende
  *      TR_FTRANSLATED no flag e emite `^N <path>`.
  * @param {string} [opts.procFilterPath]  caminho absoluto pro .exe
  *      de process filter (comp2gtkw.exe). Acende TR_PTRANSLATED e
@@ -542,7 +547,7 @@ function emitIoSection(lines: string[], scopes: ScopeLike[], instancePath: strin
     }
 }
 
-function emitInstructionsSection(lines: string[], scopes: ScopeLike[], instancePath: string, procName: string, paths: ProcPaths, counter: FilterCounter, _filter: Set<string> | null): void {
+function emitInstructionsSection(lines: string[], scopes: ScopeLike[], instancePath: string, procName: string, paths: ProcPaths, counter: FilterCounter, _filter: Set<string> | null, linguagem = 'C+-'): void {
     // Os tracks de instrucao (Assembly/valr2 + C+-/linetabs) sao a assinatura
     // curada do SAPHO e sao SEMPRE emitidos quando os sinais existem, NAO
     // passam pelo filtro do picker (paridade com o Surfer: "sempre que ha
@@ -560,7 +565,7 @@ function emitInstructionsSection(lines: string[], scopes: ScopeLike[], instanceP
     }
     const linetabs = findSignal(scopes, instancePath, 'linetabs');
     if (linetabs) {
-        emitSignal(lines, linetabs, FMT_SIGNED_DEC, COLOR_VIOLET, `C+- (${procName})`, {
+        emitSignal(lines, linetabs, FMT_SIGNED_DEC, COLOR_VIOLET, `${linguagem} (${procName})`, {
             fileFilterPath: paths.tradCmm,
             counter,
         });
@@ -712,17 +717,17 @@ function emitFlagsSection(lines: string[], scopes: ScopeLike[], corePath: string
  * @param {Array<{ path: string, signals: Array<{ name: string }> }>} scopes
  * @returns {Map<string, string>}
  */
-export function buildAliasMap(scopes: ScopeLike[]): Map<string, string> {
+export function buildAliasMap(scopes: ScopeLike[], linguagens: Record<string, string> | null = null): Map<string, string> {
     const map = new Map<string, string>();
     if (!Array.isArray(scopes) || scopes.length === 0) return map;
     const procs = detectProcessors(scopes);
     for (const proc of procs) {
-        addProcessorAliases(map, scopes, proc);
+        addProcessorAliases(map, scopes, proc, linguagens?.[proc.procType] || 'C+-');
     }
     return map;
 }
 
-function addProcessorAliases(map: Map<string, string>, scopes: ScopeLike[], proc: ProcessorInstance): void {
+function addProcessorAliases(map: Map<string, string>, scopes: ScopeLike[], proc: ProcessorInstance, linguagem = 'C+-'): void {
     const { instancePath, corePath } = proc;
     const sigs = listSignalsInScope(scopes, instancePath);
 
@@ -742,7 +747,7 @@ function addProcessorAliases(map: Map<string, string>, scopes: ScopeLike[], proc
     const valr2 = findSignal(scopes, instancePath, 'valr2');
     if (valr2) map.set(valr2.fullName, 'Assembly');
     const linetabs = findSignal(scopes, instancePath, 'linetabs');
-    if (linetabs) map.set(linetabs.fullName, 'C+-');
+    if (linetabs) map.set(linetabs.fullName, linguagem);
 
     // Typed scalar vars: me1 (int), me2 (float), comp_me3 (comp).
     const aliasFromVarName = (s: EnrichedSignal, label: string): string | null => {
@@ -819,8 +824,11 @@ function addProcessorAliases(map: Map<string, string>, scopes: ScopeLike[], proc
  * @param {VcdScope[]} input.scopes   scope tree parseado do VCD
  * @param {string} [input.tbModule]   scope do testbench top. Kept na
  *      signature pra compat, clk/rst/itr vem do core de cada proc.
- * @param {string} [input.tempBaseDir]  raiz do Temp/. Resolve trad files
- *      em <tempBaseDir>/<procType>/trad_opcode.txt e trad_cmm.txt.
+ * @param {string} [input.projectDir]  pasta do projeto. Resolve trad files
+ *      na pasta de saida do yanc, <projectDir>/<procType>/<procType>/
+ *      trad_opcode.txt e src_lines.txt.
+ * @param {object} [input.linguagens]  procType → "C+-" ou "C++", o nome da
+ *      trilha do fonte (a linha `lang` do prog_log.txt).
  * @param {string} [input.binDir]     dir do bin/ com comp2gtkw.exe
  *      (process filter pra comp_me3* vars e comp_arr_me3 arrays).
  * @param {string[]} [input.selectedSignals]  filter, quando setado,
@@ -829,7 +837,7 @@ function addProcessorAliases(map: Map<string, string>, scopes: ScopeLike[], proc
  * @param {Map<string, {signals, instances}>} [input.modules]  output
  *      de `parseVerilogModules` (signal_parser). Quando passado, a
  *      gente resolve scope→moduleType pra descobrir o procType
- *      correto (igual ao nome da pasta Temp/<procType>/ que cmmcomp
+ *      correto (igual ao nome da pasta de saida <procType>/<procType>/ que o yanc
  *      escreveu, onde estao os trad files) e ja constroi o
  *      signedSet a partir das declaracoes. Sem isso, cai nas
  *      heuristicas baseadas em nomes de scope.
@@ -843,7 +851,8 @@ export function buildAuroraGtkw({
     gtkwPath,
     scopes,
     tbModule = null,
-    tempBaseDir = null,
+    projectDir = null,
+    linguagens = null,
     binDir = null,
     selectedSignals = null,
     modules = null,
@@ -860,7 +869,7 @@ export function buildAuroraGtkw({
         return { content: null, processorCount: 0 };
     }
     // Resolve scope → moduleType uma vez, reusa em detectProcessors
-    // (procType correto = nome da pasta Temp/<procType>/) e em
+    // (procType correto = nome da pasta de saida <procType>/<procType>/) e em
     // buildSignedSet (top-level Decimal vs Signed Decimal).
     const scopeModules = modules ? resolveScopeModules(scopes, modules) : null;
     const procs = detectProcessors(scopes, scopeModules);
@@ -890,15 +899,15 @@ export function buildAuroraGtkw({
     // inline consome o proximo ID.
     const counter = { file: 0, proc: 0 };
 
-    // Resolve paths dos tradutores per-processador. trads ficam em
-    // Temp/<procType>/ (procType e o nome da pasta/modulo, NAO o
-    // instanceName que aparece no testbench).
+    // Resolve paths dos tradutores per-processador. trads ficam na pasta
+    // de saida do yanc, <proj>/<procType>/<procType>/ (procType e o nome do
+    // processador/modulo, NAO o instanceName que aparece no testbench).
     const resolveProcPaths = (proc: ProcessorInstance): ProcPaths => {
         const paths: ProcPaths = { tradOpcode: null, tradCmm: null, comp2gtkw: null };
-        if (tempBaseDir) {
-            const procTemp = tempBaseDir.replace(/[\\/]$/, '') + '\\' + proc.procType;
-            paths.tradOpcode = `${procTemp}\\trad_opcode.txt`;
-            paths.tradCmm = `${procTemp}\\trad_cmm.txt`;
+        if (projectDir) {
+            const saida = [projectDir.replace(/[\\/]$/, ''), ...segmentosDaSaida(proc.procType)].join('\\');
+            paths.tradOpcode = `${saida}\\${arquivosDaSaida(proc.procType).tradOpcode}`;
+            paths.tradCmm = `${saida}\\${arquivosDaSaida(proc.procType).srcLines}`;
         }
         if (binDir) {
             paths.comp2gtkw = binDir.replace(/[\\/]$/, '') + '\\comp2gtkw.exe';
@@ -923,7 +932,7 @@ export function buildAuroraGtkw({
         // instancias diferentes do mesmo procType (designs multi-proc
         // costumam ter `proc1`, `proc2`, ou nomes proprios tipo
         // `DTWv4_inst`, `ZeroCross_inst`). procType continua sendo
-        // usado pra resolver Temp/<procType>/trad_*.txt acima.
+        // usado pra resolver <procType>/<procType>/trad_opcode.txt e src_lines.txt acima.
         emitComment(lines, `###### ${proc.instanceName}`);
 
         // clk/rst/itr do processador. Cada proc tem seu proprio par
@@ -939,7 +948,8 @@ export function buildAuroraGtkw({
         if (procItr) emitSignal(lines, procItr, FMT_BIN, COLOR_NORMAL, null, { filter });
 
         emitIoSection(lines, scopes, proc.instancePath, filter);
-        emitInstructionsSection(lines, scopes, proc.instancePath, proc.procType, paths, counter, filter);
+        emitInstructionsSection(lines, scopes, proc.instancePath, proc.procType, paths, counter, filter,
+            linguagens?.[proc.procType] || 'C+-');
         emitVariablesSection(lines, scopes, proc.instancePath, paths, counter, filter, procs.length > 1 ? proc.procType : null);
         emitFlagsSection(lines, scopes, proc.corePath, filter);
     });

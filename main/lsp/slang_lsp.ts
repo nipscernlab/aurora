@@ -79,6 +79,7 @@ import { spawnTracked } from '../process_registry.js';
 import { isAllowed } from '../compile/binary_allowlist.js';
 import { criarDisjuntor } from './disjuntor.js';
 import { criarLeitorDeQuadros } from './frame_reader.js';
+import { segmentosDaSaida } from '../../js/compilation/pastas_do_processador.js';
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -249,8 +250,8 @@ const RE_UNKNOWN_MODULE = /unknown module '([^']+)'/;
 /**
  * Os processadores do .spf cujo Verilog ainda nao existe no disco.
  *
- * O `Hardware/<nome>.v` e gerado pela compilacao do C± (compilation_module.js
- * grava em `${hardwarePath}/${nome}.v`), entao entre criar o processador e
+ * O `<nome>.v` e gerado pela compilacao, na pasta de saida do yanc,
+ * `<nome>/<nome>/` (js/compilation/pastas_do_processador.ts), entao entre criar o processador e
  * compilar pela primeira vez o top level instancia um modulo que o indice nao
  * tem como conhecer. Devolve nome → caminho esperado do .v, so para os que
  * faltam. Le o .spf direto, como extraSourceDirs: o renderer e o dono da
@@ -274,10 +275,10 @@ function processadoresSemHardware(projectDir: string|null) {
   for (const p of procs) {
     const nome = p && typeof p.name === 'string' ? p.name.trim() : '';
     if (!nome) continue;
-    const hw = p && typeof p.hardwarePath === 'string' && p.hardwarePath
-      ? path.resolve(base, p.hardwarePath)
-      : path.join(base, nome, 'Hardware');
-    const alvo = path.join(hw, `${nome}.v`);
+    // Desde o yanc v7.1 o .v mora sempre na pasta de saida. Um campo
+    // `hardwarePath` que um .spf antigo ainda traga aponta para o Hardware/
+    // que deixou de existir, e nao vale mais.
+    const alvo = path.join(base, ...segmentosDaSaida(nome), `${nome}.v`);
     let existe = false;
     try { existe = fs.existsSync(alvo); } catch { existe = false; }
     if (!existe) faltam.set(nome, alvo);

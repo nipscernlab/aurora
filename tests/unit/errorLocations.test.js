@@ -182,3 +182,23 @@ describe('yanc v5.7: Info nao vira problema, recursao vira erro', () => {
     expect(p).toMatchObject({ severidade: 'erro', linha: 12, arquivo: 'C:/p/rec/Software/rec.cmm' });
   });
 });
+
+describe('as mensagens do yanc v7.1', () => {
+  it('o cppcomp aponta o arquivo escrito, inclusive o header, pelo caminho que recebeu', async () => {
+    const { problemasNaLinha } = await import('../../js/terminal/error_locations.js');
+    const fonte = 'C:/p/filtro/filtro.cmm';
+    expect(problemasNaLinha("C:/p/filtro/coefs.hpp:3: error: undefined 'zz'", { cmmPadrao: fonte })[0])
+      .toMatchObject({ arquivo: 'C:/p/filtro/coefs.hpp', linha: 3, severidade: 'erro' });
+    expect(problemasNaLinha('C:/p/filtro/filtro.cpp:12: error: syntax error', { cmmPadrao: fonte })[0])
+      .toMatchObject({ arquivo: 'C:/p/filtro/filtro.cpp', linha: 12 });
+  });
+
+  it('o C± nao diz o arquivo: e o fonte compilado, nas duas linguas', async () => {
+    const { problemasNaLinha } = await import('../../js/terminal/error_locations.js');
+    const fonte = 'C:/p/filtro/filtro.cmm';
+    expect(problemasNaLinha('Erro na linha 14: #PRNAME não existe mais.', { cmmPadrao: fonte })[0])
+      .toMatchObject({ arquivo: fonte, linha: 14 });
+    expect(problemasNaLinha('Error on line 7: syntax error', { cmmPadrao: fonte })[0])
+      .toMatchObject({ arquivo: fonte, linha: 7 });
+  });
+});

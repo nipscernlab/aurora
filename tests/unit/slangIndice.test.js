@@ -232,25 +232,22 @@ describe('o processador declarado e ainda nao compilado', () => {
     ...extra,
   });
 
-  it('lista so os processadores cujo Hardware/<nome>.v nao existe', () => {
-    escreverSpf({
-      processors: [
-        { name: 'mediamovel', hardwarePath: path.join(projeto, 'mediamovel', 'Hardware') },
-        { name: 'filtro', hardwarePath: path.join(projeto, 'filtro', 'Hardware') },
-      ],
-    });
-    fs.mkdirSync(path.join(projeto, 'filtro', 'Hardware'), { recursive: true });
-    fs.writeFileSync(path.join(projeto, 'filtro', 'Hardware', 'filtro.v'), 'module filtro; endmodule\n');
+  it('lista so os processadores cujo <nome>/<nome>/<nome>.v nao existe', () => {
+    escreverSpf({ processors: [{ name: 'mediamovel' }, { name: 'filtro' }] });
+    fs.mkdirSync(path.join(projeto, 'filtro', 'filtro'), { recursive: true });
+    fs.writeFileSync(path.join(projeto, 'filtro', 'filtro', 'filtro.v'), 'module filtro; endmodule\n');
     const faltam = processadoresSemHardware(projeto);
     expect([...faltam.keys()]).toEqual(['mediamovel']);
-    expect(faltam.get('mediamovel')).toBe(path.join(projeto, 'mediamovel', 'Hardware', 'mediamovel.v'));
+    expect(faltam.get('mediamovel')).toBe(path.join(projeto, 'mediamovel', 'mediamovel', 'mediamovel.v'));
   });
 
-  it('aceita hardwarePath relativo e assume <nome>/Hardware quando ele falta', () => {
+  it('o hardwarePath que um .spf antigo traga nao vale mais: o .v e o da pasta de saida', () => {
     escreverSpf({ processors: [{ name: 'a', hardwarePath: path.join('a', 'Hardware') }, { name: 'b' }] });
+    fs.mkdirSync(path.join(projeto, 'a', 'Hardware'), { recursive: true });
+    fs.writeFileSync(path.join(projeto, 'a', 'Hardware', 'a.v'), 'module a; endmodule\n');
     const faltam = processadoresSemHardware(projeto);
-    expect(faltam.get('a')).toBe(path.join(projeto, 'a', 'Hardware', 'a.v'));
-    expect(faltam.get('b')).toBe(path.join(projeto, 'b', 'Hardware', 'b.v'));
+    expect(faltam.get('a')).toBe(path.join(projeto, 'a', 'a', 'a.v'));
+    expect(faltam.get('b')).toBe(path.join(projeto, 'b', 'b', 'b.v'));
   });
 
   it('nao quebra sem projeto aberto nem com .spf meio escrito', () => {
@@ -262,7 +259,7 @@ describe('o processador declarado e ainda nao compilado', () => {
   });
 
   it('rebaixa o unknown module do processador para informacao e diz o passo que falta', () => {
-    const alvo = path.join(projeto, 'mediamovel', 'Hardware', 'mediamovel.v');
+    const alvo = path.join(projeto, 'mediamovel', 'mediamovel', 'mediamovel.v');
     const saida = suavizarProcessadorNaoCompilado(
       [diag("unknown module 'mediamovel'", { code: 'UnknownModule' })],
       new Map([['mediamovel', alvo]]),

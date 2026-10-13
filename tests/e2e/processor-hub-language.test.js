@@ -173,7 +173,7 @@ describe('Aurora E2E — o seletor de linguagem do Processor Hub', () => {
         // Finge um .cpp em foco e roda o sincronizador que o evento de troca
         // de arquivo chama.
         await window.evaluate(() => {
-            window.TabManager.getEditingFilePath = () => 'C:\\proj\\P\\Software\\P.cpp';
+            window.TabManager.getEditingFilePath = () => 'C:\\proj\\P\\P.cpp';
             window.syncCmmcompEnabled();
         });
         const comCpp = await lerGlifos();
@@ -186,7 +186,7 @@ describe('Aurora E2E — o seletor de linguagem do Processor Hub', () => {
 
         // E volta ao mais-menos com um .cmm em foco.
         await window.evaluate(() => {
-            window.TabManager.getEditingFilePath = () => 'C:\\proj\\P\\Software\\P.cmm';
+            window.TabManager.getEditingFilePath = () => 'C:\\proj\\P\\P.cmm';
             window.syncCmmcompEnabled();
         });
         const comCmm = await lerGlifos();

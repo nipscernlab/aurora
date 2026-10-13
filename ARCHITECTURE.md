@@ -377,9 +377,21 @@ próprio; reusar o um tornaria falha de teste indistinguível de build quebrado.
 
 ## 13. O front end do processador vai ser despachado por linguagem
 
-O fonte de um processador SAPHO é um `.cmm` hoje, mas a toolchain yanc também tem
-um front end C++ que converge no mesmo `.asm` e no mesmo log. Do `appcomp` em
+O fonte de um processador SAPHO é um `.cmm` ou um `.cpp`, e os dois convergem no
+mesmo `.asm` e no mesmo `prog_log.txt`. Desde o yanc v7.1 a AURORA chama só o
+driver `yanc`: `yanc -S` compila o fonte (TCMM) e `yanc <proc>.asm` monta (TASM),
+e o driver acha o cmmcomp, o cppcomp e o asmcomp ao lado dele. Da montagem em
 diante o pipeline é idêntico, então a divisão fica confinada a um passo na frente.
+
+As pastas também são as do yanc, e um lugar só responde por elas,
+[pastas_do_processador.ts](js/compilation/pastas_do_processador.ts): o que a
+pessoa escreve fica em `<proj>/<proc>/` (o fonte, os arquivos de vetor,
+`input_N.txt`), e tudo o que o yanc gera numa pasta de saída plana,
+`<proj>/<proc>/<proc>/`. O nome do processador é o nome do arquivo fonte e vira o
+módulo Verilog, então criar e renomear conferem o nome pela regra do yanc. Não
+monte `<proc>/<proc>` à mão nem escreva `Software/`, `Hardware/` ou `Simulation/`:
+essas pastas deixaram de existir, e um projeto que ainda as tem é convertido na
+abertura ([estrutura_antiga.ts](js/project/estrutura_antiga.ts)).
 
 Dois invariantes governam esse trabalho, e valem para código escrito antes de ele
 chegar. O passo de front end é escolhido a partir da linguagem do fonte, não

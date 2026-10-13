@@ -3,17 +3,17 @@
 // Um processador C++ compila de ponta a ponta dentro de um projeto AURORA,
 // pela API, sem clique: e o E2E que a Fase 1 do C++ (TODO.md secao 7) pede.
 //
-// O projeto e o proc_cpp do yanc (C:\nipscern\yanc\Teste\proc_cpp, o mesmo
-// que o Scripts/single_proc_cpp.bat compila), posto na estrutura que a
-// AURORA espera: <proj>/proc_cpp/Software/proc_cpp.cpp e um .spf cuja
-// entrada de processador e SO `{ name: 'proc_cpp' }`, sem campo de
-// linguagem, de proposito: a linguagem tem de ser derivada do que existe em
-// Software/ (processor_dispatch.ts), porque e assim que todo .spf de hoje e.
+// O projeto tem um processador C++, proc_cpp, na estrutura do yanc v7.1:
+// <proj>/proc_cpp/proc_cpp.cpp e um .spf cuja entrada de processador e SO
+// `{ name: 'proc_cpp' }`, sem campo de linguagem, de proposito: a linguagem
+// tem de ser derivada do que existe na pasta do processador
+// (processor_dispatch.ts), porque e assim que todo .spf de hoje e.
 //
-// O que se afirma e o que a compilacao deixa no disco: o pp.cpp do cpppp na
-// Temp do projeto, o proc_cpp.asm (com esse nome, nao proc_cpp.cpp.asm), e
-// o proc_cpp.v com os .mif que o asmcomp gera. Sem toolchain (o job de E2E
-// do CI nao baixa o yanc) o arquivo inteiro se abstem.
+// O que se afirma e o que a compilacao deixa no disco, na pasta de saida
+// <proj>/proc_cpp/proc_cpp/: o proc_cpp.asm (com esse nome, nao
+// proc_cpp.cpp.asm), o prog_log.txt com `lang C++`, e o proc_cpp.v com os .mif
+// que o asmcomp gera. Sem toolchain (o job de E2E do CI nao baixa o yanc) o
+// arquivo inteiro se abstem.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { _electron as electron } from 'playwright';
@@ -24,25 +24,22 @@ import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const COMPONENTS = path.join(REPO_ROOT, 'components');
-const YANC_EXAMPLE = 'C:\\nipscern\\yanc\\Teste\\proc_cpp\\Software\\proc_cpp.cpp';
-
-/** Tudo que o passo 'cpp' mais o asm precisam. Faltando qualquer um, abstem-se. */
-const REQUIRED = ['cpppp.exe', 'cppcomp.exe', 'appcomp.exe', 'asmcomp.exe']
+/**
+ * Tudo que o passo 'cpp' mais o asm precisam: o driver yanc e os dois
+ * compiladores que ele chama. Faltando qualquer um, abstem-se.
+ */
+const REQUIRED = ['yanc.exe', 'cppcomp.exe', 'asmcomp.exe']
   .map((exe) => path.join(COMPONENTS, 'bin', exe));
 const toolchainReady = REQUIRED.every((p) => fs.existsSync(p))
   && fs.existsSync(path.join(COMPONENTS, 'Header'))
   && fs.existsSync(path.join(COMPONENTS, 'SAPHO'));
 
 /**
- * O programa: o proc_cpp do yanc quando ele esta na maquina, senao um
- * equivalente minimo com o mesmo cabecalho. Os dois passam pelo cpppp e
- * pelo cppcomp do mesmo jeito; o do yanc e o que o usuario pediu.
+ * O programa, no molde do proc_cpp do yanc (Compilers/CPPComp/Tests). Sem
+ * `#pragma yanc prname`: desde o v7.1 o nome e o do arquivo e o pragma e erro.
  */
 function programaCpp() {
-  if (fs.existsSync(YANC_EXAMPLE)) return fs.readFileSync(YANC_EXAMPLE, 'utf8');
   return [
-    '#pragma yanc prname proc_cpp',
-    '',
     'int   g_count = 7;',
     'float g_gain  = 2.5;',
     '',
@@ -79,13 +76,11 @@ async function waitForMainWindow(app, timeoutMs = 20_000) {
   throw new Error('Main window (index.html) did not appear within timeout.');
 }
 
-/** <root>/proc_cpp/{Software,Hardware,Simulation} + o .spf, so com o nome. */
+/** <root>/proc_cpp/proc_cpp.cpp + o .spf, so com o nome. */
 function writeFixtureProject(rootDir) {
   const procDir = path.join(rootDir, 'proc_cpp');
-  for (const sub of ['Software', 'Hardware', 'Simulation']) {
-    fs.mkdirSync(path.join(procDir, sub), { recursive: true });
-  }
-  const sourcePath = path.join(procDir, 'Software', 'proc_cpp.cpp');
+  fs.mkdirSync(procDir, { recursive: true });
+  const sourcePath = path.join(procDir, 'proc_cpp.cpp');
   fs.writeFileSync(sourcePath, programaCpp());
 
   // O .spf TEM de se chamar como a pasta: o handler create-processor-project
@@ -175,24 +170,24 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     );
     expect(resultado).toEqual({ ok: true, data: { step: 'cpp' } });
 
-    const software = path.join(fixture.procDir, 'Software');
-    const hardware = path.join(fixture.procDir, 'Hardware');
-    const temp = path.join(projectDir, '.aurora', 'Temp', 'proc_cpp');
-
-    // O que o cpppp e o cppcomp deixaram na Temp do projeto.
-    expect(fs.existsSync(path.join(temp, 'pp.cpp'))).toBe(true);
-    expect(fs.existsSync(path.join(temp, 'cmm_log.txt'))).toBe(true);
+    // Tudo o que o yanc gera, na pasta de saida; nada ao lado do fonte.
+    const saida = path.join(fixture.procDir, 'proc_cpp');
+    const limite = Date.now() + 90_000;
+    while (!fs.existsSync(path.join(saida, 'proc_cpp.v')) && Date.now() < limite) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
 
     // O .asm com a base do fonte, e nao com a extensao dentro do nome.
-    expect(fs.existsSync(path.join(software, 'proc_cpp.asm'))).toBe(true);
-    expect(fs.existsSync(path.join(software, 'proc_cpp.cpp.asm'))).toBe(false);
-    expect(fs.existsSync(path.join(software, 'proc_cpp.cmm'))).toBe(false);
+    expect(fs.existsSync(path.join(saida, 'proc_cpp.asm'))).toBe(true);
+    expect(fs.existsSync(path.join(saida, 'proc_cpp.cpp.asm'))).toBe(false);
+    expect(fs.readFileSync(path.join(saida, 'prog_log.txt'), 'utf8')).toMatch(/^lang C\+\+\r?$/m);
+    expect(fs.readdirSync(fixture.procDir).sort()).toEqual(['proc_cpp', 'proc_cpp.cpp']);
 
-    // Do appcomp em diante o pipeline e o de sempre: o .v e os .mif.
-    expect(fs.existsSync(path.join(hardware, 'proc_cpp.v'))).toBe(true);
-    expect(fs.existsSync(path.join(hardware, 'proc_cpp_inst.mif'))).toBe(true);
-    expect(fs.existsSync(path.join(hardware, 'proc_cpp_data.mif'))).toBe(true);
-    expect(fs.readFileSync(path.join(hardware, 'proc_cpp.v'), 'utf8')).toMatch(/module\s+proc_cpp\b/);
+    // A montagem: o .v e os .mif, e nenhum pp.cpp nem Software/ do formato antigo.
+    expect(fs.existsSync(path.join(saida, 'proc_cpp_inst.mif'))).toBe(true);
+    expect(fs.existsSync(path.join(saida, 'proc_cpp_data.mif'))).toBe(true);
+    expect(fs.readFileSync(path.join(saida, 'proc_cpp.v'), 'utf8')).toMatch(/module\s+proc_cpp\b/);
+    expect(fs.existsSync(path.join(projectDir, '.aurora', 'Temp', 'proc_cpp', 'pp.cpp'))).toBe(false);
   }, 180_000);
 
   it('criar um processador C++ pela API escreve o .cpp com pragmas e grava a linguagem no .spf', async () => {
@@ -208,16 +203,16 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     }));
     expect(criado.ok, JSON.stringify(criado)).toBe(true);
 
-    const fonte = path.join(projectDir, 'proc_novo', 'Software', 'proc_novo.cpp');
+    const fonte = path.join(projectDir, 'proc_novo', 'proc_novo.cpp');
     expect(fs.existsSync(fonte)).toBe(true);
-    expect(fs.existsSync(path.join(projectDir, 'proc_novo', 'Software', 'proc_novo.cmm'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, 'proc_novo', 'proc_novo.cmm'))).toBe(false);
 
     const texto = fs.readFileSync(fonte, 'utf8');
-    expect(texto).toContain('#pragma yanc prname proc_novo');
+    expect(texto).not.toContain('prname');
     expect(texto).toContain('#pragma yanc nuioin 2');
     expect(texto).toContain('#pragma yanc nuioou 3');
     // largura, mantissa, expoente, ganho e pilhas NAO viram pragma
-    expect(texto.match(/#pragma yanc/g)).toHaveLength(3);
+    expect(texto.match(/#pragma yanc/g)).toHaveLength(2);
     expect(texto).toContain('void main(void)');
 
     // A linguagem fica registrada no .spf, e e ela que desempata quando
@@ -228,7 +223,7 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     expect(entrada.language).toBe('cpp');
 
     // O processador recem-criado NAO compila ate o fim, e esta e a regra:
-    // o template e um esqueleto de main vazio, e o appcomp recusa com "esse
+    // o template e um esqueleto de main vazio, e o asmcomp recusa com "esse
     // processador nao serve pra nada". O que se afirma aqui e que o passo
     // ACEITA o processador novo e vai ate o cppcomp, que e o front end da
     // linguagem; o Verilog depende de a pessoa escrever o programa, e o caso
@@ -241,7 +236,7 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     }, fonte);
     const compilado = await window.evaluate(() => window.AuroraAPI.compile.compileStep('cpp'));
     expect(compilado.ok, JSON.stringify(compilado)).toBe(true);
-    const asmNovo = path.join(projectDir, 'proc_novo', 'Software', 'proc_novo.asm');
+    const asmNovo = path.join(projectDir, 'proc_novo', 'proc_novo', 'proc_novo.asm');
     const ate = Date.now() + 60_000;
     while (!fs.existsSync(asmNovo) && Date.now() < ate) {
       await new Promise((r) => setTimeout(r, 250));
@@ -258,9 +253,9 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     }));
     expect(criado.ok, JSON.stringify(criado)).toBe(true);
 
-    const fonte = path.join(projectDir, 'proc_cmm', 'Software', 'proc_cmm.cmm');
+    const fonte = path.join(projectDir, 'proc_cmm', 'proc_cmm.cmm');
     expect(fs.existsSync(fonte)).toBe(true);
-    expect(fs.readFileSync(fonte, 'utf8')).toContain('#PRNAME proc_cmm');
+    expect(fs.readFileSync(fonte, 'utf8')).not.toContain('#PRNAME');
 
     // A entrada de um processador C+- continua sendo o que sempre foi.
     const spf = JSON.parse(fs.readFileSync(fixture.spfPath, 'utf8'));
@@ -281,7 +276,6 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     // Os pragmas sao minusculos no fonte e chegam em MAIUSCULA, que e a forma
     // que quem consome usa, sem precisar saber a linguagem.
     expect(cpp.data.header).toEqual({
-      PRNAME: 'proc_novo',
       NUIOIN: '2',
       NUIOOU: '3',
     });
@@ -289,8 +283,8 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     const cmm = await window.evaluate(
       () => window.AuroraAPI.project.getProcessorConfig('proc_cmm'));
     expect(cmm.ok, JSON.stringify(cmm)).toBe(true);
+    // Sem #PRNAME (o nome e o do arquivo) e sem o #NUGAIN de 128, que e o padrao.
     expect(cmm.data.header).toEqual({
-      PRNAME: 'proc_cmm',
       NUBITS: '23',
       NDSTAC: '5',
       SDEPTH: '5',
@@ -298,7 +292,6 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
       NUIOOU: '1',
       NBMANT: '16',
       NBEXPO: '6',
-      NUGAIN: '128',
     });
 
     // E o mesmo cabecalho pelo caminho do processo principal, que e o que
@@ -311,10 +304,10 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     expect(daLista.header).toEqual(cpp.data.header);
   }, 60_000);
 
-  it('renomear um processador C++ leva o .cpp e o pragma junto, e ele volta a compilar', async () => {
-    // O defeito que este caso fecha: criar processador C++ passou a funcionar,
-    // mas o rename so conhecia C+-. O .cpp ficava com o nome antigo e o
-    // `#pragma yanc prname` apontava para um nome que nao existia mais.
+  it('renomear um processador C++ leva o .cpp junto, e ele volta a compilar', async () => {
+    // O defeito que este caso fechou: criar processador C++ passou a funcionar,
+    // mas o rename so conhecia C+-, e o .cpp ficava com o nome antigo. Desde o
+    // yanc v7.1 o nome do processador E o do arquivo.
     const criado = await window.evaluate(() => window.AuroraAPI.project.createProcessor({
       processorName: 'proc_antes', language: 'cpp', inputPorts: 1, outputPorts: 1,
     }));
@@ -326,25 +319,23 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
     expect(renomeado.ok, JSON.stringify(renomeado)).toBe(true);
 
     // O fonte mudou de nome, e o antigo nao ficou para tras.
-    const novoFonte = path.join(projectDir, 'proc_depois', 'Software', 'proc_depois.cpp');
+    const novoFonte = path.join(projectDir, 'proc_depois', 'proc_depois.cpp');
     const noDisco = fs.readdirSync(projectDir).join(', ');
     expect(fs.existsSync(novoFonte), `nao achei ${novoFonte}; no projeto: ${noDisco}`).toBe(true);
     expect(fs.existsSync(path.join(projectDir, 'proc_antes'))).toBe(false);
 
-    // E o pragma dentro dele acompanha, que e o que o cppcomp le.
+    // O texto do fonte nao e tocado: nao ha mais nome dentro dele.
     const texto = fs.readFileSync(novoFonte, 'utf8');
-    expect(texto).toContain('#pragma yanc prname proc_depois');
-    expect(texto).not.toContain('proc_antes');
+    expect(texto).not.toContain('prname');
 
     // Um processador recem-criado NAO compila ate o Verilog, e isso e o
-    // certo: o template e um esqueleto com main vazio, e o appcomp recusa com
+    // certo: o template e um esqueleto com main vazio, e o asmcomp recusa com
     // "esse processador nao serve pra nada". O C+- recusa o mesmo esqueleto,
     // so que reportando erro de sintaxe. Entao o teste escreve um programa de
     // verdade antes de pedir a compilacao; do contrario estaria esperando um
     // .v que nunca viria, e foi exatamente esse engano que fez o passo
     // parecer travado numa versao anterior deste arquivo.
     fs.writeFileSync(novoFonte, [
-      '#pragma yanc prname proc_depois',
       '#pragma yanc nuioin 1',
       '#pragma yanc nuioou 1',
       '',
@@ -379,7 +370,7 @@ describe.skipIf(!toolchainReady)('Aurora E2E — um processador C++ compila de p
 
     // O compileStep devolve quando o passo e DISPARADO, nao quando termina: os
     // erros vao para o terminal. Quem espera de verdade e o disco.
-    const gerado = path.join(projectDir, 'proc_depois', 'Hardware', 'proc_depois.v');
+    const gerado = path.join(projectDir, 'proc_depois', 'proc_depois', 'proc_depois.v');
     const limite = Date.now() + 90_000;
     while (!fs.existsSync(gerado) && Date.now() < limite) {
       await new Promise((r) => setTimeout(r, 250));

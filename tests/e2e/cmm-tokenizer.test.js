@@ -54,7 +54,7 @@ const LINHAS = [
   'P # |a| - |b⟩⟨c|;',
   'y # ⟨w|x⟩;',
   'out(0, r|s⟩);',
-  '#PRNAME proc_rls',
+  '#NUIOIN 1',
   '#FROUND 2',
   '#define N 4',
   'float P[N][N];',

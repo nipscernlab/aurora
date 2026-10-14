@@ -637,6 +637,20 @@ describe('loadConfiguration', () => {
     expect(disco.spf.get(SPF).synthesizableFiles.map((f) => f.name)).toEqual(['simulacao.v', 'b.v']);
   });
 
+  it('o testbench do campo escalar vale mesmo sem a marca na lista, e sobrevive ao salvamento', async () => {
+    projeto({
+      synth: [{ name: 'top.v', path: 'C:/p/top.v', isTopLevel: true }],
+      tb: [{ name: 'tb.v', path: 'C:/p/tb.v' }, { name: 'p_tb.v', path: 'C:/p/p_tb.v' }],
+      arquivos: { 'C:/p/top.v': SINTESE, 'C:/p/tb.v': TESTBENCH, 'C:/p/p_tb.v': TESTBENCH },
+    });
+    disco.spf.get(SPF).testbenchFile = 'C:/p/tb.v';
+    disco.spf.get(SPF).topLevelFile = 'C:/p/top.v';
+    const m = await novo();
+    expect(m.verilogFiles.filter((f) => f.isTopLevel).map((f) => f.name).sort()).toEqual(['tb.v', 'top.v']);
+    await m.saveConfiguration();
+    expect(disco.spf.get(SPF)).toMatchObject({ testbenchFile: 'C:/p/tb.v', topLevelFile: 'C:/p/top.v' });
+  });
+
   it('nada mudou: nao regrava', async () => {
     projeto({ synth: [{ name: 'a.v', path: 'C:/p/a.v' }], arquivos: { 'C:/p/a.v': SINTESE } });
     await novo();

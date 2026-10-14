@@ -94,6 +94,7 @@ import { RenderMixin } from './project_tree_render.js';
 import { ActionsMixin } from './project_tree_actions.js';
 import { sourceExtensions } from '../compilation/processor_source.js';
 import { processadorDoCaminho, segmentosDaSaida, segmentosDoFonte } from '../compilation/pastas_do_processador.js';
+import { aplicarTopoDoSpf } from './marcas_de_topo.js';
 
 class ProjectTreeManager {
     declare ALLOWED_EXTENSIONS: string[];
@@ -903,6 +904,11 @@ class ProjectTreeManager {
                 dedupSeen.add(key);
                 this.verilogFiles.push(f);
             }
+            // O campo escalar do .spf ganha da marca da lista, como na
+            // compilacao (marcas_de_topo.ts).
+            const chaveDoTopo = (c: string) => this._normalizePath(c);
+            aplicarTopoDoSpf(this.verilogFiles, 'synthesizable', configData.topLevelFile, chaveDoTopo);
+            aplicarTopoDoSpf(this.verilogFiles, 'testbench', configData.testbenchFile, chaveDoTopo);
             const dedupRemoved = nextFiles.length - this.verilogFiles.length;
             if (dedupRemoved > 0) {
                 console.warn(`Dropped ${dedupRemoved} duplicate file entries from .spf`);

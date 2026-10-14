@@ -14,6 +14,10 @@ Sintoma & Causa e solução \\
 Erro de sintaxe no TCMM & Clique na linha para ir ao ponto. Confira as ausências da linguagem: não há decremento, operadores compostos nem ponteiros (Capítulo~\ref{cap:cmm-tipos-operadores}). \\
 Falta o \code{main()} & Todo programa \cmm{} precisa de \code{void main()}. \\
 Porta de E/S inexistente & O índice em \code{in()} ou \code{out()} excede as diretivas de porta. Aumente \code{\#NUIOIN} ou \code{\#NUIOOU} e recompile. \\
+\code{\#PRNAME} não existe mais & Desde o YANC 7.1 o nome do processador é o nome do arquivo. Apague a linha; para outro nome, renomeie o processador. \\
+O nome do arquivo não serve de processador & O nome vira módulo Verilog: só letras sem acento, dígitos e sublinhado, sem dígito nem \code{\_\_} no começo, e nenhuma palavra reservada do Verilog. Renomeie o processador. \\
+O fonte não tem o nome do processador & Um \file{outro.cmm} dentro da pasta do processador \code{filtro} geraria o módulo \code{outro}. Renomeie o arquivo para \file{filtro.cmm}, ou mova-o para um processador com o nome dele. \\
+Arquivo na pasta de saída, mas o terminal mostra erro & O arquivo é de uma compilação anterior. Vale o terminal. \\
 Total de bits recusado no Hub & Vale a igualdade estrutural (mantissa mais expoente mais um), e o ganho deve ser potência de dois. \\
 O botão de ondas não age & Falta \textit{testbench}, ou \textit{top-level} no caso do PRISM. Compile o \cmm{} para gerar o \file{_tb.v}, ou marque o seu pelo menu de contexto. \\
 A simulação termina cedo demais & Poucos ciclos. Aumente o número de ciclos no painel de configurações do processador. \\
@@ -31,6 +35,7 @@ Binário do simulador não encontrado & A pasta \file{components} da instalaçã
 Sintoma & Causa e solução \\
 \midrule
 \endhead
+Projeto antigo pede conversão ao abrir & O projeto ainda tem \file{Software}, \file{Hardware} e \file{Simulation}, ou usa \code{\#PRNAME}. Aceite a conversão e leia o relatório (Capítulo~\ref{cap:projetos}); sem ela, o projeto não compila. \\
 Projeto não encontrado & O \file{.spf} foi movido ou apagado. Abra pelo novo caminho; o item sai dos recentes sozinho. \\
 Aviso de arquivos faltantes & Arquivos registrados no \file{.spf} sumiram do disco. Restaure-os, ou dispense o aviso para limpar as referências. \\
 Arquivo modificado externamente & Outro programa alterou um arquivo aberto. Escolha entre manter a versão do editor, usar a do disco, ou salvar e recarregar. \\

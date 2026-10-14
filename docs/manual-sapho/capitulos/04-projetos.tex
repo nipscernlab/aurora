@@ -24,6 +24,12 @@ Você raramente precisará editá-lo à mão. A AURORA é a única escritora do 
 
 Há três caminhos: o botão \botao{Abrir Projeto}, selecionando o \file{.spf}; dois cliques no próprio \file{.spf} pelo Explorer do Windows, graças à associação criada na instalação; ou a lista de recentes da tela de boas-vindas, que guarda até dez projetos e também alimenta a \textit{jumplist} do ícone da AURORA na barra de tarefas. Ao abrir, a AURORA carrega a árvore, restaura a lista de processadores e registra a data de abertura. Se o \file{.spf} tiver sumido do caminho registrado, o diálogo Projeto Não Encontrado avisa, e o item sai da lista de recentes.
 
+\subsection*{Projetos de versões antigas}
+
+Antes do YANC 7.1, cada processador tinha três subpastas, \file{Software}, \file{Hardware} e \file{Simulation}, e o nome do módulo vinha da diretiva \code{\#PRNAME}. O compilador novo não aceita mais nenhuma das duas coisas. Ao abrir um projeto assim, a AURORA pergunta, uma vez, se pode convertê-lo. O que você escreveu (o fonte, os arquivos de vetor, os \file{input_<i>.txt}, um \file{.v} seu que estivesse em \file{Hardware}) vai para a pasta do processador; o que o YANC tinha gerado vai para a pasta de saída; a linha \code{\#PRNAME} sai do fonte, e o \file{.spf} passa a apontar para os lugares novos. Nada é apagado nem sobrescrito: se o destino já existe, o arquivo fica onde estava e aparece no relatório.
+
+No fim, um relatório lista o que foi movido e o que ficou. Se o \code{\#PRNAME} antigo dava ao módulo um nome diferente do nome da pasta, o relatório oferece renomear o processador para esse nome, para o seu \textit{top-level} continuar achando o módulo; o mesmo vale para um nome que não serve mais, com hífen ou acento. Quem responder \botao{Agora não} pode converter depois, abrindo o projeto de novo; até lá ele não compila.
+
 \section{Arquivos do projeto: quem é quem}
 \label{sec:arquivos-do-projeto}
 
@@ -32,12 +38,15 @@ Um projeto maduro tem esta forma, aqui ilustrada com o nosso exemplo:
 \begin{lstlisting}
 MeuFiltro/
 |-- MeuFiltro.spf              (o arquivo de projeto)
-|-- media_movel/               (um processador)
-|   |-- Software/media_movel.cmm
-|   |-- Hardware/              (gerados: media_movel.v, *.mif)
-|   `-- Simulation/            (gerado: media_movel_tb.v)
+|-- media_movel/               (um processador: o que voce escreve)
+|   |-- media_movel.cmm
+|   |-- input_0.txt
+|   `-- media_movel/           (pasta de saida: media_movel.v,
+|                               *.mif, media_movel_tb.v, ...)
 `-- TopLevel/                  (Verilog de integracao, opcional)
 \end{lstlisting}
+
+A pasta de um processador guarda o que você escreve: o fonte, os arquivos que inicializam vetores e os estímulos \file{input_<i>.txt} (e os \file{cade_k.txt}, se o processador usar \textit{links}; Seção~\ref{sec:links}). Dentro dela, a pasta de saída, com o mesmo nome, guarda o que o YANC gera; ela aparece na primeira compilação, e o Capítulo~\ref{cap:compilacao} lista o seu conteúdo.
 
 Dois papéis especiais são atribuídos por você, pelo menu de contexto da árvore. O \textit{top-level} é o módulo Verilog que integra os processadores; é o topo da síntese e o alvo do PRISM, definido por \menu{Definir como Top Level}. O \textit{testbench} é o banco de testes da simulação, um \file{_tb.v} em Verilog ou um \file{.py} em cocotb, marcado por \menu{Marcar como Testbench}. A barra de status lembra o que falta em cada momento. Num projeto de um único processador, o \textit{testbench} gerado automaticamente pela compilação costuma bastar; os papéis manuais importam quando você escreve a sua própria integração.
 

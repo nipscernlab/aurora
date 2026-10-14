@@ -11,7 +11,7 @@ O seletor de simulador da \textit{toolbar} alterna o motor global. O Icarus Veri
 
 \section{Dois tipos de testbench: Verilog e cocotb}
 
-O \textit{testbench} determina quem estimula o processador. O de Verilog, o \file{_tb.v} gerado pela compilação ou um escrito por você, cria \textit{clock} e \textit{reset}, alimenta cada porta de entrada com o conteúdo de \file{input_<i>.txt}, um valor por linha, e grava cada porta de saída em \file{output_<i>.txt}. O de Python usa o \textit{framework} cocotb: marque um arquivo \file{.py} como \textit{testbench} pelo menu de contexto da árvore, que também oferece a criação de um novo, e a AURORA o executa com o Python embutido sobre o motor selecionado, o que convém a estímulos complexos, checagens automáticas e comparação com modelos NumPy.
+O \textit{testbench} determina quem estimula o processador. O de Verilog, o \file{_tb.v} gerado pela compilação ou um escrito por você, cria \textit{clock} e \textit{reset}, alimenta cada porta de entrada com o conteúdo de \file{input_<i>.txt}, um valor por linha, lido da pasta do processador, ao lado do fonte, e grava cada porta de saída em \file{output_<i>.txt}, na pasta de saída. Os \textit{links} entre processadores seguem a mesma regra: \file{cade_k.txt} ao lado do fonte, \file{toma_k.txt} na pasta de saída (Seção~\ref{sec:links}). A simulação roda com a pasta de saída como diretório de trabalho. O de Python usa o \textit{framework} cocotb: marque um arquivo \file{.py} como \textit{testbench} pelo menu de contexto da árvore, que também oferece a criação de um novo, e a AURORA o executa com o Python embutido sobre o motor selecionado, o que convém a estímulos complexos, checagens automáticas e comparação com modelos NumPy.
 
 Os dois tipos cruzam com os dois motores, formando quatro caminhos que convergem no mesmo arquivo de ondas. A simulação roda uma única vez por clique.
 
@@ -45,11 +45,11 @@ O botão \botao{Teste do processador sintetizado} valida o processador como caix
 O roteiro completo do exemplo condutor:
 
 \begin{enumerate}
-  \item crie \file{Simulation/input_0.txt} com uma rampa e um degrau, um inteiro por linha;
+  \item crie \file{media_movel/input_0.txt}, ao lado do fonte, com uma rampa e um degrau, um inteiro por linha;
   \item acione \botao{Compilar \cmm{}} e confira nos terminais TCMM e TASM que tudo passou;
   \item confirme o motor (Icarus) e o visualizador (GTKWave) nos seletores;
   \item acione \botao{Analisar Verilog} e aguarde o GTKWave abrir com o \textit{layout} curado;
   \item observe o histórico \code{x[0]} a \code{x[3]}, a variável \code{soma} e a porta de saída suavizando o degrau, com a trilha \cmm{} mostrando a linha do programa executada em cada ciclo.
 \end{enumerate}
 
-Os valores de saída também ficam em \file{output_0.txt}, prontos para conferência num \textit{script}.
+Os valores de saída também ficam em \file{media_movel/media_movel/output_0.txt}, na pasta de saída, prontos para conferência num \textit{script}.

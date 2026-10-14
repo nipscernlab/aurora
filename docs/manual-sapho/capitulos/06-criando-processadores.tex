@@ -8,7 +8,7 @@ Com o projeto aberto, o botão \botao{Hub de Processadores} da \textit{toolbar} 
 
 \section{Os campos do formulário}
 
-O formulário pede o nome do processador e, em duas seções, os parâmetros numéricos. A Tabela~\ref{tab:hub} resume os campos, os valores de fábrica e as regras de validação; o texto a seguir comenta as escolhas.
+O formulário pede o nome do processador, a linguagem do fonte (\cmm{} ou C++) e, em duas seções, os parâmetros numéricos. A Tabela~\ref{tab:hub} resume os campos, os valores de fábrica e as regras de validação; o texto a seguir comenta as escolhas.
 
 \begin{table}[ht]
 \centering
@@ -19,13 +19,11 @@ O formulário pede o nome do processador e, em duas seções, os parâmetros num
 \toprule
 Campo & Diretiva & Padrão & Validação \\
 \midrule
-Nome do Processador & \code{\#PRNAME} & \code{procTest\_00} & letras, números, sublinhado e hífen \\
+Nome do Processador & (arquivo) & \code{procTest\_00} & letras sem acento, dígitos e sublinhado; sem dígito nem \code{\_\_} no começo; nenhuma palavra reservada do Verilog \\
 Total de Bits & \code{\#NUBITS} & 23 & inteiro positivo, igual a mantissa + expoente + 1 \\
-Ganho & \code{\#NUGAIN} & 128 & inteiro positivo, potência de 2 \\
+Ganho & \code{\#NUGAIN} & 128 & inteiro positivo, potência de 2; escrito só quando difere de 128 \\
 Bits da Mantissa & \code{\#NBMANT} & 16 & inteiro positivo \\
 Bits do Expoente & \code{\#NBEXPO} & 6 & inteiro positivo \\
-Pilha de Instruções & \code{\#SDEPTH} & 5 & inteiro positivo \\
-Pilha de Dados & \code{\#NDSTAC} & 5 & inteiro positivo \\
 Portas de Entrada & \code{\#NUIOIN} & 1 & inteiro positivo \\
 Portas de Saída & \code{\#NUIOOU} & 1 & inteiro positivo \\
 \bottomrule
@@ -34,22 +32,18 @@ Portas de Saída & \code{\#NUIOOU} & 1 & inteiro positivo \\
 
 A validação acontece enquanto você digita: um campo inválido ganha borda vermelha e uma dica explicando a regra, e o botão \botao{Gerar Processador} só habilita quando tudo está consistente. Note que o padrão de fábrica já respeita a igualdade estrutural, pois $23 = 16 + 6 + 1$.
 
-Sobre as escolhas: o total de bits dimensiona os inteiros e o consumo de hardware, e 16 bits bastam para muitos sinais de instrumentação, enquanto o padrão de 23 dá folga com um \code{float} de boa precisão. A mantissa e o expoente definem a precisão e a faixa do ponto flutuante (Seção~\ref{sec:float-sapho}); se o programa só usa inteiros, esses valores têm pouco efeito prático, mas a igualdade estrutural continua obrigatória. A pilha de instruções limita a profundidade de chamadas de função aninhadas, e a de dados, a complexidade das expressões; os padrões atendem programas típicos. Reserve uma porta para cada fluxo de dados que o processador troca com o mundo, e lembre que o ganho só importa se o programa usa a função \code{norm()}.
+Sobre as escolhas: o total de bits dimensiona os inteiros e o consumo de hardware, e 16 bits bastam para muitos sinais de instrumentação, enquanto o padrão de 23 dá folga com um \code{float} de boa precisão. A mantissa e o expoente definem a precisão e a faixa do ponto flutuante (Seção~\ref{sec:float-sapho}); se o programa só usa inteiros, esses valores têm pouco efeito prático, mas a igualdade estrutural continua obrigatória. As pilhas não aparecem no formulário: sem \code{\#SDEPTH} e \code{\#NDSTAC} no fonte, o YANC dimensiona cada uma pelo programa, com o pico de uso mais um e no mínimo dois. Quem quiser um tamanho fixo escreve a diretiva à mão (Apêndice~\ref{ap:diretivas}). Reserve uma porta para cada fluxo de dados que o processador troca com o mundo, e lembre que o ganho só importa se o programa usa a função \code{norm()}.
 
 \section{O que é gerado}
 
-Ao confirmar, a AURORA cria dentro do projeto a pasta do processador com as três subpastas de trabalho, \file{Software}, \file{Hardware} e \file{Simulation}, e registra o novo processador no \file{.spf}, bloqueando nomes duplicados. O arquivo \file{Software/<nome>.cmm} nasce com o cabeçalho de diretivas preenchido com os valores do formulário e um \code{main()} vazio à sua espera:
+Ao confirmar, a AURORA cria dentro do projeto a pasta do processador, \file{<nome>/}, e registra o novo processador no \file{.spf}, bloqueando nomes duplicados. A pasta nasce só com o fonte, \file{<nome>/<nome>.cmm}; a pasta de saída, \file{<nome>/<nome>/}, para onde vai tudo o que o YANC gera, aparece na primeira compilação (Capítulo~\ref{cap:compilacao}). O nome do processador é o nome do arquivo fonte e vira o nome do módulo Verilog; não há diretiva de nome. O \file{.cmm} nasce com o cabeçalho de diretivas preenchido com os valores do formulário e um \code{main()} vazio à sua espera:
 
 \begin{lstlisting}[style=cmm]
-#PRNAME media_movel
 #NUBITS 16
-#NDSTAC 5
-#SDEPTH 5
 #NUIOIN 1
 #NUIOOU 1
 #NBMANT 10
 #NBEXPO 5
-#NUGAIN 128
 
 void main()
 {
@@ -62,12 +56,12 @@ E agora, o Capítulo~\ref{cap:cmm-fundamentos}: escrever o programa.
 \section{Configurações de simulação do processador}
 \label{sec:proc-config}
 
-Ao lado do botão de compilar há uma engrenagem que abre um pequeno painel com três ajustes por processador: a frequência de \textit{clock} do \textit{testbench} gerado, em MHz (padrão 100); o número de ciclos que a simulação executa antes de encerrar (padrão 2000); e a opção de emitir cada elemento de \textit{array} como um sinal visível nas formas de onda, equivalente à opção \code{--array} do compilador. O painel também exibe o tempo estimado de simulação, os ciclos divididos pelo \textit{clock}, em microssegundos. Se a simulação termina antes de o programa produzir os resultados, é aqui que se aumenta o número de ciclos.
+Ao lado do botão de compilar há uma engrenagem que abre um pequeno painel com três ajustes por processador: a frequência de \textit{clock} do \textit{testbench} gerado, em MHz (padrão 100); o número de ciclos que a simulação executa antes de encerrar (padrão 2000); e a opção de emitir cada elemento de \textit{array} como um sinal visível nas formas de onda, equivalente à opção \code{--wave-arrays} do compilador. O painel também exibe o tempo estimado de simulação, os ciclos divididos pelo \textit{clock}, em microssegundos. Se a simulação termina antes de o programa produzir os resultados, é aqui que se aumenta o número de ciclos.
 
 \section{Renomear e excluir processadores}
 
-Ambas as operações ficam no menu de contexto do processador na árvore. Renomear é uma operação completa: a pasta é movida, os artefatos gerados são renomeados e a diretiva \code{\#PRNAME} dentro do fonte é corrigida, tudo numa só ação, sob as mesmas regras de nome do formulário. Excluir remove a pasta do processador e o registro no \file{.spf}.
+Ambas as operações ficam no menu de contexto do processador na árvore. Renomear é uma operação completa: a pasta do processador, o fonte e a pasta de saída trocam de nome juntos, com os artefatos gerados que levam o nome dele, tudo numa só ação, sob as mesmas regras de nome do formulário. Excluir remove a pasta do processador e o registro no \file{.spf}.
 
 \begin{aviso}
-O nome do processador e a diretiva \code{\#PRNAME} precisam concordar; é assim que a cadeia de ferramentas conecta o fonte aos artefatos. Renomeie sempre pela AURORA, que mantém os dois lados em sincronia.
+Como o nome do processador é o nome do arquivo fonte, renomear o \file{.cmm} muda o módulo Verilog gerado. Renomeie sempre pela AURORA, que mantém a pasta, o fonte, a pasta de saída e o \file{.spf} em sincronia.
 \end{aviso}

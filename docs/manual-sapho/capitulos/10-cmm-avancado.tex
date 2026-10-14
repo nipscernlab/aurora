@@ -22,10 +22,31 @@ O princípio de pagar apenas pelo que se usa tem uma consequência prática: o c
 
 Daí algumas regras de bolso para hardware enxuto: prefira deslocamentos a divisões por potências de dois, ou use \code{norm()}; prefira \code{mod2()} a \code{abs()} quando só compara magnitudes; evite \code{float} quando a dinâmica do sinal cabe em inteiros; e lembre que é a primeira ocorrência de um operador que paga o bloco, pois a segunda em diante reaproveita o circuito.
 
+\section{Links entre processadores}
+\label{sec:links}
+
+Dois processadores SAPHO de um mesmo projeto podem trocar valores diretamente, por \textit{links} numerados a partir de 0:
+
+\begin{lstlisting}[style=cmm]
+toma(0, x);        // entrega x pelo link 0 e espera o outro lado pegar
+y = cade(0);       // espera o link 0 oferecer um valor e o recebe como int
+f = fcade(1);      // o mesmo, recebendo como float
+\end{lstlisting}
+
+O número do \textit{link} é sempre um literal inteiro, como a porta de \code{in(0)}. Quem chega primeiro espera, e nada se perde nem é lido duas vezes; um impasse, com os dois lados esperando, é responsabilidade do programa. Um processador tem quantos \textit{links} o programa usar, e cada \textit{link} liga dois processadores e pode levar valores nos dois sentidos. No \textit{assembly}, as funções viram as instruções \code{TOM k} e \code{CAD k}, cujo operando é o número do \textit{link}.
+
+As formas \code{toma\_sync}, \code{cade\_sync} e \code{fcade\_sync} são para quando o parceiro roda no mesmo \textit{clock}: dispensam o sincronizador do \textit{link} e economizam 4 ciclos por valor. Com \textit{clocks} diferentes, use as formas simples. Um \textit{link} usa a mesma forma nas duas pontas, e misturar as duas no mesmo \textit{link} é erro de compilação. O compilador anota no \textit{assembly}, com a diretiva \code{\#LKSYNC k}, quais \textit{links} usam a forma \code{\_sync}; ela é escrita pelo compilador, não pela pessoa. O mesmo vale em C++.
+
+A palavra passa sem conversão: os dois processadores precisam do mesmo \code{\#NUBITS} e, para \code{float}, do mesmo \code{\#NBMANT} e \code{\#NBEXPO}. O compilador não confere isso, porque compila um programa de cada vez.
+
+Cada \textit{link} cria pinos no processador: \code{toma\_k} e \code{valeu\_k} em quem usa \code{toma(k, ...)}, \code{cade\_k}, \code{taqui\_k} e \code{cade\_dado\_k} em quem usa \code{cade(k)}, e um \code{toma\_dado} em quem usa algum \code{toma}. No \textit{top-level} do projeto, o processador A (\textit{link} i) liga ao B (\textit{link} j) assim: \code{A.toma\_i} em \code{B.taqui\_j}, \code{B.cade\_j} em \code{A.valeu\_i} e \code{A.toma\_dado} em \code{B.cade\_dado\_j}.
+
+Simulado sozinho, o processador ganha do \textit{testbench} gerado o papel do parceiro de cada \textit{link}: os valores de cada \code{cade(k)} vêm de \file{cade_k.txt}, ao lado do fonte, um por linha, e cada \code{toma(k, x)} é escrito em \file{toma_k.txt}, na pasta de saída.
+
 \section{O caminho C++}
 \label{sec:caminho-cpp}
 
-Além da \cmm{}, o YANC compila C++ para o mesmo processador, por uma cadeia paralela: o pré-processador \tool{cpppp}, com \code{\#include}, \code{\#define} completo e compilação condicional, seguido do compilador \tool{cppcomp}, que aceita um subconjunto de C99 com extensões de C++ e emite o mesmo \textit{assembly} intermediário.
+Além da \cmm{}, o YANC compila C++ para o mesmo processador, pelo compilador \tool{cppcomp}, que aceita um subconjunto de C99 com extensões de C++ e emite o mesmo \textit{assembly} intermediário. Ele mesmo faz o pré-processamento, com \code{\#include}, \code{\#define} completo, compilação condicional (\code{\#if}) e \code{\#pragma once}, e as mensagens de erro apontam o arquivo e a linha que você escreveu, inclusive dentro de um \textit{header}. O processador C++ segue a regra da \cmm{}: o nome é o do arquivo, e \file{filtro.cpp} gera o módulo \code{filtro}.
 
 O caminho C++ oferece o que a \cmm{} não tem: ponteiros, restritos à indexação de \textit{arrays} de tamanho fixo e sem alocação dinâmica; recursão, com quadros de pilha de verdade; \textit{structs} simples; e até recursos modernos como \textit{lambdas} e destrutores. Os cabeçalhos padrão adaptados incluem \file{array}, \file{cmath}, \file{cstdint} e \file{vector}. O preço é a visibilidade: variáveis locais deixam de ter endereço fixo e, com isso, deixam de aparecer por nome nas formas de onda, perdendo-se em parte o vínculo íntimo entre código e onda que marca o fluxo \cmm{}. Os parâmetros do processador nesse fluxo têm padrões próprios, palavra de 32 bits com mantissa de 23 e expoente de 8, ajustáveis por \code{\#pragma yanc}.
 
@@ -36,6 +57,6 @@ Recomendação prática: comece todo projeto em \cmm{} e migre para C++ apenas q
 \section{As mensagens do compilador}
 \label{sec:mensagens-compilador}
 
-Os diagnósticos do YANC são bilíngues, acompanhando o idioma da IDE (Capítulo~\ref{cap:configuracoes}), e têm personalidade: um erro de sintaxe rende um comentário bem-humorado, e esquecer o \code{main()} provoca a pergunta clássica sobre onde ele está. Por trás do humor, a informação é séria e cai em poucas classes. Erros de estrutura cobrem a falta do \code{main()}, o \code{break} ou \code{continue} fora de laço e a contagem errada de parâmetros. Erros de nome apontam variável inexistente, variável já declarada e o uso do \code{i} reservado. Erros de tipo cobrem o módulo e a \code{norm()} com não inteiros, os intrínsecos sem versão para complexos e o incremento de um \code{comp}. Erros de faixa denunciam o estouro de inteiro para o \code{\#NUBITS} escolhido, o \code{float} fora da faixa do formato configurado e a porta de entrada ou saída inexistente. Os avisos, por fim, sinalizam conversões implícitas entre tipos e o uso de \code{float} ou \code{comp} em condições e índices.
+Os diagnósticos do YANC são bilíngues, acompanhando o idioma da IDE (Capítulo~\ref{cap:configuracoes}); as mensagens do \tool{cppcomp} saem sempre em inglês. Os do \tool{cmmcomp} têm personalidade: um erro de sintaxe rende um comentário bem-humorado, e esquecer o \code{main()} provoca a pergunta clássica sobre onde ele está. Por trás do humor, a informação é séria e cai em poucas classes. Erros de estrutura cobrem a falta do \code{main()}, o \code{break} ou \code{continue} fora de laço e a contagem errada de parâmetros. Erros de nome apontam variável inexistente, variável já declarada, o uso do \code{i} reservado e o arquivo cujo nome não serve de nome de módulo Verilog; a diretiva \code{\#PRNAME}, que não existe mais, também é erro. Erros de tipo cobrem o módulo e a \code{norm()} com não inteiros, os intrínsecos sem versão para complexos e o incremento de um \code{comp}. Erros de faixa denunciam o estouro de inteiro para o \code{\#NUBITS} escolhido, o \code{float} fora da faixa do formato configurado e a porta de entrada ou saída inexistente. Os avisos, por fim, sinalizam conversões implícitas entre tipos e o uso de \code{float} ou \code{comp} em condições e índices.
 
 Os erros aparecem no terminal TCMM com a linha clicável, e o clique leva o editor ao ponto exato (Capítulo~\ref{cap:terminais}). A Aurora Intelligence também sabe explicar qualquer mensagem do compilador, pela ferramenta de consulta embutida (Capítulo~\ref{cap:aurora-intelligence}).

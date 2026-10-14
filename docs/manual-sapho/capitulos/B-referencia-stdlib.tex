@@ -18,6 +18,24 @@ Função & Tipos & Descrição \\
 \bottomrule
 \end{longtable}
 
+\section{Links entre processadores}
+
+\begin{longtable}{llp{0.50\linewidth}}
+\toprule
+Função & Tipos & Descrição \\
+\midrule
+\endhead
+\code{toma(k, x);} & qualquer & Entrega \code{x} pelo \textit{link} \code{k} e espera o parceiro pegar. \\
+\code{cade(k)} & \code{int} & Espera o \textit{link} \code{k} oferecer um valor e o recebe. \\
+\code{fcade(k)} & \code{float} & O mesmo, recebendo como \code{float}. \\
+\code{toma\_sync(k, x);} & qualquer & As formas \code{\_sync} das três: para parceiro no mesmo \textit{clock}, sem sincronizador, 4 ciclos a menos por valor. \\
+\code{cade\_sync(k)} & \code{int} & \\
+\code{fcade\_sync(k)} & \code{float} & \\
+\bottomrule
+\end{longtable}
+
+O número do \textit{link} é um literal inteiro; detalhes e ligação no \textit{top-level} na Seção~\ref{sec:links}.
+
 \section{Funções especiais}
 
 \begin{longtable}{llp{0.50\linewidth}}
@@ -93,6 +111,7 @@ Família & Mnemônicos principais \\
 Carga e armazenamento & \code{LOD}, \code{SET}, \code{LDI}, \code{STI}, \code{ILI}, \code{ISI} \\
 Pilha & \code{PSH}, \code{POP} \\
 Entrada e saída & \code{INN}, \code{F\_INN}, \code{OUT} \\
+Links & \code{TOM}, \code{CAD} (o operando é o número do \textit{link}) \\
 Fluxo & \code{JMP}, \code{JIZ}, \code{CAL}, \code{RET}, \code{NOP} \\
 Aritmética inteira & \code{ADD}, \code{MLT}, \code{DIV}, \code{MOD}, \code{NEG}, \code{ABS}, \code{SGN}, \code{PST}, \code{NRM} \\
 Aritmética em ponto flutuante & \code{F\_ADD}, \code{F\_SU1}, \code{F\_SU2}, \code{F\_MLT}, \code{F\_DIV}, \code{F\_NEG}, \code{F\_ABS}, \code{F\_ROT}, \code{F\_SCL}, \code{XPO} \\

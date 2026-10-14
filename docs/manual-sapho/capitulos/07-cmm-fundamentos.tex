@@ -12,13 +12,10 @@ Tudo o que está nesta parte foi extraído da gramática oficial do compilador, 
 
 Um programa \cmm{} é uma sequência de três tipos de elemento, em qualquer ordem: diretivas, que são as linhas iniciadas por \code{\#}; declarações de variáveis globais; e funções. O ponto de entrada é obrigatório, uma função \code{void main()}, e a sua ausência encerra a compilação com erro.
 
-A forma canônica de um programa SAPHO coloca as diretivas no topo, configurando o processador, e em seguida o \code{main()} com um laço infinito \code{while (1)}; afinal, o programa modela um circuito que roda continuamente, processando amostras para sempre. O exemplo abaixo é o \code{media_movel}, o processador que acompanha o manual inteiro, um filtro de média móvel de quatro amostras:
+A forma canônica de um programa SAPHO coloca as diretivas no topo, configurando o processador, e em seguida o \code{main()} com um laço infinito \code{while (1)}; afinal, o programa modela um circuito que roda continuamente, processando amostras para sempre. O exemplo abaixo é o \code{media_movel}, o processador que acompanha o manual inteiro, um filtro de média móvel de quatro amostras, no arquivo \file{media_movel.cmm}:
 
 \begin{lstlisting}[style=cmm]
-#PRNAME media_movel
 #NUBITS 16
-#NDSTAC 4
-#SDEPTH 2
 #NUIOIN 1
 #NUIOOU 1
 #NBMANT 10
@@ -42,12 +39,14 @@ void main()
 }
 \end{lstlisting}
 
+O nome do processador não aparece no código: é o nome do arquivo. O \file{media_movel.cmm} gera o processador \code{media_movel} e o módulo Verilog \code{media_movel}.
+
 Repare em duas escolhas típicas de quem escreve para o SAPHO. O histórico é um \textit{array} deslocado à mão, e a divisão por quatro é um deslocamento de bits (\code{>> 2}); assim o processador gerado não precisa instanciar um divisor, que é um dos blocos mais caros da ULA.
 
 \section{Diretivas: configurando o processador no próprio código}
 \label{sec:diretivas}
 
-As diretivas são linhas que começam com \code{\#}, uma por linha, sem ponto e vírgula ao final. São elas que definem o nome e a arquitetura do processador a ser gerado. Quando você cria um processador pela AURORA (Capítulo~\ref{cap:criando-processadores}), o formulário preenche essas diretivas no \file{.cmm} inicial; a partir daí o arquivo é a fonte da verdade, e editar uma diretiva muda o processador na compilação seguinte. A referência completa, com os valores assumidos quando cada diretiva é omitida, está no Apêndice~\ref{ap:diretivas}; as mais usadas são \code{\#PRNAME}, o nome do processador, \code{\#NUBITS}, a largura da palavra, \code{\#NBMANT} e \code{\#NBEXPO}, o formato do ponto flutuante, e \code{\#NUIOIN} e \code{\#NUIOOU}, as quantidades de portas.
+As diretivas são linhas que começam com \code{\#}, uma por linha, sem ponto e vírgula ao final. São elas que definem a arquitetura do processador a ser gerado; o nome vem do arquivo, e a antiga diretiva \code{\#PRNAME}, se aparecer, é erro de compilação. Quando você cria um processador pela AURORA (Capítulo~\ref{cap:criando-processadores}), o formulário preenche essas diretivas no \file{.cmm} inicial; a partir daí o arquivo é a fonte da verdade, e editar uma diretiva muda o processador na compilação seguinte. A referência completa, com os valores assumidos quando cada diretiva é omitida, está no Apêndice~\ref{ap:diretivas}; as mais usadas são \code{\#NUBITS}, a largura da palavra, \code{\#NBMANT} e \code{\#NBEXPO}, o formato do ponto flutuante, e \code{\#NUIOIN} e \code{\#NUIOOU}, as quantidades de portas.
 
 \begin{aviso}
 Lembre da restrição estrutural: \texttt{NUBITS} deve ser igual a \texttt{NBMANT} mais \texttt{NBEXPO} mais um. No exemplo acima, $16 = 10 + 5 + 1$. A AURORA valida a igualdade ao criar o processador, mas quem edita as diretivas à mão responde por mantê-la.
@@ -85,4 +84,4 @@ Como em C: \code{//} comenta até o fim da linha, e \code{/* ... */} comenta blo
 
 \section{Onde o arquivo vive}
 
-Dentro de um projeto AURORA, o código de cada processador fica em \file{<projeto>/<processador>/Software/<processador>.cmm}. A compilação gera o \textit{assembly} em \file{Software}, o Verilog e as imagens de memória em \file{Hardware} e o \textit{testbench} em \file{Simulation} (Capítulo~\ref{cap:compilacao}).
+Dentro de um projeto AURORA, o código de cada processador fica em \file{<projeto>/<processador>/<processador>.cmm}, ao lado dos arquivos que inicializam vetores e dos estímulos \file{input_<i>.txt}. A compilação põe tudo o que gera, o \textit{assembly}, o Verilog, as imagens de memória e o \textit{testbench}, na pasta de saída \file{<projeto>/<processador>/<processador>/} (Capítulo~\ref{cap:compilacao}).

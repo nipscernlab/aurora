@@ -4,12 +4,12 @@
 
 Com o \code{media_movel.cmm} escrito, é hora de transformá-lo em hardware. Este capítulo explica o que acontece quando cada botão de compilação é acionado e quais arquivos aparecem no projeto.
 
-\section{O pipeline do YANC em três estágios}
+\section{O pipeline do YANC em duas etapas}
 \label{sec:pipeline-yanc}
 
-Todo clique em \botao{Compilar \cmm{}} executa, por processador, a cadeia de três compiladores do YANC. O \tool{cmmcomp} traduz o \file{<proc>.cmm} em \textit{assembly} simbólico, o \file{<proc>.asm}, junto com os registros e as tabelas que ligam cada instrução à linha do fonte. O \tool{appcomp} faz a primeira passada sobre o \textit{assembly}, coletando os parâmetros do processador e resolvendo os endereços de variáveis e rótulos. O \tool{asmcomp}, na segunda passada, gera o processador em Verilog (\file{Hardware/<proc>.v}), as duas imagens de memória, \file{<proc>_inst.mif} com o programa e \file{<proc>_data.mif} com os dados, e o \textit{testbench} (\file{Simulation/<proc>_tb.v}).
+Todo clique em \botao{Compilar \cmm{}} executa, por processador, os dois compiladores do YANC. A AURORA chama um programa só, o \tool{yanc}, uma vez para cada etapa, e ele chama os compiladores que estão ao lado dele. Na primeira etapa, o \tool{cmmcomp} traduz o \file{<proc>.cmm} em \textit{assembly} simbólico, o \file{<proc>.asm}, junto com os registros e as tabelas que ligam cada instrução à linha do fonte; um fonte \file{.cpp} passa pelo \tool{cppcomp}, que produz o mesmo \file{.asm} (Seção~\ref{sec:caminho-cpp}). Na segunda, o \tool{asmcomp} monta o \textit{assembly} em duas passadas: a primeira conta instruções e dados e resolve os endereços de variáveis e rótulos; a segunda gera o processador em Verilog (\file{<proc>.v}), as duas imagens de memória, \file{<proc>_inst.mif} com o programa e \file{<proc>_data.mif} com os dados, e o \textit{testbench} (\file{<proc>_tb.v}). Qual compilador roda na primeira etapa, a AURORA decide pela extensão do fonte.
 
-O terminal TCMM mostra a saída do primeiro estágio; o TASM, a dos outros dois, incluindo os avisos de recurso instanciado que revelam o custo de hardware do código (Seção~\ref{sec:custo-hardware}).
+O terminal TCMM mostra a saída da primeira etapa; o TASM, a da segunda, incluindo os avisos de recurso instanciado que revelam o custo de hardware do código (Seção~\ref{sec:custo-hardware}).
 
 \begin{info}
 O processador gerado instancia os moldes de HDL do SAPHO que acompanham a instalação: o núcleo, a ULA, as memórias. O programa não é um arquivo carregado depois; as imagens \file{.mif} nascem embutidas no projeto de hardware, e reprogramar significa recompilar e sintetizar de novo.
@@ -25,23 +25,26 @@ Antes de compilar, a AURORA salva os arquivos automaticamente. O fluxo de ondas 
 
 \section{Onde cada artefato aparece}
 
-Depois de compilar o \code{media_movel}, o projeto ganha esta forma:
+Cada processador tem duas pastas: a dele, com o que você escreve, e dentro dela a pasta de saída, com o mesmo nome, onde o YANC põe tudo o que gera. Depois de compilar e simular o \code{media_movel}, a pasta dele fica assim:
 
 \begin{lstlisting}
 media_movel/
-|-- Software/
-|   |-- media_movel.cmm        (seu fonte)
-|   |-- media_movel.asm        (assembly gerado)
-|   `-- pc_media_movel_mem.txt (tabela PC -> linha, p/ ondas)
-|-- Hardware/
-|   |-- media_movel.v          (o processador em Verilog)
-|   |-- media_movel_inst.mif   (imagem da memoria de programa)
-|   `-- media_movel_data.mif   (imagem da memoria de dados)
-`-- Simulation/
-    `-- media_movel_tb.v       (testbench gerado)
+|-- media_movel.cmm            (seu fonte)
+|-- input_0.txt                (estimulo da porta de entrada 0)
+`-- media_movel/               (pasta de saida: tudo o que o YANC gera)
+    |-- media_movel.asm        (assembly gerado)
+    |-- media_movel.v          (o processador em Verilog)
+    |-- media_movel_inst.mif   (imagem da memoria de programa)
+    |-- media_movel_data.mif   (imagem da memoria de dados)
+    |-- media_movel_tb.v       (testbench gerado)
+    |-- prog_log.txt, src_lines.txt, pc_media_movel_mem.txt,
+    |   trad_opcode.txt, app_log.txt  (tabelas p/ as ondas)
+    `-- output_0.txt           (o que a simulacao escreveu)
 \end{lstlisting}
 
-O \file{.v} e os \file{.mif} da pasta \file{Hardware} são exatamente o que se leva ao Quartus ou ao Vivado na hora de sintetizar para o FPGA real. O \textit{testbench} gerado produz \textit{clock} e \textit{reset}, alimenta o processador com os estímulos de \file{input_<i>.txt}, um valor por linha e um arquivo por porta de entrada, e grava as saídas em \file{output_<i>.txt}, além do despejo de ondas.
+O nome de tudo vem do nome do arquivo fonte: \file{media_movel.cmm} gera o processador \code{media_movel} e o módulo Verilog \code{media_movel}. Não escreva nada dentro da pasta de saída, porque a próxima compilação sobrescreve. Um arquivo presente nela também não prova que a última compilação passou, pois pode ser sobra de uma tentativa anterior: a prova é o terminal, com as duas etapas terminando sem erro.
+
+O \file{.v} e os \file{.mif} da pasta de saída são exatamente o que se leva ao Quartus ou ao Vivado na hora de sintetizar para o FPGA real. O Verilog gerado cita os \file{.mif} pelo nome puro, sem pasta; na síntese, copie-os para a pasta do projeto do Quartus ou do Vivado, ou escreva o caminho completo nos parâmetros \code{DFILE} e \code{IFILE}. O \textit{testbench} gerado produz \textit{clock} e \textit{reset}, alimenta o processador com os estímulos de \file{input_<i>.txt}, um valor por linha e um arquivo por porta de entrada, lidos da pasta do processador, um nível acima, e grava as saídas em \file{output_<i>.txt} na pasta de saída, além do despejo de ondas. Ele roda com a pasta de saída como diretório de trabalho, e a AURORA cuida disso.
 
 \begin{nota}
 Segurança de execução: a AURORA só executa binários da própria cadeia de ferramentas, validados contra uma lista fechada, e os botões não passam por um \textit{shell}. É por isso que a IDE não oferece a execução de comandos arbitrários fora do terminal TCMD.

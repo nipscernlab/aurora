@@ -4,25 +4,26 @@
 
 \section{Diretivas de configuração}
 
-Uma por linha, no topo do \file{.cmm}, sem ponto e vírgula. A coluna do padrão indica o valor assumido pela cadeia de ferramentas quando a diretiva é omitida; o Hub de Processadores da AURORA escreve todas explicitamente.
+Uma por linha, no topo do \file{.cmm}, sem ponto e vírgula. A coluna do padrão indica o valor assumido pelo compilador quando a diretiva é omitida. Faltar uma diretiva não dá erro: o processador nasce com o padrão, que pode não ser o que você quer. Por isso o Hub de Processadores da AURORA escreve sempre \code{\#NUBITS}, \code{\#NBMANT}, \code{\#NBEXPO}, \code{\#NUIOIN} e \code{\#NUIOOU}, e o \code{\#NUGAIN} só quando difere de 128; as pilhas ficam com o valor calculado.
 
 \begin{longtable}{lllp{0.42\linewidth}}
 \toprule
 Diretiva & Argumento & Padrão & Efeito \\
 \midrule
 \endhead
-\code{\#PRNAME} & nome & & Nome do processador; deve casar com o nome no projeto e nos artefatos. \\
-\code{\#NUBITS} & inteiro & 23 & Largura da palavra da ULA e dos inteiros, em complemento de dois; deve valer a soma de mantissa, expoente e um. \\
-\code{\#NBMANT} & inteiro & 16 & Bits de mantissa do ponto flutuante próprio. \\
-\code{\#NBEXPO} & inteiro & 6 & Bits de expoente, em complemento de dois. \\
-\code{\#NDSTAC} & inteiro & 10 & Profundidade da pilha de dados. \\
-\code{\#SDEPTH} & inteiro & 10 & Profundidade da pilha de sub-rotinas. \\
+\code{\#NUBITS} & inteiro & 32 & Largura da palavra da ULA e dos inteiros, em complemento de dois; deve valer a soma de mantissa, expoente e um. \\
+\code{\#NBMANT} & inteiro & 23 & Bits de mantissa do ponto flutuante próprio. \\
+\code{\#NBEXPO} & inteiro & 8 & Bits de expoente, em complemento de dois. \\
+\code{\#NDSTAC} & inteiro & calculado & Profundidade da pilha de dados; sem a diretiva, o compilador usa o pico do programa mais um, no mínimo dois. \\
+\code{\#SDEPTH} & inteiro & calculado & Profundidade da pilha de sub-rotinas, calculada do mesmo jeito. \\
 \code{\#NUIOIN} & inteiro & 1 & Número de portas de entrada; \code{in(p)} exige \texttt{p} menor que esse valor. \\
 \code{\#NUIOOU} & inteiro & 1 & Número de portas de saída; idem para \texttt{out}. \\
-\code{\#NUGAIN} & potência de 2 & 64 & Divisor fixo da função \code{norm()}. \\
-\code{\#FFTSIZ} & inteiro & 8 & Bits invertidos no endereçamento bit-reverso \code{x[k)}, para FFT de $2^n$ pontos. \\
+\code{\#NUGAIN} & potência de 2 & 128 & Divisor fixo da função \code{norm()}; outro valor que não seja potência de dois é recusado. \\
+\code{\#FFTSIZ} & inteiro & 3 & Bits invertidos no endereçamento bit-reverso \code{x[k)}, para FFT de $2^n$ pontos. \\
 \bottomrule
 \end{longtable}
+
+Não existe \code{\#PRNAME}: o nome do processador é o nome do arquivo fonte (\file{filtro.cmm} gera o processador e o módulo \code{filtro}), e a diretiva, se aparecer, é erro de compilação. O nome aceita letras sem acento, dígitos e sublinhado, não pode começar com dígito nem com \code{\_\_} e não pode ser uma palavra reservada do Verilog ou do SystemVerilog (\code{wire}, \code{module}, \code{begin}\ldots).
 
 Com uma única porta a ligação é direta; com mais de uma, o hardware instancia automaticamente um decodificador de endereços.
 

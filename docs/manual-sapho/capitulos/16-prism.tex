@@ -8,7 +8,7 @@ O \tool{PRISM} (\textit{Processor Rendering Interface for Schematic Models}) des
 
 \section{Como abrir}
 
-O botão \botao{PRISM} da \textit{toolbar} exige um \textit{top-level} definido no projeto (Seção~\ref{sec:arquivos-do-projeto}). Acionado, ele compila o que estiver pendente, verifica a sintaxe dos Verilog, reúne todos os fontes do projeto, dos moldes de HDL do SAPHO aos \file{Hardware} de cada processador, sintetiza com o \tool{Yosys} em modo diagrama, sem mapeamento tecnológico, para que o desenho preserve a estrutura RTL do código, e renderiza cada módulo como um desenho vetorial antes de abrir a janela. A saída do Yosys corre no terminal TVERI, e a mesma síntese alimenta a visão Hierarquia da árvore de arquivos (Seção~\ref{sec:tres-arvores}).
+O botão \botao{PRISM} da \textit{toolbar} exige um \textit{top-level} definido no projeto (Seção~\ref{sec:arquivos-do-projeto}). Acionado, ele compila o que estiver pendente, verifica a sintaxe dos Verilog, reúne todos os fontes do projeto, dos moldes de HDL do SAPHO ao \file{<proc>.v} na pasta de saída de cada processador, sintetiza com o \tool{Yosys} em modo diagrama, sem mapeamento tecnológico, para que o desenho preserve a estrutura RTL do código, e renderiza cada módulo como um desenho vetorial antes de abrir a janela. A saída do Yosys corre no terminal TVERI, e a mesma síntese alimenta a visão Hierarquia da árvore de arquivos (Seção~\ref{sec:tres-arvores}).
 
 \section{Navegando no diagrama}
 

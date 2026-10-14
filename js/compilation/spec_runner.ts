@@ -134,9 +134,9 @@ function logOverride(
 }
 
 /** Pick the terminal id Aurora uses for a given step. */
-function terminalForStep(step: string): string | null {
-  if (step === 'cmm')                          return 'tcmm';
-  if (step === 'asm-pre' || step === 'asm')    return 'tasm';
+export function terminalForStep(step: string): string | null {
+  if (step === 'cmm' || step === 'cpp')        return 'tcmm';
+  if (step === 'asm')                          return 'tasm';
   if (step.startsWith('iverilog'))             return 'tveri';
   if (step.startsWith('vvp'))                  return 'twave';
   if (step.startsWith('cocotb'))               return 'twave';

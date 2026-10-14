@@ -376,7 +376,7 @@ async function runYosysCompilationWithPaths(
   }
 
   // Le o .spf uma unica vez, usado tanto pra synthesizableFiles
-  // quanto pra lista de processadores (fallback Hardware/*.v).
+  // quanto pra lista de processadores (fallback dos .v da pasta de saida).
   const spfPath = compilationPaths.spfPath;
   let spfStructure = null;
   if (spfPath && await fse.pathExists(spfPath)) {
@@ -829,7 +829,7 @@ async function performPrismCompilationWithPaths(compilationPaths: any) {
 
 // Gather every synthesizable .v for a design: the SAPHO HDL library + the
 // .spf's synthesizableFiles + an optional TopLevel/ + each processor's
-// Hardware/. Same sources as runYosysCompilationWithPaths, kept lean and
+// output folder, <proc>/<proc>/. Same sources as runYosysCompilationWithPaths, kept lean and
 // standalone so the DigitalJS build never perturbs the schematic path.
 async function collectSynthFiles(compilationPaths: any) {
   const fileSet = new Set<string>();

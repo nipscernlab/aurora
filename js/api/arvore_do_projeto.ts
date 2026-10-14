@@ -56,7 +56,7 @@ export async function listarArquivosDoProjeto(rootPath?: string | null) {
  *   1. the path as given (relative → joined to root; absolute → as-is) if it
  *      exists on disk;
  *   2. an exact relative-path match in the project tree (case-insensitive);
- *   3. a path that ENDS WITH the requested partial path ("Software/foo.cmm");
+ *   3. a path that ENDS WITH the requested partial path ("foo/foo.cmm");
  *   4. a basename match anywhere in the tree (shortest path wins on ties).
  * Returns the absolute path string, or null if the file is nowhere in the
  * project. Shared by editor.openFile and project.readFile so both "find" a file

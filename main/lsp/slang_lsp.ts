@@ -29,7 +29,7 @@
  * `unknown module` num projeto que compila. Duas situacoes produzem isso.
  *
  * A primeira e o arquivo ter nascido depois. Criar um .v pela arvore, gerar o
- * Hardware/<proc>.v pelo C±, trocar de branch: nada disso chegava ao
+ * <proc>/<proc>/<proc>.v pelo C±, trocar de branch: nada disso chegava ao
  * servidor, porque o slang pede um file watcher ao cliente e este bridge
  * nunca respondia. Agora responde, via chokidar sobre a pasta do projeto
  * ([watchProject](#)), e cutuca os buffers abertos depois de avisar, senao o
@@ -50,7 +50,7 @@
  * pasta entra agora na mesma lista das pastas de fora, pelo mesmo caminho.
  *
  * A quarta e o processador que ainda nao foi compilado. O top level instancia
- * o modulo do processador declarado no .spf, mas o Hardware/<proc>.v so nasce
+ * o modulo do processador declarado no .spf, mas o <proc>/<proc>/<proc>.v so nasce
  * quando o C± compila, e ate la o slang acusa `unknown module` em vermelho num
  * arquivo que esta certo: falta um passo, nao um modulo. Esse diagnostico, e
  * so ele, desce para informacao com o texto dizendo qual passo falta

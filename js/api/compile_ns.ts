@@ -87,7 +87,7 @@ export const compileNs = {
    * Run the ACTIVE SAPHO processor's generated top-level (`<proc>.v`) under
    * Verilator as a hardware test, the `verilatorproc` toolbar button. Drives
    * SAPHO's predictable wiring (req_in/out_en one-hot, decimal
-   * input_<N>.txt/output_<N>.txt under the processor's Simulation/ folder) and
+   * input_<N>.txt next to the source, output_<N>.txt in the output folder) and
    * recompiles cmm+asm first so the .v/_tb.v/.mif are fresh. Acts on the
    * processor currently shown in the status bar, fails if none is active.
    * Thin wrapper over compileStep('verilator-proc') so validation + the

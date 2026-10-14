@@ -120,7 +120,7 @@ function mundoPadrao() {
     principal,
     prism,
     janelaNativa,
-    janela: { monaco: {}, innerWidth: 1600, electronAPI: { openProject: vi.fn(async () => { throw new Error('ja aberto'); }) }, projectTreeManager: { refreshTree: vi.fn() } },
+    janela: { monaco: {}, innerWidth: 1600, innerHeight: 1000, electronAPI: { openProject: vi.fn(async () => { throw new Error('ja aberto'); }) }, projectTreeManager: { refreshTree: vi.fn() } },
     quebrados: new Set(),
     arvoreSem: new Set(),
     cliquesNoPrism: 0,
@@ -266,12 +266,28 @@ describe('o hero, que e o padrao', () => {
     expect(gestos('abrir')).toEqual([['.file-item, .verilog-file-item', 'mediamovel.cmm']]);
     expect(gestos('clique')).toEqual([['.tab[data-terminal="tcmd"]']]);
     expect(mundo.janelaNativa.unmaximize).toHaveBeenCalled();
-    expect(mundo.janelaNativa.setBounds).toHaveBeenCalledWith({ x: 0, y: 0, width: 1600, height: 1000 });
+    expect(mundo.janelaNativa.setBounds.mock.calls).toEqual([[{ x: 0, y: 0, width: 1600, height: 1000 }]]);
     expect(gestos('foto')).toEqual([['hero.png']]);
     expect(log).toContain('capture-media: tomadas pedidas: hero');
     expect(log).toContain('capture-media: hero.png written (1600x1000, 300 KB)');
     expect(mundo.fechou).toBe(true);
     expect(spawnFalso).not.toHaveBeenCalled();
+  });
+
+  it('a borda que o Windows come em tela com escala: mede a area util e compensa', async () => {
+    // Com escala de 200%, uma janela de 1600 deixa 1599 px de area util.
+    mundo.janela.innerWidth = 1599;
+    mundo.janelaNativa.setBounds.mockImplementation((b) => {
+      mundo.janela.innerWidth = b.width - 1;
+      mundo.janela.innerHeight = b.height;
+    });
+    await rodar([]);
+    expect(mundo.janelaNativa.setBounds.mock.calls).toEqual([
+      [{ x: 0, y: 0, width: 1600, height: 1000 }],
+      [{ x: 0, y: 0, width: 1601, height: 1000 }],
+    ]);
+    expect(mundo.janela.innerWidth).toBe(1600);
+    expect(gestos('foto')).toEqual([['hero.png']]);
   });
 
   it('o .spf do projeto descartavel aponta para o processador, o topo e o testbench', async () => {
@@ -285,6 +301,10 @@ describe('o hero, que e o padrao', () => {
       expect(spf.structure.processors[0]).toEqual({ name: 'mediamovel' });
       expect(p.cmmPath).toBe(path.join(raiz, 'mediamovel', 'mediamovel.cmm'));
       expect(spf.structure).toMatchObject({ topLevelFile: p.topPath, testbenchFile: p.tbPath });
+      // A arvore le o testbench pela marca da lista e reescreve testbenchFile
+      // a partir dela no primeiro salvamento: sem a marca, a compilacao
+      // apagava o testbench e a barra de status do GIF dizia "Sem testbench".
+      expect(spf.structure.testbenchFiles).toEqual([{ name: 'tb_mediamovel.v', path: p.tbPath, isTopLevel: true }]);
       const cmm = fs.readFileSync(p.cmmPath, 'utf8');
       expect(cmm.startsWith('// Media movel de 4 amostras:')).toBe(true);
       expect(fs.readFileSync(p.topPath, 'utf8')).toContain('module top_mediamovel (');

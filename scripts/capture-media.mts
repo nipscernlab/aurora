@@ -170,7 +170,9 @@ function writeProject(rootDir: string) {
         { name: 'top_mediamovel.v', path: topPath, isTopLevel: true },
       ],
       testbenchFiles: [
-        { name: 'tb_mediamovel.v', path: tbPath, isTopLevel: false },
+        // isTopLevel is the mark the tree reads; testbenchFile alone is
+        // rewritten from it on the first save, and the compile cleared it.
+        { name: 'tb_mediamovel.v', path: tbPath, isTopLevel: true },
       ],
     },
   }, null, 2));
@@ -425,7 +427,16 @@ async function main() {
     // earlier setBounds was silently undone by that, the first capture came
     // out 900x1392, which is this monitor's work area, not the size asked for.
     await sizeWindow(app, WIDTH, HEIGHT);
-    await page.waitForFunction((w) => window.innerWidth === w, WIDTH, { timeout: 10_000 });
+    // On a display scaled to 200% Windows rounds the frame into the client
+    // area, and a 1600 px window leaves a 1599 px viewport, so the wait below
+    // never ended. Measure what the renderer got and grow the window by the
+    // difference.
+    await page.waitForTimeout(1000);
+    const falta = await page.evaluate(([w, h]) => ({ w: w - window.innerWidth, h: h - window.innerHeight }), [WIDTH, HEIGHT]);
+    if (falta.w || falta.h) await sizeWindow(app, WIDTH + falta.w, HEIGHT + falta.h);
+    // Polled on a timer: the default polls on requestAnimationFrame, which
+    // barely runs for a window hanging off the screen edge.
+    await page.waitForFunction((w) => window.innerWidth === w, WIDTH, { timeout: 10_000, polling: 250 });
     // Monaco and the terminal relayout from their own observers, so wait a
     // frame or two past the resize rather than screenshotting on the call.
     await page.waitForTimeout(2000);

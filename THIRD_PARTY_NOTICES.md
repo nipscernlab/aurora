@@ -7,7 +7,7 @@ licenses apply to their respective files in addition to AURORA's own
 from each project's upstream repository.
 
 **The YANC compiler chain is not on this page, and that is deliberate.**
-`cmmcomp`, `asmcomp`, `appcomp`, `cpppp`, `cppcomp`, `comp2gtkw` and `gen_gtkw`
+`yanc`, `cmmcomp`, `cppcomp`, `asmcomp`, `comp2gtkw` and `gen_gtkw`
 ship in the installer as binaries, but they are the laboratory's own work,
 written here from scratch, and they live in
 [`nipscernlab/yanc`](https://github.com/nipscernlab/yanc) under the MIT licence.

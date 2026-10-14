@@ -1419,7 +1419,7 @@
   },
   "componentSummary": {
     "msys": "A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.",
-    "yanc": "O compilador do SAPHO: cmmcomp, asmcomp, appcomp e comp2gtkw, que traduzem C± em processador.",
+    "yanc": "O compilador do SAPHO: o yanc, com o cmmcomp, o cppcomp, o asmcomp e o comp2gtkw, que traduzem C± e C++ em processador.",
     "gtkwave": "O visualizador de formas de onda clássico, em janela própria.",
     "surfer": "O visualizador de formas de onda embutido, dentro da AURORA.",
     "verible": "Diagnósticos, formatação e navegação em Verilog, dentro do editor.",

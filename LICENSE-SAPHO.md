@@ -254,8 +254,8 @@ processador de arquitetura própria para processamento de sinais em
 instrumentação científica. A Obra abrange o projeto do processador, o Verilog
 gerado e escrito à mão, e a linguagem C±.
 
-A cadeia de compilação YANC (`cmmcomp`, `asmcomp`, `appcomp`, `cpppp`,
-`cppcomp`, `comp2gtkw`, `gen_gtkw`) também é obra do Laboratório, mas não está
+A cadeia de compilação YANC (`yanc`, `cmmcomp`, `cppcomp`, `asmcomp`,
+`comp2gtkw`, `gen_gtkw`) também é obra do Laboratório, mas não está
 sob esta licença: ela vive em repositório próprio, `nipscernlab/yanc`, sob a
 licença MIT, e é assim que ela é distribuída, inclusive dentro do instalador da
 AURORA.

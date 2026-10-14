@@ -72,7 +72,7 @@ let stopPromise: Promise<void> | null = null;
  *
  * So each child declares which group it belongs to, and Cancel kills by group:
  *
- *   RUN    , a stage of the compile/simulate flow: cmmcomp, appcomp, asmcomp,
+ *   RUN    , a stage of the compile/simulate flow: yanc (cmmcomp, cppcomp, asmcomp),
  *             iverilog, vvp, Verilator (+ its perl/make/g++/ccache fan-out),
  *             the built V<top>.exe, cocotb/python, yosys. Cancel kills these.
  *   VIEWER , waveform viewers (GTKWave, Surfer) launched by a run. Cancel kills

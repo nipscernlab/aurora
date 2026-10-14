@@ -8,7 +8,7 @@
  * active_processor, main/ipc/project.js, aurora_api), e "isto e fonte de
  * processador?" era um `endsWith('.cmm')` em outros oito. Enquanto houve uma
  * linguagem so, as duas perguntas tinham a mesma resposta em todo lugar e a
- * duplicacao nao doia. Com o front end C++ do yanc (cpppp + cppcomp, que
+ * duplicacao nao doia. Com o front end C++ do yanc (o cppcomp, que
  * converge no mesmo .asm), cada uma dessas copias vira um lugar onde um
  * processador C++ e tratado como se nao existisse. Este modulo e o unico
  * lugar que responde, e os outros passam a perguntar aqui.

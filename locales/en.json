@@ -1419,7 +1419,7 @@
   },
   "componentSummary": {
     "msys": "The compilation chain: Icarus Verilog, Verilator, Yosys and the bundled Python.",
-    "yanc": "The SAPHO compiler: cmmcomp, asmcomp, appcomp and comp2gtkw, which turn C± into a processor.",
+    "yanc": "The SAPHO compiler: yanc, with cmmcomp, cppcomp, asmcomp and comp2gtkw, which turn C± and C++ into a processor.",
     "gtkwave": "The classic waveform viewer, in its own window.",
     "surfer": "The embedded waveform viewer, inside AURORA.",
     "verible": "Verilog diagnostics, formatting and navigation, inside the editor.",

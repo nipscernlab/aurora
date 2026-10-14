@@ -287,8 +287,8 @@ invoca e lê a saída. Os componentes sob LGPL entram sem modificação.
 
 A cadeia de compilação do SAPHO, conhecida como YANC, é obra do Laboratório e
 vive em repositório próprio, `nipscernlab/yanc`, sob a licença MIT. A AURORA a
-distribui como binário: `cmmcomp`, `asmcomp`, `appcomp`, `cpppp`, `cppcomp`,
-`comp2gtkw` e `gen_gtkw`.
+distribui como binário: `yanc`, `cmmcomp`, `cppcomp`, `asmcomp`, `comp2gtkw` e
+`gen_gtkw`.
 
 Esta licença não alcança esses binários. Quem os recebe, dentro ou fora do
 instalador da AURORA, tem sobre eles os direitos que o MIT concede, o que inclui

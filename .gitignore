@@ -58,7 +58,7 @@ resources/docs/
 # bump on `npm install` / `npm run components:verify`. Never commit it.
 components/.aurora-versions.json
 
-# YANC compilers (cmmcomp, asmcomp, appcomp, comp2gtkw) — built from
+# YANC compilers (yanc, cmmcomp, cppcomp, asmcomp, comp2gtkw) — built from
 # the separate nipscernlab/yanc repo. download-yanc.js fetches them
 # from that repo's GitHub Releases at prestart, same model as the main
 # toolchain bundle above.

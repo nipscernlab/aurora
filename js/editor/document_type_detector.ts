@@ -3,8 +3,8 @@
  * cmm / cpp) from its first meaningful line, plus the per-type metadata used
  * by the editor and save dialogs.
  *
- * cpp aqui e o C++ de PROCESSADOR (o front end cpppp + cppcomp do yanc), a
- * segunda linguagem ao lado do C+-: mesma pasta Software/, mesmo .asm.
+ * cpp aqui e o C++ de PROCESSADOR (o front end cppcomp do yanc), a
+ * segunda linguagem ao lado do C+-: mesma pasta do processador, mesmo .asm.
  *
  * Compilado por `tsc` (npm run build:ts) num document_type_detector.js ao lado:
  * é esse .js que o runtime carrega; os imports usam a extensão `.js`.

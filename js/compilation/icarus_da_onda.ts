@@ -4,7 +4,8 @@
  *
  * Saiu do compilation_module.js. O build do .vvp (fontes sintetizaveis +
  * testbench instrumentado, -y components/SAPHO para a biblioteca do SAPHO) e a
- * simulacao pelo vvp na pasta do projeto.
+ * simulacao pelo vvp (na pasta de saida do processador quando o testbench e o
+ * gerado pelo yanc, na do projeto para os outros).
  */
 
 import { electronAPI } from '../app/electron_api.js';
@@ -192,8 +193,9 @@ const ehRuidoDoVvp = (line: string): boolean => {
 };
 
 /**
- * Roda o vvp no .vvp recem-construido, na pasta do projeto, depois de copiar
- * para la as memorias dos processadores e os dados do testbench. Uma simulacao
+ * Roda o vvp no .vvp recem-construido, na pasta que diretorioDaSimulacao
+ * escolhe (a de saida do processador para o testbench gerado pelo yanc, a do
+ * projeto para os outros), depois de copiar para la as memorias dos processadores e os dados do testbench. Uma simulacao
  * so, com -fst; o cabecalho sai do FST depois, no runGtkWave.
  *
  * @returns a pasta onde a simulacao rodou (onde procurar o dump)

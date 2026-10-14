@@ -64,7 +64,7 @@ export async function diretorioDaSimulacao(
 
 /**
  * Copia os dados que o testbench le de <pasta-do-testbench>/<nome> para
- * `destDir`, a pasta onde a simulacao procura (a do projeto). Caminho absoluto
+ * `destDir`, a pasta onde a simulacao procura (a de diretorioDaSimulacao). Caminho absoluto
  * fica como esta; subpasta relativa e criada no destino; testbench que ja esta
  * na pasta do projeto nao copia nada (copiar um arquivo sobre ele mesmo pode
  * trunca-lo no Windows).

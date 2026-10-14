@@ -164,6 +164,15 @@ describe('instalador e catalogo andam juntos', () => {
     }
   });
 
+  it('o que o zip do yanc traz para quem o usa sozinho fica fora do instalador', () => {
+    // install.bat poe o bin\ do yanc no PATH do usuario (e tira dele outro
+    // yanc); README.md e example/ descrevem o zip avulso. Nada disso e da
+    // AURORA, e ia parar em %LOCALAPPDATA%\SAPHO\components.
+    for (const f of ['!install.bat', '!uninstall.bat', '!README.md', '!example/**']) {
+      expect(filtro).toContain(f);
+    }
+  });
+
   it('os instaladores continuam dentro do pacote', () => {
     // Sem components/Scripts a maquina do aluno nao teria COMO baixar nada.
     expect(filtro.some((f) => f.startsWith('!Scripts'))).toBe(false);

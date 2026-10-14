@@ -619,6 +619,18 @@ describe('menu da linha', () => {
         expect(itens()).toEqual(['delete']);
     });
 
+    it('o rotulo de apagar o processador passa pela traducao', () => {
+        window.t = (k) => (k === 'fileTree.crud.deleteProcessor' ? 'Excluir processador' : k);
+        contexto().showProcessorContextMenu({ pageX: 0, pageY: 0 }, 'cpu');
+        expect(document.querySelector('#verilog-context-menu [data-action="delete-processor"] span').textContent).toBe('Excluir processador');
+    });
+
+    it('o rotulo de apagar passa pela traducao', () => {
+        window.t = (k) => (k === 'contextMenu.deleteFile' ? 'Excluir arquivo' : k);
+        contexto().showContextMenu({ pageX: 0, pageY: 0 }, { name: 'a.v' }, 0);
+        expect(document.querySelector('#verilog-context-menu [data-action="delete"] span').textContent).toBe('Excluir arquivo');
+    });
+
     it('clique numa opcao executa e fecha; desabilitada ou fora de item nao', async () => {
         const ctx = contexto();
         ctx.handleContextMenuAction = vi.fn(async () => {});

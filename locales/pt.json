@@ -626,6 +626,7 @@
     "formatter": "Formatador de Código"
   },
   "contextMenu": {
+    "deleteFile": "Apagar o arquivo",
     "removeTopLevel": "Remover Top Level",
     "setTopLevel": "Definir como Top Level",
     "unmarkTestbench": "Deixar de ser o testbench atual",

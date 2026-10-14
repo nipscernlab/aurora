@@ -767,7 +767,7 @@ async def basic_test(dut):
         menu.innerHTML = `
             <div class="context-menu-item delete-item" data-action="delete-processor">
                 <i class="ph ph-trash"></i>
-                <span>Delete processor</span>
+                <span>${tr('fileTree.crud.deleteProcessor')}</span>
             </div>
         `;
 
@@ -907,7 +907,7 @@ async def basic_test(dut):
             ${menuItems}
             <div class="context-menu-item delete-item" data-action="delete">
                 <i class="ph ph-trash"></i>
-                <span>Delete file</span>
+                <span>${tr('contextMenu.deleteFile')}</span>
             </div>
         `;
 

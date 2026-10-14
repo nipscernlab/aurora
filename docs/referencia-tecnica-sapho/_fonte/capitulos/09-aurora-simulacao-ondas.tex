@@ -8,7 +8,7 @@ pronto para ser visualizado. O escopo cobre a orquestração da simulação, a
 escolha do simulador e do visualizador, a preparação do que entra na onda
 (o \lstinline|$dumpvars|) e a geração automática do layout \file{.gtkw}. O
 visualizador em si (a janela do GTKWave/fork \tool{nipscern} e a integração com
-o \tool{Surfer}) é assunto do \autoref{cap:10-aurora-visualizacao}; aqui o fluxo
+o \tool{Surfer}) é assunto do \autoref{cap:10-aurora-visualizacao-gtkwave-surfer}; aqui o fluxo
 termina no instante em que o arquivo de ondas existe e o processo do
 visualizador é disparado.
 
@@ -165,11 +165,18 @@ em que executam.
 
 Resolve os caminhos e binários necessários à simulação a partir de
 \lstinline|this.componentsPath|: \lstinline|tempBaseDir| (a pasta
-\file{components/Temp/}, criada se não existir), o binário do GTKWave, o
-\tool{vvp}, o \tool{fst2vcd} (usado na extração de cabeçalho), entre outros. O
-diretório \lstinline|tempBaseDir| é o \emph{working directory} de todas as
-simulações --- caminhos relativos em \lstinline|$readmemb| e
-\lstinline|$fopen| são resolvidos a partir dele.
+\file{.aurora/Temp/} do projeto, ou \file{components/Temp/} quando não há
+projeto), o binário do GTKWave, o \tool{vvp}, o \tool{fst2vcd} (usado na
+extração de cabeçalho), entre outros. É em \lstinline|tempBaseDir| que ficam os
+intermediários, como o \file{.vvp}. O \emph{working directory} da simulação é
+outro (\lstinline|diretorioDaSimulacao|, em \file{arquivos\_da\_simulacao.ts}),
+porque caminhos relativos em \lstinline|$readmemb| e \lstinline|$fopen| são
+resolvidos a partir dele: o \file{<proc>\_tb.v} que o \tool{yanc} gera roda na
+pasta de saída do processador, \file{<proj>/<proc>/<proc>/}, que é onde ele
+nomeia tudo (os \file{.mif}, \file{pc\_<proc>\_mem.txt}, \file{output\_N.txt} e o
+\file{.vcd} pelo nome puro, \file{../input\_N.txt} pelo caminho até o fonte);
+qualquer outro \emph{testbench} (o do projeto, com o \emph{top-level} e vários
+processadores) roda na pasta do projeto.
 
 \subsection{\texttt{\_waveDeriveSimTopModule}}
 
@@ -210,13 +217,16 @@ o testbench instrumentado \enquote{assa} a seleção de \lstinline|$dumpvars| do
 usuário no momento da compilação, então um \file{.vvp} antigo travaria uma
 seleção antiga.
 
-A segunda executa \lstinline|vvp -fst| sobre o \file{.vvp}, com \emph{cwd} em
-\lstinline|tempBaseDir|. Antes de rodar, ela faz \emph{staging} de arquivos: os
-\file{pc_*_mem.txt} gerados pelo \tool{cmmcomp} em subpastas
-\file{Temp/<proc>/} são copiados para \file{Temp/} direto (para que os
-\lstinline|$readmemb| relativos resolvam), e os arquivos de dado referenciados
-pelo testbench (\lstinline|$fopen|, \lstinline|$readmemh|) são copiados da
-pasta do testbench. A saída é \file{<top>.vcd} com conteúdo binário FST escrito
+A segunda executa \lstinline|vvp -fst| sobre o \file{.vvp}, com \emph{cwd} no
+diretório da simulação. Antes de rodar, ela faz \emph{staging} de arquivos
+(\lstinline|stageProcessorMemoryFiles|): de cada processador do projeto, os três
+arquivos que o Verilog gerado lê pelo nome puro, \file{<proc>\_inst.mif},
+\file{<proc>\_data.mif} e \file{pc\_<proc>\_mem.txt}, são copiados da pasta de
+saída dele para o diretório da simulação; quando a simulação já roda na pasta de
+saída, nada é copiado. Antes do yanc v7.1 os \file{.mif} saíam com caminho
+absoluto e só os \file{pc\_*\_mem.txt} precisavam da cópia. Os arquivos de dado
+referenciados pelo testbench (\lstinline|$fopen| de leitura,
+\lstinline|$readmemh|) são copiados da pasta do testbench. A saída é \file{<top>.vcd} com conteúdo binário FST escrito
 sob o nome do \lstinline|$dumpfile| --- o \tool{vvp} honra o nome sem trocar a
 extensão.
 
@@ -287,8 +297,8 @@ então:
     \lstinline|cocotb_tools.runner.get_runner| para \lstinline|build| e
     \lstinline|test|;
   \item coleta as fontes (\lstinline|_collectCocotbSources|: sintetizáveis $+$
-    top-level $+$ HDL do bundle), faz \emph{staging} dos \file{pc_*_mem.txt}
-    para o \emph{build dir} e monta o ambiente (\lstinline|SIM|,
+    top-level $+$ HDL do bundle), faz \emph{staging} das memórias de cada
+    processador (\file{.mif} e \file{pc\_*\_mem.txt}) para a pasta do projeto e monta o ambiente (\lstinline|SIM|,
     \lstinline|TOPLEVEL_LANG=verilog|, \lstinline|WAVES|, \lstinline|PYTHONUTF8|,
     etc.);
   \item após a execução, \emph{adota} a onda com \lstinline|_adoptCocotbWaveform|:
@@ -368,7 +378,7 @@ aplicável), aplica eventuais \emph{overrides} (de
 \path{js/compilation/command_overrides.js}, usados pela \tool{Aurora Intelligence})
 e dispara o processo via \lstinline|launchGtkwaveOnly| (spawn detached,
 monitorado por poll). O lançamento do visualizador é detalhado no
-\autoref{cap:10-aurora-visualizacao}; a fase paralela para o Surfer é
+\autoref{cap:10-aurora-visualizacao-gtkwave-surfer}; a fase paralela para o Surfer é
 \lstinline|_waveLaunchSurfer|.
 
 \section{O WaveStore: estado por testbench}
@@ -684,8 +694,9 @@ construtor principal do layout. O arquivo resultante tem duas zonas:
 
 Um escopo conta como instância de processador se contém \emph{ambos} os
 registradores \lstinline|valr2| e \lstinline|linetabs| (que o \tool{asmcomp}
-emite). O \lstinline|procType| (nome do módulo $=$ nome da pasta
-\file{Temp/<procType>/} com os arquivos de tradução) é resolvido por
+emite). O \lstinline|procType| (nome do módulo $=$ nome do processador, cuja pasta de
+saída \file{<proj>/<procType>/<procType>/} tem os arquivos de tradução
+\file{trad\_opcode.txt} e \file{src\_lines.txt}) é resolvido por
 preferência: (1) \lstinline|moduleType| resolvido pelo source via
 \lstinline|resolveScopeModules|; (2) padrão \lstinline|<inst>.p_<X>.core| no
 VCD; (3) heurística do pai \lstinline|<X>_inst|; (4) fallback
@@ -703,7 +714,7 @@ e Stack/ULA) prefere o sub-escopo \lstinline|.p_<X>.core| se existir.
 \midrule
 Banner & \lstinline|clk|, \lstinline|rst|, \lstinline|itr| & \lstinline|FMT_BIN|, do core \\
 I/O & pares \lstinline|req_in_sim_N|/\lstinline|in_sim_N| e \lstinline|out_en_sim_N|/\lstinline|out_sig_N| & amarelo, alias \enquote{req\_in N} / \enquote{input N} etc. \\
-Instructions & \lstinline|valr2| / \lstinline|linetabs| & indigo (\enquote{Assembly}, filtro \file{trad\_opcode.txt}) / violeta (\enquote{\cmm{}}, filtro \file{trad\_cmm.txt}) \\
+Instructions & \lstinline|valr2| / \lstinline|linetabs| & indigo (\enquote{Assembly}, filtro \file{trad\_opcode.txt}) / violeta (o fonte, com o nome da linha \lstinline|lang| de \file{prog\_log.txt}: \enquote{C+-} ou \enquote{C++}; filtro \file{src\_lines.txt}) \\
 Variables & \lstinline|me1_*| (int), \lstinline|me2_*| (float), \lstinline|comp_me3_*| (comp) e arrays & laranja; \lstinline|FMT_SIGNED_DEC|/\lstinline|FMT_REAL|/\lstinline|FMT_BIN| \\
 Flags & grupo Stack (\lstinline|sp|/\lstinline|isp|) e grupo ULA (\lstinline|delta_int|/\lstinline|delta_float|) & \emph{analog step} $+$ signed/hex \\
 \bottomrule
@@ -720,7 +731,7 @@ GTKWave (não por adivinhação). Cada linha de sinal é emitida por
 
 \begin{itemize}[leftmargin=*]
   \item \textbf{file filter} (tabela \file{.txt} como \file{trad\_opcode.txt},
-    \file{trad\_cmm.txt}): sintaxe \lstinline|^N <path>|, acende
+    \file{src\_lines.txt}, até o yanc v6.0 \file{trad\_cmm.txt}): sintaxe \lstinline|^N <path>|, acende
     \lstinline|TR_FTRANSLATED|;
   \item \textbf{process filter} (executável \tool{comp2gtkw.exe}, traduz binário
     bruto para o literal \cmm{}): sintaxe \lstinline|^>N <path>|, acende

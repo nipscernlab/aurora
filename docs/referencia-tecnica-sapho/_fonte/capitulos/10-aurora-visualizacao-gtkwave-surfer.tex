@@ -70,7 +70,7 @@ código.
 Status     & padrão, empacotado          & \emph{opt-in}, opcional      \\
 Origem     & \emph{fork} C/GTK3 do lab   & binário Rust de \emph{upstream} \\
 Curadoria  & arquivo \path{.gtkw}        & arquivo \path{.surf.ron}     \\
-Decode ASM/\cmm & \emph{file filter} (\path{trad\_*.txt}) & \emph{mapping translator} \\
+Decode ASM/fonte & \emph{file filter} (\path{trad\_opcode.txt}, \path{src\_lines.txt}) & \emph{mapping translator} \\
 Decode complexo & \emph{process filter} (\tool{comp2gtkw}) ao vivo & pré-passo (\tool{comp2gtkw}) assado em mapping \\
 Local instalação & \path{components/Packages/gtkwave-nipscern/} & \path{components/Packages/surfer/} \\
 Lançamento & \lstinline|launch-gtkwave-only| & \lstinline|launch-surfer| \\
@@ -190,7 +190,7 @@ verificados no código: fundo do canvas \lstinline|#0b151d|, \emph{foreground}
 \lstinline|#c9e124|, \emph{don't-care} \lstinline|#4040ff|, \emph{weak}
 \lstinline|#808080|.
 
-\paragraph{Folha de estilo da GUI.} O arquivo \file{src/gtkwave.css} foi reescrito
+\paragraph{Folha de estilo da GUI.} O arquivo \texttt{src/gtkwave.css} foi reescrito
 para re-tintar as cores nomeadas do Adwaita para a paleta Surfer, definir fontes
 (\enquote{Segoe UI} / \enquote{Cascadia Mono}) e espaçamentos. Ele é carregado em
 prioridade de aplicação sobre o Adwaita-dark. Referência de paleta no cabeçalho do
@@ -216,7 +216,7 @@ três botões (\lstinline|win-minimize|, \lstinline|win-maximize|,
 \lstinline|gtk_window_set_titlebar|. O \emph{callback} de maximizar alterna o ícone
 entre \lstinline|win-maximize| e \lstinline|win-restore|.
 
-\paragraph{Zoom animado.} Em \file{src/zoombuttons.c} o \emph{zoom in/out} passa a
+\paragraph{Zoom animado.} Em \texttt{src/zoombuttons.c} o \emph{zoom in/out} passa a
 suavizar com \emph{easing} (\emph{ease-out cubic}, 150\,ms) em vez de saltar
 instantaneamente, dirigido por um \emph{tick callback} do \emph{frame clock} do
 widget. Constantes verificadas: \lstinline|GW_ZOOM_ANIM_DURATION_US = 150000| (150\,ms)
@@ -314,9 +314,9 @@ depois do \texttt{download-toolchain} e antes do \texttt{copy-components}.
 
 A linha de comando é montada em \file{js/compilation/builders/wave\_tools.ts}
 (compilado para \path{wave\_tools.js}). O \emph{builder}
-\lstinline|buildGtkwaveSpec| produz os argumentos \lstinline|--dark --zoom-fit
---left-justify <vcd>| e, quando há arquivo de \emph{save}, anexa \lstinline|-a
-<gtkw>|. Como o SST já vem removido do \emph{fork}, não há necessidade de um
+\lstinline|buildGtkwaveSpec| produz os argumentos
+\lstinline|--dark --zoom-fit --left-justify <vcd>| e, quando há arquivo de
+\emph{save}, anexa \lstinline|-a <gtkw>|. Como o SST já vem removido do \emph{fork}, não há necessidade de um
 \lstinline|--rcvar hide_sst on|.
 
 \begin{lstlisting}[language=Java,caption={buildGtkwaveSpec (wave\_tools.ts, verbatim).}]
@@ -353,7 +353,7 @@ O \emph{spawn} real ocorre no processo \emph{main} via IPC
         de qualquer modo.
 \end{itemize}
 
-\subsection{O papel do \path{.gtkw} e do \tool{fst2vcd}}
+\subsection{O papel do \texttt{.gtkw} e do \tool{fst2vcd}}
 \label{sec:cap10-gtkwave-gtkw-fst2vcd}
 
 O \tool{GTKWave} recebe, além do dump, um arquivo de \emph{save} \path{.gtkw} que a
@@ -363,10 +363,13 @@ seções por processador, cores, formatos e \emph{aliases}. Dois mecanismos do
 próprio \path{.gtkw} são relevantes para o contraste com o Surfer (\autoref{sec:cap10-surfer}):
 
 \begin{itemize}
-  \item \textbf{\emph{File filter} (\path{trad\_*.txt}).} As trilhas de Assembly
-        (\lstinline|valr2|) e de \cmm{} (\lstinline|linetabs|) usam tabelas
-        \path{trad\_opcode.txt} / \path{trad\_cmm.txt} via a sintaxe
-        \lstinline|^N <path>| do \path{.gtkw}.
+  \item \textbf{\emph{File filter} (\path{.txt}).} As trilhas de Assembly
+        (\lstinline|valr2|) e do fonte (\lstinline|linetabs|) usam as tabelas
+        \path{trad\_opcode.txt} / \path{src\_lines.txt} (até o yanc v6.0,
+        \path{trad\_cmm.txt}) da pasta de saída do processador, via a sintaxe
+        \lstinline|^N <path>| do \path{.gtkw}. A trilha do fonte tem o nome da
+        linguagem, \enquote{C+-} ou \enquote{C++}, lido da linha
+        \lstinline|lang| de \path{prog\_log.txt}.
   \item \textbf{\emph{Process filter} (\tool{comp2gtkw}).} Os números complexos
         (\lstinline|comp_me3_*| / \lstinline|comp_arr_me3_*|) são decodificados
         \emph{ao vivo} por um executável externo, via a sintaxe
@@ -485,7 +488,7 @@ reload automático. O campo \lstinline|autoreload_files| no \emph{state}
 \path{.surf.ron} é inerte; quem controla o reload é o \path{config.toml}.
 \end{nota}
 
-\subsection{O layout declarativo \path{.surf.ron}}
+\subsection{O layout declarativo \texttt{.surf.ron}}
 \label{sec:cap10-surfer-ron}
 
 A peça central da integração é o escritor de \emph{layout}
@@ -607,7 +610,7 @@ A \autoref{tab:cap10-fmt} resume o mapeamento verificado no código.
 
 \begin{table}[h]
 \centering
-\caption{Mapeamento de formato e cor do \path{.gtkw} para o \path{.surf.ron}.}
+\caption{Mapeamento de formato e cor do \texttt{.gtkw} para o \texttt{.surf.ron}.}
 \label{tab:cap10-fmt}
 \begin{tabularx}{\linewidth}{Y Y}
 \toprule

@@ -10,6 +10,9 @@
 \textit{toolchain}; também o canal de distribuição e o arquivo de projeto (\file{.spf}).
 \item[AURORA] A IDE \textit{desktop} (Electron + Monaco) da plataforma.
 \item[YANC] \textit{Yet Another Compiler}: os compiladores que vão de \cmm{}/C++ a Verilog.
+\item[yanc] O \textit{driver} (v7.1): roda \tool{cmmcomp}/\tool{cppcomp} e \tool{asmcomp}; o único binário do YANC que a AURORA chama.
+\item[pasta de saída] Onde o YANC grava tudo o que gera: \path{./<nome>}; na AURORA, \path{<proj>/<proc>/<proc>/}.
+\item[toma / cade] Links entre SAPHOs (v7.1), instruções \lstinline|TOM| (20) e \lstinline|CAD| (21).
 \item[\cmm{}] Linguagem tipo C com ponto-fixo, ponto-flutuante e complexos de primeira classe.
 \item[PRISM] Visualizador de RTL embutido (Yosys + netlistsvg).
 \item[Aurora Intelligence] Subsistema de IA (chat + ferramentas).
@@ -30,7 +33,7 @@
 \item[MCP] \textit{Model Context Protocol}: acesso das CLIs de IA às ferramentas da IDE.
 \item[DPAPI / safeStorage] Criptografia do SO para as chaves de API.
 \item[NSIS / electron-updater] Instalador Windows e atualização automática.
-\item[numBits / MABits / MIBits] Diretivas \cmm{} que parametrizam larguras do core.
+\item[\#NUBITS / \#NBMANT / \#NBEXPO] Diretivas \cmm{} das larguras da palavra e do float (padrão 32/23/8); o nome do processador é o do arquivo.
 \end{description}
 \end{multicols}
 }

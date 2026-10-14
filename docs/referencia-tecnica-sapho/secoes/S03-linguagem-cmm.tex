@@ -6,10 +6,9 @@ A \cmm{} (CMM) é o front-end de software do soft-processor SAPHO. O compilador 
 
 \subsection{Estrutura de um programa}
 
-Um programa é uma sequência de elementos de topo (\code{direct}, \code{declar}, \code{funcao}), sem ordem rígida. Não há bloco \code{processor \{ ... \}}: o processador é individualizado pelas diretivas iniciais (em especial \lstinline|#PRNAME|). O ponto de entrada é \lstinline|main()|; sua ausência gera \lstinline|MSG_ERR_NO_MAIN|. A forma canônica é: diretivas no topo, depois \lstinline|main()| com laço infinito \lstinline|while (1)| modelando o hardware contínuo.
+Um programa é uma sequência de elementos de topo (\code{direct}, \code{declar}, \code{funcao}), sem ordem rígida. Não há bloco \code{processor \{ ... \}}: o processador é individualizado pelas diretivas iniciais e pelo nome do arquivo. Desde a v7.1 o nome do processador é o do fonte (\file{filtro.cmm} gera o módulo \lstinline|filtro|); \lstinline|#PRNAME| virou erro, e o compilador recusa nome que não sirva de módulo Verilog (só \lstinline|[A-Za-z0-9_]|, sem dígito nem \lstinline|__| no início, sem palavra reservada; \file{Compilers/common/proc_name.c}). O ponto de entrada é \lstinline|main()|; sua ausência gera \lstinline|MSG_ERR_NO_MAIN|. A forma canônica é: diretivas no topo, depois \lstinline|main()| com laço infinito \lstinline|while (1)| modelando o hardware contínuo.
 
 \begin{lstlisting}[style=cmm]
-#PRNAME cmm_define
 #NUBITS 16
 #NUIOIN 1
 #NUIOOU 1
@@ -48,23 +47,23 @@ Cada \lstinline|comp| ocupa dois registros (real, código 3; imaginário, códig
 
 \subsection{Diretivas de hardware}
 
-Reconhecidas como \emph{tokens} próprios; cada uma ocupa uma linha e recebe um nome ou inteiro. A regra \code{direct} chama \lstinline|dire_exec()| (\file{diretivas.c}).
+Reconhecidas como \emph{tokens} próprios; cada uma ocupa uma linha e recebe um inteiro. Todas têm padrão, e o programa só escreve as que muda. A regra \code{direct} chama \lstinline|dire_exec()| (\file{diretivas.c}).
 
 \begin{longtable}{@{}p{0.16\linewidth}p{0.78\linewidth}@{}}
 \toprule
 \textbf{Diretiva} & \textbf{Significado} \\
 \midrule
 \endhead
-\lstinline|#PRNAME| & nome do processador \\
-\lstinline|#NUBITS| & largura da palavra da ULA \\
-\lstinline|#NBMANT| & largura da mantissa (padrão 16) \\
-\lstinline|#NBEXPO| & largura do expoente (padrão 6) \\
-\lstinline|#NDSTAC| & profundidade da pilha de dados \\
-\lstinline|#SDEPTH| & profundidade da pilha de sub-rotinas \\
+\lstinline|#NUBITS| & largura da palavra da ULA (padrão 32) \\
+\lstinline|#NBMANT| & largura da mantissa (padrão 23) \\
+\lstinline|#NBEXPO| & largura do expoente (padrão 8) \\
+\lstinline|#NDSTAC| & profundidade da pilha de dados (padrão: calculada pelo programa) \\
+\lstinline|#SDEPTH| & profundidade da pilha de sub-rotinas (padrão: calculada pelo programa) \\
 \lstinline|#NUIOIN| & número de portas de entrada (padrão 1) \\
 \lstinline|#NUIOOU| & número de portas de saída (padrão 1) \\
-\lstinline|#NUGAIN| & constante de divisão usada por \lstinline|norm(.)| \\
-\lstinline|#FFTSIZ| & tamanho da FFT ($2^{\texttt{FFTSIZ}}$) \\
+\lstinline|#NUGAIN| & constante de divisão usada por \lstinline|norm(.)|; potência de dois (padrão 128) \\
+\lstinline|#FFTSIZ| & tamanho da FFT ($2^{\texttt{FFTSIZ}}$; padrão 3) \\
+\lstinline|#FROUND| & arredondamento do float: 0, 1 ou 2 (padrão 0) \\
 \bottomrule
 \end{longtable}
 
@@ -72,7 +71,7 @@ As comportamentais \lstinline|#PRACA| (retorno de \emph{reset} por interrupção
 
 \subsection{Entrada e saída}
 
-Portas indexadas por literal inteiro, validadas contra \lstinline|#NUIOIN|/\lstinline|#NUIOOU| (\lstinline|MSG_ERR_NO_IN_PORT|/\lstinline|_OUT_PORT|): \lstinline|in(p)| (lê), \lstinline|fin(p)| (lê convertendo para \emph{float}), \lstinline|out(p, exp);| (escreve), \lstinline|fout(p, exp);| (escreve em \emph{float}).
+Portas indexadas por literal inteiro, validadas contra \lstinline|#NUIOIN|/\lstinline|#NUIOOU| (\lstinline|MSG_ERR_NO_IN_PORT|/\lstinline|_OUT_PORT|): \lstinline|in(p)| (lê), \lstinline|fin(p)| (lê convertendo para \emph{float}), \lstinline|out(p, exp);| (escreve), \lstinline|fout(p, exp);| (escreve em \emph{float}). Desde a v7.1, os links entre processadores: \lstinline|toma(k, x);| entrega \lstinline|x| pelo link \lstinline|k| e espera o parceiro levar, \lstinline|cade(k)|/\lstinline|fcade(k)| espera e recebe; as formas \lstinline|toma_sync|/\lstinline|cade_sync|/\lstinline|fcade_sync| são para parceiro no mesmo relógio.
 
 \subsection{Biblioteca padrão e macros}
 
@@ -82,4 +81,4 @@ O \lstinline|#define| (apenas \emph{object-like}) é tratado no scanner com prot
 
 \subsection{O caminho C++}
 
-Alternativamente, o YANC compila C/C++ para o mesmo soft-processor via \tool{cpppp} (pré-processador autônomo) e \tool{cppcomp} (subconjunto de C99 com extensões de C++); os parâmetros do alvo têm padrões fixos em \file{config.h} (palavra 32 bits, mantissa 23, expoente 8) ajustáveis por \lstinline|#pragma yanc|, e a saída é o mesmo \path{.asm}.
+Alternativamente, o YANC compila C/C++ para o mesmo soft-processor via \tool{cppcomp} (subconjunto de C99 com extensões de C++), que desde a v7.1 pré-processa o fonte em memória (o \tool{cpppp} e o \path{pp.cpp} saíram; \lstinline|cppcomp -E| mostra o texto pré-processado) e dá as mensagens no arquivo e na linha escritos, inclusive em \emph{headers}. Os parâmetros do alvo têm padrões fixos em \file{config.h} (palavra 32 bits, mantissa 23, expoente 8) ajustáveis por \lstinline|#pragma yanc| (\lstinline|prname|, \lstinline|fftsiz| e \lstinline|itradd| são erro), e a saída é o mesmo \path{.asm}.

@@ -154,12 +154,16 @@ como cidadãos de primeira classe) ou em \emph{C++} --- e o compila por completo
 até um núcleo \tool{SAPHO} sintetizável, as imagens de memória de programa e de
 dados, e um \emph{testbench} pronto para executar.
 
-Os binários do \tool{YANC} incluem, entre outros, \code{cmmcomp} (\cmm{} para
-\emph{assembly}), \code{asmcomp} (\emph{assembly} para binário/hex),
-\code{appcomp} e \code{comp2gtkw}; eles são distribuídos com bibliotecas HDL e
-macros. O \tool{YANC} é desenvolvido em C, com Flex e Bison, e pode ser usado de
-forma autônoma a partir de scripts de \emph{shell}, embora o uso principal seja
-dirigido pela \tool{AURORA}. A linguagem \cmm{} é o tema do
+Desde a v7.1 o \tool{YANC} tem seis binários: o \emph{driver} \code{yanc}, que
+roda os outros como o \code{gcc} roda os seus; \code{cmmcomp} (\cmm{} para
+\emph{assembly}); \code{cppcomp} (C++ para o mesmo \emph{assembly}, com
+pré-processador próprio); \code{asmcomp} (\emph{assembly} para o Verilog do
+processador, as imagens \path{.mif} e o \emph{testbench}); e \code{gen\_gtkw} e
+\code{comp2gtkw}, que montam e decodificam a forma de onda. Eles são
+distribuídos com o RTL do processador (\path{SAPHO/}) e as macros. O
+\tool{YANC} é desenvolvido em C, com Flex e Bison, e pode ser usado de forma
+autônoma no terminal (\lstinline|yanc filtro.cmm|), embora o uso principal seja
+dirigido pela \tool{AURORA}, que chama só o \code{yanc}. A linguagem \cmm{} é o tema do
 \autoref{cap:03-linguagem-cmm}, e o interior dos compiladores, do
 \autoref{cap:04-yanc-compiladores}.
 
@@ -306,7 +310,8 @@ plataforma/suíte completa; também o nome do canal de distribuição
 \tool{AURORA} & A IDE desktop (Electron + Monaco); repositório de
 desenvolvimento \repo{aurora}. \\
 \tool{YANC} & \emph{Yet Another Compiler} --- a suíte de compiladores
-(\code{cmmcomp}, \code{asmcomp}, \code{appcomp}, \code{comp2gtkw});
+(\code{yanc}, \code{cmmcomp}, \code{cppcomp}, \code{asmcomp}, \code{gen\_gtkw},
+\code{comp2gtkw});
 repositório \repo{yanc}. \\
 \tool{PRISM} & O visualizador de RTL embutido na IDE (Yosys + netlistsvg). \\
 \tool{Aurora Intelligence} & O subsistema de IA da IDE. \\
@@ -345,7 +350,7 @@ O suporte de plataforma difere entre as peças, conforme verificado no código:
 Esta referência técnica está organizada em 18 capítulos, mais apêndices. O mapa
 abaixo orienta a leitura:
 
-\begin{longtable}{c >{\raggedright\arraybackslash}p{0.30\linewidth} >{\raggedright\arraybackslash}X}
+\begin{longtable}{c >{\raggedright\arraybackslash}p{0.30\linewidth} >{\raggedright\arraybackslash}p{0.56\linewidth}}
 \toprule
 \textbf{\#} & \textbf{Título} & \textbf{Escopo} \\
 \midrule

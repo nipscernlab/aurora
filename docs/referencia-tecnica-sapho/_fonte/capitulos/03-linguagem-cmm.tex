@@ -12,14 +12,15 @@ módulos C de \file{Compilers/CMMComp/Sources/} (entre eles
 \file{saltos.c}, \file{funcoes.c}, \file{array\_index.c} e \file{messages.c}).
 O catálogo de mensagens vem de \file{Compilers/CMMComp/Headers/messages.h}, e os
 exemplos vêm de \file{Compilers/CMMComp/Tests/}. A última seção documenta o
-caminho C++ (\tool{cpppp} e \tool{cppcomp}), cuja gramática vive em
+caminho C++ (\tool{cppcomp}, que desde a v7.1 traz o próprio pré-processador), cuja
+gramática vive em
 \file{Compilers/CPPComp/Sources/}.
 
 \begin{nota}
 A linguagem \cmm{} é um front-end de software para o soft-processor SAPHO. Ela
 produz \emph{assembly} simbólico (\path{.asm}), que é posteriormente convertido
 em imagem de memória e em Verilog pelos estágios seguintes do toolchain (ver
-\autoref{cap:02-yanc-pipeline}). O foco deste capítulo é a \emph{linguagem-fonte}:
+\autoref{cap:04-yanc-compiladores}). O foco deste capítulo é a \emph{linguagem-fonte}:
 sintaxe, tipos, operadores, biblioteca padrão e diretivas.
 \end{nota}
 
@@ -47,20 +48,27 @@ Ou seja, cada elemento de topo de nível é uma das três coisas:
 
 Não existe a noção sintática de um bloco \enquote{\code{processor \{ ... \}}};
 o que individualiza um processador é o conjunto de diretivas no início do arquivo
-(em especial \lstinline|#PRNAME|, que dá o nome do processador). O ponto de
-entrada da execução é a função \lstinline|main()|: a ausência dela é um erro
-detectado ao final da compilação, com a mensagem \lstinline|MSG_ERR_NO_MAIN|.
+e o \textbf{nome do arquivo}. Desde a v7.1 o nome do processador é o nome do
+fonte, como o \code{gcc} nomeia o programa: \file{filtro.cmm} gera o processador
+\lstinline|filtro|, o \file{filtro.v} e o módulo \lstinline|filtro|. O
+\lstinline|#PRNAME| deixou de existir e virou erro
+(\lstinline|MSG_ERR_PRNAME_GONE|, que manda renomear o arquivo). Como o nome vira
+módulo Verilog, o compilador recusa um arquivo cujo nome não sirva de módulo
+(regra de \file{Compilers/common/proc_name.c}): caracteres que não sejam letras,
+dígitos ou \lstinline|_|, dígito no início, \lstinline|__| no início, ou palavra
+reservada do Verilog ou do SystemVerilog (\file{my-prog.cmm}, \file{2fast.cpp},
+\file{begin.cmm}). O ponto de entrada da execução é a função \lstinline|main()|:
+a ausência dela é um erro detectado ao final da compilação, com a mensagem
+\lstinline|MSG_ERR_NO_MAIN|.
 
 Um arquivo \cmm{} mínimo e completo, retirado de
-\file{Tests/cmm\_define/Software/cmm\_define.cmm}, ilustra a forma canônica:
-diretivas no topo, depois a função \lstinline|main()|, normalmente com um laço
-infinito \lstinline|while (1)| que modela o comportamento contínuo do hardware:
+\file{Tests/cmm\_define/cmm\_define.cmm} (sem o comentário), ilustra a forma
+canônica: diretivas no topo, depois a função \lstinline|main()|, normalmente com
+um laço infinito \lstinline|while (1)| que modela o comportamento contínuo do
+hardware:
 
 \begin{lstlisting}[style=cmm]
-#PRNAME cmm_define
 #NUBITS 16
-#NDSTAC 4
-#SDEPTH 4
 #NUIOIN 1
 #NUIOOU 1
 #NBMANT 10
@@ -88,10 +96,11 @@ void main()
 \label{sec:cmm-diretivas}
 
 As diretivas são reconhecidas pelo scanner como \emph{tokens} próprios (regras
-\lstinline|"#PRNAME"|, \lstinline|"#NUBITS"|, etc. em \file{CMMComp.l}) e
+\lstinline|"#NUBITS"|, \lstinline|"#NBMANT"|, etc. em \file{CMMComp.l}) e
 aparecem na gramática nas regras \code{direct} (configuração) e \code{dire\_inter}
-(comportamentais). Cada diretiva ocupa uma linha e recebe um argumento: um nome
-(em \lstinline|#PRNAME|) ou um inteiro (nas demais).
+(comportamentais). Cada diretiva de configuração ocupa uma linha e recebe um
+inteiro. O scanner ainda reconhece \lstinline|"#PRNAME"|, mas só para que a regra
+\code{direct} pare com a mensagem que manda renomear o arquivo.
 
 \subsection{Diretivas de configuração}
 
@@ -106,27 +115,31 @@ código.
 \textbf{Diretiva} & \textbf{Argumento} & \textbf{Significado (do parser)} \\
 \midrule
 \endhead
-\lstinline|#PRNAME| & nome & nome do processador \\
-\lstinline|#NUBITS| & inteiro & largura da palavra da ULA \\
-\lstinline|#NBMANT| & inteiro & largura da mantissa (bits) \\
-\lstinline|#NBEXPO| & inteiro & largura do expoente (bits) \\
-\lstinline|#NDSTAC| & inteiro & profundidade da pilha de dados \\
-\lstinline|#SDEPTH| & inteiro & profundidade da pilha de sub-rotinas \\
-\lstinline|#NUIOIN| & inteiro & número de portas de entrada \\
-\lstinline|#NUIOOU| & inteiro & número de portas de saída \\
-\lstinline|#NUGAIN| & inteiro & constante de divisão usada por \lstinline|norm(.)| \\
-\lstinline|#FFTSIZ| & inteiro & tamanho da FFT (na forma $2^{\texttt{FFTSIZ}}$) \\
+\lstinline|#NUBITS| & inteiro & largura da palavra da ULA (padrão 32) \\
+\lstinline|#NBMANT| & inteiro & largura da mantissa, em bits (padrão 23) \\
+\lstinline|#NBEXPO| & inteiro & largura do expoente, em bits (padrão 8) \\
+\lstinline|#NDSTAC| & inteiro & profundidade da pilha de dados (padrão: calculada pelo montador) \\
+\lstinline|#SDEPTH| & inteiro & profundidade da pilha de sub-rotinas (padrão: calculada pelo montador) \\
+\lstinline|#NUIOIN| & inteiro & número de portas de entrada (padrão 1) \\
+\lstinline|#NUIOOU| & inteiro & número de portas de saída (padrão 1) \\
+\lstinline|#NUGAIN| & inteiro & constante de divisão usada por \lstinline|norm(.)|; potência de dois (padrão 128) \\
+\lstinline|#FFTSIZ| & inteiro & tamanho da FFT, na forma $2^{\texttt{FFTSIZ}}$ (padrão 3) \\
+\lstinline|#FROUND| & inteiro & arredondamento do float: 0, 1 ou 2 (padrão 0) \\
 \bottomrule
 \end{longtable}
 
 A função \lstinline|dire_exec()| guarda em variáveis globais do compilador apenas
-o que o front-end \cmm{} precisa consultar em tempo de compilação: o nome
-(\lstinline|prname|), a largura da mantissa (\lstinline|nbmant|), a do expoente
-(\lstinline|nbexpo|), e a contagem de portas de entrada e de saída
-(\lstinline|nuioin|, \lstinline|nuioou|). As demais diretivas são repassadas
-adiante no pipeline via o \code{STMT\_DIRECTIVE} emitido. Os valores-padrão,
-definidos em \file{diretivas.c}, são \lstinline|nbmant = 16|,
-\lstinline|nbexpo = 6|, \lstinline|nuioin = 1| e \lstinline|nuioou = 1|.
+o que o front-end \cmm{} precisa consultar em tempo de compilação: a largura da
+mantissa (\lstinline|nbmant|), a do expoente (\lstinline|nbexpo|), a contagem de
+portas de entrada e de saída (\lstinline|nuioin|, \lstinline|nuioou|) e o nível
+de arredondamento (\lstinline|fround|, que ela valida entre 0 e 2). O
+\lstinline|#NUGAIN| é validado ali (potência de dois, \lstinline|MSG_ERR_NUGAIN_POW2|)
+e de novo no montador. As demais diretivas são repassadas adiante no pipeline via
+o \code{STMT\_DIRECTIVE} emitido. Os valores-padrão, definidos em
+\file{diretivas.c} e iguais aos do \tool{asmcomp}, do \tool{cppcomp} e do RTL, são
+\lstinline|nbmant = 23|, \lstinline|nbexpo = 8|, \lstinline|nuioin = 1|,
+\lstinline|nuioou = 1| e \lstinline|fround = 0|. Um programa só escreve as
+diretivas que muda.
 
 \begin{nota}
 As contagens \lstinline|#NUIOIN| e \lstinline|#NUIOOU| são checadas em tempo de
@@ -223,7 +236,7 @@ ou seja, a forma \lstinline|a+bi| (com \lstinline|i| ao final), produzindo o
 \emph{token} \code{CNUM}. O símbolo \lstinline|i| é \emph{reservado} para indicar
 a parte imaginária; usá-lo como identificador gera \lstinline|MSG_ERR_RESERVED_I|.
 
-Exemplo de uso de literais complexos (de \file{Tests/cmm\_comp\_arith/Software/cmm\_comp\_arith.cmm}):
+Exemplo de uso de literais complexos (de \file{Tests/cmm\_comp\_arith/cmm\_comp\_arith.cmm}):
 
 \begin{lstlisting}[style=cmm]
 void main() {
@@ -372,7 +385,7 @@ produz \lstinline|MSG_ERR_MOD_NON_INT|.
 
 Os operadores relacionais e lógicos produzem resultados inteiros (0/1):
 
-\begin{tabularx}{\linewidth}{Y Y Y}
+\begin{longtable}{p{0.28\linewidth} p{0.28\linewidth} p{0.34\linewidth}}
 \toprule
 \textbf{Símbolo} & \textbf{Operação} & \textbf{Descrição} \\
 \midrule
@@ -385,7 +398,7 @@ Os operadores relacionais e lógicos produzem resultados inteiros (0/1):
 \lstinline|&&|  & \code{OP\_LAN} & E lógico \\
 \lstinline+||+ & \code{OP\_LOR} & OU lógico \\
 \bottomrule
-\end{tabularx}
+\end{longtable}
 
 Comparar um valor complexo dispara avisos de que o compilador usará o módulo
 (\lstinline|MSG_WARN_CMP_COMPLEX| e variantes); uma operação lógica só entre
@@ -492,7 +505,7 @@ case_label    : CASE INUM ':' {case_test($2,1);}
 default_label : DEFAULT   ':' {defaut_test();}
 \end{lstlisting}
 
-O exemplo \file{Tests/ctrl\_flow/Software/ctrl\_flow.cmm} exercita
+O exemplo \file{Tests/ctrl\_flow/ctrl\_flow.cmm} exercita
 sistematicamente todas as combinações de \lstinline|if|/\lstinline|else|/%
 \lstinline|while|/\lstinline|break|; um trecho:
 
@@ -577,6 +590,15 @@ são literais inteiros (\code{INUM}), validados contra \lstinline|#NUIOIN| e
 (ver \autoref{sec:cmm-dirac}). Avisos \lstinline|MSG_WARN_USE_FOUT| e
 \lstinline|MSG_WARN_USE_OUT| orientam a escolha entre as variantes inteira e
 \emph{float}.
+
+Desde a v7.1 há também os \textbf{links} entre processadores
+(\autoref{sec:arq-links}): \lstinline|toma(k, x);| entrega \lstinline|x| pelo link
+\lstinline|k| e espera o parceiro levar; \lstinline|y = cade(k);| (inteiro) e
+\lstinline|f = fcade(k);| (\emph{float}) esperam o link oferecer uma palavra e a
+levam. O número do link é um literal inteiro a partir de 0. As formas
+\lstinline|toma_sync|, \lstinline|cade_sync| e \lstinline|fcade_sync| declaram o
+parceiro no mesmo relógio e tiram o sincronizador; usar as duas formas no mesmo
+link é erro. O C++ tem as mesmas chamadas.
 
 \section{Biblioteca padrão (\emph{stdlib})}
 \label{sec:cmm-stdlib}
@@ -727,7 +749,7 @@ operações têm mensagens dedicadas: \lstinline|MSG_ERR_NOT_A_VECTOR|,
 
 \subsection{Exemplo: RLS (\emph{Recursive Least Squares})}
 
-O exemplo \file{Tests/proc\_rls/Software/proc\_rls.cmm} reúne a maioria das
+O exemplo \file{Tests/proc\_rls/proc\_rls.cmm} reúne a maioria das
 formas, inclusive a declaração de \emph{array} inicializada por Dirac
 (\lstinline+float Px[4] # |P|x>;+):
 
@@ -826,8 +848,11 @@ tabelas de \emph{look-up} (\path{*_LUT.txt}) carregadas via inicialização de
 \label{sec:cmm-mensagens}
 
 O compilador é bilíngue: \file{messages.h} define cada mensagem com a macro
-\lstinline|M(pt, en)|, e a opção de linha de comando \lstinline|-en|/\lstinline|-pt|
-seleciona o idioma (padrão: português). As mensagens dividem-se em erros
+\lstinline|M(pt, en)|, e a opção \lstinline|--lang=pt| ou \lstinline|--lang=en| (também
+\lstinline|--lang pt|) seleciona o idioma. Desde a v7.1 o padrão é inglês; a variável
+de ambiente \lstinline|YANC_LANG=pt| muda o padrão, e a opção ganha da variável. A
+implementação é única para todas as ferramentas (\file{Compilers/common/yanc_lang.c});
+\lstinline|-en| e \lstinline|-pt| saíram. As mensagens dividem-se em erros
 (abortam a compilação), avisos (\enquote{atenção}, não abortam) e informações.
 A tabela a seguir resume as principais categorias e mensagens representativas;
 todas têm o símbolo correspondente em \file{messages.h}.
@@ -893,56 +918,82 @@ mensagem:
 \path{garbage.cmm} & \enquote{Syntax error} \\
 \path{undeclared.cmm} & \enquote{declared the variable} \\
 \path{define_recursive.cmm} & \enquote{declare the variable} \\
+\path{prname_gone.cmm} & \enquote{\#PRNAME is gone} \\
+\path{begin.cmm} & \enquote{is a Verilog keyword} \\
+\path{bad-name.cmm} & \enquote{can only have letters, digits and '\_'} \\
+\path{link_mix.cmm} & \enquote{link 0 was already used without \_sync} \\
 \bottomrule
 \end{tabularx}
+
+A tabela mostra uma parte: na v7.1 o manifesto tem 28 \emph{fixtures}, entre elas
+as de nomes que colidem com mnemônicos ou com nomes do compilador, a de
+\lstinline|#NUGAIN| que não é potência de dois, a de recursão e as dos links.
 
 \section{Interface de linha de comando do \texttt{cmmcomp}}
 \label{sec:cmm-cli}
 
 O ponto de entrada está em \lstinline|main()| no próprio \file{CMMComp.y} e usa o
 parser de argumentos de \file{args.c}. Pelas mensagens de ajuda em
-\file{messages.h} (\lstinline|MSG_CLI_HELP|), a invocação é:
+\file{messages.h} (\lstinline|MSG_CLI_HELP|), a invocação da v7.1 é:
 
 \begin{lstlisting}[language=bash]
-cmmcomp [opcoes] -i <arq.cmm> -n <nome> -p <dir> -m <dir> -t <dir>
+cmmcomp [opcoes] <arq.cmm>
 \end{lstlisting}
+
+O fonte é o argumento sem opção, e o processador tem o nome do arquivo. O
+\tool{cmmcomp} escreve na pasta de saída o \path{<nome>.asm} e as tabelas
+(\path{prog_log.txt}, \path{pc_<nome>_mem.txt}, \path{src_lines.txt}) que o
+\tool{asmcomp} e a forma de onda usam. A pasta \path{Macros/} é achada ao lado do
+executável (\file{Compilers/common/exe_dir.c}).
 
 \begin{longtable}{@{}p{0.26\linewidth}p{0.66\linewidth}@{}}
 \toprule
 \textbf{Opção} & \textbf{Descrição} \\
 \midrule
 \endhead
-\lstinline|-i|, \lstinline|--input| & arquivo-fonte \cmm{} (obrigatória) \\
-\lstinline|-n|, \lstinline|--name| & nome do processador / base do \path{.asm} (obrigatória) \\
-\lstinline|-p|, \lstinline|--proc-dir| & diretório do processador (obrigatória) \\
-\lstinline|-m|, \lstinline|--macros-dir| & diretório de Macros (obrigatória) \\
-\lstinline|-t|, \lstinline|--temp-dir| & diretório Temp (obrigatória) \\
-\lstinline|-A|, \lstinline|--array| & expande cada elemento de \emph{array} como sinal individual no GTKWave \\
-\lstinline|-en|, \lstinline|-pt| & idioma das mensagens (padrão: \lstinline|-pt|) \\
+\lstinline|-o|, \lstinline|--output| & pasta de saída (padrão: \path{./<nome>}) \\
+\lstinline|--wave-arrays| & cada elemento de \emph{array} vira um sinal no GTKWave (antes \lstinline|-A|) \\
+\lstinline!--lang=en|pt! & idioma das mensagens (padrão: inglês, ou \lstinline|YANC_LANG|) \\
 \lstinline|-h|, \lstinline|--help| & mostra ajuda e sai \\
 \lstinline|-V|, \lstinline|--version| & mostra a versão e sai \\
 \bottomrule
 \end{longtable}
 
+As opções \lstinline|-i|, \lstinline|-n|, \lstinline|-p|, \lstinline|-m| e
+\lstinline|-t| das versões anteriores saíram. No uso normal não se chama o
+\tool{cmmcomp} direto: o \emph{driver} \tool{yanc} o encontra ao lado dele e o roda
+(\autoref{cap:04-yanc-compiladores}).
+
 \section{O caminho C++}
 \label{sec:cmm-cpp}
 
 Além da \cmm{}, o YANC oferece um caminho alternativo a partir de C/C++ para o
-mesmo soft-processor, composto por dois binários em
-\file{Compilers/CPPComp/Sources/}:
+mesmo soft-processor. Desde a v7.1 ele é um binário só, o \tool{cppcomp}
+(\file{Compilers/CPPComp/Sources/}), chamado como o \tool{cmmcomp}:
+\lstinline|cppcomp [-o <dir>] [-I <dir>]... filtro.cpp|. Antes havia um
+pré-processador separado, o \tool{cpppp}, que gravava um \path{pp.cpp}; agora o
+pré-processador (\file{cpppp.c}) é parte do \tool{cppcomp} e trabalha em memória,
+como no \code{gcc}, e \lstinline|cppcomp -E| imprime o texto pré-processado.
 
 \begin{description}[leftmargin=2em]
-  \item[\tool{cpppp}] o pré-processador C autônomo (\file{cpppp.c}). Trata
-  \lstinline|#include "..."| e \lstinline|#include <...>| (com diretórios
-  \lstinline|-I|), \lstinline|#define| de objeto e de função (incluindo
-  variádicas \lstinline|...|/\lstinline|__VA_ARGS__|, \emph{stringize} \lstinline|#|
-  e \emph{paste} \lstinline|##|), \lstinline|#undef|,
+  \item[Pré-processador] (\file{cpppp.c}). Trata
+  \lstinline|#include "..."| e \lstinline|#include <...>|, \lstinline|#define| de
+  objeto e de função (incluindo variádicas
+  \lstinline|...|/\lstinline|__VA_ARGS__|, \emph{stringize} \lstinline|#| e
+  \emph{paste} \lstinline|##|), \lstinline|#undef|,
   \lstinline|#ifdef|/\lstinline|#ifndef|/\lstinline|#else|/\lstinline|#endif|,
-  \lstinline|#pragma once| e repassa \lstinline|#pragma yanc| verbatim.
-  \item[\tool{cppcomp}] o compilador propriamente dito (\file{main.c},
-  \file{CPPComp.l}, \file{CPPComp.y}, \file{codegen.c}). Consome o código já
-  pré-processado e emite \path{.asm} no mesmo layout de pipeline do
-  \tool{cmmcomp} (\path{<proc_dir>/Software/<prname>.asm}).
+  \lstinline|#pragma once|, \lstinline|#error| (para a compilação) e
+  \lstinline|#warning|, e repassa \lstinline|#pragma yanc| ao compilador. Um
+  \lstinline|#include "x"| é procurado na pasta do arquivo que inclui, depois nas
+  pastas \lstinline|-I|, por fim em \path{Header/}, achada ao lado de
+  \path{bin/}. As mensagens apontam para o arquivo e a linha escritos
+  (\lstinline|filtro.cpp:12|, ou o \emph{header} quando o erro está nele), e não
+  mais para uma linha do \path{pp.cpp}.
+  \item[Compilador] (\file{main.c}, \file{CPPComp.l}, \file{CPPComp.y},
+  \file{codegen.c}). Emite o mesmo \path{.asm} e as mesmas tabelas do
+  \tool{cmmcomp}, na mesma pasta de saída (\path{./<nome>} sem \lstinline|-o|).
+  Aceita \lstinline|--lang| como todo o YANC, mas as mensagens dele são só em
+  inglês.
 \end{description}
 
 \subsection{Subconjunto da linguagem aceito}
@@ -986,10 +1037,11 @@ estilo IEEE-754 de precisão simples), pilhas de dados e de retorno com 128
 posições. Um programa pode sobrescrever esses padrões por arquivo com
 \lstinline|#pragma yanc <chave> <valor>| no escopo de arquivo, processado
 diretamente no scanner. As chaves reconhecidas espelham as diretivas \cmm{}:
-\lstinline|prname|, \lstinline|nubits|, \lstinline|nbmant|, \lstinline|nbexpo|,
-\lstinline|nugain|, \lstinline|ndstac|, \lstinline|sdepth|, \lstinline|nuioin|,
-\lstinline|nuioou|, \lstinline|fftsiz| e \lstinline|itradd|. A tabela mostra os
-padrões de \file{config.h}:
+\lstinline|nubits|, \lstinline|nbmant|, \lstinline|nbexpo|, \lstinline|nugain|,
+\lstinline|ndstac|, \lstinline|sdepth|, \lstinline|nuioin| e \lstinline|nuioou|.
+Na v7.1 \lstinline|prname| virou erro (o nome é o do arquivo), e \lstinline|fftsiz|
+e \lstinline|itradd|, que eram aceitas e não faziam nada, também são erro; uma
+chave desconhecida gera aviso. A tabela mostra os padrões de \file{config.h}:
 
 \begin{tabularx}{\linewidth}{Y Y}
 \toprule
@@ -1050,8 +1102,8 @@ tem padrões de bits para NaN ou infinito.
 \subsection{Recursos de C++ exercitados pelos testes}
 
 A suíte \file{Compilers/CPPComp/Tests/} contém dezenas de programas que vão de um
-\emph{smoke test} em C (\file{test1/Software/test1.cpp}) a uma mini-STL escrita na
-própria linguagem (\file{test21/Software/test21.cpp}, com um \lstinline|Vector|
+\emph{smoke test} em C (\file{test1/test1.cpp}) a uma mini-STL escrita na
+própria linguagem (\file{test21/test21.cpp}, com um \lstinline|Vector|
 templatizado com RAII, crescimento sob demanda e \lstinline|operator[]|, além de
 um \lstinline|unique_ptr| dono de recurso). Os testes mais avançados
 (\file{test44} a \file{test50}) implementam pipelines de DSP
@@ -1061,7 +1113,8 @@ multi-arquivo de porte realista para o mesmo soft-processor SAPHO.
 
 \begin{nota}
 O \tool{cppcomp} compartilha o número de versão (\file{yanc\_version.h}) e o
-layout de saída com o \tool{cmmcomp}: ambos produzem \path{.asm} em
-\path{<proc_dir>/Software/<prname>.asm}, consumido pelos estágios seguintes do
-pipeline (ver \autoref{cap:02-yanc-pipeline}).
+layout de saída com o \tool{cmmcomp}: ambos produzem \path{<nome>.asm} na pasta
+de saída (\path{./<nome>/<nome>.asm} sem \lstinline|-o|), com a linha
+\lstinline|lang C++| ou \lstinline|lang C+-| em \path{prog_log.txt}, consumido
+pelos estágios seguintes do pipeline (ver \autoref{cap:04-yanc-compiladores}).
 \end{nota}

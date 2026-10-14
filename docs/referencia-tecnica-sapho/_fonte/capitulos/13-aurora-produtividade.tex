@@ -116,8 +116,8 @@ A troca de aba é feita por \file{js/terminal/terminal.js}, que exporta a funç�
 (consolidada de cópias que existiam em \file{compilation\_flow.js} e
 \file{wave\_config\_manager.js}). Ela esconde todos os corpos
 (\lstinline|.terminal-content|), revela o alvo e desliza um único indicador de
-aba ativa (\lstinline|.terminal-tab-indicator|) via \lstinline|transform:
-translateX(...)|, em vez de ligar/desligar uma barra por aba. Os botões de
+aba ativa (\lstinline|.terminal-tab-indicator|) via
+\lstinline|transform: translateX(...)|, em vez de ligar/desligar uma barra por aba. Os botões de
 compilação focam automaticamente a aba onde sua saída cai (por exemplo,
 \lstinline|cmmcomp| foca \lstinline|terminal-tcmm|).
 
@@ -157,14 +157,17 @@ diagnóstico em \textit{links} navegáveis. Há dois formatos reconhecidos:
 \begin{description}[leftmargin=*]
   \item[Estilo \textit{toolchain} C] padrão \lstinline|<arquivo>:<linha>:|
         emitido por \tool{iverilog}, \tool{yosys}, \tool{gcc} e pelo
-        \textit{appcomp}. A expressão regular captura o caminho (inclusive um
+        \tool{cppcomp} (desde o yanc v7.1, com o arquivo e a linha que a pessoa
+        escreveu, inclusive dentro de um \emph{header}). A expressão regular captura o caminho (inclusive um
         prefixo de unidade do Windows como \lstinline|C:\foo\bar.v:15:|) e a
         linha; o caminho é guardado em \lstinline|data-file| para que o clique
         abra exatamente aquele arquivo.
   \item[Estilo \tool{AURORA}/\tool{YANC}] padrão \enquote{\lstinline|linha N|}
-        ou \enquote{\lstinline|line N|}, sem prefixo de arquivo. Nesse caso o
-        clique recai sobre o último \cmm{} compilado, resolvido pelo gerenciador
-        de compilação.
+        ou \enquote{\lstinline|line N|}, sem prefixo de arquivo, do C±, cujo
+        programa é sempre um arquivo só. Nesse caso o clique recai sobre o último
+        \cmm{} compilado e, na falta dele, sobre o fonte da linha de comando do
+        \tool{yanc} mais recente do terminal
+        (\file{js/terminal/links\_do\_terminal.ts}).
 \end{description}
 
 Cada \textit{link} (\lstinline|.line-link|) tem seu clique conectado por
@@ -342,7 +345,7 @@ grande congele o processo principal:
 
 \begin{table}[h]
 \centering
-\caption{Limites da busca em \file{main/ipc/search.js}.}
+\caption{Limites da busca em \texttt{main/ipc/search.js}.}
 \label{tab:13-busca-limites}
 \small
 \begin{tabularx}{\linewidth}{Y Y}
@@ -486,7 +489,7 @@ arbitrários):
 
 \begin{table}[h]
 \centering
-\caption{Artefatos tree-sitter servidos por \file{grammars.js}.}
+\caption{Artefatos tree-sitter servidos por \texttt{grammars.js}.}
 \label{tab:13-ts-artefatos}
 \small
 \begin{tabularx}{\linewidth}{Y Y}
@@ -625,9 +628,12 @@ Cada troca de \textit{locale} dispara o evento
 \lstinline|aurora:locale-changed|, ao qual componentes que renderizam strings
 imperativamente (terminal, notificações) reagem para re-renderizar. Por
 compatibilidade com o compilador \tool{YANC}, \lstinline|window.getYancLang| é
-um \textit{alias} de \lstinline|getLocale()|, de modo que a injeção do
-\textit{flag} \lstinline|-pt|/\lstinline|-en| do compilador segue inalterada — a
-preferência de idioma é, intencionalmente, unificada entre UI e compilador. O
+um \textit{alias} de \lstinline|getLocale()|, e os \textit{builders} transformam o
+valor em \lstinline|--lang=pt| ou \lstinline|--lang=en| em toda chamada do
+\tool{yanc} (desde o yanc v7.1; antes eram \lstinline|-pt|/\lstinline|-en|). A
+preferência de idioma é, intencionalmente, unificada entre UI e compilador; no
+C++ o \tool{cppcomp} aceita a opção e responde em inglês, e o terminal avisa isso
+uma vez. O
 controle visual é o \lstinline|<select>| de idioma em
 \textbf{Configurações $\rightarrow$ Idioma}, ligado por
 \file{js/ui/locale\_toggle.js}.
@@ -664,7 +670,7 @@ expõe o \textit{select} de idioma (\autoref{sec:13-i18n}) e o controle de
 O \textit{auto-updater} vive em \file{main/updater.js} e é construído sobre
 \textbf{electron-updater}, consultando os \textit{releases} do repositório
 \repo{sapho} no GitHub. Os detalhes de \textit{release} e empacotamento são
-tratados em \autoref{cap:16-release}; aqui descreve-se a experiência do usuário.
+tratados em \autoref{cap:16-build-distribuicao}; aqui descreve-se a experiência do usuário.
 
 O fluxo (somente em produção — pulado em modo de desenvolvimento) é:
 

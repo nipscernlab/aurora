@@ -16,7 +16,7 @@ As versões aqui registradas foram confirmadas lendo diretamente esses arquivos 
 quando instaladas, os \file{package.json} de cada pacote em \path{node_modules/}.
 Os caminhos de instalação dos binários nativos (toolchain, viewers, LSPs) e o
 fluxo de \emph{bootstrap} que os baixa são detalhados em
-\autoref{cap:10-toolchain} e \autoref{cap:14-build-empacotamento}; aqui o foco é
+\autoref{cap:14-toolchain-bundle} e \autoref{cap:16-build-distribuicao}; aqui o foco é
 o \emph{inventário} de cada peça.
 
 \begin{nota}
@@ -54,7 +54,7 @@ As ferramentas chegam ao usuário por quatro mecanismos distintos, e a coluna
 \subsection{Fixação de versões e integridade}
 
 O fluxo de bootstrap é descrito em
-\autoref{cap:14-build-empacotamento}; aqui basta registrar os mecanismos que
+\autoref{cap:16-build-distribuicao}; aqui basta registrar os mecanismos que
 garantem que as versões deste catálogo são as que efetivamente chegam ao usuário.
 
 \begin{itemize}[leftmargin=1.4em]
@@ -185,7 +185,7 @@ O GTKWave não vem do \emph{bundle} principal: é um \emph{fork} próprio
 (\repo{gtkwave-nipscern}) baixado à parte. O netlistsvg deixou de ser um binário
 e roda \emph{in-process} a partir de \path{node_modules/} (ver
 \autoref{sec:cat-prism}). DigitalJS e yosys2digitaljs são bibliotecas npm
-empregadas pelo visualizador PRISM (\autoref{cap:12-prism}).
+empregadas pelo visualizador PRISM (\autoref{cap:11-aurora-prism-rtl}).
 
 \begin{nota}
 O \code{7-Zip} não é uma dependência ativa. O empacotamento de \emph{backups}
@@ -227,7 +227,7 @@ MSYS2 / MinGW runtime & --- & Diversas (GPL/LGPL/MIT por pacote) & Hospeda os bi
 \subsection{PRISM: visualização de RTL via npm}
 \label{sec:cat-prism}
 
-O PRISM (\autoref{cap:12-prism}) sintetiza o RTL com o Yosys do \emph{bundle} e
+O PRISM (\autoref{cap:11-aurora-prism-rtl}) sintetiza o RTL com o Yosys do \emph{bundle} e
 renderiza o esquemático. O netlistsvg deixou de ser um \code{.exe} empacotado e
 hoje é carregado \emph{in-process} a partir de \path{node_modules/} em
 \file{main/ipc/prism.js} (\lstinline|require('@silimate/netlistsvg')|), o que
@@ -260,7 +260,7 @@ A inteligência de edição combina dois \emph{language servers} de Verilog/Syst
 (Verible para lint/sintaxe; slang-server para análise semântica completa),
 gramáticas \code{tree-sitter} para destaque semântico de Verilog/C/C++, e o
 clang-format para formatação de C/C++/\cmm{}. Esses motores são detalhados em
-\autoref{cap:09-editor-lsp}; abaixo está apenas o inventário.
+\autoref{cap:06-aurora-editor}; abaixo está apenas o inventário.
 
 Os três binários de LSP/formatação são baixados no bootstrap, cada um com tag e
 \code{SHA-256} fixados, e instalados em \path{components/Packages/}. As gramáticas
@@ -318,7 +318,7 @@ Surfer (\code{surfer.exe}) & \code{v0.7.0} & EUPL-1.2 & Visualizador de formas d
 
 \section{Inteligência artificial}
 
-O subsistema Aurora Intelligence (\autoref{cap:13-aurora-intelligence}) é
+O subsistema Aurora Intelligence (\autoref{cap:12-aurora-intelligence-ia}) é
 construído sobre o AI SDK (Vercel) com adaptadores para vários provedores, o SDK
 do Model Context Protocol e o validador de esquemas Zod. As CLIs por assinatura
 da Anthropic (Claude Code) e da OpenAI (Codex) são integradas, mas não
@@ -367,7 +367,7 @@ O empacotamento usa Vite (build do \emph{renderer}) e electron-builder (instalad
 NSIS), com atualização automática via electron-updater (publicação em releases do
 GitHub no repositório \repo{sapho}). O log, a observação de arquivos, as operações
 de arquivo e o Git são cobertos por bibliotecas dedicadas. O processo de build
-completo está em \autoref{cap:14-build-empacotamento}.
+completo está em \autoref{cap:16-build-distribuicao}.
 
 \begin{longtable}{>{\raggedright\arraybackslash}p{0.23\linewidth} >{\raggedright\arraybackslash}p{0.11\linewidth} >{\raggedright\arraybackslash}p{0.11\linewidth} >{\raggedright\arraybackslash}p{0.43\linewidth}}
 \caption{Build e infraestrutura}\label{tab:cat-build}\\
@@ -436,17 +436,16 @@ não um pacote npm.
 
 \section{Componentes próprios do laboratório (YANC)}
 
-Embora os compiladores YANC (\autoref{cap:05-yanc-pipeline}) sejam desenvolvidos
+Embora os compiladores YANC (\autoref{cap:04-yanc-compiladores}) sejam desenvolvidos
 internamente pelo NIPS-CERN e não sejam \enquote{terceiros}, eles chegam à AURORA
 pelo mesmo mecanismo de bootstrap dos binários externos --- o
-\file{download-yanc.js} baixa \file{yanc-bin-v5.6.zip} (\emph{tag} \code{v5.5}) e o
+\file{download-yanc.js} baixa \file{yanc-bin-v7.1.zip} (\emph{tag} \code{v7.1}) e o
 extrai em \path{components/}. Registra-se aqui apenas por completude do inventário
-de artefatos baixados; o conteúdo (6 executáveis em \path{bin/} --- os
-compiladores/pré-processadores \code{cmmcomp}, \code{cppcomp}, \code{asmcomp},
-\code{cpppp} e \code{appcomp}, mais o utilitário \code{comp2gtkw} de decodificação
-de números complexos para formas de onda --- além da biblioteca Verilog HDL,
-\emph{headers} C++ e macros de ponto flutuante) é descrito no capítulo do
-\emph{pipeline} YANC. Tudo é licenciado segundo o projeto YANC.
+de artefatos baixados; o conteúdo (6 executáveis em \path{bin/}: o \emph{driver}
+\code{yanc}, os compiladores \code{cmmcomp} e \code{cppcomp}, o montador
+\code{asmcomp}, e \code{gen\_gtkw} e \code{comp2gtkw}, que montam e decodificam a
+forma de onda; além da biblioteca Verilog \path{SAPHO/}, \emph{headers} C++ e
+macros de ponto flutuante) é descrito no capítulo do \emph{pipeline} YANC. Tudo é licenciado segundo o projeto YANC.
 
 \section{Síntese de licenças}
 

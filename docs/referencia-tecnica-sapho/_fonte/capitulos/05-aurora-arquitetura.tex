@@ -5,9 +5,9 @@
 A \tool{AURORA} é a IDE desktop da plataforma \tool{SAPHO}: uma aplicação
 \href{https://www.electronjs.org/}{Electron} na qual o usuário projeta
 soft-processors, edita código em \cmm, Verilog e SystemVerilog, compila pela
-toolchain \tool{YANC} (\autoref{cap:07-yanc-pipeline}), simula, visualiza o RTL
+toolchain \tool{YANC} (\autoref{cap:04-yanc-compiladores}), simula, visualiza o RTL
 no \tool{PRISM} e conversa com o subsistema Aurora Intelligence
-(\autoref{cap:12-aurora-intelligence}). Este capítulo documenta a
+(\autoref{cap:12-aurora-intelligence-ia}). Este capítulo documenta a
 \emph{arquitetura do processo Electron}: a separação entre processo principal
 (\emph{main}) e processo de renderização (\emph{renderer}), as janelas criadas,
 a topologia de IPC (\emph{inter-process communication}) e os módulos de
@@ -16,7 +16,7 @@ processos filhos, log, carregamento do bundle do renderer).
 
 O escopo aqui é o processo \emph{main} e a fronteira IPC. A interface em si
 (componentes \href{https://lit.dev/}{Lit}, editor \tool{Monaco}, terminal,
-painéis) é tratada em \autoref{cap:06-aurora-renderer}; a toolchain, o pipeline
+painéis) é tratada em \autoref{cap:05-aurora-arquitetura}; a toolchain, o pipeline
 de compilação e o \tool{PRISM} têm capítulos próprios. Quando um assunto pertence
 a outro capítulo, ele é apenas mencionado de passagem.
 
@@ -68,9 +68,9 @@ allowlist da toolchain, confere \emph{protected flags} e só então dispara
 para o filho exatamente como está --- não há parsing de shell, portanto não há
 bug de \emph{quoting} nem vetor de injeção. É exatamente essa propriedade que
 permite que o sistema de \emph{command override} da Aurora Intelligence exista
-com segurança (\autoref{cap:12-aurora-intelligence}).
+com segurança (\autoref{cap:12-aurora-intelligence-ia}).
 
-\section{O ponto de entrada: \file{main.js}}
+\section{O ponto de entrada: \texttt{main.js}}
 \label{sec:05-mainjs}
 
 O arquivo \file{main.js} é deliberadamente magro: toda a lógica real vive em
@@ -139,7 +139,7 @@ só permite a origem própria mais a detecção local do \tool{Ollama}
 (\lstinline|localhost:11434|) --- os provedores de IA em nuvem e o \tool{MCP}
 rodam no \emph{main}, não no renderer.
 
-\section{Janelas: \file{main/windows.js}}
+\section{Janelas: \texttt{main/windows.js}}
 \label{sec:05-janelas}
 
 As fábricas de janela vivem em \file{main/windows.js}, com exceção da janela do
@@ -169,11 +169,11 @@ ligado e \lstinline|nodeIntegration| está desligado.
     540\texttimes660, \lstinline|frame:false|, \lstinline|transparent:true|,
     \lstinline|alwaysOnTop|; janela única que percorre os estados
     \emph{available} / \emph{downloading} / \emph{downloaded}
-    (\autoref{cap:13-updater-build}). Não fecha durante um download em curso. \\
+    (\autoref{cap:16-build-distribuicao}). Não fecha durante um download em curso. \\
   \tool{PRISM} & \file{js/app/preload_prism.js} &
     1400\texttimes900 (mín.\ 1000\texttimes700), \lstinline|frame:false|,
     \lstinline|thickFrame:true|; carrega \path{html/prism/prism.html}.
-    Criada em \file{main/ipc/prism.js} (\autoref{cap:08-prism-rtl}). \\
+    Criada em \file{main/ipc/prism.js} (\autoref{cap:11-aurora-prism-rtl}). \\
   Design Lab & (sem preload) &
     1100\texttimes820, janela emoldurada (controles nativos do SO), singleton.
     Galeria interna de componentes, aberta pela paleta de comandos; é uma página
@@ -250,7 +250,7 @@ de janela para \emph{a janela que o enviou}, via
 \lstinline|window:get-state| (mais zoom: \lstinline|zoom-in|,
 \lstinline|zoom-out|, \lstinline|zoom-reset|, e \lstinline|open-design-lab|).
 
-\section{Ciclo de vida da aplicação: \file{main/lifecycle.js}}
+\section{Ciclo de vida da aplicação: \texttt{main/lifecycle.js}}
 \label{sec:05-lifecycle}
 
 O módulo \file{main/lifecycle.js} concentra o ciclo de vida do app via a função
@@ -299,18 +299,18 @@ macOS).
 \section{Caminhos e estado do main}
 \label{sec:05-paths-state}
 
-\subsection{\file{main/paths.js}}
+\subsection{\texttt{main/paths.js}}
 
 Centraliza os caminhos estáticos. \lstinline|appRoot| é
 \lstinline|app.getAppPath()| (a raiz do projeto em dev, ou
 \path{resources/app.asar} empacotado). O \lstinline|componentsPath| --- onde mora
-o toolchain bundle (\autoref{cap:09-toolchain-bundle}) --- depende do modo: em dev
+o toolchain bundle (\autoref{cap:14-toolchain-bundle}) --- depende do modo: em dev
 é \path{<appRoot>/components}; empacotado, fica ao lado do executável
 (\lstinline|path.dirname(app.getPath('exe'))/components|), pois os componentes são
 distribuídos \emph{fora} do asar. O sinalizador \lstinline|isDev| deriva de
 \lstinline|process.env.NODE_ENV === 'development'|.
 
-\subsection{\file{main/state.js}}
+\subsection{\texttt{main/state.js}}
 \label{sec:05-state}
 
 Estado mutável compartilhado do \emph{main}. Todos os módulos importam a
@@ -392,7 +392,7 @@ provadamente o que matar. As primitivas de \emph{kill} (\lstinline|killProcessSi
 \section{Higiene de temporários e log}
 \label{sec:05-tempgc-log}
 
-\subsection{\file{main/temp_gc.js}}
+\subsection{\texttt{main/temp\_gc.js}}
 
 Higiene universal de temporários, \emph{best-effort} e não-bloqueante, rodada uma
 vez no startup (enfileirada para fora do caminho crítico via
@@ -401,7 +401,7 @@ vez no startup (enfileirada para fora do caminho crítico via
 temporário do SO e que nunca eram limpos, e (2) limpa as imagens de anexo da IA
 (\lstinline|cleanupTempImages(0)|), que são \emph{one-shot} por turno.
 
-\subsection{\file{main/logger.js}}
+\subsection{\texttt{main/logger.js}}
 
 Configuração central do
 \href{https://github.com/megahertz/electron-log}{\tool{electron-log}}, que é um
@@ -416,16 +416,16 @@ rotação a $\sim$5\,MB; o transporte de console é \lstinline|debug| em dev e
   \toprule
   \textbf{Sistema} & \textbf{Caminho de \path{main.log}} \\
   \midrule
-  Windows & \path{%APPDATA%/SAPHO/logs/main.log} \\
-  macOS   & \path{~/Library/Logs/SAPHO/main.log} \\
-  Linux   & \path{~/.config/SAPHO/logs/main.log} \\
+  Windows & \texttt{\%APPDATA\%/SAPHO/logs/main.log} \\
+  macOS   & \texttt{\textasciitilde/Library/Logs/SAPHO/main.log} \\
+  Linux   & \texttt{\textasciitilde/.config/SAPHO/logs/main.log} \\
   \bottomrule
 \end{tabularx}
 
 \section{Carregando o renderer empacotado pelo Vite}
 \label{sec:05-render-loader}
 
-\subsection{\file{main/render_loader.js}}
+\subsection{\texttt{main/render\_loader.js}}
 
 Toda janela de primeira parte (principal, splash, atualização, \tool{PRISM})
 carrega sua página por \lstinline|loadPage(win, relPath)|, centralizando a
@@ -445,7 +445,7 @@ resolvem pelo \emph{bundler}, então um \path{dist/} ausente é um erro de build
 --- e é exibido explicitamente como uma página de erro, não como uma UI
 silenciosamente quebrada.
 
-\subsection{\file{scripts/launch-electron.js}}
+\subsection{\texttt{scripts/launch-electron.js}}
 
 O \lstinline|npm start| não chama \lstinline|electron .| diretamente, e sim
 \file{scripts/launch-electron.js}. O motivo: alguns shells pais (o terminal
@@ -468,7 +468,7 @@ usa \lstinline|ipcMain.handle| (\emph{request/response} via
 (sinais unidirecionais, como controles de janela e a conclusão de \emph{tool
 call}).
 
-\subsection{Os módulos \file{main/ipc/*}}
+\subsection{Os módulos \texttt{main/ipc/*}}
 
 \begin{longtable}{@{}p{0.18\linewidth} r p{0.58\linewidth}@{}}
   \toprule
@@ -492,7 +492,7 @@ call}).
     \lstinline|ai:get-key-status| --- a chave \emph{nunca} sai do main),
     \lstinline|ai:chat-start|/\lstinline|ai:chat-abort|, \emph{bridges} de
     Claude Code/Codex, manifesto de \emph{tools}, histórico de conversas
-    (\autoref{cap:12-aurora-intelligence}). \\
+    (\autoref{cap:12-aurora-intelligence-ia}). \\
   \file{ipc/project.js}  & 11 &
     Lifecycle de projeto (\lstinline|project:open|, \lstinline|project:close|,
     \lstinline|project:createStructure|) e CRUD de processadores
@@ -507,7 +507,7 @@ call}).
     \tool{PRISM}: dono da janela do visualizador de RTL e de todos os passos de
     síntese (Yosys $\to$ netlistsvg): \lstinline|prism-compile-with-paths|,
     \lstinline|prism-recompile|, \lstinline|generate-svg-from-module|,
-    \lstinline|prism:build-digitaljs| (\autoref{cap:08-prism-rtl}). \\
+    \lstinline|prism:build-digitaljs| (\autoref{cap:11-aurora-prism-rtl}). \\
   \file{ipc/github_auth.js} & 7 &
     Conexão de conta GitHub (PAT validado + \emph{Device Flow} OAuth), com o
     token cifrado por \lstinline|safeStorage| (DPAPI no Windows):
@@ -524,7 +524,7 @@ call}).
     recursiva síncrona limitada por profundidade/tamanho/matches, ancorada em
     \lstinline|state.currentOpenProjectPath|. \\
   \bottomrule
-  \caption{Os nove módulos sob \file{main/ipc/} (somam 116 handlers).}
+  \caption{Os nove módulos sob \texttt{main/ipc/} (somam 116 handlers).}
 \end{longtable}
 
 \subsection{Outros registradores de IPC}
@@ -553,7 +553,7 @@ IPC que aquele renderer realmente consome --- uma allowlist de canais. Nenhum
 preload expõe um \lstinline|send|/\lstinline|invoke| genérico, então um renderer
 não pode alcançar um canal arbitrário.
 
-\subsection{\file{js/app/preload.js} (janela principal)}
+\subsection{\texttt{js/app/preload.js} (janela principal)}
 
 O preload principal expõe \emph{oito} \emph{namespaces} no
 \lstinline|window| via \lstinline|contextBridge|:

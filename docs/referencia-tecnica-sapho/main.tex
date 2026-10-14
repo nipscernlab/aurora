@@ -98,8 +98,8 @@
 
 % caixa de nota (barra colorida à esquerda)
 \newenvironment{nota}
-  {\par\medskip\noindent\begin{tabularx}{\linewidth}{!{\color{auroraTeal}\vrule width 3pt}>{\hspace{8pt}\small}X}}
-  {\end{tabularx}\par\medskip}
+  {\par\medskip\noindent\tabularx{\linewidth}{!{\color{auroraTeal}\vrule width 3pt}>{\hspace{8pt}\small}X}}
+  {\endtabularx\par\medskip}
 
 % título sem página inteira
 \setlength{\droptitle}{-3.2em}
@@ -114,7 +114,7 @@
 \normalsize\mdseries\color{auroraInk}A plataforma \textbf{AURORA} (IDE) + \textbf{YANC} (compiladores)
 para concepção de \textit{soft-processors}}
 \author{NIPS-CERN --- Universidade Federal de Juiz de Fora (UFJF)}
-\date{Suíte 6.3.2 --- junho de 2026 \quad\textbar\quad documento construído a partir do estudo do código-fonte}
+\date{Suíte 6.3.2 --- junho de 2026; compilador e pastas do processador revistos para o YANC v7.1 em outubro de 2026 \quad\textbar\quad documento construído a partir do estudo do código-fonte}
 
 \begin{document}
 \maketitle

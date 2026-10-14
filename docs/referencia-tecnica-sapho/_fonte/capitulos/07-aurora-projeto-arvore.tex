@@ -8,7 +8,7 @@ A fonte da verdade é o código-fonte do renderer (\path{js/project/},
 \path{js/tree/}, \path{js/processors/}) e dos handlers do processo principal
 (\path{main/ipc/project.js}, \path{main/ipc/files.js}, \path{main/recents.js}).
 O fluxo de compilação que consome o que está aqui descrito (botões Verilog,
-Wave, PRISM, \cmm) é assunto do \autoref{cap:08-aurora-toolchain} e não é
+Wave, PRISM, \cmm) é assunto do \autoref{cap:14-toolchain-bundle} e não é
 re-documentado aqui.
 
 \section{Visão geral do modelo de projeto}
@@ -106,13 +106,13 @@ desconhecidas sobrevivem ao \emph{round-trip} (\enquote{unknown keys survive}).
     "basePath": "C:\\Users\\dev\\Documents\\demo",
     "folders": [],
     "processors": [ { "name": "cpu" } ],
-    "topLevelFile": "cpu\\Hardware\\cpu.v",
-    "testbenchFile": "cpu\\Simulation\\cpu_tb.v",
+    "topLevelFile": "cpu\\cpu\\cpu.v",
+    "testbenchFile": "cpu\\cpu\\cpu_tb.v",
     "synthesizableFiles": [
-      { "name": "cpu.v", "path": "cpu\\Hardware\\cpu.v" }
+      { "name": "cpu.v", "path": "cpu\\cpu\\cpu.v" }
     ],
     "testbenchFiles": [
-      { "name": "cpu_tb.v", "path": "cpu\\Simulation\\cpu_tb.v" }
+      { "name": "cpu_tb.v", "path": "cpu\\cpu\\cpu_tb.v" }
     ]
   }
 }
@@ -324,9 +324,30 @@ um \emph{re-activate} completo.
 \section{Processadores}
 \label{sec:processadores}
 
-Um processador \tool{SAPHO} corresponde a uma subpasta da raiz do projeto, com
-três subpastas reconhecidas: \path{Software/}, \path{Hardware/} e
-\path{Simulation/}. A lista canônica de processadores do projeto é
+Um processador \tool{SAPHO} corresponde a uma subpasta da raiz do projeto. Desde
+o yanc v7.1 a estrutura é a do próprio YANC, igual à de quem o usa no terminal
+(\path{js/compilation/pastas_do_processador.ts}, o único módulo que responde onde
+mora cada arquivo):
+
+\begin{description}[leftmargin=1.6em]
+  \item[\path{<proj>/<proc>/}] o que a pessoa escreve: \file{<proc>.cmm} ou
+    \file{<proc>.cpp}, os arquivos que inicializam vetores, \file{input\_N.txt},
+    \file{cade\_k.txt} e os \emph{headers} do C++;
+  \item[\path{<proj>/<proc>/<proc>/}] a pasta de saída, plana, com tudo o que o
+    \tool{yanc} gera: \file{.asm}, \file{prog\_log.txt}, \file{src\_lines.txt},
+    \file{pc\_<proc>\_mem.txt}, \file{app\_log.txt}, \file{trad\_opcode.txt},
+    \file{<proc>.v}, os \file{.mif} e \file{<proc>\_tb.v}. A simulação do
+    processador roda com ela como diretório de trabalho e grava ali
+    \file{output\_N.txt} e o \file{.vcd}.
+\end{description}
+
+Antes havia \path{Software/}, \path{Hardware/} e \path{Simulation/} dentro de
+\path{<proj>/<proc>/}, e os intermediários iam para \path{.aurora/Temp/<proc>}. O
+nome do processador é o nome do arquivo fonte e vira módulo Verilog, por isso a
+regra de nome é a do YANC (\file{Compilers/common/proc_name.c}), copiada em
+\lstinline|problemaNoNomeDoProcessador|: só letras ASCII, dígitos e
+\lstinline|_|, sem dígito nem \lstinline|__| no início, nenhuma palavra reservada
+do Verilog ou do SystemVerilog. A lista canônica de processadores do projeto é
 \lstinline|structure.processors| no \path{.spf} (cada entrada é
 \lstinline|{ name }|); em memória, no renderer, a lista de nomes vive em
 \lstinline|window.availableProcessors|.
@@ -347,21 +368,20 @@ em \path{.js}) é o dono único de \lstinline|window.availableProcessors| e exp�
 
 \subsection{Criar processador}
 
-A criação é feita pelo \emph{Processor Hub} (\path{js/processors/processor_hub.js}):
-um formulário modal com validação ao vivo. As regras de validação são:
+A criação é feita pelo \emph{Processor Hub} (\path{js/processors/processor_hub.ts}):
+um formulário modal com validação ao vivo, que pergunta também a linguagem (C± ou
+C++). As regras de validação são:
 
 \begin{longtable}{p{0.30\linewidth} p{0.62\linewidth}}
   \toprule
   \textbf{Campo} & \textbf{Regra} \\
   \midrule
   \endhead
-  \lstinline|name|         & \lstinline|/^[a-zA-Z0-9_-]+$/| (letras, números, hífen, sublinhado). \\
-  \lstinline|nBits|        & Inteiro positivo; deve satisfazer a consistência abaixo. \\
-  \lstinline|nbMantissa|   & Inteiro positivo. \\
-  \lstinline|nbExponent|   & Inteiro positivo. \\
-  \lstinline|gain|         & Potência de 2 (\lstinline|(num & (num-1)) === 0|). \\
-  \lstinline|instructionStackSize| & Inteiro positivo. \\
-  \lstinline|dataStackSize|        & Inteiro positivo. \\
+  \lstinline|name|         & A regra do YANC (\lstinline|problemaNoNomeDoProcessador|): letras ASCII, dígitos e \lstinline|_|, sem dígito nem \lstinline|__| no início, sem palavra reservada do Verilog. \\
+  \lstinline|nBits|        & Inteiro positivo; deve satisfazer a consistência abaixo (só em C±). \\
+  \lstinline|nbMantissa|   & Inteiro positivo (só em C±). \\
+  \lstinline|nbExponent|   & Inteiro positivo (só em C±). \\
+  \lstinline|gain|         & Potência de 2 (\lstinline|(num & (num-1)) === 0|; só em C±). \\
   \lstinline|inputPorts|   & Inteiro positivo. \\
   \lstinline|outputPorts|  & Inteiro positivo. \\
   \bottomrule
@@ -372,38 +392,44 @@ A consistência de bits exige \lstinline|nBits === nbMantissa + nbExponent + 1|
 quando todos os campos passam (\lstinline|validateAll|).
 
 No envio, o renderer chama \lstinline|electronAPI.createProcessorProject|; o
-handler \lstinline|create-processor-project| (\path{main/ipc/project.js}):
+handler \lstinline|create-processor-project| (\path{main/ipc/project.ts}):
 
 \begin{enumerate}[leftmargin=1.8em]
-  \item re-valida o nome (defesa contra \emph{path traversal}: o nome vai direto
-    para \lstinline|path.join|, então é confinado a um único segmento);
-  \item cria \path{<proc>/Software}, \path{<proc>/Hardware} e
-    \path{<proc>/Simulation};
-  \item escreve \path{Software/<proc>.cmm} com um cabeçalho de diretivas
-    \tool{SAPHO} preenchido a partir do formulário;
-  \item acrescenta \lstinline|{ name }| em \lstinline|structure.processors| do
-    \path{.spf} (com \emph{dedup case-insensitive}) e reescreve o arquivo;
-  \item emite o evento IPC \lstinline|processor:created| para o renderer.
+  \item re-valida o nome com a mesma regra (\lstinline|erroDoNome|), que também
+    confina o nome a um único segmento de caminho (defesa contra \emph{path
+    traversal});
+  \item cria só a pasta \path{<proc>/}; a pasta de saída \path{<proc>/<proc>/} o
+    \tool{yanc} cria na primeira compilação;
+  \item escreve \path{<proc>/<proc>.cmm} (diretivas) ou \path{<proc>/<proc>.cpp}
+    (\lstinline|#pragma yanc|), conforme a linguagem
+    (\path{js/project/processor_defaults.ts});
+  \item devolve a entrada do \path{.spf} (\lstinline|{ name }|, com
+    \lstinline|language: 'cpp'| só no C++), que o renderer grava pelo
+    \code{SpfStore} (\path{js/project/processadores_do_spf.ts}); o aviso
+    \lstinline|processor:created| sai quando essa gravação chega.
 \end{enumerate}
 
-O cabeçalho \file{.cmm} gerado tem a forma:
+O cabeçalho \file{.cmm} gerado não tem \lstinline|#PRNAME| (desde o yanc v7.1 o
+nome é o do arquivo, e a diretiva é erro). As pilhas (\lstinline|#NDSTAC|,
+\lstinline|#SDEPTH|) e o \lstinline|#NUGAIN| têm padrão no YANC e só entram quando
+alguém pede um valor: as pilhas pela API, o ganho quando difere de 128. A forma
+é:
 
 \begin{lstlisting}[style=cmm]
-#PRNAME <nome>
 #NUBITS <nBits>
-#NDSTAC <dataStackSize>
-#SDEPTH <instructionStackSize>
 #NUIOIN <inputPorts>
 #NUIOOU <outputPorts>
 #NBMANT <nbMantissa>
 #NBEXPO <nbExponent>
-#NUGAIN <gain>
 
 void main()
 {
     // ...
 }
 \end{lstlisting}
+
+O fonte C++ tem só \lstinline|#pragma yanc nuioin| e \lstinline|#pragma yanc nuioou|
+e um \lstinline|void main(void)|: o resto fica com os padrões do \tool{cppcomp}.
 
 \begin{nota}
 As diretivas \lstinline|#NUBITS|, \lstinline|#NBMANT| etc. no \file{.cmm} são a
@@ -416,28 +442,31 @@ no \file{.cmm}. A semântica das diretivas é detalhada nos capítulos do
 \subsection{Renomear processador}
 \label{sec:rename}
 
-O handler \lstinline|rename-processor| (\path{main/ipc/project.js}) renomeia o
-processador em todas as superfícies internas do \tool{SAPHO}, de forma atômica:
+O handler \lstinline|rename-processor| (\path{main/ipc/project.ts}) renomeia o
+processador no disco. Desde o yanc v7.1 o nome do processador é o nome do fonte,
+então renomear é renomear arquivos; não há diretiva a reescrever:
 
 \begin{enumerate}[leftmargin=1.8em]
+  \item valida o nome novo com a regra do YANC (\lstinline|erroDoNome|) e recusa
+    colisão com outro processador ou pasta;
   \item libera os \emph{watchers} sob a raiz do projeto
-    (\lstinline|releaseWatchersUnder|) — sem isso o \tool{chokidar} mantém um
+    (\lstinline|releaseWatchersUnder|); sem isso o \tool{chokidar} mantém um
     \emph{handle} e a renomeação da pasta falharia com EPERM/EBUSY no Windows;
   \item move a pasta \path{<root>/<old>} $\rightarrow$ \path{<root>/<new>}
     (\lstinline|moveWithRetry|; renomeação só de \emph{case} usa um salto por
-    pasta temporária);
-  \item renomeia os artefatos nomeados pelo processador:
-    \path{Software/<old>.cmm}, \path{Software/<old>.asm},
-    \path{Hardware/<old>.v}, \path{Simulation/<old>_tb.v};
-  \item corrige a diretiva \lstinline|#PRNAME| no \file{.cmm} — \emph{apenas} a
-    linha da diretiva; comentários e código do usuário não são tocados;
-  \item atualiza a entrada em \lstinline|processors[]| preservando a
-    configuração por processador;
-  \item faz \lstinline|remapProcessorPath| de qualquer referência do \path{.spf}
+    pasta temporária) e a pasta de saída \path{<new>/<old>/} $\rightarrow$
+    \path{<new>/<new>/};
+  \item renomeia os arquivos que levam o nome do processador
+    (\lstinline|artefatosDoProcessador|, em \path{main/ipc/processor_rename.ts}):
+    o fonte das duas linguagens (\file{<old>.cmm}, \file{<old>.cpp}) e, na pasta de
+    saída, \file{.asm}, \file{.v}, \file{\_tb.v}, os \file{.mif} e
+    \file{pc\_<old>\_mem.txt}; o que não existir no disco é pulado;
+  \item emite \lstinline|processor:renamed|. A entrada em \lstinline|processors[]|
+    e as referências do \path{.spf} que apontavam para dentro da pasta antiga
     (\lstinline|topLevelFile|, \lstinline|testbenchFile|,
-    \lstinline|synthesizableFiles|, \lstinline|testbenchFiles|) que apontava para
-    dentro da pasta antiga;
-  \item emite \lstinline|project:processors| e \lstinline|processor:renamed|.
+    \lstinline|synthesizableFiles|, \lstinline|testbenchFiles|) mudam no renderer,
+    pelo \code{SpfStore} (\lstinline|renomearProcessador| em
+    \path{js/project/processadores_do_spf.ts}).
 \end{enumerate}
 
 \subsection{Deletar processador}
@@ -447,16 +476,49 @@ O handler \lstinline|delete-processor| remove a pasta do processador do disco
 \path{.spf} e emite \lstinline|project:processors| atualizado. No renderer, a
 opção \enquote{Delete processor} aparece no menu de contexto do separador de
 processador na árvore (\lstinline|_deleteProcessorByName| em
-\path{project_tree_actions.js}, que chama \lstinline|electronAPI.deleteProcessor|).
+\path{project_tree_actions.ts}, que chama \lstinline|electronAPI.deleteProcessor|).
+
+\subsection{Conversão de projetos da estrutura antiga}
+\label{sec:conversao-estrutura}
+
+Um projeto de antes do yanc v7.1, com \path{Software/}, \path{Hardware/} e
+\path{Simulation/} em cada processador, não compila sem conversão: a
+\tool{AURORA} procura o fonte em \path{<proc>/} e não acha. Na abertura do
+projeto, o \code{project\_manager} chama \lstinline|oferecerConversao|
+(\path{js/project/conversao_na_abertura.ts}), que pergunta uma vez pelo projeto
+inteiro antes de mover arquivos da pessoa; quem responde \enquote{agora não} não é
+perguntado de novo na mesma sessão, e o projeto segue sem compilar. O plano e a
+execução estão em \path{js/project/estrutura_antiga.ts}:
+
+\begin{itemize}[leftmargin=1.6em]
+  \item a conversão \emph{move} e não apaga. O que o YANC gerava (\file{.asm},
+    \file{.v}, \file{\_tb.v}, \file{.mif}, as tabelas antigas e novas, as saídas
+    da simulação) vai para a pasta de saída, onde a próxima compilação o
+    sobrescreve; o resto, que é da pessoa (o fonte, os arquivos de vetor,
+    \file{input\_N.txt}, um \file{.v} posto em \path{Hardware/}), vai para a pasta
+    do processador;
+  \item um destino que já existe não é sobrescrito: o arquivo fica onde estava e
+    entra no relatório, e a subpasta antiga só sai quando fica vazia;
+  \item a linha do \lstinline|#PRNAME| (ou do \lstinline|#pragma yanc prname|) sai
+    do fonte, e os caminhos do \path{.spf} são trocados pelos novos
+    (\lstinline|remapearEstrutura|);
+  \item no fim, um relatório mostra o que foi movido e oferece renomes
+    (\lstinline|renomesSugeridos|): quando o \lstinline|#PRNAME| antigo dava ao
+    módulo um nome diferente do da pasta, voltar a ele mantém o \emph{top-level}
+    do projeto funcionando; quando o nome da pasta não serve de módulo, sugere o
+    mais parecido que serve.
+\end{itemize}
 
 \subsection{Agrupamento e identificação na árvore}
 
 Na view de arquivos (\enquote{verilog picker}), os arquivos são agrupados por
-processador. A função \lstinline|_getProcessorForFile| em \path{file_mode.js}
-decide o \enquote{dono} de um arquivo: o caminho precisa cair em
-\path{<projeto>/<proc>/{Hardware|Software|Simulation}/<arquivo>} e
-\lstinline|<proc>| precisa estar em \lstinline|window.availableProcessors|
-(comparação \emph{case-insensitive}). Cada grupo é precedido por um separador
+processador. A função \lstinline|_getProcessorForFile| em \path{file_mode.ts}
+decide o \enquote{dono} de um arquivo por \lstinline|processadorDoCaminho|
+(\path{pastas_do_processador.ts}): o caminho precisa cair em
+\path{<projeto>/<proc>/<arquivo>} (a pasta do fonte) ou em
+\path{<projeto>/<proc>/<proc>/<arquivo>} (a pasta de saída), e
+\lstinline|<proc>| precisa estar na lista de processadores (comparação
+\emph{case-insensitive}). Cada grupo é precedido por um separador
 horizontal rotulado com o nome do processador
 (\lstinline|_createProcessorSeparator| em \path{project_tree_render.js}); o
 grupo de arquivos importados que não pertencem a nenhum processador aparece sob
@@ -544,7 +606,7 @@ linhas ainda desejadas são atualizadas \emph{in-place}
 (\lstinline|_createFileItem|) e posicionados via \lstinline|insertBefore|. É
 idempotente: o mesmo input duas vezes não causa mutações na segunda chamada.
 
-As linhas software (\file{.cmm} em \path{Software/}) não recebem botão de
+As linhas software (o \file{.cmm} ou \file{.cpp} em \path{<proc>/}) não recebem botão de
 remoção (são geridas pelo processador). Arquivos importados que sumiram do disco
 são exibidos num cartão de aviso (\lstinline|_renderMissingFilesNotice|).
 
@@ -667,24 +729,26 @@ O diagrama abaixo resume a estrutura típica de um projeto com um processador
 demo/                          <- pasta do projeto (== nome do .spf)
 |-- demo.spf                   <- arquivo de projeto (JSON: metadata + structure)
 |-- cpu/                       <- processador SAPHO
-|   |-- Software/
-|   |   |-- cpu.cmm            <- fonte C+-  (#PRNAME, #NUBITS, ...)
-|   |   `-- cpu.asm            <- gerado (nao aparece na arvore)
-|   |-- Hardware/
-|   |   `-- cpu.v              <- Verilog sintetizavel (synth top)
-|   `-- Simulation/
-|       `-- cpu_tb.v           <- testbench (testbench top)
+|   |-- cpu.cmm                <- fonte C+-  (#NUBITS, #NUIOIN, ...)
+|   |-- input_0.txt            <- dados da simulacao, escritos pela pessoa
+|   `-- cpu/                   <- pasta de saida do yanc
+|       |-- cpu.asm            <- gerado (nao aparece na arvore)
+|       |-- prog_log.txt, src_lines.txt, pc_cpu_mem.txt, app_log.txt, trad_opcode.txt
+|       |-- cpu.v              <- Verilog sintetizavel (synth top)
+|       |-- cpu_inst.mif, cpu_data.mif
+|       `-- cpu_tb.v           <- testbench (testbench top); a simulacao roda aqui
 |-- (arquivos .v importados)   <- grupo "Imported" na arvore
 `-- Backup/
     `-- demo_2026-06-21.zip    <- backup sob demanda
 \end{lstlisting}
 
 \begin{nota}
-A categoria de cada \file{.v} (synth ou testbench) é decidida pelo conteúdo, não
-pela subpasta: \lstinline|_discoverProcessorFiles| em \path{file_mode.js} varre
-as três subpastas (\path{Hardware}, \path{Software}, \path{Simulation}) e aceita
-\file{.v}/\file{.sv}/\file{.vh} como sintetizáveis e \file{.cmm} como software,
-independentemente da pasta; o \lstinline|_classifyAll| posteriormente reclassifica
-cada Verilog. O \file{.asm} é gerado e re-descoberto a cada \emph{load}, ficando
+\lstinline|_discoverProcessorFiles| em \path{file_mode.ts} varre as duas pastas
+de cada processador, a do fonte (\path{<proc>/}) e a de saída
+(\path{<proc>/<proc>/}). O fonte (\file{.cmm}/\file{.cpp}) só vale na pasta do
+processador; na de saída, um \file{\_tb.v}/\file{\_tb.sv} entra como
+\emph{testbench} e o resto do Verilog como sintetizável; um Verilog que a pessoa
+pôs na pasta do processador entra sem classificação, até ela escolher o papel
+dele. O \file{.asm} é gerado e re-descoberto a cada \emph{load}, ficando
 fora da árvore para não gerar laço com o \emph{watcher}.
 \end{nota}

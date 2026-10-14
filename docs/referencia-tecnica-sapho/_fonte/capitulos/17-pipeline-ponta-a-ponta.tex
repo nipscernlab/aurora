@@ -37,9 +37,10 @@ tenha gravado em disco ou no \file{.spf}.
   \item \textbf{Código-fonte} — escreve-se o programa em \cmm{} (\file{.cmm}) ou
         em C++ (\file{.cpp}), além do Verilog de top-level e do testbench quando
         houver.
-  \item \textbf{Compilação} — \tool{cmmcomp} gera o \file{.asm}; \tool{appcomp}
-        pré-processa; \tool{asmcomp} gera o \file{.v} sintetizável, as imagens de
-        memória e o testbench padrão \file{<proc>\_tb.v}.
+  \item \textbf{Compilação} — o \emph{driver} \tool{yanc} roda o \tool{cmmcomp}
+        (ou o \tool{cppcomp}), que gera o \file{.asm}, e depois o \tool{asmcomp},
+        que gera o \file{.v} sintetizável, as imagens de memória e o testbench
+        padrão \file{<proc>\_tb.v}.
   \item \textbf{Simulação} — Icarus (\tool{iverilog}\,+\,\tool{vvp}), \tool{Verilator}
         ou \tool{cocotb} (Python) elabora o design e produz o \emph{dump} de ondas.
   \item \textbf{Instrumentação do dump} — o testbench recebe \lstinline|$dumpfile|/%
@@ -107,12 +108,13 @@ Do lado do main, a spec é \emph{re-validada}: o campo \code{binary} precisa bat
 com o \emph{basename} e com um dos diretórios legais listados em
 \file{main/compile/binary\_allowlist.js}. Essa tabela é a fronteira de confiança —
 um renderer comprometido não consegue spawnar um executável fora dela. A tabela
-inclui \file{cmmcomp.exe}, \file{appcomp.exe}, \file{asmcomp.exe} e
-\file{comp2gtkw.exe} (em \path{components/bin}); \file{iverilog.exe},
+inclui \file{yanc.exe} e \file{comp2gtkw.exe} (em \path{components/bin}; desde o
+yanc v7.1 \file{cmmcomp.exe}, \file{cppcomp.exe} e \file{asmcomp.exe} não entram,
+porque só o \tool{yanc} os chama); \file{iverilog.exe},
 \file{vvp.exe}, \file{verilator.exe}, \file{yosys.exe}, \file{g++.exe},
 \file{make.exe} e \file{perl.exe} (em \path{Packages/msys/mingw64/bin});
 \file{gtkwave.exe} e \file{fst2vcd.exe} (do fork \tool{gtkwave-nipscern}); e
-\file{surfer.exe}. O \tool{netlistsvg} do \tool{PRISM} não está na tabela porque
+\file{surfer-aurora.exe}. O \tool{netlistsvg} do \tool{PRISM} não está na tabela porque
 roda \emph{in-process} (não é um \file{.exe} bundled).
 
 \begin{nota}
@@ -133,12 +135,15 @@ O artefato raiz é o arquivo de projeto \file{.spf} (\emph{SAPHO Project File}).
 \path{processorConfig.json}) foram consolidados no \file{.spf} — ver o cabeçalho de
 \file{compilation\_module.js} e \autoref{cap:07-aurora-projeto-arvore}.
 
-Para cada processador, a estrutura de pastas é \path{<proj>/<proc>/Software/}
-(onde mora o \file{.cmm}) e \path{<proj>/<proc>/Hardware/} (onde o \file{.v}
-gerado será gravado). A AURORA mantém ainda a área de \emph{scratch}
-\path{components/Temp/<proc>/}, criada por \code{ensureDirectories} /
-\code{createDirectory}, que serve de diretório temporário (\lstinline|-t|) dos
-compiladores e de CWD da simulação. A árvore de arquivos e a leitura/escrita do
+Para cada processador, a estrutura de pastas é a do próprio \tool{YANC} (desde a
+v7.1): \path{<proj>/<proc>/}, onde mora o fonte (\file{<proc>.cmm} ou
+\file{<proc>.cpp}) com os arquivos de dados, e a pasta de saída
+\path{<proj>/<proc>/<proc>/}, onde o \tool{yanc} grava tudo o que gera e onde roda
+a simulação do \file{<proc>\_tb.v}. Os intermediários da simulação (o \file{.vvp},
+o testbench instrumentado, o \path{obj_dir} do Verilator) ficam em
+\path{<proj>/.aurora/Temp/}. Um projeto da estrutura antiga
+(\path{Software/}, \path{Hardware/}, \path{Simulation/}) é convertido na abertura,
+com confirmação (\autoref{sec:conversao-estrutura}). A árvore de arquivos e a leitura/escrita do
 \file{.spf} são detalhadas em \autoref{cap:07-aurora-projeto-arvore}.
 
 \section{Estágio 2 — Escrever o código-fonte}
@@ -157,70 +162,70 @@ ser o padrão auto-gerado pelo \tool{asmcomp} (\file{<proc>\_tb.v}, que exercita
 \file{top\_level\_tb.v}, que instancia o top-level com vários processadores).
 
 \begin{nota}
-\textbf{Instrumentação \lstinline|#TOAQUI| (botão Verilator).} Quando a simulação
-escolhida é Verilator, \code{ensureChegueiToaqui} (em
-\file{processor\_compiler.js}) garante que o \file{.cmm} tenha a diretiva
-\lstinline|#TOAQUI| antes do \lstinline|}| de \code{main()} — sem ela, o pino
-\code{cheguei} não vira porta do \file{<proc>.v} e o harness não detecta o fim do
-programa. A operação é idempotente e ocorre \emph{depois} de salvar os buffers,
-sincronizando o editor para que um Ctrl+S posterior não derrube a instrumentação.
+\textbf{Fim do programa no botão Verilator.} O \emph{harness} do Verilator não
+escreve mais \lstinline|#TOAQUI| no \file{.cmm} da pessoa. Ele liga o bloco
+\lstinline|YANC_SIM_VIS| do \file{<proc>.v} (\lstinline|+define+YANC_TRACE|), lê a
+cadeia de atraso do PC (\lstinline|valr10|) e para quando ela chega ao endereço
+\lstinline|@fim|, lido da linha \lstinline|@fim <n>| do \file{app\_log.txt} da pasta
+de saída (\lstinline|enderecoDoFim|, em \file{teste\_de\_hardware.ts}): a mesma
+fonte que o \tool{asmcomp} usa para o \lstinline|$finish| do \file{\_tb.v}.
 \end{nota}
 
 \section{Estágio 3 — Compilar: \texorpdfstring{\cmm{}}{C+-} até Verilog}
 \label{sec:17-compilar}
 
-Este é o coração do pipeline. São três binários do \tool{YANC} em sequência,
-um por processador, com a AURORA salvando os buffers do editor antes de cada
-passo (\code{TabManager.saveAllFiles()}).
+Este é o coração do pipeline. Desde o yanc v7.1 a AURORA chama um binário só, o
+\emph{driver} \file{components/bin/yanc.exe}, em dois passos por processador, para
+manter separados os terminais TCMM e TASM, salvando os buffers do editor antes de
+cada passo (\code{TabManager.saveAllFiles()}).
 
-\subsection{3a — \texttt{cmmcomp}: \texorpdfstring{\cmm{}}{C+-} → assembly}
+\subsection{3a — \texttt{yanc -S}: fonte → assembly}
 
-\code{cmmCompilation} (\file{processor\_compiler.js}) monta a spec via
-\code{buildCmmSpec} e roda \file{components/bin/cmmcomp.exe}. As opções nomeadas
-do \tool{YANC} v4 são \lstinline|-i input -n name -p proc-dir -m macros-dir -t temp-dir|,
-com \lstinline|-A|/\lstinline|--array| habilitando o dump de arrays
-(\code{showArrays} do \file{.spf}) e a flag de locale (\lstinline|-pt|/\lstinline|-en|)
-indo \emph{primeiro}. O script de referência mostra a mesma chamada:
-
-\begin{lstlisting}[language=bash]
-"$BIN_DIR/cmmcomp" -i "$FNAM" -n "$PROC" -p "$PROC_DIR" -m "$MAC_DIR" -t "$TMP_PRO"
-\end{lstlisting}
-
-\textbf{Artefatos produzidos:} \file{<proj>/<proc>/Software/<base>.asm} (o assembly
-SAPHO), as imagens de memória do processador (\file{<proc>\_data.mif} /
-\file{<proc>\_inst.mif} no fluxo single, e \file{pc\_<proc>\_mem.txt} no
-\path{Temp/<proc>/}) e o \file{cmm\_log.txt}. A AURORA cacheia o caminho do
-\file{.cmm} corrente (\code{lastCompiledCmmPath}) \emph{antes} de rodar, para que
-o clique em ``linha N'' no terminal resolva o arquivo mesmo após falha.
-
-\subsection{3b — \texttt{appcomp}: pré-montagem}
-
-\code{asmCompilation} chama primeiro \file{components/bin/appcomp.exe} (spec por
-\code{buildAsmPreSpec}), que pré-processa o assembly resolvendo parâmetros e
-endereços. As opções são \lstinline|-i input -t temp-dir|:
+\code{cmmCompilation} (ou \code{cppCompilation}, para um \file{.cpp}), em
+\file{processor\_compiler.ts}, monta a spec via \code{buildCmmSpec} (ou
+\code{buildCppSpec}) e roda \file{components/bin/yanc.exe}, que chama o
+\tool{cmmcomp} (ou o \tool{cppcomp}). O \lstinline|-S| para no \file{.asm}, o
+\lstinline|-o| é a pasta de saída, \lstinline|--wave-arrays| habilita o dump de
+arrays (\code{showArrays} do \file{.spf}, só C±) e \lstinline|--lang| segue o idioma
+da IDE. O cwd é a pasta do fonte. O script de referência do \repo{yanc} faz a mesma
+chamada direto no compilador:
 
 \begin{lstlisting}[language=bash]
-"$BIN_DIR/appcomp" -i "$ASM_FILE" -t "$TMP_PRO"
+# AURORA (TCMM), cwd = <proj>/<proc>
+yanc -S -o <proj>/<proc>/<proc> [--wave-arrays] --lang=pt <proj>/<proc>/<proc>.cmm
+# Scripts/single_proc.sh
+"$BIN_DIR/cmmcomp" -o "$TMP_PRO" "$SRC_DIR/$FNAM"
 \end{lstlisting}
 
-\subsection{3c — \texttt{asmcomp}: assembly → Verilog sintetizável}
+\textbf{Artefatos produzidos}, todos na pasta de saída \path{<proj>/<proc>/<proc>/}:
+\file{<proc>.asm} (o assembly SAPHO), \file{prog\_log.txt} (variáveis,
+\lstinline|num_ins|, \lstinline|srcdir| e \lstinline|lang|),
+\file{pc\_<proc>\_mem.txt} e \file{src\_lines.txt}. A AURORA cacheia o caminho do
+fonte corrente (\code{lastCompiledCmmPath}) \emph{antes} de rodar, para que o
+clique em ``linha N'' no terminal resolva o arquivo mesmo após falha.
 
-Em seguida \code{asmCompilation} roda \file{components/bin/asmcomp.exe} (spec por
-\code{buildAsmSpec}), com as opções nomeadas
-\lstinline|-i -p -d -m -t -f -c|, onde \lstinline|-f| é a frequência de clock
-(\code{clk}) e \lstinline|-c| o número de clocks (\code{numClocks}) — ambos
-obrigatoriamente inteiros:
+\subsection{3b — \texttt{yanc <proc>.asm}: assembly → Verilog sintetizável}
+
+Em seguida \code{asmCompilation} roda o mesmo \file{yanc.exe} sobre o \file{.asm}
+(spec por \code{buildAsmSpec}), que chama o \tool{asmcomp}; as duas passadas do
+montador (a primeira era o antigo \tool{appcomp}) rodam ali. \lstinline|-f| é a
+frequência de clock (\code{clk}) e \lstinline|-c| o número de clocks
+(\code{numClocks}), ambos obrigatoriamente inteiros; o cwd é a pasta de saída:
 
 \begin{lstlisting}[language=bash]
-"$BIN_DIR/asmcomp" -i "$ASM_FILE" -p "$PROC_DIR" -d "$HDL_DIR" \
-    -m "$MAC_DIR" -t "$TMP_PRO" -f "$FRE_CLK" -c "$NUM_CLK"
+# AURORA (TASM), cwd = <proj>/<proc>/<proc>
+yanc -f <clk> -c <numClocks> --lang=pt <proj>/<proc>/<proc>/<proc>.asm
+# Scripts/single_proc.sh
+"$BIN_DIR/asmcomp" -f "$FRE_CLK" -c "$NUM_CLK" "$ASM_FILE"
 \end{lstlisting}
 
-\textbf{Artefatos produzidos:} \file{<proj>/<proc>/Hardware/<proc>.v} (o RTL
-sintetizável do processador), as imagens de memória \file{.mif} e o testbench
-padrão \file{<proc>\_tb.v}. Quando o processador usa o testbench ``standard''
-(sem testbench customizado no \file{.spf}), a AURORA copia o \file{<base>\_tb.v}
-gerado de \path{Temp/<proc>/} para \path{<proj>/<proc>/Simulation/}.
+\textbf{Artefatos produzidos}, na mesma pasta de saída: \file{<proc>.v} (o RTL
+sintetizável do processador), as imagens de memória \file{.mif},
+\file{app\_log.txt}, \file{trad\_opcode.txt} e o testbench padrão
+\file{<proc>\_tb.v}, já pronto para rodar dali (ele nomeia tudo relativo à pasta
+de saída). Não há mais cópia do \file{\_tb.v} para outra pasta. Ao fim, o terminal
+TASM mostra um resumo do \file{<proc>.v} lido do próprio arquivo (módulos, portas e
+instâncias).
 
 \begin{nota}
 \textbf{Biblioteca SAPHO via \lstinline|-y|.} O \file{<proc>.v} gerado instancia
@@ -248,10 +253,13 @@ pré-compilação dos processadores (\code{precompileAllProcessors}) já rodou a
 \code{waveBuildVvp} monta a spec via \code{buildIverilogBuildSpec} e compila o
 \file{.vvp} a partir dos \code{synthesizableFiles} + testbench instrumentado, com
 \lstinline|-s <tbModule>| (top de simulação) e \lstinline|-y components/SAPHO|. A
-fase \code{\_waveRunVvpSimulation} então roda \tool{vvp} com CWD em
-\path{components/Temp/}, depois de \code{stageProcessorMemoryFiles} ter copiado os
-\file{pc\_<proc>\_mem.txt} para a raiz desse diretório (é onde o
-\lstinline|$readmemb| do \file{<proc>.v} procura). A linha de referência:
+fase \code{\_waveRunVvpSimulation} então roda \tool{vvp} com CWD no diretório da
+simulação: a pasta de saída do processador, para o \file{<proc>\_tb.v} gerado, ou
+a pasta do projeto, para um testbench de projeto. Antes,
+\code{stageProcessorMemoryFiles} copia para esse diretório, de cada processador,
+os \file{<proc>\_inst.mif}, \file{<proc>\_data.mif} e \file{pc\_<proc>\_mem.txt}
+que o \file{<proc>.v} lê pelo nome puro (nada é copiado quando a simulação já roda
+na pasta de saída). A linha de referência:
 
 \begin{lstlisting}[language=bash]
 "$IVERILOG" -s "$TB_MOD" -o "$TMP_PRO/$PROC.vvp" \
@@ -265,7 +273,7 @@ fase \code{\_waveRunVvpSimulation} então roda \tool{vvp} com CWD em
 
 Quando \code{getSimulator()} retorna \code{'verilator'}, \code{\_waveBuildVerilator}
 (specs por \code{buildVerilatorBuildSpec} / \code{buildVerilatorTbBuildSpec}) faz a
-verilation + \tool{g++} num executável nativo sob \path{components/Temp/}, e
+verilation + \tool{g++} num executável nativo sob \path{<proj>/.aurora/Temp/}, e
 \code{\_waveRunVerilatorSimulation} o executa. O script de referência usa
 \lstinline|--binary --timing --trace +define+YANC_TRACE| reaproveitando o
 \file{<proc>\_tb.v} como top.
@@ -292,7 +300,7 @@ usuário)} > \textbf{testbench com \lstinline|$dumpvars| escrito à mão} >
 \code{instrumentTestbench} então lê o testbench original e, via
 \code{instrumentTestbenchSource} (\file{testbench\_instrumenter.js}), injeta
 \lstinline|$dumpfile|/\lstinline|$dumpvars| conforme a seleção, gravando uma
-\emph{cópia} em \path{components/Temp/instr_<tb>.v}. \textbf{O testbench original
+\emph{cópia} em \path{<proj>/.aurora/Temp/instr_<tb>.v}. \textbf{O testbench original
 nunca é tocado.} A escrita é idempotente por conteúdo (só regrava se mudou), o que
 evita recompilações desnecessárias no caminho do Verilator. O conjunto final de
 fontes passado ao simulador é \code{synthesizableFiles} + esse testbench
@@ -361,24 +369,23 @@ de cada transição. A coluna da esquerda é o que o renderer orquestra; os bin�
         v
      <proj>.spf  ........... fonte canonica (synthesizableFiles, testbenchFiles,
         |                     processors[]: name/cmmFile/clk/numClocks/showArrays)
-        |  cria pastas:  <proj>/<proc>/{Software,Hardware,Simulation}
-        |                components/Temp/<proc>/   (scratch -t / CWD da sim)
+        |  cria pasta:   <proj>/<proc>/   (fonte + dados; a saida <proc>/<proc>/
+        |                o yanc cria)     <proj>/.aurora/Temp/ (intermediarios)
         v
  (2) CODIGO-FONTE  (editor Monaco)
      <proc>.cmm  (ou .cpp)   + top-level.v  + testbench (<proc>_tb.v auto ou
         |                                     top_level_tb.v / *.py do usuario)
-        |   [Verilator] ensureChegueiToaqui -> injeta #TOAQUI no .cmm
         v
  (3) COMPILACAO   (precompileAllProcessors -> por processador)
      +--------------------------------------------------------------+
-     | [cmmcomp.exe]  -i .cmm -n -p -m -t  [--array] [-pt|-en]      |
-     |     -> <proc>.asm  +  cmm_log.txt  +  pc_<proc>_mem.txt      |
-     |                       +  <proc>_data.mif / <proc>_inst.mif   |
-     | [appcomp.exe]  -i .asm -t                                    |
-     |     -> .asm pre-processado (params + enderecos)              |
-     | [asmcomp.exe]  -i .asm -p -d SAPHO -m -t -f<clk> -c<numClk>  |
-     |     -> Hardware/<proc>.v  (RTL sintetizavel)                 |
-     |     -> <proc>_tb.v  (testbench padrao) -> Simulation/        |
+     | [yanc.exe] -S -o <proc>/<proc> [--wave-arrays] --lang=..     |
+     |     (cmmcomp ou cppcomp)                         -> TCMM     |
+     |     -> <proc>.asm + prog_log.txt + pc_<proc>_mem.txt         |
+     |        + src_lines.txt              (em <proc>/<proc>/)      |
+     | [yanc.exe] -f<clk> -c<numClk> --lang=.. <proc>.asm           |
+     |     (asmcomp, 2 passadas)                        -> TASM     |
+     |     -> app_log.txt + <proc>.v + .mif + trad_opcode.txt       |
+     |     -> <proc>_tb.v (testbench padrao; roda em <proc>/<proc>/) |
      +--------------------------------------------------------------+
         |   (-y components/SAPHO resolve processor/core/ula/addr_dec/instr_dec)
         |
@@ -392,7 +399,7 @@ de cada transição. A coluna da esquerda é o que o renderer orquestra; os bin�
         v
      [iverilog -s tb -o .vvp     [verilator --binary       [cocotb: iverilog
        -y SAPHO] ; [vvp -fst]     --timing --trace]          ou verilator por baixo]
-        |   stageProcessorMemoryFiles: pc_*_mem.txt -> Temp/ (readmemb)
+        |   stageProcessorMemoryFiles: .mif + pc_*_mem.txt -> cwd da sim
         v
      DUMP de ondas (FST)
         |
@@ -401,7 +408,7 @@ de cada transição. A coluna da esquerda é o que o renderer orquestra; os bin�
  (6) VISUALIZAR   (getViewer)
         +--- gtkwave -> buildAuroraGtkw -> <tb>.gtkw -> [gtkwave.exe --dark ...]
         +--- surfer  -> buildSurferLayout -> .surf -> [surfer.exe]
-              faixas C+- / assembly / variaveis em LOCKSTEP com o clock
+              faixas fonte (C+- ou C++) / assembly / variaveis em LOCKSTEP
 
  (7) INSPECIONAR RTL  (botao PRISM, em paralelo)
      verilogSyntaxCheck -> [iverilog -tnull] (ok) ->
@@ -435,7 +442,8 @@ especificação executável e batem, passo a passo, com o que a AURORA faz no ma
 A diferença essencial entre os dois é qual testbench dirige a simulação — o
 auto-gerado por processador (single) ou o top-level de usuário (multi) — e o
 \emph{staging} extra de \file{pc\_<proc>\_mem.txt} e \file{.mif} para o CWD da
-simulação no caso multi. A AURORA reproduz exatamente essa lógica: o staging vive
+simulação no caso multi (desde o yanc v7.1 o Verilog gerado lê os três pelo nome
+puro, e o single roda na própria pasta de saída). A AURORA reproduz exatamente essa lógica: o staging vive
 em \code{stageProcessorMemoryFiles} e a escolha do top de simulação em
 \code{\_waveDeriveSimTopModule} / \code{validateForWave}.
 
@@ -444,7 +452,7 @@ em \code{stageProcessorMemoryFiles} e a escolha do top de simulação em
 O pipeline SAPHO é uma cadeia determinística de transformações sobre artefatos em
 disco, ancorada em um único arquivo de configuração (\file{.spf}). Cada estágio
 tem um responsável claro no renderer (um método de \code{CompilationModule} ou um
-helper de \file{processor\_compiler.js}) e, quando precisa de um binário, atravessa
+helper de \file{processor\_compiler.ts}) e, quando precisa de um binário, atravessa
 a fronteira \code{runSpec} $\rightarrow$ \lstinline|exec-spec| $\rightarrow$
 allowlist do main. Do \cmm{} ao SVG do RTL, passando pelo \file{.v} sintetizável,
 pelo dump de ondas e pela visualização em lockstep, o caminho é único e sem

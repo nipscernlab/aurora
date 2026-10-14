@@ -20,22 +20,21 @@ são no-op (\emph{pipeline único}).
  (1) PROJETO  -> grava <proj>.spf  (fonte canonica)
      synthesizableFiles, testbenchFiles, topLevelFile,
      processors[]: name/cmmFile/clk(=100)/numClocks(=2000)/showArrays
-     cria: <proj>/<proc>/{Software,Hardware,Simulation}
-           components/Temp/<proc>/   (scratch -t / CWD da sim)
+     cria: <proj>/<proc>/  (fonte + dados; a saida <proc>/<proc>/ o yanc cria)
+           <proj>/.aurora/Temp/   (intermediarios: .vvp, instr_<tb>.v, obj_dir)
         v
  (2) CODIGO-FONTE  (editor Monaco)
      <proc>.cmm (ou .cpp) + top-level.v + testbench
        (<proc>_tb.v auto | top_level_tb.v | *.py cocotb)
-     [Verilator] ensureChegueiToaqui -> injeta #TOAQUI no .cmm
         v
  (3) COMPILACAO  (precompileAllProcessors -> por processador)
    +-----------------------------------------------------------------+
-   | [cmmcomp.exe] [-pt|-en] -i .cmm -n -p -m -t [--array]           |
-   |    -> <proc>.asm + cmm_log.txt + pc_<proc>_mem.txt              |
-   |       + <proc>_data.mif / <proc>_inst.mif                       |
-   | [appcomp.exe] -i .asm -t  -> .asm pre-processado (params/end.)  |
-   | [asmcomp.exe] -i .asm -p -d SAPHO -m -t -f<clk> -c<numClk>      |
-   |    -> Hardware/<proc>.v (RTL) + .mif + <proc>_tb.v -> Simulation|
+   | [yanc.exe] -S -o <proc>/<proc> [--wave-arrays] --lang=pt|en     |
+   |    (cmmcomp/cppcomp) -> <proc>.asm + prog_log.txt               |
+   |       + pc_<proc>_mem.txt + src_lines.txt     (TCMM)            |
+   | [yanc.exe] -f<clk> -c<numClk> --lang=.. <proc>/<proc>/<proc>.asm |
+   |    (asmcomp, 2 passadas) -> app_log.txt + <proc>.v (RTL) + .mif |
+   |       + <proc>_tb.v, tudo em <proc>/<proc>/   (TASM)            |
    +-----------------------------------------------------------------+
      (-y components/SAPHO: processor/core/ula/addr_dec/instr_dec/myFIFO)
         +----------------+------------------+
@@ -43,11 +42,12 @@ são no-op (\emph{pipeline único}).
  (5) INSTRUMENTAR DUMP  (comum, ANTES de simular)
      _resolveWaveSelection:
        .gtkw ativo > Wave Config > $dumpvars no tb > default
-     instrumentTestbench -> Temp/instr_<tb>.v  (copia; original intacto)
+     instrumentTestbench -> .aurora/Temp/instr_<tb>.v (copia; original intacto)
         v
    [iverilog -s tb -y SAPHO  [verilator --binary  [cocotb: iverilog ou
     -o .vvp]; [vvp -fst]    --timing --trace]    verilator por baixo]
-     stageProcessorMemoryFiles: pc_*_mem.txt -> Temp/ ($readmemb)
+     cwd: <proc>/<proc>/ (tb gerado) | <proj>/ (tb de projeto)
+     stageProcessorMemoryFiles: .mif + pc_*_mem.txt -> cwd (nome puro)
         v
      DUMP de ondas (FST)
      _extractFstHeaderVcd -> [fst2vcd] -> header.vcd (escopos/sinais)
@@ -55,7 +55,7 @@ são no-op (\emph{pipeline único}).
  (6) VISUALIZAR  (getViewer)
      +-- gtkwave -> buildAuroraGtkw -> .gtkw -> [gtkwave.exe]
      +-- surfer  -> buildSurferLayout -> .surf -> [surfer.exe]
-        faixas C+- / assembly / variaveis em LOCKSTEP com o clock
+        faixas fonte (C+- ou C++) / assembly / variaveis em LOCKSTEP
  (7) INSPECIONAR RTL  (botao PRISM, em paralelo)
      verilogSyntaxCheck -> [iverilog -tnull] ->
      generateProjectHierarchy -> [yosys] read_verilog+hierarchy+proc+
@@ -68,14 +68,17 @@ são no-op (\emph{pipeline único}).
 
 \begin{itemize}[leftmargin=1.4em]
   \item \textbf{(1)} \file{.spf} (canônico, via \code{SpfStore.read} em
-        \code{loadConfig}); pastas por \code{ensureDirectories}.
-  \item \textbf{(2)} \file{<proc>.cmm}/\file{.cpp}, top-level, testbench;
-        \code{ensureChegueiToaqui} só no ramo Verilator.
-  \item \textbf{(3a) cmmcomp} (\code{buildCmmSpec}): \file{.asm},
-        \file{cmm\_log.txt}, \file{pc\_<proc>\_mem.txt}, \file{.mif}.
-        \textbf{(3b) appcomp} (\code{buildAsmPreSpec}). \textbf{(3c) asmcomp}
-        (\code{buildAsmSpec}): \file{Hardware/<proc>.v}, \file{.mif},
-        \file{<proc>\_tb.v}.
+        \code{loadConfig}); a pasta do processador, pelo
+        \lstinline|create-processor-project|. Projeto com \path{Software/},
+        \path{Hardware/}, \path{Simulation/} é convertido na abertura.
+  \item \textbf{(2)} \file{<proc>.cmm}/\file{.cpp}, top-level, testbench. O
+        botão Verilator não escreve mais \lstinline|#TOAQUI| no fonte: para no
+        \lstinline|@fim| lido do \file{app\_log.txt}.
+  \item \textbf{(3a) \texttt{yanc -S}} (\code{buildCmmSpec}/\code{buildCppSpec}):
+        \file{.asm}, \file{prog\_log.txt}, \file{pc\_<proc>\_mem.txt},
+        \file{src\_lines.txt}. \textbf{(3b) \texttt{yanc <proc>.asm}}
+        (\code{buildAsmSpec}): \file{app\_log.txt}, \file{<proc>.v}, \file{.mif},
+        \file{<proc>\_tb.v}, tudo na pasta de saída.
   \item \textbf{(4)} \code{getSimulator()} (Icarus default; Verilator opt-in);
         cocotb se testbench é \file{.py}. Orquestra \code{runGtkWave}.
   \item \textbf{(5)} \code{instrumentTestbench} grava \file{instr\_<tb>.v}
@@ -86,9 +89,9 @@ são no-op (\emph{pipeline único}).
         allowlist).
 \end{itemize}
 
-\textbf{Allowlist} (basename + diretório legal): \file{cmmcomp.exe},
-\file{appcomp.exe}, \file{asmcomp.exe}, \file{comp2gtkw.exe}
-(\path{components/bin}); \file{iverilog.exe}, \file{vvp.exe},
+\textbf{Allowlist} (basename + diretório legal): \file{yanc.exe} e
+\file{comp2gtkw.exe} (\path{components/bin}; \file{cmmcomp.exe},
+\file{cppcomp.exe} e \file{asmcomp.exe} só o \tool{yanc} chama); \file{iverilog.exe}, \file{vvp.exe},
 \file{verilator.exe}, \file{yosys.exe}, \file{g++.exe}, \file{make.exe},
 \file{perl.exe} (\path{Packages/msys/mingw64/bin}); \file{gtkwave.exe},
-\file{fst2vcd.exe} (fork \tool{gtkwave-nipscern}); \file{surfer.exe}.
+\file{fst2vcd.exe} (fork \tool{gtkwave-nipscern}); \file{surfer-aurora.exe}.

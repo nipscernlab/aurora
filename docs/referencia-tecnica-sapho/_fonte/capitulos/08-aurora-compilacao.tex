@@ -5,7 +5,7 @@
 Este capítulo documenta como a IDE \tool{AURORA} orquestra a compilação e a
 simulação de soft-processors. O foco é o caminho que vai do clique num botão da
 barra de ferramentas até o processo-filho real disparado pela toolchain
-(\tool{cmmcomp}, \tool{asmcomp}, \tool{iverilog}, \tool{vvp}, \tool{verilator},
+(\tool{yanc}, \tool{iverilog}, \tool{vvp}, \tool{verilator},
 \tool{yosys}, \tool{gtkwave}, etc.). A documentação que segue foi verificada
 diretamente contra o código-fonte; quando o texto descreve um comportamento, ele
 corresponde ao que os arquivos \path{js/compilation/*}, \path{main/compile/*} e
@@ -37,7 +37,7 @@ A modelagem em \code{CommandSpec} substituiu o antigo idioma de concatenar uma
 cada argumento chega ao processo-filho exatamente como está no array
 \code{args}; não há parsing de shell, portanto não há bug de aspas nem vetor de
 injeção. É justamente isso que permite que o subsistema de \emph{overrides}
-dirigido pela Aurora Intelligence (\autoref{cap:11-aurora-intelligence}) exista
+dirigido pela Aurora Intelligence (\autoref{cap:12-aurora-intelligence-ia}) exista
 com segurança.
 \end{nota}
 
@@ -95,9 +95,9 @@ processo-filho e de volta ao terminal.
     público é uma fase (cmm, asm, verilog, wave, etc.). Monta os specs e os
     despacha. \\
   \path{js/compilation/processor_compiler.js} &
-    As fases \code{cmmCompilation} e \code{asmCompilation} (impuras: rodam
-    \tool{cmmcomp}/\tool{appcomp}/\tool{asmcomp}, salvam buffers, copiam
-    artefatos). \\
+    As fases \code{cmmCompilation}, \code{cppCompilation} e \code{asmCompilation}
+    (impuras: rodam o \tool{yanc}, salvam buffers, copiam as memórias dos
+    processadores para a pasta de uma simulação de projeto). \\
   \path{js/compilation/builders/*} &
     Builders puros: dado um contexto, devolvem um \code{CommandSpec} sem efeito
     colateral nem I/O. \\
@@ -175,12 +175,13 @@ vazio em vez de ramificação estrutural) é recorrente em todo o subsistema.
   \textbf{Etapa} & \textbf{Handler} & \textbf{Sequência expandida} \\
   \midrule
   \endhead
-  \code{cmm} & \code{handleCmmStep} &
-    \tool{cmmcomp} ($\to$ \path{Software/<base>.asm} + \path{cmm_log.txt}),
-    depois \tool{asmcomp} ($\to$ \path{Hardware/<proc>.v} + memória +
-    \path{Simulation/<proc>_tb.v}). Exige um \path{.cmm} em foco (ou inferível). \\
+  \code{cmm} / \code{cpp} & \code{handleCmmStep} &
+    \lstinline|yanc -S| ($\to$ \path{<proc>/<proc>/<proc>.asm} + \path{prog_log.txt}
+    + \path{src_lines.txt}), depois \lstinline|yanc <proc>.asm| ($\to$
+    \path{<proc>.v} + memória + \path{<proc>_tb.v}, na mesma pasta de saída).
+    Exige um fonte (\path{.cmm} ou \path{.cpp}) em foco (ou inferível). \\
   \code{asm} & \code{handleAsmStep} &
-    \tool{asmcomp} (\emph{sem} \tool{cmmcomp}) + \tool{iverilog -tnull}. Etapa
+    \lstinline|yanc <proc>.asm| (\emph{sem} compilar o fonte) + \tool{iverilog -tnull}. Etapa
     sem botão na toolbar; existe para a Aurora Intelligence testar um
     \path{.asm} otimizado à mão sem regenerá-lo a partir do \path{.cmm}. \\
   \code{verilog} & \code{handleVerilogStep} &
@@ -223,9 +224,10 @@ código:
     selecionado é Verilator (\lstinline|getSimulator() === 'verilator'|).
 \end{itemize}
 
-\noindent O botão C± (\code{cmmcomp}) tem regra própria
+\noindent O botão de compilação do fonte (\code{cmmcomp}) tem regra própria
 (\code{syncCmmcompEnabled}): só fica habilitado quando o arquivo em foco no
-Monaco termina em \path{.cmm}. A re-sincronização é disparada por eventos
+Monaco é fonte de processador (\path{.cmm} ou \path{.cpp}), e o glifo do botão
+segue a linguagem do fonte em foco. A re-sincronização é disparada por eventos
 (\lstinline|aurora:editing-file-changed|, \lstinline|aurora:spf-changed|,
 \lstinline|aurora:wave-simulator-changed|, criação/remoção de processador).
 
@@ -245,60 +247,75 @@ fonte TypeScript compilada por \lstinline|npm run build:ts|. O comportamento
 descrito aqui foi lido dos \path{.js} efetivamente executados.
 \end{nota}
 
-\subsection{\file{cmm.js} — \texttt{buildCmmSpec}}
+\subsection{\texttt{cmm.ts} e \texttt{cpp.ts}: \texttt{buildCmmSpec} e \texttt{buildCppSpec}}
 
-Espelha o call site \code{cmmCompilation}. Monta os argumentos nomeados do
-compilador C± (\tool{cmmcomp.exe}). A flag de idioma (\code{-pt}/\code{-en}) vai
-\emph{primeiro}, pois o yanc a consome em \code{parse_lang_flag} antes do
-parsing das demais opções. \code{-A} (\code{--array}) liga o dump de arrays do
-waveform quando \code{showArrays} está ativo.
+Desde o yanc v7.1 os três passos do processador chamam o mesmo binário, o
+\emph{driver} \tool{yanc.exe} (\path{components/bin}), que acha o
+\tool{cmmcomp}, o \tool{cppcomp} e o \tool{asmcomp} ao lado dele e repassa as
+mensagens sem mudança. \code{buildCmmSpec} espelha o call site
+\code{cmmCompilation}: \lstinline|-S| para no \path{.asm}, \lstinline|-o| é a
+pasta de saída, e \lstinline|--wave-arrays| (antes \code{-A}) liga o dump de
+arrays do waveform quando \code{showArrays} está ativo. O \lstinline|--lang| vem
+do idioma da IDE e pode ir em qualquer posição. O cwd é a pasta do fonte, como no
+terminal. Não há mais \code{-i}, \code{-n}, \code{-p}, \code{-m} nem \code{-t}:
+o nome é o do arquivo, e \path{Macros/} e \path{SAPHO/} o \tool{yanc} acha sozinho.
 
 \begin{lstlisting}[language=Java]
-export function buildCmmSpec(ctx) {
-  const args = [
-    `-${ctx.lang}`,
-    '-i', ctx.inputFile,   // .cmm de entrada
-    '-n', ctx.baseName,    // nome base do processador
-    '-p', ctx.projectPath, // diretorio do processador
-    '-m', ctx.macrosPath,  // components/Macros
-    '-t', ctx.tempPath,    // components/Temp/<proc>
-  ];
-  if (ctx.showArrays) args.push('-A');
-  return { step: 'cmm', binary: ctx.cmmCompPath, args, cwd: ctx.projectPath,
-           processorName: ctx.processorName, label: `cmm: ${ctx.processorName}` };
+export function buildCmmSpec(ctx: CmmBuilderCtx): CommandSpec {
+  const args = ['-S', '-o', ctx.outputDir];
+  if (ctx.showArrays) args.push('--wave-arrays');
+  args.push(`--lang=${ctx.lang}`, ctx.sourcePath);
+
+  return {
+    step: 'cmm',
+    binary: ctx.yancPath,
+    args,
+    cwd: ctx.sourceDir,
+    processorName: ctx.processorName,
+    label: `cmm: ${ctx.processorName}`,
+  };
 }
 \end{lstlisting}
 
-\subsection{\file{asm.js} — \texttt{buildAsmPreSpec} e \texttt{buildAsmSpec}}
+\code{buildCppSpec} é igual, com o passo \code{cpp}, \lstinline|-I <pasta>| para
+cada pasta extra de \lstinline|#include| (vazio no uso normal) e sem
+\lstinline|--wave-arrays|. O C++ passou a ser um passo só, como o C±: o passo
+\code{cpp-pp} (o antigo \tool{cpppp}) e o arquivo \path{pp.cpp} deixaram de
+existir, e as mensagens do \tool{cppcomp} apontam para o arquivo e a linha que a
+pessoa escreveu (\lstinline|filtro.cpp:12|, \lstinline|./coefs.hpp:3|),
+relativos à pasta do fonte.
 
-Dois builders para os dois passos do estágio ASM:
+\subsection{\texttt{asm.ts}: \texttt{buildAsmSpec}}
 
-\begin{itemize}[leftmargin=1.4em]
-  \item \code{buildAsmPreSpec} — o pré-processador de macros (\tool{appcomp.exe}),
-    com \code{-i <asm>} e \code{-t <temp>};
-  \item \code{buildAsmSpec} — o compilador final (\tool{asmcomp.exe}), com
-    \code{-i -p -d -m -t -f -c}. \code{-f} (frequência/clk) e \code{-c}
-    (\emph{clocks}) devem ser inteiros — o yanc rejeita valor não-numérico.
-\end{itemize}
+Um builder só para o estágio ASM: o \code{buildAsmPreSpec} (o \tool{appcomp},
+passo \code{asm-pre}) saiu, porque o \tool{appcomp} virou a primeira passada do
+\tool{asmcomp}. O \tool{yanc} recebe o \path{.asm} e escreve tudo na pasta dele
+(\path{<proc>.v}, os \path{.mif}, \path{<proc>_tb.v}, \path{app_log.txt},
+\path{trad_opcode.txt}); ele recusa \lstinline|-o| com um \path{.asm}.
+\code{-f} (frequência/clk) e \code{-c} (\emph{clocks}) devem ser inteiros, e o
+cwd é a pasta de saída.
 
 \begin{lstlisting}[language=Java]
-export function buildAsmSpec(ctx) {
+export function buildAsmSpec(ctx: AsmBuilderCtx): CommandSpec {
   const args = [
-    `-${ctx.lang}`,
-    '-i', ctx.asmFile,
-    '-p', ctx.projectPath,
-    '-d', ctx.hdlPath,     // components/SAPHO
-    '-m', ctx.macrosPath,
-    '-t', ctx.tempPath,
     '-f', String(ctx.freq),
     '-c', String(ctx.clocks),
+    `--lang=${ctx.lang}`,
+    ctx.asmFile,
   ];
-  return { step: 'asm', binary: ctx.asmCompPath, args, cwd: ctx.tempPath,
-           processorName: ctx.processorName, label: `asm: ${ctx.processorName}` };
+
+  return {
+    step: 'asm',
+    binary: ctx.yancPath,
+    args,
+    cwd: ctx.outputDir,
+    processorName: ctx.processorName,
+    label: `asm: ${ctx.processorName}`,
+  };
 }
 \end{lstlisting}
 
-\subsection{\file{iverilog.js} — \texttt{buildIverilogCheckSpec} e \texttt{buildIverilogBuildSpec}}
+\subsection{\texttt{iverilog.js} — \texttt{buildIverilogCheckSpec} e \texttt{buildIverilogBuildSpec}}
 
 Dois usos do \tool{iverilog}:
 
@@ -330,7 +347,7 @@ export function buildIverilogBuildSpec(ctx) {
 }
 \end{lstlisting}
 
-\subsection{\file{vvp.js} — \texttt{buildVvpRunSpec}}
+\subsection{\texttt{vvp.js} — \texttt{buildVvpRunSpec}}
 
 Uma única simulação completa com saída FST: \lstinline|<vvpBin> <vvpFile> -fst|.
 O cabeçalho VCD não é mais capturado por um passo separado \emph{header-only}; é
@@ -342,7 +359,7 @@ automático precisam. O \code{cwd} resolve os caminhos relativos de
 \code{prependPath}, porque o \tool{vvp} carrega \path{system.vpi} com
 \code{LOAD_WITH_ALTERED_SEARCH_PATH} e precisa das DLLs MinGW vizinhas.
 
-\subsection{\file{cocotb.js} — \texttt{buildCocotbRunSpec}}
+\subsection{\texttt{cocotb.js} — \texttt{buildCocotbRunSpec}}
 
 Para o fluxo cocotb (testbench em Python), a AURORA é dona do \emph{runner
 script} e passa todos os dados específicos do projeto por variáveis de ambiente.
@@ -363,7 +380,7 @@ export function buildCocotbRunSpec(ctx) {
 }
 \end{lstlisting}
 
-\subsection{\file{verilator.js} — pipeline do Verilator}
+\subsection{\texttt{verilator.js} — pipeline do Verilator}
 \label{sec:08-verilator-builders}
 
 O arquivo \path{builders/verilator.js} concentra cinco builders e os ``botões''
@@ -418,15 +435,15 @@ três etapas distintas:
     \path{output_<N>.txt}. \code{+cycles=N} é apenas o teto.
 \end{enumerate}
 
-\subsection{\file{yosys.js} — \texttt{buildYosysHierarchySpec} e \texttt{buildPrismYosysSpec}}
+\subsection{\texttt{yosys.js} — \texttt{buildYosysHierarchySpec} e \texttt{buildPrismYosysSpec}}
 
 Dois usos do \tool{yosys}, ambos como \lstinline|yosys.exe -s <script>|; a única
 diferença é qual script o chamador grava em disco antes. \code{yosys-hierarchy}
 emite o JSON de hierarquia para o painel do renderer; \code{prism-yosys} faz a
-síntese para o esquemático do PRISM (ver \autoref{cap:10-aurora-prism}). O
+síntese para o esquemático do PRISM (ver \autoref{cap:11-aurora-prism-rtl}). O
 builder desconhece o conteúdo do script — só o caminho.
 
-\subsection{\file{wave_tools.js} — \texttt{buildFst2VcdSpec} e \texttt{buildGtkwaveSpec}}
+\subsection{\texttt{wave\_tools.js} — \texttt{buildFst2VcdSpec} e \texttt{buildGtkwaveSpec}}
 
 \code{buildFst2VcdSpec} monta \lstinline|fst2vcd -f <in> -o <out>|, usado para
 extrair um cabeçalho VCD em texto a partir do FST. \code{buildGtkwaveSpec} monta
@@ -444,9 +461,9 @@ ainda roda, só o spawn real é diferente.
   \textbf{Builder} & \textbf{Etapa} & \textbf{Binário / efeito} \\
   \midrule
   \endhead
-  \code{buildCmmSpec} & \code{cmm} & \tool{cmmcomp.exe}: \path{.cmm} $\to$ \path{.asm}. \\
-  \code{buildAsmPreSpec} & \code{asm-pre} & \tool{appcomp.exe}: expande macros. \\
-  \code{buildAsmSpec} & \code{asm} & \tool{asmcomp.exe}: \path{.asm} $\to$ \path{.v} + memória + \path{_tb.v}. \\
+  \code{buildCmmSpec} & \code{cmm} & \lstinline|yanc -S| (\tool{cmmcomp}): \path{.cmm} $\to$ \path{.asm}. \\
+  \code{buildCppSpec} & \code{cpp} & \lstinline|yanc -S| (\tool{cppcomp}): \path{.cpp} $\to$ \path{.asm}. \\
+  \code{buildAsmSpec} & \code{asm} & \lstinline|yanc <proc>.asm| (\tool{asmcomp}): \path{.asm} $\to$ \path{.v} + memória + \path{_tb.v}. \\
   \code{buildIverilogCheckSpec} & \code{iverilog-check} & \tool{iverilog -tnull}: sintaxe/elaboração. \\
   \code{buildIverilogBuildSpec} & \code{iverilog-build} & \tool{iverilog -o}: produz \path{.vvp}. \\
   \code{buildVvpRunSpec} & \code{vvp-run} & \tool{vvp -fst}: simulação $\to$ FST. \\
@@ -561,7 +578,7 @@ onde a saída e as dicas de override aparecem:
   \textbf{Etapa(s)} & \textbf{Terminal} \\
   \midrule
   \code{cmm} & \code{tcmm} \\
-  \code{asm-pre}, \code{asm} & \code{tasm} \\
+  \code{asm} & \code{tasm} \\
   \code{iverilog*}, \code{prism-yosys} & \code{tveri} \\
   \code{vvp*}, \code{cocotb*}, \code{verilator*}, \code{fst2vcd}, \code{gtkwave}, \code{yosys-hierarchy} & \code{twave} \\
   \bottomrule
@@ -684,9 +701,7 @@ terminar com um dos nomes listados \emph{e} viver em um dos diretórios listados
   \textbf{Binário} & \textbf{Diretório permitido (sob \path{components})} & \textbf{Papel} \\
   \midrule
   \endhead
-  \path{cmmcomp.exe} & \path{bin} & compilador C± \\
-  \path{appcomp.exe} & \path{bin} & pré-proc. de macros ASM \\
-  \path{asmcomp.exe} & \path{bin} & compilador ASM \\
+  \path{yanc.exe} & \path{bin} & \emph{driver} do YANC (compila e monta) \\
   \path{iverilog.exe} & \path{Packages/msys/mingw64/bin} & Icarus Verilog \\
   \path{vvp.exe} & \path{Packages/msys/mingw64/bin} & runtime do Icarus \\
   \path{verilator} / \path{verilator.exe} & \path{Packages/msys/mingw64/bin} & Verilator \\
@@ -696,7 +711,7 @@ terminar com um dos nomes listados \emph{e} viver em um dos diretórios listados
   \path{yosys.exe} & \path{Packages/msys/mingw64/bin} & síntese (hierarquia/PRISM) \\
   \path{gtkwave.exe} & \path{Packages/gtkwave-nipscern} & visualizador de onda \\
   \path{fst2vcd.exe} & \path{Packages/gtkwave-nipscern} & FST $\to$ VCD \\
-  \path{surfer.exe} & \path{Packages/surfer} & visualizador opt-in \\
+  \path{surfer-aurora.exe} & \path{Packages/surfer} & visualizador opt-in \\
   \path{verible-verilog-ls.exe} & \path{Packages/verible/bin} & LSP Verilog \\
   \path{clang-format.exe} & \path{Packages/clang-format/bin} & formatador C/C++/CMM \\
   \path{slang-server.exe} & \path{Packages/slang-server/bin} & LSP SystemVerilog \\
@@ -720,10 +735,11 @@ Além da tabela estática, \code{isAllowed} trata dois casos por regra:
     por \code{isBundledPythonPath} (\autoref{sec:08-python}). O único Python do
     bundle serve a ambos os fluxos cocotb (Icarus e Verilator).
   \item[Executável gerado pelo Verilator.] O \path{V<top>.exe} não é empacotado;
-    ele nasce em \path{components/Temp/obj_dir_<simTop>/}. A allowlist o aceita
-    por casamento de prefixo: o caminho precisa começar com
-    \path{<components>/Temp/} e bater com o padrão
-    \lstinline|/obj_dir*/V<algo>(.exe)?$|.
+    ele nasce em \path{<projeto>/.aurora/Temp/obj_dir_<simTop>/} (ou em
+    \path{components/Temp/}, para o que não tem projeto). A allowlist o aceita
+    por casamento de prefixo: o caminho precisa estar sob o \path{.aurora/Temp/}
+    de um projeto aberto agora, ou sob \path{<components>/Temp/}, e bater com o
+    padrão \lstinline|/obj_dir*/V<algo>(.exe)?$|.
 \end{description}
 
 \noindent A comparação de diretório é case-insensitive no Windows (o
@@ -755,9 +771,8 @@ pode mudar — a AURORA o regenera a cada run); para tokens isolados
   \textbf{Etapa} & \textbf{Flags com valor (nome preservado)} & \textbf{Literais / env protegidos} \\
   \midrule
   \endhead
-  \code{cmm} & \code{-i -n -p -m -t} & --- \\
-  \code{asm-pre} & \code{-i -t} & --- \\
-  \code{asm} & \code{-i -p -d -m -t -f -c} & --- \\
+  \code{cmm}, \code{cpp} & \code{-o} & \code{-S} \\
+  \code{asm} & \code{-f -c} & --- \\
   \code{iverilog-check} & \code{-s -y} & \code{-tnull} \\
   \code{iverilog-build} & \code{-s -y -o} & --- \\
   \code{vvp-run} & --- & \code{-fst} \\
@@ -875,8 +890,8 @@ condicional dentro de uma etapa.
 
 \code{precompileAllProcessors} é o pré-flight comum a Verilog/Wave/PRISM: para
 cada processador conhecido, roda cmm+asm. Pula em silêncio aqueles cuja
-convenção \path{<proj>/<proc>/Software/<proc>.cmm} não existe em disco (sem
-\path{.cmm}, o \tool{cmmcomp} falharia). Como itera sobre o array de
+fonte (\path{<proj>/<proc>/<proc>.cmm} ou \path{.cpp}) não existe em disco, com
+um aviso no terminal (sem fonte, o \tool{yanc} falharia). Como itera sobre o array de
 processadores, é \emph{no-op} natural num projeto de Verilog puro.
 
 \subsection{Verilog-only}
@@ -930,7 +945,7 @@ monta o spec usando os \emph{mesmos} builders do pipeline real, e as camadas de
 override são depois sobrepostas por \code{resolveSpec} (em \code{spec_runner.js})
 para exibição.
 
-Para etapas por-processador (\code{cmm}, \code{asm-pre}, \code{asm}),
+Para etapas por-processador (\code{cmm}, \code{cpp}, \code{asm}),
 \code{processorName} é exigido — senão, a fábrica escolhe o primeiro processador
 do projeto ou falha com mensagem útil. Para etapas do pipeline inteiro
 (\code{iverilog-*}, \code{vvp-*}, \code{verilator-*}, \code{gtkwave},

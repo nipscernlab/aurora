@@ -38,8 +38,8 @@ modelo ao vivo (orçamento de 3, \code{canSplit}).
 \paragraph{Sintaxe (Monarch).} \cmm{} e \code{asm} têm gramáticas próprias
 escritas à mão; \code{verilog}/\code{systemverilog} usam a gramática
 vendorizada do Monaco (apenas conectada a Verible/slang/tree-sitter). A
-gramática \cmm{} cobre palavras-chave C, diretivas (\code{\#PRNAME},
-\code{\#NUBITS}…), funções de \emph{stdlib}, números complexos (sufixo
+gramática \cmm{} cobre palavras-chave C, diretivas (\code{\#NUBITS},
+\code{\#NBMANT}…; o \code{\#PRNAME} saiu com o yanc v7.1), funções de \emph{stdlib}, números complexos (sufixo
 \code{im}), notação de Dirac (bra-ket) e um conjunto vivo de \code{\#define}
 re-coletado de forma \emph{debounced}.
 
@@ -60,12 +60,22 @@ emite \lstinline|aurora:spf-changed| só em mudança real) e
 \code{state.currentOpenProjectPath} (verdade no processo principal; a pasta vem
 de \lstinline|path.dirname|).
 
-\paragraph{Processadores.} Cada processador \tool{SAPHO} é uma subpasta com
-\path{Software/}, \path{Hardware/}, \path{Simulation/}. A lista canônica é
-\code{structure.processors} (\lstinline|{name}|); os parâmetros numéricos vivem
-nas diretivas do \file{.cmm} gerado. O \emph{Processor Hub} valida bits
-(\lstinline|nBits === nbMantissa + nbExponent + 1|) e cria/renomeia/deleta via
-handlers IPC.
+\paragraph{Processadores.} Desde o yanc v7.1 a estrutura é a do próprio YANC
+(\file{pastas\_do\_processador.ts}): \path{<proj>/<proc>/} com o fonte
+(\file{<proc>.cmm} ou \file{.cpp}) e os dados, e a pasta de saída
+\path{<proj>/<proc>/<proc>/} com tudo o que o \tool{yanc} gera, onde roda a
+simulação do \file{<proc>\_tb.v}. A lista canônica é \code{structure.processors}
+(\lstinline|{name}|, mais \lstinline|language: 'cpp'| no C++); os parâmetros
+numéricos vivem nas diretivas do fonte gerado, que não tem \lstinline|#PRNAME| (o
+nome é o do arquivo) nem as diretivas que têm padrão. O \emph{Processor Hub} valida
+o nome pela regra do YANC (\file{proc\_name.c}: letras ASCII, dígitos e
+\lstinline|_|, sem dígito nem \lstinline|__| no início, sem palavra reservada do
+Verilog) e os bits (\lstinline|nBits === nbMantissa + nbExponent + 1|), e
+cria/renomeia/deleta via handlers IPC; renomear é renomear a pasta, o fonte e a
+pasta de saída. Um projeto com \path{Software/}, \path{Hardware/} e
+\path{Simulation/} é convertido na abertura (\file{conversao\_na\_abertura.ts}):
+uma pergunta por projeto, os arquivos são movidos e não apagados, o
+\lstinline|#PRNAME| sai do fonte e um relatório mostra o que mudou.
 
 \subsection{Árvore de arquivos}
 Três \emph{views} no mesmo \lstinline|#file-tree|, sob subcontêineres separados

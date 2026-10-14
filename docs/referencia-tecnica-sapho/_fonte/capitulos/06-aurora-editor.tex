@@ -902,9 +902,12 @@ cobre:
         (\lstinline|<<|, \lstinline|>>|, \lstinline|>>>|) e suas variantes de
         atribuição; \lstinline|>>>| recebe um \emph{token} próprio
         (\code{operator.shift.arithmetic}).
-  \item[Diretivas.] As diretivas \code{\#PRNAME}, \code{\#NUBITS},
-        \code{\#NBMANT} (e demais da lista) são realçadas como
-        \code{keyword.directive.cmm}.
+  \item[Diretivas.] As diretivas \code{\#NUBITS}, \code{\#NBMANT},
+        \code{\#NBEXPO}, \code{\#NDSTAC}, \code{\#SDEPTH}, \code{\#NUIOIN},
+        \code{\#NUIOOU}, \code{\#NUGAIN}, \code{\#FROUND}, \code{\#FFTSIZ},
+        \code{\#PRACA} e \code{\#TOAQUI} são realçadas como
+        \code{keyword.directive.cmm}. O \code{\#PRNAME} saiu da lista com o yanc
+        v7.1, em que o nome do processador é o do arquivo.
   \item[Macros \code{\#define}.] A linha \lstinline|#define NOME corpo| colore a
         diretiva e o nome definido; cada uso posterior de \code{NOME} é capturado
         pela regra de identificador (ver \autoref{sec:editor-cmm-define}).
@@ -996,8 +999,9 @@ Monarch para o \emph{assembly} do processor. Os principais grupos:
 \begin{description}[leftmargin=*]
   \item[Diretivas.] \code{PRNAME}, \code{NUBITS}, \code{NBMANT}, \code{NBEXPO},
         \code{NDSTAC}, \code{SDEPTH}, \code{NUIOIN}, \code{NUIOOU},
-        \code{NUGAIN}, \code{FFTSIZ}, \code{array}, \code{arrays}, \code{ITRAD},
-        \code{TOAQUI} --- reconhecidas com prefixo \lstinline|#| como
+        \code{NUGAIN}, \code{FROUND}, \code{FFTSIZ}, \code{array}, \code{arrays},
+        \code{ITRAD}, \code{TOAQUI} e \code{LKSYNC} (no \file{.asm} o compilador
+        ainda escreve o \code{\#PRNAME}) --- reconhecidas com prefixo \lstinline|#| como
         \code{keyword.directive}.
   \item[Instruções.] Um conjunto extenso de mnemônicos do conjunto de instruções
         do processor (\code{LOD}, \code{LDI}, \code{SET}, \code{PSH}, \code{POP},

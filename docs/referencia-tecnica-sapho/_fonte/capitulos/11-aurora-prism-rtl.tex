@@ -227,7 +227,8 @@ nesta ordem, são:
         top-level, raro mas possível).
   \item \textbf{\emph{Fallback} defensivo:} para cada processador listado em
         \lstinline|spf.structure.processors|, varre
-        \path{<projeto>/<proc>/Hardware/*.v}. No caminho feliz o \emph{dedup}
+        a pasta de saída do yanc, \path{<projeto>/<proc>/<proc>/*.v} (antes do
+        yanc v7.1, \path{<proc>/Hardware/}). No caminho feliz o \emph{dedup}
         torna isso \emph{no-op}, mas garante os módulos do processador em
         projetos antigos onde \lstinline|synthesizableFiles| esteja vazio.
 \end{enumerate}
@@ -656,7 +657,7 @@ deliberadamente \emph{separado} do esquemático para nunca perturbá-lo:
 \begin{enumerate}[leftmargin=2.2em]
   \item \lstinline|collectSynthFiles| coleta os \file{.v} com a mesma lógica de
         \lstinline|runYosysCompilationWithPaths| (HDL + \lstinline|synthesizableFiles|
-        + \path{TopLevel/} + \path{<proc>/Hardware/}).
+        + \path{TopLevel/} + a pasta de saída \path{<proc>/<proc>/}).
   \item Gera um \emph{script} \tool{Yosys} \enquote{amigável ao
         yosys2digitaljs}, em nível de palavra (sem \lstinline|abc|/\lstinline|techmap|,
         para manter \lstinline|$add|/\lstinline|$mux|/\lstinline|$dff| como

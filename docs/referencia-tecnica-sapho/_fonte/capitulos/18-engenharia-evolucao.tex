@@ -34,8 +34,8 @@ O ponto de entrada de toda a automação é a seção \code{scripts} de
 \file{package.json}. A \autoref{tab:18-npm-scripts} resume os comandos
 relevantes para teste e qualidade.
 
-\begin{longtable}{Y Z}
-  \caption{Scripts npm de qualidade e ciclo de vida (\file{package.json}).}
+\begin{longtable}{P{0.22\linewidth} Q{0.72\linewidth}}
+  \caption{Scripts npm de qualidade e ciclo de vida (\texttt{package.json}).}
   \label{tab:18-npm-scripts}\\
   \toprule
   \textbf{Script} & \textbf{Ação} \\
@@ -82,8 +82,8 @@ No diretório \path{tests/unit/} existem dezenas de arquivos de teste. A
 \autoref{tab:18-unit-tests} agrupa amostras por domínio para ilustrar a
 cobertura.
 
-\begin{longtable}{Y Z}
-  \caption{Amostra de testes unitários por domínio (\path{tests/unit/}).}
+\begin{longtable}{P{0.22\linewidth} Q{0.72\linewidth}}
+  \caption{Amostra de testes unitários por domínio (\texttt{tests/unit/}).}
   \label{tab:18-unit-tests}\\
   \toprule
   \textbf{Domínio} & \textbf{Arquivos de teste (exemplos)} \\
@@ -112,7 +112,7 @@ vazias e injeção de \emph{null byte}, e normaliza separadores. O próprio test
 documenta que \lstinline|safePath| é \emph{normalização}, não
 \emph{confinamento} de diretório.
 
-\paragraph{Cobertura.} A seção \code{coverage} de \file{vitest.config.js}
+\paragraph{Cobertura.} A seção \code{coverage} de \texttt{vitest.config.js}
 configura o provedor \code{v8}, com relatórios \code{text-summary} e \code{lcov}
 gravados em \path{./coverage}. A opção \lstinline|all: false| restringe o
 relatório aos módulos efetivamente importados pelos testes (em vez de diluir o
@@ -322,8 +322,8 @@ preservação de espaços finais em \code{md}/\code{markdown}; e indentação po
 O diretório \path{.github/workflows/} contém cinco \emph{workflows}, descritos na
 \autoref{tab:18-workflows}.
 
-\begin{longtable}{Y Z}
-  \caption{Workflows de GitHub Actions (\path{.github/workflows/}).}
+\begin{longtable}{P{0.22\linewidth} Q{0.72\linewidth}}
+  \caption{Workflows de GitHub Actions (\texttt{.github/workflows/}).}
   \label{tab:18-workflows}\\
   \toprule
   \textbf{Arquivo} & \textbf{Papel} \\
@@ -342,14 +342,14 @@ O diretório \path{.github/workflows/} contém cinco \emph{workflows}, descritos
   \file{dependabot-automerge.yml} & Faz \emph{auto-merge} (squash) de PRs do Dependabot do tipo \emph{patch}/\emph{minor} após a CI passar. \\
 \end{longtable}
 
-\subsubsection{Pipeline de CI (\file{ci.yml})}
+\subsubsection{Pipeline de CI (\texttt{ci.yml})}
 
 O \emph{job} \code{lint-and-build} roda em \code{windows-latest} com Node~20 e
 \lstinline|npm ci|. A sequência de passos é uma cadeia de portões:
 
 \begin{enumerate}[nosep]
   \item \textbf{Verificar versões pinadas}: \file{scripts/check-pinned-versions.js}
-        garante que pacotes com semver exata (sem \code{^}/\code{~})
+        garante que pacotes com semver exata (sem \texttt{\textasciicircum}/\texttt{\textasciitilde})
         não derivem da versão declarada --- mecanismo criado por causa de uma
         regressão do \tool{monaco-editor} 0.53.0 que quebrava a inicialização do
         editor; \tool{monaco-editor} está fixado em \code{0.52.2}.
@@ -382,7 +382,7 @@ faltar, pois uma Release não pode sair sem o \emph{toolchain}), compila
 \code{.ts} e o \emph{renderer}, e finalmente publica o instalador com
 \lstinline|electron-builder --win --x64 --publish always|. O \tool{electron-updater}
 lê \file{latest.yml} e o \code{.exe} diretamente desses \emph{assets} (ver
-\autoref{cap:11-build-empacotamento} para detalhes de empacotamento e
+\autoref{cap:16-build-distribuicao} para detalhes de empacotamento e
 auto-atualização). A configuração \code{build} de \file{package.json} publica no
 repositório \repo{sapho}, refletindo o \emph{split} intencional entre o repo de
 desenvolvimento (\repo{aurora}) e o canal de release estável (\repo{sapho}).
@@ -481,7 +481,7 @@ de automação e sessões de assistência por IA.
 A \autoref{tab:18-tags-aurora} lista as \emph{tags} do \repo{aurora} com a data
 e o assunto do \emph{commit} apontado.
 
-\begin{longtable}{Y Y Z}
+\begin{longtable}{P{0.16\linewidth} P{0.16\linewidth} Q{0.60\linewidth}}
   \caption{Tags do repositório \repo{aurora}.}
   \label{tab:18-tags-aurora}\\
   \toprule
@@ -531,7 +531,7 @@ C++ + otimização de \emph{asm} no \code{cppcomp}}).
 A \autoref{tab:18-timeline} consolida os marcos verificados no histórico. As
 datas são dos \emph{commits} reais.
 
-\begin{longtable}{Y Z}
+\begin{longtable}{P{0.22\linewidth} Q{0.72\linewidth}}
   \caption{Linha do tempo de marcos do \repo{aurora}.}
   \label{tab:18-timeline}\\
   \toprule
@@ -609,7 +609,7 @@ O repositório dos compiladores (\enquote{Yet Another Compiler}) é anterior ao
 \repo{aurora} (início em out/2024). A \autoref{tab:18-timeline-yanc} resume seus
 marcos.
 
-\begin{longtable}{Y Z}
+\begin{longtable}{P{0.22\linewidth} Q{0.72\linewidth}}
   \caption{Linha do tempo de marcos do \repo{yanc}.}
   \label{tab:18-timeline-yanc}\\
   \toprule
@@ -639,7 +639,7 @@ o \repo{yanc} recebeu uma cadeia de CI (\emph{workflows} de \emph{build} por
 (autor \enquote{Claude}, 21 \emph{commits}), incluindo um documento de
 \emph{handoff} de sessão com sumário, \emph{bugs} encontrados e tarefas Windows.
 O detalhamento dos compiladores em si está em
-\autoref{cap:02-yanc-compiladores}.
+\autoref{cap:04-yanc-compiladores}.
 
 \begin{nota}
 Os dois repositórios refletem o \emph{split} intencional da plataforma: o

@@ -64,7 +64,7 @@ A tabela a seguir lista os \emph{scripts} declarados e o que cada um executa.
 Os \emph{hooks} \texttt{pre*} do npm disparam automaticamente antes do
 \emph{script} de mesmo nome.
 
-\begin{longtable}{l Y}
+\begin{longtable}{l P{0.62\linewidth}}
 \toprule
 \textbf{Script} & \textbf{Comando / efeito} \\
 \midrule
@@ -169,7 +169,7 @@ Cada \emph{downloader} é um \emph{script} Node autossuficiente em
 
 A tabela resume cada \emph{downloader}, sua origem e seu destino.
 
-\begin{longtable}{l Y l}
+\begin{longtable}{P{0.34\linewidth} P{0.26\linewidth} P{0.30\linewidth}}
 \toprule
 \textbf{Downloader / artefato} & \textbf{Origem (pinada)} & \textbf{Destino} \\
 \midrule
@@ -178,7 +178,7 @@ A tabela resume cada \emph{downloader}, sua origem e seu destino.
   & \emph{release} de \repo{aurora-toolchain}
   & \path{components/Packages/msys/} \\
 \addlinespace
-\texttt{download-yanc.js} \newline (\file{yanc-bin-v5.6.zip})
+\texttt{download-yanc.js} \newline (\file{yanc-bin-v7.1.zip})
   & \emph{release} de \repo{yanc}
   & \path{components/} (gera \path{bin/}, \path{SAPHO/}, \path{Header/}, \path{Macros/}) \\
 \addlinespace
@@ -242,12 +242,14 @@ publicado pelo \emph{pipeline} dedicado do \repo{aurora-toolchain}; o
 
 \subsubsection{Compiladores YANC}
 
-O \file{download-yanc.js} baixa \file{yanc-bin-v5.6.zip} do \repo{yanc} e o
-extrai em \path{components/} (de modo que \path{bin/cmmcomp.exe} etc.\ caiam em
-\path{components/bin/}). O \texttt{.zip} contém sete binários:
+O \file{download-yanc.js} baixa \file{yanc-bin-v7.1.zip} (\texttt{YANC\_TAG = 'v7.1'})
+do \repo{yanc} e o extrai em \path{components/} (de modo que \path{bin/yanc.exe}
+etc.\ caiam em \path{components/bin/}). Desde a v7.1 o \texttt{.zip} contém seis
+binários: \texttt{yanc.exe} (o \emph{driver}, o único que a AURORA chama),
 \texttt{cmmcomp.exe}, \texttt{cppcomp.exe}, \texttt{asmcomp.exe},
-\texttt{cpppp.exe}, \texttt{appcomp.exe} e \texttt{comp2gtkw.exe} desde a v4,
-mais o \texttt{gen\_gtkw.exe} desde a v5.0, além das
+\texttt{comp2gtkw.exe} e \texttt{gen\_gtkw.exe}; o \texttt{cpppp.exe} e o
+\texttt{appcomp.exe} saíram, absorvidos pelo \texttt{cppcomp} e pelo
+\texttt{asmcomp}. Vêm ainda as
 pastas \path{SAPHO/} (bibliotecas Verilog do SAPHO), \path{Macros/} (\emph{helpers}
 de ponto flutuante \file{float\_*.asm}) e \path{Header/} (\emph{shims} de C++).
 
@@ -296,7 +298,7 @@ biblioteca), o que evita contaminação de licença:
 As fontes não são caso à parte: as quatro estão sob SIL OFL 1.1, que permite
 redistribuir e embutir, e são versionadas como \code{.woff2}. Foram caso à parte
 até 08/08/2026, quando o letreiro \enquote{Dagr} usava a fonte Norse, cuja
-licença proíbe redistribuição; ver \autoref{cap:catalogo-terceiros}.
+licença proíbe redistribuição; ver \autoref{cap:15-catalogo-terceiros}.
 
 \subsection{Verificação de integridade (checksum)}
 \label{sec:16-checksum}
@@ -757,7 +759,7 @@ O diagrama a seguir resume a cadeia, do código-fonte ao usuário final.
   |  npm run bootstrap                                            |
   |    |-- check-pinned-versions.js  (monaco 0.52.2; manifest IA) |
   |    |-- download-toolchain (aurora-msys-v1.zip) -> Packages/msys|
-  |    |-- download-yanc (yanc-bin-v5.6.zip)       -> components/  |
+  |    |-- download-yanc (yanc-bin-v7.1.zip)       -> components/  |
   |    |-- download-gtkwave-nipscern               -> Packages/   |
   |    |-- download-norse-font (dafont)            -> assets/fonts|
   |    |-- download-surfer / verible / clang-format / slang-server|

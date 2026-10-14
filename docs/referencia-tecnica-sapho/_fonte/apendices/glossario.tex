@@ -46,11 +46,28 @@ binário compacto do \tool{GTKWave}) que registram a evolução dos sinais ao lo
 \item[\file{.gtkw}] Arquivo de \textit{save} do \tool{GTKWave} que descreve a visualização
 (sinais, cores, agrupamentos) a ser aplicada sobre um \textit{dump}.
 
+\item[yanc] O \textit{driver} do YANC (desde a v7.1): roda o \tool{cmmcomp} ou o \tool{cppcomp} e
+depois o \tool{asmcomp}, achados ao lado dele, como o \tool{gcc} roda os seus programas. É o único
+binário do YANC que a AURORA chama (\lstinline|yanc -S| para no \file{.asm}; \lstinline|yanc <proc>.asm|
+só monta).
+
 \item[cmmcomp / cppcomp / asmcomp] Os três compiladores do YANC: \textit{front-ends} de \cmm{} e
 C++ para assembly, e o \textit{back-end} de assembly para Verilog + memórias + \textit{testbench}.
+O \tool{cppcomp} pré-processa o C++ sozinho, e o \tool{asmcomp} faz as duas passadas do assembly
+(a primeira grava \file{app\_log.txt} com os parâmetros do processador e os endereços de
+variáveis e \textit{labels}).
 
-\item[appcomp / cpppp] Pré-processadores do YANC: \tool{appcomp} faz a primeira passada do assembly
-(parâmetros do processador e endereços de variáveis/labels); \tool{cpppp} é o pré-processador de C++.
+\item[appcomp / cpppp] Binários do YANC até a v6.0, removidos na v7.1: o \tool{appcomp} (primeira
+passada do assembly) virou parte do \tool{asmcomp}, e o \tool{cpppp} (pré-processador de C++)
+virou parte do \tool{cppcomp}.
+
+\item[pasta de saída] A pasta onde o YANC grava tudo o que gera para um processador:
+\path{./<nome>} sem \lstinline|-o|; na AURORA, \path{<proj>/<proc>/<proc>/}. A simulação do
+\file{<proc>\_tb.v} roda com ela como diretório de trabalho.
+
+\item[toma / cade] Os links entre processadores SAPHO (desde a v7.1): \lstinline|toma(k, x)| entrega
+uma palavra pelo link \lstinline|k|, \lstinline|cade(k)| (ou \lstinline|fcade(k)|) a recebe. Instruções
+\lstinline|TOM| (20) e \lstinline|CAD| (21).
 
 \item[comp2gtkw / gen\_gtkw] Utilitários do YANC: tradução do padrão de bits de números complexos
 para o \tool{GTKWave}, e geração de uma \textit{view} \file{.gtkw} a partir do cabeçalho de um VCD.
@@ -106,7 +123,8 @@ do Electron) usado para proteger as chaves de API armazenadas.
 \item[toolchain bundle] O pacote portátil \file{aurora-msys-vN.zip} (prefixo \texttt{msys/mingw64})
 com simuladores, síntese e \tool{cocotb}, produzido pelo repositório \repo{aurora-toolchain}.
 
-\item[numBits / MABits / MIBits] Diretivas de hardware do \cmm{} que parametrizam as larguras de
-palavra e de endereçamento de memória do core gerado.
+\item[\#NUBITS / \#NBMANT / \#NBEXPO] Diretivas de hardware do \cmm{} que parametrizam a largura da
+palavra e do ponto flutuante do core gerado (padrões 32, 23 e 8). O nome do processador não é
+diretiva: é o nome do arquivo fonte (o \lstinline|#PRNAME| é erro desde a v7.1).
 
 \end{description}

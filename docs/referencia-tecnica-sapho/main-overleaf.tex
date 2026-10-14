@@ -98,8 +98,8 @@
 
 % caixa de nota (barra colorida à esquerda)
 \newenvironment{nota}
-  {\par\medskip\noindent\begin{tabularx}{\linewidth}{!{\color{auroraTeal}\vrule width 3pt}>{\hspace{8pt}\small}X}}
-  {\end{tabularx}\par\medskip}
+  {\par\medskip\noindent\tabularx{\linewidth}{!{\color{auroraTeal}\vrule width 3pt}>{\hspace{8pt}\small}X}}
+  {\endtabularx\par\medskip}
 
 % título sem página inteira
 \setlength{\droptitle}{-3.2em}
@@ -114,7 +114,7 @@
 \normalsize\mdseries\color{auroraInk}A plataforma \textbf{AURORA} (IDE) + \textbf{YANC} (compiladores)
 para concepção de \textit{soft-processors}}
 \author{NIPS-CERN --- Universidade Federal de Juiz de Fora (UFJF)}
-\date{Suíte 6.3.2 --- junho de 2026 \quad\textbar\quad documento construído a partir do estudo do código-fonte}
+\date{Suíte 6.3.2 --- junho de 2026; compilador e pastas do processador revistos para o YANC v7.1 em outubro de 2026 \quad\textbar\quad documento construído a partir do estudo do código-fonte}
 
 \begin{document}
 \maketitle
@@ -127,7 +127,6 @@ para concepção de \textit{soft-processors}}
 \hrule
 \vspace{4pt}
 
-\
 \section{Visão geral e contexto}
 \label{sec:S01-visao-geral}
 
@@ -152,7 +151,7 @@ periféricos, memória) é parametrizável e recompilável em minutos. Todo o fl
 \textbf{Peça} & \textbf{Papel} \\
 \midrule
 \tool{AURORA} & IDE desktop (Electron 39 + editor Monaco; repositório \repo{aurora}) que orquestra escrita, compilação, simulação, ondas e RTL sob interface única. Projetos no tipo \code{.spf} (\emph{SAPHO Project File}), organizados por processador. \\
-\tool{YANC} & \enquote{Yet Another Compiler} (em C, Flex/Bison; repositório \repo{yanc}): compila \cmm{} ou C++ até Verilog sintetizável, imagens de memória e \emph{testbench}. Binários: \code{cmmcomp}, \code{asmcomp}, \code{appcomp}, \code{comp2gtkw}. \\
+\tool{YANC} & \enquote{Yet Another Compiler} (em C, Flex/Bison; repositório \repo{yanc}): compila \cmm{} ou C++ até Verilog sintetizável, imagens de memória e \emph{testbench}. Desde a v7.1, seis binários: o \emph{driver} \code{yanc} (o único que a IDE chama), \code{cmmcomp}, \code{cppcomp}, \code{asmcomp}, \code{gen\_gtkw}, \code{comp2gtkw}. \\
 \emph{toolchain bundle} & \emph{Snapshot} portátil msys/mingw64 (\code{aurora-msys-v1.zip}, repositório \repo{aurora-toolchain}) baixado no \emph{bootstrap}: Icarus Verilog, Verilator, Yosys, GCC/G++, \code{make}, Perl, Python+cocotb. \\
 \bottomrule
 \end{tabularx}
@@ -181,8 +180,6 @@ Plataformas: a \textbf{IDE AURORA} hoje roda \textbf{somente em Windows} (alvo
 \code{nsis}/\code{x64} no electron-builder); o \tool{YANC} suporta Windows e
 Linux. Os repositórios \repo{aurora} (desenvolvimento) e \repo{sapho} (canal de
 release) são separados por intenção.
-
-\
 \section{A arquitetura do soft-processor SAPHO}
 \label{sec:S02-soft-processor}
 
@@ -201,22 +198,23 @@ Três traços de estilo: (1) \textbf{totalmente parametrizável} --- toda largur
 \lstinline|ula| (\file{ula.v}) & Unidade Lógico-Aritmética (todas as operações). \\
 \lstinline|addr_dec| (\file{addr\_dec.v}) & Decodificador de porta 1-de-N. \\
 \lstinline|myFIFO| (\file{myFIFO.v}) & FIFO genérica (substitui IP do fabricante). \\
+\lstinline|myDCFIFO| (\file{myDCFIFO.v}) & FIFO entre dois relógios, portas no estilo do \lstinline|dcfifo| do Quartus (v7.1). \\
 \bottomrule
 \end{longtable}
 
 \textbf{Memórias.} \lstinline|mem_instr|: palavra de \lstinline|NBOPCO+NBOPER| bits, só leitura, opcode nos bits altos. \lstinline|mem_data|: palavra \lstinline|NUBITS| \lstinline|signed|, uma leitura + uma escrita por ciclo (\lstinline|addr_rd|/\lstinline|addr_wr| independentes). Em síntese (Yosys) o \lstinline|$readmemb| é ignorado por \lstinline|`ifdef YOSYS|.
 
-\textbf{Busca e controle.} O \lstinline|pc| incrementa ou carrega (\lstinline|load|). O \lstinline|prefetch| decide saltos sobre o opcode, sem ULA: \lstinline|JMP| (16), \lstinline|JIZ| (17, se acumulador zero), \lstinline|CAL| (18)/\lstinline|RET| (19) com push/pop na pilha de subrotina; os quatro números são os \lstinline|localparam OP_JMP|..\lstinline|OP_RET| de \file{core.v}. Interrupção (\lstinline|ITRADD>0|) e marcador \lstinline|#TOAQUI| (\lstinline|TOAQUIADDR>0|, pulsa \lstinline|cheguei|) são opcionais.
+\textbf{Busca e controle.} O \lstinline|pc| incrementa ou carrega (\lstinline|load|). O \lstinline|prefetch| decide saltos sobre o opcode, sem ULA: \lstinline|JMP| (16), \lstinline|JIZ| (17, se acumulador zero), \lstinline|CAL| (18)/\lstinline|RET| (19) com push/pop na pilha de subrotina, e os links \lstinline|TOM| (20)/\lstinline|CAD| (21), que saltam para si mesmos até o parceiro liberar; os seis números são os \lstinline|localparam OP_JMP|..\lstinline|OP_CAD| de \file{core.v}. Interrupção (\lstinline|ITRADD>0|) e marcador \lstinline|#TOAQUI| (\lstinline|TOAQUIADDR>0|, pulsa \lstinline|cheguei|) são opcionais.
 
-\textbf{ISA.} Opcode de 7 bits, 106 opcodes (0 a 105) numerados por família e 114 mnemônicos (\lstinline|LEA| e a família \lstinline|_V| reusam opcodes). Sufixos: \lstinline|S_| (operando da pilha), \lstinline|F_| (float), \lstinline|SF_| (float+pilha), \lstinline|P_| (PUSH antes), \lstinline|_M| (opera sobre memória). Famílias: load/store diretos e indiretos (\lstinline|LOD|, \lstinline|SET|, \lstinline|LDI|/\lstinline|STI|, \lstinline|ILI|/\lstinline|ISI| com reversão de bits p/ FFT; o endereço indireto é sempre base + índice, e um número como operando é a base crua: \lstinline|LDI 0| lê \lstinline|mem[acc]| e \lstinline|STI 0| grava em \lstinline|mem[topo]|, o que desreferencia ponteiros); pilha (\lstinline|PSH|/\lstinline|POP|); I/O (\lstinline|INN|/\lstinline|OUT|); fluxo (\lstinline|JMP|/\lstinline|JIZ|/\lstinline|CAL|/\lstinline|RET|/\lstinline|NOP|); e cálculo (\lstinline|ADD|, \lstinline|MLT|, \lstinline|DIV|, \lstinline|MOD|, \lstinline|AND|/\lstinline|ORR|/\lstinline|XOR|/\lstinline|INV|, comparações \lstinline|LES|/\lstinline|GRE|/\lstinline|EQU|, deslocamentos \lstinline|SHL|/\lstinline|SHR|/\lstinline|SRS|, conversões \lstinline|I2F|/\lstinline|F2I|, \lstinline|F_ROT|, \lstinline|F_SCL|, \lstinline|XPO|). O decodificador é uma tabela (um \lstinline|case| com uma linha por opcode, guardada pelo parâmetro do mnemônico) e entrega um \lstinline|ula_op| de 6 bits, registrado um ciclo antes da ULA.
+\textbf{ISA.} Opcode de 7 bits, 108 opcodes (0 a 107) numerados por família e 119 mnemônicos na v7.1 (\lstinline|LEA|, a família \lstinline|_V| e \lstinline|QUO|/\lstinline|REM|/\lstinline|F_QUO| reusam opcodes). A v7.1 deslocou de 2 os opcodes a partir de \lstinline|ADD| (agora 22) para pôr \lstinline|TOM|/\lstinline|CAD| entre os de fluxo: \path{SAPHO/} e \tool{asmcomp} precisam ser da mesma versão. Sufixos: \lstinline|S_| (operando da pilha), \lstinline|F_| (float), \lstinline|SF_| (float+pilha), \lstinline|P_| (PUSH antes), \lstinline|_M| (opera sobre memória). Famílias: load/store diretos e indiretos (\lstinline|LOD|, \lstinline|SET|, \lstinline|LDI|/\lstinline|STI|, \lstinline|ILI|/\lstinline|ISI| com reversão de bits p/ FFT; o endereço indireto é sempre base + índice, e um número como operando é a base crua: \lstinline|LDI 0| lê \lstinline|mem[acc]| e \lstinline|STI 0| grava em \lstinline|mem[topo]|, o que desreferencia ponteiros); pilha (\lstinline|PSH|/\lstinline|POP|); I/O (\lstinline|INN|/\lstinline|OUT|); fluxo (\lstinline|JMP|/\lstinline|JIZ|/\lstinline|CAL|/\lstinline|RET|/\lstinline|NOP|); links (\lstinline|TOM|/\lstinline|CAD|, número do link no operando); e cálculo (\lstinline|ADD|, \lstinline|MLT|, \lstinline|DIV|, \lstinline|MOD|, \lstinline|AND|/\lstinline|ORR|/\lstinline|XOR|/\lstinline|INV|, comparações \lstinline|LES|/\lstinline|GRE|/\lstinline|EQU|, deslocamentos \lstinline|SHL|/\lstinline|SHR|/\lstinline|SRS|, conversões \lstinline|I2F|/\lstinline|F2I|, \lstinline|F_ROT|, \lstinline|F_SCL|, \lstinline|XPO|). O decodificador é uma tabela (um \lstinline|case| com uma linha por opcode, guardada pelo parâmetro do mnemônico) e entrega um \lstinline|ula_op| de 6 bits, registrado um ciclo antes da ULA.
 
 \textbf{ULA.} Banco de submódulos especializados (um por operação) multiplexados por \lstinline|op|; submódulo não usado recebe \lstinline|{NUBITS{1'bx}}| e é descartado. Trata inteiro/fixo como \lstinline|signed| (\lstinline|+ * / %|). \textbf{Ponto flutuante próprio} (não IEEE): 1 bit de sinal, \lstinline|NBEXPO| bits de expoente (complemento de dois), \lstinline|NBMANT| bits de mantissa com bit líder explícito; exige \lstinline|NUBITS == NBMANT+NBEXPO+1|. Hardware faz denormalização (alinha expoentes), operação e normalização; conversão IEEE$\leftrightarrow$SAPHO em software (\lstinline|f2mf|/\lstinline|mf2f|, \file{t2t.c}). \textbf{Complexos} não têm hardware dedicado: par de floats (real/imag), manipulados por componente.
 
+\textbf{Links \texttt{toma}/\texttt{cade} (v7.1).} \lstinline|toma(k, x)| entrega uma palavra pelo link \lstinline|k| e \lstinline|cade(k)|/\lstinline|fcade(k)| a recebe; quem chega primeiro espera. Cada lado tem um bit por link (T de quem escreve, C de quem lê; um valor espera enquanto $T \neq C$), e o link \lstinline|k| só é construído se o programa tem \lstinline|TOM k| ou \lstinline|CAD k| (parâmetros \lstinline|TOMS|/\lstinline|CADS|). Todo link é sincronizado (dois \emph{flip-flops}), e por isso cruza relógios; as formas \lstinline|_sync| declaram o mesmo relógio, o compilador escreve \lstinline|#LKSYNC k| e o sincronizador sai (parâmetro \lstinline|LSYNC|). Pinos: \lstinline|toma_k|, \lstinline|valeu_k|, \lstinline|cade_k|, \lstinline|taqui_k|, \lstinline|cade_dado_k| e \lstinline|toma_dado|.
+
 \textbf{I/O e FIFO.} \lstinline|io_ctrl| expõe \lstinline|io_in|/\lstinline|io_out|, endereços e \lstinline|req_in|/\lstinline|out_en|; a entrada injeta-se no operando 2 quando \lstinline|req_in| ativo. Múltiplas portas usam \lstinline|addr_dec| (1-de-N). \lstinline|myFIFO| é parametrizada por \lstinline|WORD|/\lstinline|LENGTH|/\lstinline|ALMOST| e expõe \lstinline|empty|/\lstinline|full|/\lstinline|almost_empty|/\lstinline|usedw|.
 
-\textbf{Parametrização e artefatos.} O montador lê \lstinline|nubits|/\lstinline|nbmant|/\lstinline|nbexpo| de \path{app_log.txt} (\lstinline|eval_init|, \file{eval.c}) e diretivas (\lstinline|#NDSTAC|, \lstinline|#SDEPTH|, \lstinline|#NUIOIN|/\lstinline|#NUIOOU|, \lstinline|#NUGAIN|, \lstinline|#FFTSIZ|); \lstinline|nbopr| deriva da maior memória. \file{hdl.c} (\lstinline|hdl_vv_file|) emite a instância \lstinline|processor| ligando só as instruções usadas. Gera duas imagens binárias (\file{hdl.c}/\file{eval.c}): \path{<proc>_inst.mif} (opcode+operando por linha, via \lstinline|itob|) e \path{<proc>_data.mif} (uma palavra por variável; floats inicializados em \lstinline|0.0| por \lstinline|f2mf|). \lstinline|hdl_tb_file| gera o \emph{testbench} autônomo \path{<proc>_tb.v}: clock/reset (\lstinline|T=1000.0/sim_clk()| ns), estímulo de \path{input_<i>.txt} (\lstinline|$fscanf|), captura em \path{output_<i>.txt} (\lstinline|$fdisplay|), dump \path{.vcd} e \lstinline|$finish| ao fim do programa. Instrumentação fica atrás de \lstinline|YANC_SIM_VIS|, nunca sintetizada.
-
-\
+\textbf{Parametrização e artefatos.} O montador lê \lstinline|nubits|/\lstinline|nbmant|/\lstinline|nbexpo| de \path{app_log.txt}, que a sua primeira passada (\file{pass1.c}, antes o \tool{appcomp}) grava ao lado do \path{.asm} (\lstinline|eval_init|, \file{eval.c}; o que falta fica com 32/23/8), e diretivas (\lstinline|#NDSTAC|, \lstinline|#SDEPTH|, \lstinline|#NUIOIN|/\lstinline|#NUIOOU|, \lstinline|#NUGAIN|, \lstinline|#FFTSIZ|, \lstinline|#LKSYNC|); sem \lstinline|#NDSTAC|/\lstinline|#SDEPTH| as pilhas são calculadas pelo programa, e \lstinline|#NUGAIN| (padrão 128) tem de ser potência de dois; \lstinline|nbopr| deriva da maior memória. \file{hdl.c} (\lstinline|hdl_vv_file|) emite a instância \lstinline|processor| ligando só as instruções usadas. Gera duas imagens binárias (\file{hdl.c}/\file{eval.c}): \path{<proc>_inst.mif} (opcode+operando por linha, via \lstinline|itob|) e \path{<proc>_data.mif} (uma palavra por variável; floats inicializados em \lstinline|0.0| por \lstinline|f2mf|). \lstinline|hdl_tb_file| gera o \emph{testbench} autônomo \path{<proc>_tb.v}: clock/reset (\lstinline|T=1000.0/sim_clk()| ns), estímulo de \path{input_<i>.txt} (\lstinline|$fscanf|), captura em \path{output_<i>.txt} (\lstinline|$fdisplay|), dump \path{.vcd} e \lstinline|$finish| ao fim do programa; simulado sozinho, ele é o parceiro de cada link (\path{cade_k.txt}, \path{toma_k.txt}). Desde a v7.1 tudo sai na pasta do \path{.asm} e o Verilog gerado não tem caminho absoluto: \lstinline|.DFILE|/\lstinline|.IFILE|, \path{output_<i>.txt} e o \path{.vcd} pelo nome puro, \path{input_<i>.txt} pelo caminho até a pasta do fonte (\path{../input_0.txt} no padrão); a simulação roda com a pasta de saída como diretório de trabalho. Instrumentação fica atrás de \lstinline|YANC_SIM_VIS|, nunca sintetizada.
 \section{A linguagem C±}
 \label{sec:S03-linguagem-cmm}
 
@@ -224,10 +222,9 @@ A \cmm{} (CMM) é o front-end de software do soft-processor SAPHO. O compilador 
 
 \subsection{Estrutura de um programa}
 
-Um programa é uma sequência de elementos de topo (\code{direct}, \code{declar}, \code{funcao}), sem ordem rígida. Não há bloco \code{processor \{ ... \}}: o processador é individualizado pelas diretivas iniciais (em especial \lstinline|#PRNAME|). O ponto de entrada é \lstinline|main()|; sua ausência gera \lstinline|MSG_ERR_NO_MAIN|. A forma canônica é: diretivas no topo, depois \lstinline|main()| com laço infinito \lstinline|while (1)| modelando o hardware contínuo.
+Um programa é uma sequência de elementos de topo (\code{direct}, \code{declar}, \code{funcao}), sem ordem rígida. Não há bloco \code{processor \{ ... \}}: o processador é individualizado pelas diretivas iniciais e pelo nome do arquivo. Desde a v7.1 o nome do processador é o do fonte (\file{filtro.cmm} gera o módulo \lstinline|filtro|); \lstinline|#PRNAME| virou erro, e o compilador recusa nome que não sirva de módulo Verilog (só \lstinline|[A-Za-z0-9_]|, sem dígito nem \lstinline|__| no início, sem palavra reservada; \file{Compilers/common/proc_name.c}). O ponto de entrada é \lstinline|main()|; sua ausência gera \lstinline|MSG_ERR_NO_MAIN|. A forma canônica é: diretivas no topo, depois \lstinline|main()| com laço infinito \lstinline|while (1)| modelando o hardware contínuo.
 
 \begin{lstlisting}[style=cmm]
-#PRNAME cmm_define
 #NUBITS 16
 #NUIOIN 1
 #NUIOOU 1
@@ -266,23 +263,23 @@ Cada \lstinline|comp| ocupa dois registros (real, código 3; imaginário, códig
 
 \subsection{Diretivas de hardware}
 
-Reconhecidas como \emph{tokens} próprios; cada uma ocupa uma linha e recebe um nome ou inteiro. A regra \code{direct} chama \lstinline|dire_exec()| (\file{diretivas.c}).
+Reconhecidas como \emph{tokens} próprios; cada uma ocupa uma linha e recebe um inteiro. Todas têm padrão, e o programa só escreve as que muda. A regra \code{direct} chama \lstinline|dire_exec()| (\file{diretivas.c}).
 
 \begin{longtable}{@{}p{0.16\linewidth}p{0.78\linewidth}@{}}
 \toprule
 \textbf{Diretiva} & \textbf{Significado} \\
 \midrule
 \endhead
-\lstinline|#PRNAME| & nome do processador \\
-\lstinline|#NUBITS| & largura da palavra da ULA \\
-\lstinline|#NBMANT| & largura da mantissa (padrão 16) \\
-\lstinline|#NBEXPO| & largura do expoente (padrão 6) \\
-\lstinline|#NDSTAC| & profundidade da pilha de dados \\
-\lstinline|#SDEPTH| & profundidade da pilha de sub-rotinas \\
+\lstinline|#NUBITS| & largura da palavra da ULA (padrão 32) \\
+\lstinline|#NBMANT| & largura da mantissa (padrão 23) \\
+\lstinline|#NBEXPO| & largura do expoente (padrão 8) \\
+\lstinline|#NDSTAC| & profundidade da pilha de dados (padrão: calculada pelo programa) \\
+\lstinline|#SDEPTH| & profundidade da pilha de sub-rotinas (padrão: calculada pelo programa) \\
 \lstinline|#NUIOIN| & número de portas de entrada (padrão 1) \\
 \lstinline|#NUIOOU| & número de portas de saída (padrão 1) \\
-\lstinline|#NUGAIN| & constante de divisão usada por \lstinline|norm(.)| \\
-\lstinline|#FFTSIZ| & tamanho da FFT ($2^{\texttt{FFTSIZ}}$) \\
+\lstinline|#NUGAIN| & constante de divisão usada por \lstinline|norm(.)|; potência de dois (padrão 128) \\
+\lstinline|#FFTSIZ| & tamanho da FFT ($2^{\texttt{FFTSIZ}}$; padrão 3) \\
+\lstinline|#FROUND| & arredondamento do float: 0, 1 ou 2 (padrão 0) \\
 \bottomrule
 \end{longtable}
 
@@ -290,7 +287,7 @@ As comportamentais \lstinline|#PRACA| (retorno de \emph{reset} por interrupção
 
 \subsection{Entrada e saída}
 
-Portas indexadas por literal inteiro, validadas contra \lstinline|#NUIOIN|/\lstinline|#NUIOOU| (\lstinline|MSG_ERR_NO_IN_PORT|/\lstinline|_OUT_PORT|): \lstinline|in(p)| (lê), \lstinline|fin(p)| (lê convertendo para \emph{float}), \lstinline|out(p, exp);| (escreve), \lstinline|fout(p, exp);| (escreve em \emph{float}).
+Portas indexadas por literal inteiro, validadas contra \lstinline|#NUIOIN|/\lstinline|#NUIOOU| (\lstinline|MSG_ERR_NO_IN_PORT|/\lstinline|_OUT_PORT|): \lstinline|in(p)| (lê), \lstinline|fin(p)| (lê convertendo para \emph{float}), \lstinline|out(p, exp);| (escreve), \lstinline|fout(p, exp);| (escreve em \emph{float}). Desde a v7.1, os links entre processadores: \lstinline|toma(k, x);| entrega \lstinline|x| pelo link \lstinline|k| e espera o parceiro levar, \lstinline|cade(k)|/\lstinline|fcade(k)| espera e recebe; as formas \lstinline|toma_sync|/\lstinline|cade_sync|/\lstinline|fcade_sync| são para parceiro no mesmo relógio.
 
 \subsection{Biblioteca padrão e macros}
 
@@ -300,9 +297,7 @@ O \lstinline|#define| (apenas \emph{object-like}) é tratado no scanner com prot
 
 \subsection{O caminho C++}
 
-Alternativamente, o YANC compila C/C++ para o mesmo soft-processor via \tool{cpppp} (pré-processador autônomo) e \tool{cppcomp} (subconjunto de C99 com extensões de C++); os parâmetros do alvo têm padrões fixos em \file{config.h} (palavra 32 bits, mantissa 23, expoente 8) ajustáveis por \lstinline|#pragma yanc|, e a saída é o mesmo \path{.asm}.
-
-\
+Alternativamente, o YANC compila C/C++ para o mesmo soft-processor via \tool{cppcomp} (subconjunto de C99 com extensões de C++), que desde a v7.1 pré-processa o fonte em memória (o \tool{cpppp} e o \path{pp.cpp} saíram; \lstinline|cppcomp -E| mostra o texto pré-processado) e dá as mensagens no arquivo e na linha escritos, inclusive em \emph{headers}. Os parâmetros do alvo têm padrões fixos em \file{config.h} (palavra 32 bits, mantissa 23, expoente 8) ajustáveis por \lstinline|#pragma yanc| (\lstinline|prname|, \lstinline|fftsiz| e \lstinline|itradd| são erro), e a saída é o mesmo \path{.asm}.
 \section{YANC: compiladores e pipeline de tradução}
 \label{sec:S04-yanc-pipeline}
 
@@ -311,28 +306,43 @@ traduz o programa de alto nível num \emph{soft-processor} \tool{SAPHO}: a saíd
 não é código de máquina, mas o Verilog RTL do processador mais as imagens de
 memória (\file{.mif}) e o \emph{testbench}. Tudo vive no \repo{yanc}
 (\path{Compilers/}, \path{Scripts/}, \file{Makefile}); a versão é única em
-\file{Compilers/yanc_version.h} (\lstinline|YANC_VERSION "5.2"|).
+\file{Compilers/yanc_version.h} (\lstinline|YANC_VERSION "7.1"|).
 
-\subsection{Os sete binários}
+\subsection{Os seis binários}
 \label{sec:S04-binarios}
 
 O \file{Makefile} é a fonte única de build, consumido por \file{setup.sh/.bat},
-\file{aurora.bat} e pela CI. Produz sete binários em \path{bin/}:
+\file{aurora.bat} e pela CI. Desde a v7.1 produz seis binários em \path{bin/}
+(até a v6.0 eram sete: o \tool{cpppp} virou parte do \tool{cppcomp}, o
+\tool{appcomp} virou a primeira passada do \tool{asmcomp}, e entrou o \tool{yanc}):
 
 \begin{longtable}{l l l l}
 \toprule
 \textbf{Binário} & \textbf{Entrada} & \textbf{Saída} & \textbf{Build} \\
 \midrule
 \endhead
-\tool{cmmcomp}   & \cmm{} (\file{.cmm})        & \file{.asm} + logs        & Flex+Bison+GCC \\
-\tool{cppcomp}   & C++ pré-proc.\ (\file{.c})  & \file{.asm} + logs        & Flex+Bison+GCC \\
-\tool{cpppp}     & C++ (\file{.cpp})           & C++ pré-processado        & GCC \\
-\tool{appcomp}   & \file{.asm}                 & \file{app\_log.txt} (1ª pas.) & Flex+GCC \\
-\tool{asmcomp}   & \file{.asm} + logs          & \file{.v}+\file{.mif}+\file{\_tb.v} & Flex+GCC \\
+\tool{yanc}      & \file{.cmm}/\file{.cpp}/\file{.asm} & roda os três abaixo & GCC \\
+\tool{cmmcomp}   & \cmm{} (\file{.cmm})        & \file{.asm} + tabelas     & Flex+Bison+GCC \\
+\tool{cppcomp}   & C++ (\file{.cpp})           & \file{.asm} + tabelas     & Flex+Bison+GCC \\
+\tool{asmcomp}   & \file{.asm} + tabelas       & \file{.v}+\file{.mif}+\file{\_tb.v} & Flex+GCC \\
 \tool{comp2gtkw} & bits (stdin)                & complexo legível (stdout) & GCC \\
 \tool{gen\_gtkw} & cabeçalho \file{.vcd}       & \file{.gtkw} formatado    & GCC \\
 \bottomrule
 \end{longtable}
+
+O \emph{driver} roda as ferramentas que acha ao lado dele, como o \code{gcc}:
+\lstinline|yanc prog.cmm| compila e monta ($\to$ \path{prog/prog.v}),
+\lstinline|yanc -S| para no \file{.asm}, \lstinline|yanc prog/prog.asm| só monta,
+\lstinline|-v| mostra cada comando. Opções: \lstinline|-o|, \lstinline|-I| (C++),
+\lstinline|-f|/\lstinline|-c| (padrão 100 MHz e 10000 clocks),
+\lstinline|--wave-arrays| (C±, antes \lstinline|-A|) e \lstinline!--lang=en|pt!
+(padrão inglês, ou \lstinline|YANC_LANG|; \lstinline|-en|/\lstinline|-pt| saíram).
+Para na primeira falha, com o código dela, e não simula. O fonte é o argumento sem
+opção em todas as ferramentas; saíram \lstinline|-i|, \lstinline|-n|,
+\lstinline|-p|, \lstinline|-t|, \lstinline|-m| e \lstinline|-d|, porque o nome do
+processador é o do arquivo e \path{SAPHO/}, \path{Macros/} e \path{Header/} são
+achadas ao lado do executável. No Windows cada ferramenta carrega um manifesto
+UTF-8: caminhos com acento chegam intactos.
 
 Flex+Bison rodam \lstinline|bison -y -d| (gera \file{y.tab.c/.h}) e
 \lstinline|flex| (gera \file{lex.yy.c}), compilados pelo GCC com os \file{.c}
@@ -340,72 +350,80 @@ manuais. O \file{Makefile} detecta \lstinline|$(OS)=Windows_NT| (sufixo
 \file{.exe}) e parametriza \lstinline|CC|: \lstinline|make CC=x86_64-w64-mingw32-gcc|
 gera \file{.exe} autocontidos, sem DLLs do MSYS2, que a \tool{AURORA} empacota.
 
-\subsection{O \file{.asm} intermediário e a side-table}
+\subsection{Pastas, o \texttt{.asm} intermediário e a side-table}
 \label{sec:S04-asm}
+
+Não há mais \path{Software/}, \path{Hardware/}, \path{Simulation/} nem
+\path{Temp/}. O que a pessoa escreve fica ao lado do fonte (o \file{.cmm} ou
+\file{.cpp}, os arquivos que inicializam vetores, \file{input\_N.txt},
+\file{cade\_k.txt}); tudo o que é gerado vai para uma pasta de saída plana,
+\path{./<nome>} sem \lstinline|-o|. O compilador anota a pasta do fonte em
+\file{prog\_log.txt} (\lstinline|srcdir|), por onde o \tool{asmcomp} acha os
+arquivos da pessoa.
 
 O \file{.asm} é a IR textual que une os dois front ends ao back end: uma
 instrução por linha (mnemônico + operando), comentários \lstinline|//|, rótulos
-\lstinline|@|, diretivas \lstinline|#...|. Mnemônicos são idênticos em
-\file{app.l} e \file{ASMComp.l}; cada um mapeia a um opcode de \lstinline|NBITS_OPC=7|
-bits, com operando de \lstinline|nbopr = ceil(log2(max(n_ins,n_dat)))| bits.
-\tool{cppcomp} emite \emph{as mesmas} tabelas de \tool{cmmcomp}, então todo o
-back end é compartilhado.
+\lstinline|@|, diretivas \lstinline|#...|. Mnemônicos são idênticos nas duas
+passadas do montador (\file{pass1.l} e \file{ASMComp.l}); cada um mapeia a um
+opcode de \lstinline|NBITS_OPC=7| bits, com operando de
+\lstinline|nbopr = ceil(log2(max(n_ins,n_dat)))| bits. \tool{cppcomp} emite
+\emph{as mesmas} tabelas de \tool{cmmcomp}, então todo o back end é compartilhado.
 
 A \emph{side-table} liga PC à linha-fonte: \file{pc\_<name>\_mem.txt} grava, por
 instrução, a linha em 20 bits (\lstinline|itob(emit_line,20)|), com sentinelas
 \lstinline|-1| (INTERNAL), \lstinline|-2| (\lstinline|void main();|),
-\lstinline|-3| (END); \file{trad\_cmm.txt} mapeia linha$\to$texto. No
-\file{<prname>.v}, \lstinline|$readmemb| carrega \lstinline|reg[19:0] min|; o PC
+\lstinline|-3| (END); \file{src\_lines.txt} (até a v6.0, \file{trad\_cmm.txt})
+mapeia linha$\to$texto, como a pessoa escreveu, também no C++. No
+\file{<nome>.v}, \lstinline|$readmemb| carrega \lstinline|reg[19:0] min|; o PC
 indexa \lstinline|linetabs| e propaga por \lstinline|valr1..valr10|
 (\lstinline|valr2| = trilha Assembly). No GTKWave, filtros \file{trad\_opcode.txt}
-e \file{trad\_cmm.txt} fazem Assembly e C+- avançarem em \emph{lockstep}.
+e \file{src\_lines.txt} fazem Assembly e fonte avançarem em \emph{lockstep}; a
+trilha do fonte se chama \enquote{C+-} ou \enquote{C++}, pela linha
+\lstinline|lang| de \file{prog\_log.txt} (até a v6.0, \file{cmm\_log.txt}).
 
 \subsection{Pipeline e scripts de orquestração}
 \label{sec:S04-pipeline}
 
 \begin{lstlisting}
- C+- (.cmm)                  C++ (.cpp)
-    |                           |
-    |                      [ cpppp ]   #include/#define/#ifdef
-    |                           v
-    |                      pp.cpp
+ <nome>.cmm                  <nome>.cpp   (pasta do fonte: + input_N, cade_k)
     v                           v
- [ cmmcomp ]               [ cppcomp ]
-    |  +-> cmm_log.txt / pc_<n>_mem.txt / trad_cmm.txt
+ [ cmmcomp ]               [ cppcomp ]   (pre-processa em memoria)
+    |  +-> prog_log.txt / pc_<n>_mem.txt / src_lines.txt
     v
- <name>.asm  <-- mesmo formato IR -->  <prname>.asm
+ <saida>/<nome>.asm  <-- mesmo formato IR (yanc -S para aqui)
     v
- [ appcomp ] 1a passada -> app_log.txt
+ [ asmcomp ] 1a passada (pass1.c) -> app_log.txt
     |  (prname,nubits,nbmant,nbexpo; @->addr; vars; n_ins,n_dat)
     v
- [ asmcomp ] 2a passada
-    +-> Hardware/<p>_inst.mif   (opcode|operando)
-    +-> Hardware/<p>_data.mif
-    +-> Hardware/<p>.v          (RTL + $readmemb side-table)
-    +-> Temp/<p>_tb.v           (testbench)
-    +-> Temp/trad_opcode.txt    (idx->mnemonico)
+ [ asmcomp ] 2a passada, tudo na pasta do .asm
+    +-> <n>_inst.mif   (opcode|operando)
+    +-> <n>_data.mif
+    +-> <n>.v          (RTL + $readmemb side-table)
+    +-> <n>_tb.v       (testbench; le ../input_N.txt)
+    +-> trad_opcode.txt (idx->mnemonico)
     v
- [ iverilog+vvp | verilator ]   --sim iverilog|verilator
-    +-> .vcd/.fst  (e .vcd hdr via +HEADER_ONLY)
+ [ iverilog+vvp | verilator ]   cwd = pasta de saida
+    +-> .vcd/.fst  (e .vcd hdr via +HEADER_ONLY), output_N.txt, toma_k.txt
     v
  [ gen_gtkw ] le cabecalho VCD -> .gtkw formatado
     v
- [ GTKWave ] Assembly + C+- em lockstep
+ [ GTKWave ] Assembly + fonte (C+- ou C++) em lockstep
 \end{lstlisting}
 
 Os scripts em \path{Scripts/} (\file{.sh} + contrapartes \file{.bat})
-automatizam o fluxo: \file{single\_proc.sh} roda o pipeline \cmm{} completo
-(exemplo \lstinline|proc_fft|); \file{single\_proc\_cpp.sh} adiciona \tool{cpppp}
-no início e aceita \lstinline|--no-view|; \file{multi\_proc.sh} demonstra um topo
-com dois processadores (\lstinline|ZeroCross|, \lstinline|ProcDTW|) usando
-\file{top\_level\_tb.v} próprio. A flag \lstinline|--sim| seleciona o simulador:
-\lstinline|iverilog| (padrão; Icarus + vvp, roda \lstinline|+HEADER_ONLY| e
-depois FST) ou \lstinline|verilator| (\lstinline|--binary --timing --trace
-+define+YANC_TRACE|). Em ambos, \tool{gen\_gtkw} gera o layout e o GTKWave abre.
-Os \emph{runners} só escrevem em \path{Teste/}; \file{regress.sh} é a suíte de
-regressão (fases \cmm{}, C++ e negativa).
-
-\
+automatizam o fluxo, chamando os compiladores direto: \file{single\_proc.sh} roda
+o pipeline \cmm{} completo (exemplo \lstinline|proc_fft|);
+\file{single\_proc\_cpp.sh} faz o mesmo pelo \tool{cppcomp} (exemplo
+\lstinline|proc_cpp|) e aceita \lstinline|--no-view|; \file{multi\_proc.sh}
+demonstra um topo com dois processadores (\lstinline|ProcDTW|,
+\lstinline|ZeroCross|) usando \file{top\_level\_tb.v} próprio e copiando os
+\file{.mif} e \file{pc\_*\_mem.txt} de cada um para a pasta da simulação. A flag
+\lstinline|--sim| seleciona o simulador: \lstinline|iverilog| (padrão; Icarus +
+vvp, roda \lstinline|+HEADER_ONLY| e depois FST) ou \lstinline|verilator|
+(\lstinline|--binary --timing --trace +define+YANC_TRACE|). Em ambos,
+\tool{gen\_gtkw} gera o layout e o GTKWave abre. Os \emph{runners} só escrevem em
+\path{Teste/}; \file{regress.sh} é a suíte de regressão (fases \cmm{}, C++, ISA,
+blocos SAPHO, negativas \cmm{} e C++, e a do \emph{driver}).
 \section{AURORA: arquitetura da IDE}
 \label{sec:S05-aurora-arquitetura}
 
@@ -445,8 +463,6 @@ São cinco \lstinline|BrowserWindow|, todas com \lstinline|contextIsolation:true
 São \textbf{157} registros \lstinline|ipcMain| (maioria \lstinline|handle|/\lstinline|invoke|). Os nove módulos \file{main/ipc/*} somam 116 handlers: \file{files.js} (27, fs/diálogos/chokidar), \file{git.js} (28, simple-git), \file{ai.js} (22, Aurora Intelligence --- chave nunca sai do main), \file{project.js} (11, reescreve \path{.spf}), \file{compile.js} (7), \file{prism.js} (6), \file{github\_auth.js} (7, token cifrado por \lstinline|safeStorage|), \file{system.js} (6), \file{search.js} (2). Outros: \file{executor.js}, LSP \emph{verible}/\emph{slang}, \emph{clang-format}, \emph{tree-sitter}, \file{updater.js}, \file{windows.js}.
 
 O renderer é bundlado pelo \tool{Vite}: \file{render\_loader.js} usa o dev server (HMR) quando \lstinline|AURORA_RENDERER_URL| está setada, ou \path{dist/} via \lstinline|file://| em produção. Cada preload expõe uma allowlist de canais; o principal traz oito namespaces (\lstinline|electronAPI|, \lstinline|terminalAPI|, \lstinline|aiAPI|, \lstinline|gitAPI|, \lstinline|lspAPI|, \lstinline|slangAPI|, \lstinline|clangFormatAPI|, \lstinline|treeSitterAPI|). O subsistema Aurora Intelligence está totalmente implementado; o provider/modelos próprios do laboratório ainda não foram treinados (roadmap).
-
-\
 \section{Edição, projeto e árvore de arquivos}
 \label{sec:S06-edicao-projeto-arvore}
 
@@ -486,8 +502,8 @@ modelo ao vivo (orçamento de 3, \code{canSplit}).
 \paragraph{Sintaxe (Monarch).} \cmm{} e \code{asm} têm gramáticas próprias
 escritas à mão; \code{verilog}/\code{systemverilog} usam a gramática
 vendorizada do Monaco (apenas conectada a Verible/slang/tree-sitter). A
-gramática \cmm{} cobre palavras-chave C, diretivas (\code{\#PRNAME},
-\code{\#NUBITS}…), funções de \emph{stdlib}, números complexos (sufixo
+gramática \cmm{} cobre palavras-chave C, diretivas (\code{\#NUBITS},
+\code{\#NBMANT}…; o \code{\#PRNAME} saiu com o yanc v7.1), funções de \emph{stdlib}, números complexos (sufixo
 \code{im}), notação de Dirac (bra-ket) e um conjunto vivo de \code{\#define}
 re-coletado de forma \emph{debounced}.
 
@@ -508,12 +524,22 @@ emite \lstinline|aurora:spf-changed| só em mudança real) e
 \code{state.currentOpenProjectPath} (verdade no processo principal; a pasta vem
 de \lstinline|path.dirname|).
 
-\paragraph{Processadores.} Cada processador \tool{SAPHO} é uma subpasta com
-\path{Software/}, \path{Hardware/}, \path{Simulation/}. A lista canônica é
-\code{structure.processors} (\lstinline|{name}|); os parâmetros numéricos vivem
-nas diretivas do \file{.cmm} gerado. O \emph{Processor Hub} valida bits
-(\lstinline|nBits === nbMantissa + nbExponent + 1|) e cria/renomeia/deleta via
-handlers IPC.
+\paragraph{Processadores.} Desde o yanc v7.1 a estrutura é a do próprio YANC
+(\file{pastas\_do\_processador.ts}): \path{<proj>/<proc>/} com o fonte
+(\file{<proc>.cmm} ou \file{.cpp}) e os dados, e a pasta de saída
+\path{<proj>/<proc>/<proc>/} com tudo o que o \tool{yanc} gera, onde roda a
+simulação do \file{<proc>\_tb.v}. A lista canônica é \code{structure.processors}
+(\lstinline|{name}|, mais \lstinline|language: 'cpp'| no C++); os parâmetros
+numéricos vivem nas diretivas do fonte gerado, que não tem \lstinline|#PRNAME| (o
+nome é o do arquivo) nem as diretivas que têm padrão. O \emph{Processor Hub} valida
+o nome pela regra do YANC (\file{proc\_name.c}: letras ASCII, dígitos e
+\lstinline|_|, sem dígito nem \lstinline|__| no início, sem palavra reservada do
+Verilog) e os bits (\lstinline|nBits === nbMantissa + nbExponent + 1|), e
+cria/renomeia/deleta via handlers IPC; renomear é renomear a pasta, o fonte e a
+pasta de saída. Um projeto com \path{Software/}, \path{Hardware/} e
+\path{Simulation/} é convertido na abertura (\file{conversao\_na\_abertura.ts}):
+uma pergunta por projeto, os arquivos são movidos e não apagados, o
+\lstinline|#PRNAME| sai do fonte e um relatório mostra o que mudou.
 
 \subsection{Árvore de arquivos}
 Três \emph{views} no mesmo \lstinline|#file-tree|, sob subcontêineres separados
@@ -523,7 +549,7 @@ controlados por \lstinline|data-active-view| (\code{tree\_view}):
 \toprule
 \textbf{View} & \textbf{Conteúdo} \\
 \midrule
-\enquote{verilog} & \emph{Picker} padrão, agrupado por processador (synth/testbench auto-detectados por \code{verilog\_classifier}, limiar 3); \emph{reconciler} chaveado por caminho. \\
+\enquote{verilog} & \emph{Picker} padrão, agrupado por processador (synth/testbench auto-detectados por \code{verilog\_classifier}, limiar 3; o menu de contexto oferece os dois marcadores em todo \path{.v}/\path{.sv} e o escolhido vence a heurística); \emph{reconciler} chaveado por caminho. \\
 \enquote{hierarchy} & Árvore de instâncias de módulo do \tool{Yosys}. \\
 \enquote{standard} & Explorador de pastas \emph{lazy}, só com projeto aberto. \\
 \bottomrule
@@ -535,8 +561,6 @@ view, rotaciona o conjunto dinâmico (\enquote{hierarchy} só com dados,
 (\code{localStorage}, até 10) e na \emph{jumplist} do Windows
 (\path{aurora-recents.json}). Backups \file{.zip} sob demanda usam
 \code{Compress-Archive} via PowerShell.
-
-\
 \section{Compilação e simulação na IDE}
 \label{sec:S07-compilacao-simulacao}
 
@@ -544,7 +568,7 @@ A compilação na \tool{AURORA} tem duas metades ligadas por IPC. No \textbf{ren
 
 \textbf{Fluxo.} Botão $\to$ \code{CompilationModule.<fase>()} monta o spec via builder $\to$ \code{spec\_runner.js} (ponto único renderer-side) aplica overrides e loga o diff $\to$ \code{electronAPI.execSpec}/\code{execSpecStreamed} via IPC $\to$ \code{executor.validateSpecForExec} $\to$ \code{spawnTracked}. A validação enforça, em ordem: (1) formato do spec; (2) binário na \textbf{allowlist} (\file{binary\_allowlist.js}); (3) \textbf{protected flags} preservadas (\file{protected\_flags.js}). O spec aplicado e o \code{baseSpec} viajam juntos: o main re-checa as flags protegidas contra a base.
 
-\textbf{Allowlist} (\textasciitilde17 binários, indexada por basename + diretório legal sob \path{components/}): \tool{cmmcomp}, \tool{appcomp}, \tool{asmcomp} (\path{bin}); \tool{iverilog}, \tool{vvp}, \tool{verilator}, \tool{perl}, \tool{g++}, \tool{make}, \tool{yosys} (\path{Packages/msys/mingw64/bin}); \tool{gtkwave}, \tool{fst2vcd} (\path{Packages/gtkwave-nipscern}); \tool{surfer}, \tool{verible-verilog-ls}, \tool{clang-format}, \tool{slang-server}, \tool{comp2gtkw}. Dois casos por regra: Python só se for o do bundle (\code{isBundledPythonPath}), e o \path{V<top>.exe} gerado, aceito por prefixo (\path{Temp/obj_dir*/V...}). \textbf{Protected flags} por etapa: flags com valor preservam só o \emph{nome} (\code{-o}, \code{-y}, \code{-s}; valor regenerado a cada run); literais preservam o token (\code{-tnull}, \code{--binary}, \code{--main}, \code{-fst}). Overrides podem \emph{adicionar} flags/env, nunca remover protegidas nem trocar o binário.
+\textbf{Allowlist} (16 entradas, indexada por basename + diretório legal sob \path{components/}): \tool{yanc} (\path{bin}; desde o yanc v7.1 é o único binário do YANC que a IDE chama, e ele roda \tool{cmmcomp}, \tool{cppcomp} e \tool{asmcomp}); \tool{iverilog}, \tool{vvp}, \tool{verilator}, \tool{perl}, \tool{g++}, \tool{make}, \tool{yosys} (\path{Packages/msys/mingw64/bin}); \tool{gtkwave}, \tool{fst2vcd} (\path{Packages/gtkwave-nipscern}); \tool{surfer-aurora}, \tool{verible-verilog-ls}, \tool{clang-format}, \tool{slang-server}, \tool{comp2gtkw}. Dois casos por regra: Python só se for o do bundle (\code{isBundledPythonPath}), e o \path{V<top>.exe} gerado, aceito por prefixo (\path{.aurora/Temp/obj_dir*/V...} de um projeto aberto, ou \path{components/Temp/}). \textbf{Protected flags} por etapa: flags com valor preservam só o \emph{nome} (\code{-o}, \code{-y}, \code{-s}; valor regenerado a cada run); literais preservam o token (\code{-tnull}, \code{--binary}, \code{--main}, \code{-fst}). Nos passos do \tool{yanc}: \code{-S} e \code{-o} na compilação, \code{-f} e \code{-c} na montagem. Overrides podem \emph{adicionar} flags/env, nunca remover protegidas nem trocar o binário.
 
 \textbf{Ambiente do filho} (\code{buildChildEnv}): \code{process.env} $\to$ defaults (\code{OMP\_NUM\_THREADS}/\code{OMP\_THREAD\_LIMIT} = nº de CPUs) $\to$ \code{spec.env} sanitizado (só chaves \lstinline|^[A-Za-z_]\w*$| com valor string sem null byte). O \code{prependPath} prefixa diretórios ao \code{PATH} (sem separador embutido) --- é assim que \tool{iverilog}/\tool{vvp} acham as DLLs MinGW e o Verilator acha \tool{perl}/\tool{g++}/\tool{make}. Filhos rodam em prioridade \code{ABOVE\_NORMAL} (ajustável por \code{AURORA\_TOOLCHAIN\_PRIORITY}). \code{spawnTracked} registra cada filho para tree-kill ao fechar a IDE.
 
@@ -568,8 +592,6 @@ A compilação na \tool{AURORA} tem duas metades ligadas por IPC. No \textbf{ren
 \end{lstlisting}
 
 \textbf{Precedência de \code{\$dumpvars}} (\code{resolveWaveSelection}, do maior ao menor): (1) \file{.gtkw} ativo (\code{gtkwFiles[].isActive}) --- extrai refs, valida, usa (\code{override}); (2) Wave Config (\code{wcCustomized} + \code{waveSignals}); (3) testbench com dump à mão (\code{hadOriginalDumpvars}, snapshot da 1ª visita) --- nada injetado; (4) default \lstinline|$dumpvars(1, tbModule)|. O \code{testbench\_instrumenter} injeta \lstinline|$dumpvars(0, ...)| com os sinais escolhidos; \code{selection\_validator} filtra caminhos pendentes (evita erro de elaboração do \tool{iverilog}); o \code{signal\_parser} (regex leve, não Yosys) alimenta o picker antes de qualquer simulação. O estado por testbench fica no \code{WaveStore} (\file{wave\_state\_store.ts}, JSON por \code{tbKey}).
-
-\
 \section{Visualização: ondas (GTKWave/Surfer) e RTL (PRISM)}
 \label{sec:S08-visualizacao-ondas-rtl}
 
@@ -604,8 +626,6 @@ IPC & \lstinline|launch-gtkwave-only| & \lstinline|launch-surfer| \\
 Botão \lstinline|prismcomp| (só com top-level). \lstinline|handlePrismStep| é \emph{superset} do Verilog (\cmm{}+ASM+syntax-check) e chama \lstinline|prismCompileWithPaths|. Janela única \lstinline|BrowserWindow| 1400$\times$900, \emph{frameless}, \lstinline|sandbox:true|, \lstinline|contextIsolation:true|, preload \file{preload\_prism.js} (allowlist de canais). Pipeline (\file{main/ipc/prism.js}): coleta \file{.v} (HDL+\lstinline|synthesizableFiles|+TopLevel+\path{<proc>/Hardware}, dedup) $\rightarrow$ \tool{Yosys} (\lstinline|read_verilog -setattr src| $\rightarrow$ \lstinline|hierarchy -top| $\rightarrow$ \lstinline|proc| $\rightarrow$ \lstinline|setundef -zero| $\rightarrow$ \lstinline|opt_clean -purge| $\rightarrow$ \lstinline|write_json|; sem \lstinline|techmap|/\lstinline|abc| — diagrama RTL) $\rightarrow$ \lstinline|splitHierarchyJson| (JSON por módulo) $\rightarrow$ \lstinline|generateModuleSVG|. Render \emph{in-process} via \lstinline|require('@silimate/netlistsvg')|. O fork \repo{netlistsvg-aurora} (pinado por commit) muda só o \file{tsconfig.json} (\lstinline|target| es5$\rightarrow$es2015 para TS~6, \lstinline|module:commonjs|, \lstinline|types:[]|) + rebuild de \path{built/}; API \lstinline|render(skin,netlist,cb)| idêntica. Skins SAPHO (\path{assets/prism-skins/*.svg}, de \file{prism-skin-standard.mts}) mescladas em \emph{runtime} sobre \path{lib/default.svg}; \lstinline|pruneNetlistToSkinPorts| poda portas ausentes (ELK); \lstinline|injectCellTypesIntoSvg| anota \lstinline|data-cell-type|. Renderer (\lstinline|PRISMViewer|): clique entra em submódulo (SVG já materializado, sem re-rodar Yosys), duplo-clique abre o fonte (via \lstinline|src|), breadcrumbs, pan/zoom.
 
 \paragraph{DigitalJS (O9).} Integração \textbf{funcional}: botão \enquote{Simular}; \lstinline|prism:build-digitaljs| gera script Yosys amigável (\lstinline|memory -nomap|, \lstinline|wreduce|), recusa acima de \lstinline|MAX_CELLS=3000|, e converte com \lstinline|yosys2digitaljs| (\lstinline|^0.10.3|; função pura) para \tool{DigitalJS} (\lstinline|^0.14.2|), carregado \emph{lazy}, com layout \lstinline|dagre| síncrono (roda sob \lstinline|file://|).
-
-\
 \section{Aurora Intelligence (IA)}
 \label{sec:S09-aurora-intelligence}
 
@@ -642,8 +662,6 @@ Usa a assinatura do usuario invocando a CLI local em modo nao interativo, traduz
 
 \subsection{Cofre, persistencia, IPC}
 \file{keystore.js} cifra chaves com \code{safeStorage} (\textbf{DPAPI}/Keychain/libsecret) em \path{userData/aurora-ai-keys.json}; texto puro nunca volta ao renderer (so \code{hasKey}). Persistencia: \textbf{um JSON por conversa} (\file{conversations.js}), \emph{log} de auditoria \emph{append-only} \path{.jsonl} (\file{audit.js}) e prefs nao secretas (\file{prefs.js}). Canais em \file{main/ipc/ai.js} (\code{ai:list-providers}, \code{ai:set-key}, \code{ai:chat-start}, \code{ai:tool-*}, \code{ai:conv-*}). O painel e \file{js/ui/ai\_assistant\_manager.js}, apoiado por modulos puros em \path{js/ai/*} (\emph{system prompt}, \emph{render}, contexto de projeto).
-
-\
 \section{Ferramentas de produtividade}
 \label{sec:S10-produtividade}
 
@@ -660,7 +678,7 @@ Em torno do editor \tool{Monaco}, a \tool{AURORA} reúne recursos auxiliares lig
 \textbf{Auth GitHub} (\file{main/ipc/github\_auth.js}) & PAT ou OAuth \textit{Device Flow} (escopos \lstinline|repo read:org|). \textit{Token} cifrado com \lstinline|safeStorage| (DPAPI) em \path{userData/aurora-github.json}; lido só no \textit{main}, injetado como \lstinline|http.extraHeader| de uso único. \\
 \textbf{Busca no projeto} (\file{main/ipc/search.js}, canal \lstinline|search:in-project|) & Motor \textbf{próprio} (varredura síncrona sobre \lstinline|fs|, sem ripgrep). Modificadores caso/palavra/regex (\lstinline|buildRegex|). Limites: profundidade 12, $\le$1,5 MB/arq, 2000 ocorrências, 500 arquivos; pula \path{.git}/\path{node_modules}/\path{dist}; \lstinline|truncated| ao estourar. \\
 \textbf{LSP Verilog} (\file{main/lsp/verible\_lsp.js}) & \tool{verible-verilog-ls} (JSON-RPC sobre \textit{stdio}): servidor completo --- diagnósticos, formatação, \textit{outline}/símbolos, \textit{hover}, definição, referências. Ciclo por modelo (\lstinline|didOpen|/\lstinline|didChange| debounce 350 ms); respawn transparente; \textit{timeout} 15 s. Marcadores no \tool{Monaco} sob dono \lstinline|verible|. \\
-\textbf{LSP semântico} (\file{main/lsp/slang\_lsp.js}) & \tool{slang-server} elabora o projeto inteiro; entrega só \textbf{diagnósticos semânticos} (dono \lstinline|slang|) + \textbf{completação}. \textit{Workspace}-acoplado (\lstinline|rootUri|); \textbf{ligável/desligável} (\lstinline|window.AuroraSlang.toggle()|, persistido). \\
+\textbf{LSP semântico} (\file{main/lsp/slang\_lsp.js}) & \tool{slang-server} elabora o projeto inteiro; entrega só \textbf{diagnósticos semânticos} (dono \lstinline|slang|) + \textbf{completação}. \textit{Workspace}-acoplado (\lstinline|rootUri|); \textbf{ligável/desligável} (\lstinline|window.AuroraSlang.toggle()|, persistido). O índice é montado no \textit{boot} do servidor, então a ponte o mantém vivo: \textit{watcher} \tool{chokidar} sobre a pasta do projeto $\rightarrow$ \lstinline|workspace/didChangeWatchedFiles| (mais um \lstinline|didChange| de mesmo texto nos \textit{buffers} abertos, para republicar). Fonte referenciada pelo \path{.spf} \textbf{fora} da pasta do projeto entra por \path{.slang/local/server.json} (campo \lstinline|index.dirs|), escrito pela \tool{AURORA} e ignorado se o arquivo já for do usuário. Sem os dois, um \textit{testbench} acusa \lstinline|unknown module| do \textit{top level} num projeto que compila. \\
 \textbf{tree-sitter} (\file{js/editor/treesitter\_highlight.js}) & Realce via \textbf{web-tree-sitter} (WASM) $\rightarrow$ \textit{semantic tokens} (SystemVerilog, C, C++); \textbf{só realce}, sem \textit{outline}. Bytes servidos por \file{main/treesitter/grammars.js} (canal \lstinline|treesitter:wasm|). Carregamento preguiçoso. \\
 \textbf{clang-format} (\file{main/format/clang\_format.js}) & CLI empacotada formata C/C++/\cmm{} via \textit{stdin}/\textit{stdout} (\textit{replace} de documento inteiro), \lstinline|Shift+Alt+F|. Usa \lstinline|-assume-filename| e \lstinline|-style=file|; \textit{timeout} 15 s. \\
 \textbf{Paleta de comandos} (\file{js/ui/command\_palette.js}) & \lstinline|Ctrl/Cmd+Shift+K| (ou \lstinline|+Shift+P|); componente Lit. Registro \lstinline|COMMANDS| em grupos Compile/Project/View/Tools/Dev; pontuação \textit{fuzzy} (\lstinline|scoreCommand|); comandos clicam o botão existente. \\
@@ -671,8 +689,6 @@ Em torno do editor \tool{Monaco}, a \tool{AURORA} reúne recursos auxiliares lig
 \bottomrule
 \end{tabularx}
 \end{table}
-
-\
 \section{O toolchain bundle}
 \label{sec:S11-toolchain-bundle}
 
@@ -702,8 +718,6 @@ Os três pinados saíram do \tool{MSYS2} vivo; vêm de um Release \path{pins-v1}
 \textbf{Pipeline e gate.} \path{10}-instala pinos $\rightarrow$ \path{20}-build VPI $\rightarrow$ \path{40}-\emph{assemble} $\rightarrow$ \path{45}-\emph{trim} ($\approx$1077\,MB $\to$ $\approx$660\,MB) $\rightarrow$ \path{50}-\textbf{smoke} (4 fluxos contra o próprio bundle: \tool{iverilog}, \tool{yosys}$\rightarrow$JSON, cocotb-icarus, cocotb-verilator; exige \textbf{4/4 PASS}) $\rightarrow$ \path{60}-\emph{package}. A CI roda tudo num \emph{runner} limpo com \emph{guardrail} que falha se a versão instalada divergir do manifesto.
 
 \textbf{Consumo pela AURORA.} \file{components/Scripts/download-toolchain.js} baixa o asset pela tag pinada (\code{MSYS_TAG}=\path{msys-v1}, owner \path{nipscernlab}, repo \path{aurora-toolchain}), extrai com \code{Expand-Archive} e confere duas \emph{sentinelas}: \path{mingw64/bin/verilator_bin.exe} (bundle completo) e, via varredura de \path{python3.*}, \path{site-packages/cocotb/libs/libcocotbvpi_verilator.a} (suporte a cocotb). Bundle+cocotb presentes pula o download; falta de cocotb força atualização no lugar. Há gancho de checksum \code{EXPECTED_SHA256} (hoje \code{null}).
-
-\
 \section{Catálogo de ferramentas de terceiros}
 \label{sec:S12-catalogo-terceiros}
 
@@ -821,12 +835,10 @@ O Aurora Intelligence está completamente implementado; o \emph{provider} e os
 modelos \emph{próprios} do laboratório ainda não foram treinados (\emph{roadmap}) ---
 até lá opera pelos provedores externos acima. O versionamento de releases usa
 \tool{release-please} (\emph{GitHub Action}, não pacote npm). Os compiladores YANC
-(\code{cmmcomp}, \code{cppcomp}, \code{asmcomp}, \code{cpppp}, \code{appcomp},
+(\code{yanc}, \code{cmmcomp}, \code{cppcomp}, \code{asmcomp}, \code{gen\_gtkw},
 \code{comp2gtkw}) chegam pelo mesmo bootstrap (\file{download-yanc.js}, \emph{tag}
-\code{v5.6}), licenciados segundo o projeto YANC.
+\code{v7.1}), licenciados segundo o projeto YANC.
 \end{nota}
-
-\
 \section{Build, empacotamento e distribuição}
 \label{sec:S13-build-distribuicao}
 
@@ -841,7 +853,7 @@ O \emph{toolchain} não é versionado; \texttt{npm run bootstrap} executa, em or
 \textbf{Downloader} & \textbf{Artefato / destino} \\
 \midrule
 \texttt{download-toolchain} & \file{aurora-msys-v1.zip} (MSYS2: iverilog, vvp, yosys, verilator, cocotb) -> \path{Packages/msys/} \\
-\texttt{download-yanc} & \file{yanc-bin-v5.6.zip} (7 binários + SAPHO/Macros/Header) -> \path{components/} \\
+\texttt{download-yanc} & \file{yanc-bin-v7.1.zip} (6 binários + SAPHO/Macros/Header) -> \path{components/} \\
 \texttt{download-gtkwave-nipscern} & \emph{fork} portátil GTKWave -> \path{Packages/gtkwave-nipscern/} \\
 \texttt{download-surfer} & \tool{Surfer} (visualizador \emph{opt-in}, GitLab) \\
 \texttt{download-verible} & LS Verilog (O2) \\
@@ -870,8 +882,6 @@ O \file{vite.config.mjs} cobre só o \emph{renderer}; processo principal e \emph
 \subsection{Split de repositórios}
 \label{sec:S13-split}
 A separação é \textbf{intencional}: \repo{aurora} é o repositório de desenvolvimento (código, CI, \emph{electron-builder}); \repo{sapho} é o canal de distribuição estável onde o instalador e o \file{latest.yml} são publicados (\texttt{publish} em \lstinline|repo: sapho|) e de onde o auto-updater consome. Publicar de aurora para sapho é operação \emph{cross-repo}. O usuário final baixa e atualiza de \repo{sapho}; a engenharia ocorre em \repo{aurora}.
-
-\
 \section{O pipeline de criação ponta a ponta}
 \label{sec:S14-pipeline-ponta-a-ponta}
 
@@ -893,22 +903,21 @@ são no-op (\emph{pipeline único}).
  (1) PROJETO  -> grava <proj>.spf  (fonte canonica)
      synthesizableFiles, testbenchFiles, topLevelFile,
      processors[]: name/cmmFile/clk(=100)/numClocks(=2000)/showArrays
-     cria: <proj>/<proc>/{Software,Hardware,Simulation}
-           components/Temp/<proc>/   (scratch -t / CWD da sim)
+     cria: <proj>/<proc>/  (fonte + dados; a saida <proc>/<proc>/ o yanc cria)
+           <proj>/.aurora/Temp/   (intermediarios: .vvp, instr_<tb>.v, obj_dir)
         v
  (2) CODIGO-FONTE  (editor Monaco)
      <proc>.cmm (ou .cpp) + top-level.v + testbench
        (<proc>_tb.v auto | top_level_tb.v | *.py cocotb)
-     [Verilator] ensureChegueiToaqui -> injeta #TOAQUI no .cmm
         v
  (3) COMPILACAO  (precompileAllProcessors -> por processador)
    +-----------------------------------------------------------------+
-   | [cmmcomp.exe] [-pt|-en] -i .cmm -n -p -m -t [--array]           |
-   |    -> <proc>.asm + cmm_log.txt + pc_<proc>_mem.txt              |
-   |       + <proc>_data.mif / <proc>_inst.mif                       |
-   | [appcomp.exe] -i .asm -t  -> .asm pre-processado (params/end.)  |
-   | [asmcomp.exe] -i .asm -p -d SAPHO -m -t -f<clk> -c<numClk>      |
-   |    -> Hardware/<proc>.v (RTL) + .mif + <proc>_tb.v -> Simulation|
+   | [yanc.exe] -S -o <proc>/<proc> [--wave-arrays] --lang=pt|en     |
+   |    (cmmcomp/cppcomp) -> <proc>.asm + prog_log.txt               |
+   |       + pc_<proc>_mem.txt + src_lines.txt     (TCMM)            |
+   | [yanc.exe] -f<clk> -c<numClk> --lang=.. <proc>/<proc>/<proc>.asm |
+   |    (asmcomp, 2 passadas) -> app_log.txt + <proc>.v (RTL) + .mif |
+   |       + <proc>_tb.v, tudo em <proc>/<proc>/   (TASM)            |
    +-----------------------------------------------------------------+
      (-y components/SAPHO: processor/core/ula/addr_dec/instr_dec/myFIFO)
         +----------------+------------------+
@@ -916,11 +925,12 @@ são no-op (\emph{pipeline único}).
  (5) INSTRUMENTAR DUMP  (comum, ANTES de simular)
      _resolveWaveSelection:
        .gtkw ativo > Wave Config > $dumpvars no tb > default
-     instrumentTestbench -> Temp/instr_<tb>.v  (copia; original intacto)
+     instrumentTestbench -> .aurora/Temp/instr_<tb>.v (copia; original intacto)
         v
    [iverilog -s tb -y SAPHO  [verilator --binary  [cocotb: iverilog ou
     -o .vvp]; [vvp -fst]    --timing --trace]    verilator por baixo]
-     stageProcessorMemoryFiles: pc_*_mem.txt -> Temp/ ($readmemb)
+     cwd: <proc>/<proc>/ (tb gerado) | <proj>/ (tb de projeto)
+     stageProcessorMemoryFiles: .mif + pc_*_mem.txt -> cwd (nome puro)
         v
      DUMP de ondas (FST)
      _extractFstHeaderVcd -> [fst2vcd] -> header.vcd (escopos/sinais)
@@ -928,7 +938,7 @@ são no-op (\emph{pipeline único}).
  (6) VISUALIZAR  (getViewer)
      +-- gtkwave -> buildAuroraGtkw -> .gtkw -> [gtkwave.exe]
      +-- surfer  -> buildSurferLayout -> .surf -> [surfer.exe]
-        faixas C+- / assembly / variaveis em LOCKSTEP com o clock
+        faixas fonte (C+- ou C++) / assembly / variaveis em LOCKSTEP
  (7) INSPECIONAR RTL  (botao PRISM, em paralelo)
      verilogSyntaxCheck -> [iverilog -tnull] ->
      generateProjectHierarchy -> [yosys] read_verilog+hierarchy+proc+
@@ -941,14 +951,17 @@ são no-op (\emph{pipeline único}).
 
 \begin{itemize}[leftmargin=1.4em]
   \item \textbf{(1)} \file{.spf} (canônico, via \code{SpfStore.read} em
-        \code{loadConfig}); pastas por \code{ensureDirectories}.
-  \item \textbf{(2)} \file{<proc>.cmm}/\file{.cpp}, top-level, testbench;
-        \code{ensureChegueiToaqui} só no ramo Verilator.
-  \item \textbf{(3a) cmmcomp} (\code{buildCmmSpec}): \file{.asm},
-        \file{cmm\_log.txt}, \file{pc\_<proc>\_mem.txt}, \file{.mif}.
-        \textbf{(3b) appcomp} (\code{buildAsmPreSpec}). \textbf{(3c) asmcomp}
-        (\code{buildAsmSpec}): \file{Hardware/<proc>.v}, \file{.mif},
-        \file{<proc>\_tb.v}.
+        \code{loadConfig}); a pasta do processador, pelo
+        \lstinline|create-processor-project|. Projeto com \path{Software/},
+        \path{Hardware/}, \path{Simulation/} é convertido na abertura.
+  \item \textbf{(2)} \file{<proc>.cmm}/\file{.cpp}, top-level, testbench. O
+        botão Verilator não escreve mais \lstinline|#TOAQUI| no fonte: para no
+        \lstinline|@fim| lido do \file{app\_log.txt}.
+  \item \textbf{(3a) \texttt{yanc -S}} (\code{buildCmmSpec}/\code{buildCppSpec}):
+        \file{.asm}, \file{prog\_log.txt}, \file{pc\_<proc>\_mem.txt},
+        \file{src\_lines.txt}. \textbf{(3b) \texttt{yanc <proc>.asm}}
+        (\code{buildAsmSpec}): \file{app\_log.txt}, \file{<proc>.v}, \file{.mif},
+        \file{<proc>\_tb.v}, tudo na pasta de saída.
   \item \textbf{(4)} \code{getSimulator()} (Icarus default; Verilator opt-in);
         cocotb se testbench é \file{.py}. Orquestra \code{runGtkWave}.
   \item \textbf{(5)} \code{instrumentTestbench} grava \file{instr\_<tb>.v}
@@ -959,14 +972,12 @@ são no-op (\emph{pipeline único}).
         allowlist).
 \end{itemize}
 
-\textbf{Allowlist} (basename + diretório legal): \file{cmmcomp.exe},
-\file{appcomp.exe}, \file{asmcomp.exe}, \file{comp2gtkw.exe}
-(\path{components/bin}); \file{iverilog.exe}, \file{vvp.exe},
+\textbf{Allowlist} (basename + diretório legal): \file{yanc.exe} e
+\file{comp2gtkw.exe} (\path{components/bin}; \file{cmmcomp.exe},
+\file{cppcomp.exe} e \file{asmcomp.exe} só o \tool{yanc} chama); \file{iverilog.exe}, \file{vvp.exe},
 \file{verilator.exe}, \file{yosys.exe}, \file{g++.exe}, \file{make.exe},
 \file{perl.exe} (\path{Packages/msys/mingw64/bin}); \file{gtkwave.exe},
-\file{fst2vcd.exe} (fork \tool{gtkwave-nipscern}); \file{surfer.exe}.
-
-\
+\file{fst2vcd.exe} (fork \tool{gtkwave-nipscern}); \file{surfer-aurora.exe}.
 \section{Engenharia, qualidade e evolução}
 \label{sec:S15-engenharia-evolucao}
 
@@ -991,7 +1002,7 @@ A IDE \tool{AURORA} é um app Electron em JavaScript com migração incremental 
 
 \repo{aurora}: 1269 \emph{commits} desde 04/02/2025, tags até \code{v6.3.2}; \repo{yanc}: 665 desde 09/10/2024, tags até \code{v5.2}. Pico em maio--junho/2026. Autores (\repo{aurora}): Chrysthofer (611+228+10+7, em identidades distintas incl.\ \code{nipscern}/\code{Kristoffer}), Luciano (473, responsável), Arthur (\code{ART_AM}, 8, via \emph{branches}), Dependabot (21), Claude (sessões de IA). \code{main} é o \emph{branch} de integração.
 
-\begin{longtable}{Y Z}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.18\linewidth} >{\raggedright\arraybackslash\small}p{0.76\linewidth}}
   \caption{Marcos do \repo{aurora}.}\label{tab:S15-timeline}\\
   \toprule \textbf{Data} & \textbf{Marco} \\ \midrule \endhead
   \bottomrule \endfoot
@@ -1009,9 +1020,6 @@ A IDE \tool{AURORA} é um app Electron em JavaScript com migração incremental 
 \end{longtable}
 
 \noindent\textbf{Aurora Intelligence} está totalmente implementado, mas o provider e os modelos próprios do laboratório ainda não foram treinados (roadmap). \repo{yanc} entrega binários versionados (\code{v1}--\code{v5.2}) que o \repo{aurora} baixa via \code{bootstrap}; \code{v5.2} (08/06/2026) trouxe paridade de GTKWave no pipeline C++.
-
-
-\
 \section{Glossário e fontes}
 \label{sec:glossario}
 
@@ -1023,6 +1031,9 @@ A IDE \tool{AURORA} é um app Electron em JavaScript com migração incremental 
 \textit{toolchain}; também o canal de distribuição e o arquivo de projeto (\file{.spf}).
 \item[AURORA] A IDE \textit{desktop} (Electron + Monaco) da plataforma.
 \item[YANC] \textit{Yet Another Compiler}: os compiladores que vão de \cmm{}/C++ a Verilog.
+\item[yanc] O \textit{driver} (v7.1): roda \tool{cmmcomp}/\tool{cppcomp} e \tool{asmcomp}; o único binário do YANC que a AURORA chama.
+\item[pasta de saída] Onde o YANC grava tudo o que gera: \path{./<nome>}; na AURORA, \path{<proj>/<proc>/<proc>/}.
+\item[toma / cade] Links entre SAPHOs (v7.1), instruções \lstinline|TOM| (20) e \lstinline|CAD| (21).
 \item[\cmm{}] Linguagem tipo C com ponto-fixo, ponto-flutuante e complexos de primeira classe.
 \item[PRISM] Visualizador de RTL embutido (Yosys + netlistsvg).
 \item[Aurora Intelligence] Subsistema de IA (chat + ferramentas).
@@ -1043,7 +1054,7 @@ A IDE \tool{AURORA} é um app Electron em JavaScript com migração incremental 
 \item[MCP] \textit{Model Context Protocol}: acesso das CLIs de IA às ferramentas da IDE.
 \item[DPAPI / safeStorage] Criptografia do SO para as chaves de API.
 \item[NSIS / electron-updater] Instalador Windows e atualização automática.
-\item[numBits / MABits / MIBits] Diretivas \cmm{} que parametrizam larguras do core.
+\item[\#NUBITS / \#NBMANT / \#NBEXPO] Diretivas \cmm{} das larguras da palavra e do float (padrão 32/23/8); o nome do processador é o do arquivo.
 \end{description}
 \end{multicols}
 }
@@ -1069,6 +1080,4 @@ DigitalJS, Surfer, Verible, slang, tree-sitter, clang-format, MSYS2, KaTeX, Lit,
 \par\smallskip
 \textbf{Padrões:} Verilog HDL (IEEE 1364); VCD/FST; \textit{Conventional Commits}; NSIS.
 }
-
-
 \end{document}

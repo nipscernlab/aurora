@@ -7,28 +7,43 @@ traduz o programa de alto nível num \emph{soft-processor} \tool{SAPHO}: a saíd
 não é código de máquina, mas o Verilog RTL do processador mais as imagens de
 memória (\file{.mif}) e o \emph{testbench}. Tudo vive no \repo{yanc}
 (\path{Compilers/}, \path{Scripts/}, \file{Makefile}); a versão é única em
-\file{Compilers/yanc_version.h} (\lstinline|YANC_VERSION "5.2"|).
+\file{Compilers/yanc_version.h} (\lstinline|YANC_VERSION "7.1"|).
 
-\subsection{Os sete binários}
+\subsection{Os seis binários}
 \label{sec:S04-binarios}
 
 O \file{Makefile} é a fonte única de build, consumido por \file{setup.sh/.bat},
-\file{aurora.bat} e pela CI. Produz sete binários em \path{bin/}:
+\file{aurora.bat} e pela CI. Desde a v7.1 produz seis binários em \path{bin/}
+(até a v6.0 eram sete: o \tool{cpppp} virou parte do \tool{cppcomp}, o
+\tool{appcomp} virou a primeira passada do \tool{asmcomp}, e entrou o \tool{yanc}):
 
 \begin{longtable}{l l l l}
 \toprule
 \textbf{Binário} & \textbf{Entrada} & \textbf{Saída} & \textbf{Build} \\
 \midrule
 \endhead
-\tool{cmmcomp}   & \cmm{} (\file{.cmm})        & \file{.asm} + logs        & Flex+Bison+GCC \\
-\tool{cppcomp}   & C++ pré-proc.\ (\file{.c})  & \file{.asm} + logs        & Flex+Bison+GCC \\
-\tool{cpppp}     & C++ (\file{.cpp})           & C++ pré-processado        & GCC \\
-\tool{appcomp}   & \file{.asm}                 & \file{app\_log.txt} (1ª pas.) & Flex+GCC \\
-\tool{asmcomp}   & \file{.asm} + logs          & \file{.v}+\file{.mif}+\file{\_tb.v} & Flex+GCC \\
+\tool{yanc}      & \file{.cmm}/\file{.cpp}/\file{.asm} & roda os três abaixo & GCC \\
+\tool{cmmcomp}   & \cmm{} (\file{.cmm})        & \file{.asm} + tabelas     & Flex+Bison+GCC \\
+\tool{cppcomp}   & C++ (\file{.cpp})           & \file{.asm} + tabelas     & Flex+Bison+GCC \\
+\tool{asmcomp}   & \file{.asm} + tabelas       & \file{.v}+\file{.mif}+\file{\_tb.v} & Flex+GCC \\
 \tool{comp2gtkw} & bits (stdin)                & complexo legível (stdout) & GCC \\
 \tool{gen\_gtkw} & cabeçalho \file{.vcd}       & \file{.gtkw} formatado    & GCC \\
 \bottomrule
 \end{longtable}
+
+O \emph{driver} roda as ferramentas que acha ao lado dele, como o \code{gcc}:
+\lstinline|yanc prog.cmm| compila e monta ($\to$ \path{prog/prog.v}),
+\lstinline|yanc -S| para no \file{.asm}, \lstinline|yanc prog/prog.asm| só monta,
+\lstinline|-v| mostra cada comando. Opções: \lstinline|-o|, \lstinline|-I| (C++),
+\lstinline|-f|/\lstinline|-c| (padrão 100 MHz e 10000 clocks),
+\lstinline|--wave-arrays| (C±, antes \lstinline|-A|) e \lstinline!--lang=en|pt!
+(padrão inglês, ou \lstinline|YANC_LANG|; \lstinline|-en|/\lstinline|-pt| saíram).
+Para na primeira falha, com o código dela, e não simula. O fonte é o argumento sem
+opção em todas as ferramentas; saíram \lstinline|-i|, \lstinline|-n|,
+\lstinline|-p|, \lstinline|-t|, \lstinline|-m| e \lstinline|-d|, porque o nome do
+processador é o do arquivo e \path{SAPHO/}, \path{Macros/} e \path{Header/} são
+achadas ao lado do executável. No Windows cada ferramenta carrega um manifesto
+UTF-8: caminhos com acento chegam intactos.
 
 Flex+Bison rodam \lstinline|bison -y -d| (gera \file{y.tab.c/.h}) e
 \lstinline|flex| (gera \file{lex.yy.c}), compilados pelo GCC com os \file{.c}
@@ -36,67 +51,77 @@ manuais. O \file{Makefile} detecta \lstinline|$(OS)=Windows_NT| (sufixo
 \file{.exe}) e parametriza \lstinline|CC|: \lstinline|make CC=x86_64-w64-mingw32-gcc|
 gera \file{.exe} autocontidos, sem DLLs do MSYS2, que a \tool{AURORA} empacota.
 
-\subsection{O \file{.asm} intermediário e a side-table}
+\subsection{Pastas, o \texttt{.asm} intermediário e a side-table}
 \label{sec:S04-asm}
+
+Não há mais \path{Software/}, \path{Hardware/}, \path{Simulation/} nem
+\path{Temp/}. O que a pessoa escreve fica ao lado do fonte (o \file{.cmm} ou
+\file{.cpp}, os arquivos que inicializam vetores, \file{input\_N.txt},
+\file{cade\_k.txt}); tudo o que é gerado vai para uma pasta de saída plana,
+\path{./<nome>} sem \lstinline|-o|. O compilador anota a pasta do fonte em
+\file{prog\_log.txt} (\lstinline|srcdir|), por onde o \tool{asmcomp} acha os
+arquivos da pessoa.
 
 O \file{.asm} é a IR textual que une os dois front ends ao back end: uma
 instrução por linha (mnemônico + operando), comentários \lstinline|//|, rótulos
-\lstinline|@|, diretivas \lstinline|#...|. Mnemônicos são idênticos em
-\file{app.l} e \file{ASMComp.l}; cada um mapeia a um opcode de \lstinline|NBITS_OPC=7|
-bits, com operando de \lstinline|nbopr = ceil(log2(max(n_ins,n_dat)))| bits.
-\tool{cppcomp} emite \emph{as mesmas} tabelas de \tool{cmmcomp}, então todo o
-back end é compartilhado.
+\lstinline|@|, diretivas \lstinline|#...|. Mnemônicos são idênticos nas duas
+passadas do montador (\file{pass1.l} e \file{ASMComp.l}); cada um mapeia a um
+opcode de \lstinline|NBITS_OPC=7| bits, com operando de
+\lstinline|nbopr = ceil(log2(max(n_ins,n_dat)))| bits. \tool{cppcomp} emite
+\emph{as mesmas} tabelas de \tool{cmmcomp}, então todo o back end é compartilhado.
 
 A \emph{side-table} liga PC à linha-fonte: \file{pc\_<name>\_mem.txt} grava, por
 instrução, a linha em 20 bits (\lstinline|itob(emit_line,20)|), com sentinelas
 \lstinline|-1| (INTERNAL), \lstinline|-2| (\lstinline|void main();|),
-\lstinline|-3| (END); \file{trad\_cmm.txt} mapeia linha$\to$texto. No
-\file{<prname>.v}, \lstinline|$readmemb| carrega \lstinline|reg[19:0] min|; o PC
+\lstinline|-3| (END); \file{src\_lines.txt} (até a v6.0, \file{trad\_cmm.txt})
+mapeia linha$\to$texto, como a pessoa escreveu, também no C++. No
+\file{<nome>.v}, \lstinline|$readmemb| carrega \lstinline|reg[19:0] min|; o PC
 indexa \lstinline|linetabs| e propaga por \lstinline|valr1..valr10|
 (\lstinline|valr2| = trilha Assembly). No GTKWave, filtros \file{trad\_opcode.txt}
-e \file{trad\_cmm.txt} fazem Assembly e C+- avançarem em \emph{lockstep}.
+e \file{src\_lines.txt} fazem Assembly e fonte avançarem em \emph{lockstep}; a
+trilha do fonte se chama \enquote{C+-} ou \enquote{C++}, pela linha
+\lstinline|lang| de \file{prog\_log.txt} (até a v6.0, \file{cmm\_log.txt}).
 
 \subsection{Pipeline e scripts de orquestração}
 \label{sec:S04-pipeline}
 
 \begin{lstlisting}
- C+- (.cmm)                  C++ (.cpp)
-    |                           |
-    |                      [ cpppp ]   #include/#define/#ifdef
-    |                           v
-    |                      pp.cpp
+ <nome>.cmm                  <nome>.cpp   (pasta do fonte: + input_N, cade_k)
     v                           v
- [ cmmcomp ]               [ cppcomp ]
-    |  +-> cmm_log.txt / pc_<n>_mem.txt / trad_cmm.txt
+ [ cmmcomp ]               [ cppcomp ]   (pre-processa em memoria)
+    |  +-> prog_log.txt / pc_<n>_mem.txt / src_lines.txt
     v
- <name>.asm  <-- mesmo formato IR -->  <prname>.asm
+ <saida>/<nome>.asm  <-- mesmo formato IR (yanc -S para aqui)
     v
- [ appcomp ] 1a passada -> app_log.txt
+ [ asmcomp ] 1a passada (pass1.c) -> app_log.txt
     |  (prname,nubits,nbmant,nbexpo; @->addr; vars; n_ins,n_dat)
     v
- [ asmcomp ] 2a passada
-    +-> Hardware/<p>_inst.mif   (opcode|operando)
-    +-> Hardware/<p>_data.mif
-    +-> Hardware/<p>.v          (RTL + $readmemb side-table)
-    +-> Temp/<p>_tb.v           (testbench)
-    +-> Temp/trad_opcode.txt    (idx->mnemonico)
+ [ asmcomp ] 2a passada, tudo na pasta do .asm
+    +-> <n>_inst.mif   (opcode|operando)
+    +-> <n>_data.mif
+    +-> <n>.v          (RTL + $readmemb side-table)
+    +-> <n>_tb.v       (testbench; le ../input_N.txt)
+    +-> trad_opcode.txt (idx->mnemonico)
     v
- [ iverilog+vvp | verilator ]   --sim iverilog|verilator
-    +-> .vcd/.fst  (e .vcd hdr via +HEADER_ONLY)
+ [ iverilog+vvp | verilator ]   cwd = pasta de saida
+    +-> .vcd/.fst  (e .vcd hdr via +HEADER_ONLY), output_N.txt, toma_k.txt
     v
  [ gen_gtkw ] le cabecalho VCD -> .gtkw formatado
     v
- [ GTKWave ] Assembly + C+- em lockstep
+ [ GTKWave ] Assembly + fonte (C+- ou C++) em lockstep
 \end{lstlisting}
 
 Os scripts em \path{Scripts/} (\file{.sh} + contrapartes \file{.bat})
-automatizam o fluxo: \file{single\_proc.sh} roda o pipeline \cmm{} completo
-(exemplo \lstinline|proc_fft|); \file{single\_proc\_cpp.sh} adiciona \tool{cpppp}
-no início e aceita \lstinline|--no-view|; \file{multi\_proc.sh} demonstra um topo
-com dois processadores (\lstinline|ZeroCross|, \lstinline|ProcDTW|) usando
-\file{top\_level\_tb.v} próprio. A flag \lstinline|--sim| seleciona o simulador:
-\lstinline|iverilog| (padrão; Icarus + vvp, roda \lstinline|+HEADER_ONLY| e
-depois FST) ou \lstinline|verilator| (\lstinline|--binary --timing --trace
-+define+YANC_TRACE|). Em ambos, \tool{gen\_gtkw} gera o layout e o GTKWave abre.
-Os \emph{runners} só escrevem em \path{Teste/}; \file{regress.sh} é a suíte de
-regressão (fases \cmm{}, C++ e negativa).
+automatizam o fluxo, chamando os compiladores direto: \file{single\_proc.sh} roda
+o pipeline \cmm{} completo (exemplo \lstinline|proc_fft|);
+\file{single\_proc\_cpp.sh} faz o mesmo pelo \tool{cppcomp} (exemplo
+\lstinline|proc_cpp|) e aceita \lstinline|--no-view|; \file{multi\_proc.sh}
+demonstra um topo com dois processadores (\lstinline|ProcDTW|,
+\lstinline|ZeroCross|) usando \file{top\_level\_tb.v} próprio e copiando os
+\file{.mif} e \file{pc\_*\_mem.txt} de cada um para a pasta da simulação. A flag
+\lstinline|--sim| seleciona o simulador: \lstinline|iverilog| (padrão; Icarus +
+vvp, roda \lstinline|+HEADER_ONLY| e depois FST) ou \lstinline|verilator|
+(\lstinline|--binary --timing --trace +define+YANC_TRACE|). Em ambos,
+\tool{gen\_gtkw} gera o layout e o GTKWave abre. Os \emph{runners} só escrevem em
+\path{Teste/}; \file{regress.sh} é a suíte de regressão (fases \cmm{}, C++, ISA,
+blocos SAPHO, negativas \cmm{} e C++, e a do \emph{driver}).

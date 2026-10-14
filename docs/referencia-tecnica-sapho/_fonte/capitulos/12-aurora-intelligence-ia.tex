@@ -273,7 +273,7 @@ mesmo \emph{ask-before-write}, o mesmo \emph{log} de auditoria e o mesmo
 Para garantir que o modelo \emph{prefira} as ferramentas \lstinline|mcp__aurora__*|
 e nao recorra ao \emph{shell}, cada ponte injeta um texto de regras no primeiro
 turno (\code{MCP\_TOOL\_RULES}) que instrui o modelo a nunca chamar binarios da
-YANC (\tool{cmmcomp}, \tool{cppcomp}, \tool{asmcomp}, \dots), \tool{iverilog},
+YANC (\tool{yanc}, \tool{cmmcomp}, \tool{cppcomp}, \tool{asmcomp}), \tool{iverilog},
 \tool{verilator} ou \tool{gtkwave} por um \emph{shell}, usando em vez disso as
 ferramentas equivalentes da AURORA. Alem disso:
 
@@ -327,8 +327,8 @@ entrada declara:
 As ferramentas cobrem todo o fluxo de trabalho da IDE. A tabela a seguir agrupa
 exemplos representativos por area funcional (a lista completa esta no codigo).
 
-\begin{longtable}{l Y}
-\caption{Categorias de ferramentas em \file{main/ai/tools.js}.}\\
+\begin{longtable}{l P{0.62\linewidth}}
+\caption{Categorias de ferramentas em \texttt{main/ai/tools.js}.}\\
 \toprule
 \textbf{Categoria} & \textbf{Exemplos de ferramentas} \\
 \midrule
@@ -364,7 +364,7 @@ Vercel AI SDK, ligando o \code{execute} de cada ferramenta a uma funcao-ponte
 fornecida pelo \file{chat.js}. \code{getManifest()} produz a versao serializavel
 (sem fechamentos) que o renderer consome.
 
-\begin{lstlisting}[caption={Construcao das ferramentas para o SDK (\file{main/ai/tools.js}).}]
+\begin{lstlisting}[caption={Construcao das ferramentas para o SDK (\texttt{main/ai/tools.js}).}]
 function buildTools(runToolFn) {
   if (!tool || !jsonSchema) return {};
   const tools = {};
@@ -555,7 +555,7 @@ o modelo alucine caminhos de projetos anteriores.
 
 Todos os canais sao registrados em \file{main/ipc/ai.js}. Resumo:
 
-\begin{longtable}{l Y}
+\begin{longtable}{l P{0.62\linewidth}}
 \caption{Canais IPC do Aurora Intelligence.}\\
 \toprule
 \textbf{Canal} & \textbf{Funcao} \\

@@ -25,7 +25,8 @@ pdflatex main.tex      # 2ª passada resolve sumário e referências cruzadas
 # ou:  latexmk -pdf main.tex
 ```
 
-Resultado: `main.pdf` (~14–18 páginas, denso).
+Resultado: `main.pdf` (25 páginas em outubro de 2026, denso). `main-overleaf.tex` é o mesmo
+texto num arquivo só (o `main.tex` com as `secoes/` inseridas), para subir no Overleaf.
 
 ## Material extenso (`_fonte/`, opcional)
 
@@ -46,4 +47,6 @@ Compilar a versão extensa: `cd _fonte && pdflatex main.tex && pdflatex main.tex
 ## Escopo
 
 Núcleo SAPHO: `aurora`, `yanc`, `aurora-toolchain`, canal `sapho`, *forks* `gtkwave-nipscern` e
-`netlistsvg-aurora`, e o subsistema *Aurora Intelligence*. Suíte documentada: **6.3.2** (junho de 2026).
+`netlistsvg-aurora`, e o subsistema *Aurora Intelligence*. Suíte documentada: **6.3.2** (junho de 2026);
+o compilador, as pastas do processador e a compilação na AURORA foram revistos para o **YANC v7.1**
+em outubro de 2026.

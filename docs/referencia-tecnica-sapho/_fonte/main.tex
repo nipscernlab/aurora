@@ -17,6 +17,7 @@
 \usepackage[brazil]{babel}
 \usepackage{lmodern}
 \usepackage{textcomp}
+\usepackage{amssymb}
 \usepackage{microtype}
 
 % ---------- Layout ----------
@@ -31,6 +32,7 @@
 \usepackage{enumitem}
 \usepackage{csquotes}
 \usepackage{listings}
+\usepackage{framed}
 \usepackage{fancyhdr}
 \usepackage{titlesec}
 \usepackage{parskip}
@@ -62,6 +64,9 @@
 % ---------- Colunas tabularx ----------
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
 \newcolumntype{Z}{>{\raggedright\arraybackslash\small}X}
+% para longtable, que não aceita X: largura fixa
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Q}[1]{>{\raggedright\arraybackslash\small}p{#1}}
 
 % ---------- Estilo de código (listings) ----------
 \lstset{
@@ -89,6 +94,7 @@
     {ú}{{\'u}}1 {ü}{{\"u}}1 {ç}{{\c c}}1
     {Á}{{\'A}}1 {Ã}{{\~A}}1 {É}{{\'E}}1 {Ó}{{\'O}}1 {Ç}{{\c C}}1
     {±}{{$\pm$}}1 {→}{{$\rightarrow$}}1 {≈}{{$\approx$}}1
+    {—}{{-}}1 {⟨}{{$\langle$}}1 {⟩}{{$\rangle$}}1
 }
 
 % Linguagem auxiliar p/ a notação C± (CMM)
@@ -125,10 +131,12 @@
 \newcommand{\tool}[1]{\textsc{#1}}
 \newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily\normalsize]|#1|}
 
-% Caixa de nota neutra (sem dependências externas)
+% Caixa de nota neutra: barra colorida à esquerda (framed, pacote padrão). Não
+% usa tabularx, que lê o corpo como argumento e quebra o \lstinline de dentro.
 \newenvironment{nota}
-  {\par\medskip\noindent\begin{tabularx}{\linewidth}{!{\color{auroraTeal}\vrule width 3pt}>{\hspace{6pt}}X}}
-  {\end{tabularx}\par\medskip}
+  {\par\medskip\def\FrameCommand{{\color{auroraTeal}\vrule width 3pt}\hspace{6pt}}%
+   \MakeFramed{\advance\hsize-\width\FrameRestore}}
+  {\endMakeFramed\par\medskip}
 
 \setlist{itemsep=2pt,topsep=4pt}
 
@@ -153,7 +161,8 @@ dos repositórios da organização \texttt{nipscernlab}.}\\[2cm]
 {\normalsize Núcleo de pesquisa --- Universidade Federal de Juiz de Fora (UFJF)}\\[1.5cm]
 
 {\normalsize Versão da suíte documentada: \textbf{SAPHO/AURORA 6.3.2}}\\[2pt]
-{\normalsize Junho de 2026}
+{\normalsize Junho de 2026}\\[2pt]
+{\normalsize Compilador e pastas do processador revistos para o \textbf{YANC v7.1} (outubro de 2026)}
 
 \vfill
 {\footnotesize\color{auroraGray} Escopo: núcleo SAPHO (AURORA, YANC, \textit{toolchain bundle},

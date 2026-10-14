@@ -9,7 +9,7 @@ Verilog em \path{yanc/SAPHO/} --- \file{processor.v}, \file{core.v}, \file{ula.v
 montador (\emph{ASMComp}) em \path{yanc/Compilers/ASMComp/Sources/}, que parametriza e
 instancia esses módulos, gera as imagens de memória (\path{.mif}) e produz o
 \emph{testbench}. A geração do código \cmm/C++ até a montagem em Assembly é tratada em
-\autoref{cap:03-pipeline-de-compilacao-yanc}; aqui o foco é o \emph{hardware} resultante.
+\autoref{cap:04-yanc-compiladores}; aqui o foco é o \emph{hardware} resultante.
 
 \section{Visão geral do estilo de arquitetura}
 \label{sec:arq-visao-geral}
@@ -232,13 +232,14 @@ assign opcode  = mem_instr[NBOPCO+NBOPER-1:NBOPER];
 assign operand = mem_instr[NBOPER       -1:     0];
 \end{lstlisting}
 
-Os saltos são decididos diretamente sobre o opcode (sem passar pela ULA). Os quatro
+Os saltos são decididos diretamente sobre o opcode (sem passar pela ULA). Os seis
 opcodes de controle de fluxo são nomeados por \lstinline|localparam| no próprio
 \lstinline|prefetch|, com a numeração da tabela do ISA (\file{Compilers/common/isa.tsv} no
 \repo{yanc}, que o \file{Scripts/check_isa.py} mantém em acordo com o RTL):
 
 \begin{lstlisting}[language=Verilog]
 localparam [NBOPCO-1:0] OP_JMP = 16, OP_JIZ = 17, OP_CAL = 18, OP_RET = 19;
+localparam [NBOPCO-1:0] OP_TOM = 20, OP_CAD = 21;
 \end{lstlisting}
 
 O \lstinline|JMP| (opcode 16) é incondicional; o \lstinline|JIZ| (opcode 17, \emph{jump if
@@ -248,11 +249,27 @@ nulo. O ramo do \lstinline|JIZ| só existe quando o programa o usa:
 \begin{lstlisting}[language=Verilog]
 generate if ((JIZ) != 0) begin : jmp_sel
 //             JMP                                        JIZ
-assign wJMP = (opcode == OP_JMP) | ((opcode == OP_JIZ) & ~is_um);
+assign wJMPZ = (opcode == OP_JMP) | ((opcode == OP_JIZ) & ~is_um);
 end else begin : jmp_sel
 //             JMP
-assign wJMP = (opcode == OP_JMP);
+assign wJMPZ = (opcode == OP_JMP);
 end endgenerate
+\end{lstlisting}
+
+\lstinline|TOM| (20) e \lstinline|CAD| (21), os links entre processadores
+(\autoref{sec:arq-links}), também são saltos: enquanto o parceiro não libera, a instrução
+salta para si mesma. O alvo não é o operando, que guarda o número do link, mas o endereço da
+própria instrução (\lstinline|self_addr|), e cada ramo só existe quando o programa usa a
+instrução:
+
+\begin{lstlisting}[language=Verilog]
+generate if ((TOM) != 0) begin : tom_sel assign wTOM = (opcode == OP_TOM) & ~tom_go; end
+         else            begin : tom_sel assign wTOM = 1'b0;                        end endgenerate
+generate if ((CAD) != 0) begin : cad_sel assign wCAD = (opcode == OP_CAD) & ~cad_go; end
+         else            begin : cad_sel assign wCAD = 1'b0;                        end endgenerate
+
+assign pc_self = wTOM | wCAD;
+assign wJMP    = wJMPZ | pc_self;
 \end{lstlisting}
 
 Quando a chamada de subrotina (\lstinline|CAL|) está habilitada, o \lstinline|prefetch|
@@ -314,9 +331,9 @@ o \emph{enable} de escrita em memória (\lstinline|mem_wr|), os controles de I/O
 
 O decodificador inteiro é uma tabela: um \lstinline|case| combinacional sobre o opcode, com
 uma linha por opcode, numerada como em \file{Compilers/common/isa.tsv}. Cada linha preenche
-um vetor de controle de 14 bits, \lstinline|{ula_op, push, pop, mem_wr, req_in, out_en, ldi,
-sti, fft}|, e é guardada pelo parâmetro do seu mnemônico. Trecho real de
-\file{instr_dec.v} (v5.6):
+um vetor de controle de 14 bits,
+\lstinline|{ula_op, push, pop, mem_wr, req_in, out_en, ldi, sti, fft}|, e é guardada pelo parâmetro do seu mnemônico. Trecho real de
+\file{instr_dec.v} (v7.1):
 
 \begin{lstlisting}[language=Verilog]
 // {ula_op, push, pop, mem_wr, req_in, out_en, ldi, sti, fft}
@@ -332,7 +349,7 @@ begin
     // ...
     7'd7  : if (STI     ) decode = {6'd0 , 1'b0, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b1, 1'b0};
     // ...
-    7'd105: if (S_SRS   ) decode = {6'd45, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
+    7'd107: if (S_SRS   ) decode = {6'd45, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0};
     default: ;
     endcase
 end
@@ -347,7 +364,7 @@ O montador liga (\lstinline|.LOD(1)|, \lstinline|.STI(1)| etc.) apenas os parâm
 mnemônicos que o programa usa. Numa linha cujo parâmetro vale 0 o \lstinline|if| é
 constante falso, a linha não altera \lstinline|ctl| e a síntese remove o comparador
 correspondente; o decodificador cresce com o programa, como o resto da ULA. Os opcodes
-sem linha (o \lstinline|NOP|, 0, e os desvios 16 a 19, tratados no \lstinline|prefetch|)
+sem linha (o \lstinline|NOP|, 0, e os desvios 16 a 21, tratados no \lstinline|prefetch|)
 caem no \lstinline|default| e deixam \lstinline|ctl| em zero: \lstinline|ula_op = 0|
 (repassa o acumulador), sem \emph{push}, sem \emph{pop} e sem escrita.
 
@@ -392,18 +409,23 @@ O opcode tem \textbf{7 bits} (\lstinline|NBOPCO = 7|, fixo em \file{processor.v}
 como \lstinline|NBITS_OPC| no montador, em \file{eval.c}). A tabela de referência do ISA é
 \file{Compilers/common/isa.tsv}, no \repo{yanc}: uma linha por mnemônico, com opcode, classe
 de operando e efeito sobre acumulador, pilha e memória. O ISA aparece escrito à mão em mais
-quatro lugares, a associação \emph{mnemônico $\rightarrow$ opcode} no analisador léxico do
-montador (\file{ASMComp.l}), a associação \emph{opcode $\rightarrow$ \lstinline|ula_op|} no
-decodificador (\file{instr_dec.v}) e na ULA (\file{ula.v}), e os opcodes de desvio nos
-\lstinline|localparam| de \file{core.v}; o \file{Scripts/check_isa.py} confere os quatro
-contra a tabela.
+seis lugares: a associação \emph{mnemônico $\rightarrow$ opcode} no analisador léxico do
+montador (\file{ASMComp.l}), a lista de mnemônicos que a primeira passada conta
+(\file{pass1.l}), a associação \emph{opcode $\rightarrow$ \lstinline|ula_op|} no
+decodificador (\file{instr_dec.v}) e na ULA (\file{ula.v}), os opcodes de desvio nos
+\lstinline|localparam| de \file{core.v} e a classe de operando em \file{asm_share.c}; o
+\file{Scripts/check_isa.py} confere todos contra a tabela.
 
-Desde a v5.5 são \textbf{106 opcodes} (0 a 105) e \textbf{114 mnemônicos}: \lstinline|LEA| e a
-família \lstinline|_V| não têm opcode próprio e reusam o de outra instrução. Os opcodes são
-numerados por família: 0 \lstinline|NOP|; 1 a 10 memória e pilha; 11 a 15 E/S; 16 a 19
-desvios; 20 a 29 aritmética inteira; 30 a 43 aritmética em ponto flutuante; 44 a 61
-unários inteiros; 62 a 73 unários em ponto flutuante; 74 a 79 conversões; 80 a 89 lógica;
-90 a 99 comparações; 100 a 105 deslocamentos. As convenções de sufixo são:
+Na v7.1 são \textbf{108 opcodes} (0 a 107) e \textbf{119 mnemônicos}: \lstinline|LEA|, a
+família \lstinline|_V| e os apelidos \lstinline|QUO|, \lstinline|REM| e \lstinline|F_QUO| não
+têm opcode próprio e reusam o de outra instrução. Os opcodes são numerados por família: 0
+\lstinline|NOP|; 1 a 10 memória e pilha; 11 a 15 E/S; 16 a 21 controle de fluxo (os desvios
+e os links \lstinline|TOM|/\lstinline|CAD|); 22 a 31 aritmética inteira; 32 a 45 aritmética
+em ponto flutuante; 46 a 63 unários inteiros; 64 a 75 unários em ponto flutuante; 76 a 81
+conversões; 82 a 91 lógica; 92 a 101 comparações; 102 a 107 deslocamentos. A v7.1 deslocou
+de 2 todos os opcodes a partir de \lstinline|ADD| para abrir espaço a \lstinline|TOM| e
+\lstinline|CAD| entre os de controle de fluxo, que ficam abaixo de 32: o \path{SAPHO/} e o
+\tool{asmcomp} precisam vir da mesma versão. As convenções de sufixo são:
 
 \begin{description}[leftmargin=2.6em]
   \item[\texttt{S\_}] segundo operando vindo da \textbf{pilha de dados} (em vez da memória).
@@ -441,6 +463,8 @@ unários inteiros; 62 a 73 unários em ponto flutuante; 74 a 79 conversões; 80 
 17 & \lstinline|JIZ|    & Salta se o acumulador for zero. \\
 18 & \lstinline|CAL|    & Chamada de subrotina (empilha retorno). \\
 19 & \lstinline|RET|    & Retorno de subrotina (desempilha). \\
+20 & \lstinline|TOM|    & \emph{toma}: oferece o acumulador no link do operando e espera até o parceiro levar. \\
+21 & \lstinline|CAD|    & \emph{cade}: espera o link do operando oferecer um valor e o leva para o acumulador. \\
 \bottomrule
 \end{longtable}
 
@@ -476,45 +500,49 @@ subtrações, o da subtração no operando 2 (\lstinline|F_SU2|/\lstinline|SF_SU
 \textbf{Op.} & \textbf{Mnemônico} & \textbf{ula\_op} & \textbf{Operação} \\
 \midrule
 \endhead
-20--21  & \lstinline|ADD|/\lstinline|S_ADD|     & 2     & Soma inteira. \\
-22--23  & \lstinline|MLT|/\lstinline|S_MLT|     & 4     & Multiplicação inteira. \\
-24--25  & \lstinline|DIV|/\lstinline|S_DIV|     & 6     & Divisão inteira. \\
-26--27  & \lstinline|MOD|/\lstinline|S_MOD|     & 8     & Resto da divisão (inteiro). \\
-28--29  & \lstinline|SGN|/\lstinline|S_SGN|     & 9     & Copia o sinal de um operando ao outro (inteiro). \\
-30--31  & \lstinline|F_ADD|/\lstinline|SF_ADD|  & 3     & Soma em float. \\
-32--35  & \lstinline|F_SU1| .. \lstinline|SF_SU2|& 47 / 48& Subtração em float (no operando 1 ou 2). \\
-36--37  & \lstinline|F_MLT|/\lstinline|SF_MLT|  & 5     & Multiplicação em float. \\
-38--39  & \lstinline|F_DIV|/\lstinline|SF_DIV|  & 7     & Divisão em float. \\
-40--41  & \lstinline|F_SGN|/\lstinline|SF_SGN|  & 10    & Copia o sinal (float). \\
-42--43  & \lstinline|F_SCL|/\lstinline|SF_SCL|  & 49    & Escala float por $2^{k}$. \\
-44--46  & \lstinline|NEG|/\lstinline|NEG_M|/\lstinline|P_NEG_M|& 11 / 12& Negação inteira. \\
-47--49  & \lstinline|ABS|/\lstinline|ABS_M|/\lstinline|P_ABS_M|& 15 / 16& Valor absoluto inteiro. \\
-50--52  & \lstinline|PST|/\lstinline|PST_M|/\lstinline|P_PST_M|& 19 / 20& Zera se negativo (\emph{positive set}), inteiro. \\
-53--55  & \lstinline|NRM|/\lstinline|NRM_M|/\lstinline|P_NRM_M|& 23 / 24& Divisão por constante \lstinline|NUGAIN|. \\
-56--58  & \lstinline|INV|/\lstinline|INV_M|/\lstinline|P_INV_M|& 32 / 33& Inversão bit a bit (NOT). \\
-59--61  & \lstinline|LIN|/\lstinline|LIN_M|/\lstinline|P_LIN_M|& 36 / 37& Inversão lógica (NOT booleano). \\
-62--64  & \lstinline|F_NEG| .. \lstinline|PF_NEG_M|& 13 / 14& Negação em float. \\
-65--67  & \lstinline|F_ABS| .. \lstinline|PF_ABS_M|& 17 / 18& Valor absoluto em float. \\
-68--70  & \lstinline|F_PST| .. \lstinline|PF_PST_M|& 21 / 22& Zera se negativo, float. \\
-71      & \lstinline|F_ROT|                     & 46    & Aproximação de raiz quadrada (potência de 2). \\
-72--73  & \lstinline|XPO|/\lstinline|XPO_M|     & 50 / 51& Expoente base-2 do float como inteiro. \\
-74--76  & \lstinline|I2F|/\lstinline|I2F_M|/\lstinline|P_I2F_M|& 25 / 26& Inteiro $\rightarrow$ float. \\
-77--79  & \lstinline|F2I|/\lstinline|F2I_M|/\lstinline|P_F2I_M|& 27 / 28& Float $\rightarrow$ inteiro. \\
-80--81  & \lstinline|AND|/\lstinline|S_AND|     & 29    & AND bit a bit. \\
-82--83  & \lstinline|ORR|/\lstinline|S_ORR|     & 30    & OR bit a bit. \\
-84--85  & \lstinline|XOR|/\lstinline|S_XOR|     & 31    & XOR bit a bit. \\
-86--87  & \lstinline|LAN|/\lstinline|S_LAN|     & 34    & AND lógico (booleano). \\
-88--89  & \lstinline|LOR|/\lstinline|S_LOR|     & 35    & OR lógico (booleano). \\
-90--91  & \lstinline|LES|/\lstinline|S_LES|     & 38    & Menor que (inteiro). \\
-92--93  & \lstinline|GRE|/\lstinline|S_GRE|     & 40    & Maior que (inteiro). \\
-94--95  & \lstinline|EQU|/\lstinline|S_EQU|     & 42    & Igualdade (inteiro e float). \\
-96--97  & \lstinline|F_LES|/\lstinline|SF_LES|  & 39    & Menor que (float). \\
-98--99  & \lstinline|F_GRE|/\lstinline|SF_GRE|  & 41    & Maior que (float). \\
-100--101& \lstinline|SHL|/\lstinline|S_SHL|     & 43    & Deslocamento à esquerda. \\
-102--103& \lstinline|SHR|/\lstinline|S_SHR|     & 44    & Deslocamento lógico à direita. \\
-104--105& \lstinline|SRS|/\lstinline|S_SRS|     & 45    & Deslocamento aritmético à direita. \\
+22--23  & \lstinline|ADD|/\lstinline|S_ADD|     & 2     & Soma inteira. \\
+24--25  & \lstinline|MLT|/\lstinline|S_MLT|     & 4     & Multiplicação inteira. \\
+26--27  & \lstinline|DIV|/\lstinline|S_DIV|     & 6     & Divisão inteira. \\
+28--29  & \lstinline|MOD|/\lstinline|S_MOD|     & 8     & Resto da divisão (inteiro). \\
+30--31  & \lstinline|SGN|/\lstinline|S_SGN|     & 9     & Copia o sinal de um operando ao outro (inteiro). \\
+32--33  & \lstinline|F_ADD|/\lstinline|SF_ADD|  & 3     & Soma em float. \\
+34--37  & \lstinline|F_SU1| .. \lstinline|SF_SU2|& 47 / 48& Subtração em float (no operando 1 ou 2). \\
+38--39  & \lstinline|F_MLT|/\lstinline|SF_MLT|  & 5     & Multiplicação em float. \\
+40--41  & \lstinline|F_DIV|/\lstinline|SF_DIV|  & 7     & Divisão em float. \\
+42--43  & \lstinline|F_SGN|/\lstinline|SF_SGN|  & 10    & Copia o sinal (float). \\
+44--45  & \lstinline|F_SCL|/\lstinline|SF_SCL|  & 49    & Escala float por $2^{k}$. \\
+46--48  & \lstinline|NEG|/\lstinline|NEG_M|/\lstinline|P_NEG_M|& 11 / 12& Negação inteira. \\
+49--51  & \lstinline|ABS|/\lstinline|ABS_M|/\lstinline|P_ABS_M|& 15 / 16& Valor absoluto inteiro. \\
+52--54  & \lstinline|PST|/\lstinline|PST_M|/\lstinline|P_PST_M|& 19 / 20& Zera se negativo (\emph{positive set}), inteiro. \\
+55--57  & \lstinline|NRM|/\lstinline|NRM_M|/\lstinline|P_NRM_M|& 23 / 24& Divisão por constante \lstinline|NUGAIN|. \\
+58--60  & \lstinline|INV|/\lstinline|INV_M|/\lstinline|P_INV_M|& 32 / 33& Inversão bit a bit (NOT). \\
+61--63  & \lstinline|LIN|/\lstinline|LIN_M|/\lstinline|P_LIN_M|& 36 / 37& Inversão lógica (NOT booleano). \\
+64--66  & \lstinline|F_NEG| .. \lstinline|PF_NEG_M|& 13 / 14& Negação em float. \\
+67--69  & \lstinline|F_ABS| .. \lstinline|PF_ABS_M|& 17 / 18& Valor absoluto em float. \\
+70--72  & \lstinline|F_PST| .. \lstinline|PF_PST_M|& 21 / 22& Zera se negativo, float. \\
+73      & \lstinline|F_ROT|                     & 46    & Aproximação de raiz quadrada (potência de 2). \\
+74--75  & \lstinline|XPO|/\lstinline|XPO_M|     & 50 / 51& Expoente base-2 do float como inteiro. \\
+76--78  & \lstinline|I2F|/\lstinline|I2F_M|/\lstinline|P_I2F_M|& 25 / 26& Inteiro $\rightarrow$ float. \\
+79--81  & \lstinline|F2I|/\lstinline|F2I_M|/\lstinline|P_F2I_M|& 27 / 28& Float $\rightarrow$ inteiro. \\
+82--83  & \lstinline|AND|/\lstinline|S_AND|     & 29    & AND bit a bit. \\
+84--85  & \lstinline|ORR|/\lstinline|S_ORR|     & 30    & OR bit a bit. \\
+86--87  & \lstinline|XOR|/\lstinline|S_XOR|     & 31    & XOR bit a bit. \\
+88--89  & \lstinline|LAN|/\lstinline|S_LAN|     & 34    & AND lógico (booleano). \\
+90--91  & \lstinline|LOR|/\lstinline|S_LOR|     & 35    & OR lógico (booleano). \\
+92--93  & \lstinline|LES|/\lstinline|S_LES|     & 38    & Menor que (inteiro). \\
+94--95  & \lstinline|GRE|/\lstinline|S_GRE|     & 40    & Maior que (inteiro). \\
+96--97  & \lstinline|EQU|/\lstinline|S_EQU|     & 42    & Igualdade (inteiro e float). \\
+98--99  & \lstinline|F_LES|/\lstinline|SF_LES|  & 39    & Menor que (float). \\
+100--101& \lstinline|F_GRE|/\lstinline|SF_GRE|  & 41    & Maior que (float). \\
+102--103& \lstinline|SHL|/\lstinline|S_SHL|     & 43    & Deslocamento à esquerda. \\
+104--105& \lstinline|SHR|/\lstinline|S_SHR|     & 44    & Deslocamento lógico à direita. \\
+106--107& \lstinline|SRS|/\lstinline|S_SRS|     & 45    & Deslocamento aritmético à direita. \\
 \bottomrule
 \end{longtable}
+
+\lstinline|QUO|, \lstinline|REM| e \lstinline|F_QUO| são apelidos de \lstinline|DIV|,
+\lstinline|MOD| e \lstinline|F_DIV| com operando 0 (opcodes 26, 28 e 40): leem o quociente
+ou o resto da divisão feita duas palavras antes.
 
 \section{A Unidade Lógico-Aritmética (ULA)}
 \label{sec:arq-ula}
@@ -755,7 +783,38 @@ Para fluxos de dados, o repositório fornece uma FIFO genérica (\lstinline|myFI
 \file{myFIFO.v}) parametrizada por largura da palavra (\lstinline|WORD|), profundidade
 (\lstinline|LENGTH|) e limiar de ``quase vazia'' (\lstinline|ALMOST|). Ela expõe os sinais
 usuais --- \lstinline|empty|, \lstinline|full|, \lstinline|almost_empty|, \lstinline|usedw| ---
-e foi escrita para substituir o IP de FIFO de fabricantes de FPGA.
+e foi escrita para substituir o IP de FIFO de fabricantes de FPGA. Desde a v7.1 há também
+\lstinline|myDCFIFO| (\file{myDCFIFO.v}), a FIFO entre dois relógios, com as portas no
+estilo do \lstinline|dcfifo| do Quartus (\lstinline|wrclk|/\lstinline|wrreq|/\lstinline|wrfull|
+de um lado, \lstinline|rdclk|/\lstinline|rdreq|/\lstinline|rdempty|/\lstinline|q| do outro) e
+ponteiros em código Gray sincronizados por dois \emph{flip-flops}.
+
+\subsection{Links entre processadores: \texttt{toma} e \texttt{cade}}
+\label{sec:arq-links}
+
+Desde a v7.1 dois SAPHOs trocam valores por \textbf{links}, uma palavra por vez:
+\lstinline|toma(k, x)| num processador entrega \lstinline|x| pelo link \lstinline|k|, e
+\lstinline|y = cade(k)| (ou \lstinline|fcade(k)|, em float) no parceiro a recebe. Quem chega
+primeiro espera, e nada se perde nem é lido duas vezes. Cada link liga dois processadores e
+serve nos dois sentidos; um processador tem quantos links o programa usar, numerados a partir
+de 0. São duas instruções, \lstinline|TOM k| (20) e \lstinline|CAD k| (21), com o número do
+link no operando; cada uma espera no lugar, buscando de novo o próprio endereço
+(\autoref{sec:arq-prefetch}), até o bit do parceiro liberar.
+
+Em \file{core.v}, cada lado de um link tem um bit: quem escreve inverte T ao oferecer, quem lê
+inverte C ao levar, e um valor espera enquanto $T \neq C$. O link \lstinline|k| só é
+construído quando o programa tem \lstinline|TOM k| ou \lstinline|CAD k| (parâmetros
+\lstinline|TOMS| e \lstinline|CADS|, um bit por link), e a comparação do operando e os
+multiplexadores só existem com dois ou mais links do mesmo tipo. Todo link é sincronizado
+(dois \emph{flip-flops} no bit do parceiro e a palavra oferecida guardada num registrador),
+por isso funciona entre relógios diferentes. As formas \lstinline|toma_sync|,
+\lstinline|cade_sync| e \lstinline|fcade_sync| declaram o parceiro no mesmo relógio: o
+compilador escreve a diretiva \lstinline|#LKSYNC k| no \path{.asm}, o montador liga o bit
+\lstinline|k| do parâmetro \lstinline|LSYNC| e o sincronizador sai. Os pinos por link são
+\lstinline|toma_k| e \lstinline|valeu_k| (quem escreve), \lstinline|cade_k|,
+\lstinline|taqui_k| e \lstinline|cade_dado_k| (quem lê), e um \lstinline|toma_dado| comum a
+todos os links de escrita. A palavra passa sem conversão: os dois lados precisam do mesmo
+\lstinline|#NUBITS|, e do mesmo \lstinline|#NBMANT|/\lstinline|#NBEXPO| para passar float.
 
 \section{Endereçamento indireto: arrays, ponteiros e FFT}
 \label{sec:arq-indireto}
@@ -812,20 +871,27 @@ assign out = (use_oft) ? add + addr : addr;
 \label{sec:arq-param}
 
 Os parâmetros de hardware declarados no programa \cmm (largura de palavra, mantissa, etc.)
-chegam ao montador via \emph{logs} intermediários e são lidos em \file{eval.c} pela rotina
-\lstinline|eval_init|, que os busca em \path{app_log.txt}:
+chegam ao montador pelo \path{app_log.txt}, que a primeira passada do próprio
+\tool{asmcomp} (\file{pass1.c}, antes o programa \tool{appcomp}) escreve ao lado do
+\path{.asm}. A rotina \lstinline|eval_init|, em \file{eval.c}, os lê de lá; o que o programa
+omitiu fica com o padrão (32/23/8):
 
 \begin{lstlisting}[language=C]
-eval_get("app_log.txt","nubits", aux); nubits = atoi(aux); // largura da palavra
-eval_get("app_log.txt","nbmant", aux); nbmant = atoi(aux); // bits de mantissa
-eval_get("app_log.txt","nbexpo", aux); nbexpo = atoi(aux); // bits de expoente
+// the widths a program left out keep their defaults (32/23/8, above)
+if (eval_get("app_log.txt","nubits", aux) == 1) nubits = atoi(aux); // ALU word width (bits)
+if (eval_get("app_log.txt","nbmant", aux) == 1) nbmant = atoi(aux); // mantissa width (bits)
+if (eval_get("app_log.txt","nbexpo", aux) == 1) nbexpo = atoi(aux); // exponent width (bits)
 \end{lstlisting}
 
 Outros parâmetros vêm de diretivas no próprio Assembly (\file{ASMComp.l}), processadas por
-\lstinline|eval_opernd| em \file{eval.c}: \lstinline|#NDSTAC| (profundidade da pilha de
+\lstinline|eval_direct| e \lstinline|eval_opernd| em \file{eval.c}: \lstinline|#NDSTAC| (profundidade da pilha de
 dados), \lstinline|#SDEPTH| (pilha de subrotina), \lstinline|#NUIOIN|/\lstinline|#NUIOOU|
-(número de portas de entrada/saída), \lstinline|#NUGAIN| (constante de normalização) e
-\lstinline|#FFTSIZ| (bits da FFT).
+(número de portas de entrada/saída, padrão 1), \lstinline|#NUGAIN| (constante de
+normalização, padrão 128), \lstinline|#FFTSIZ| (bits da FFT, padrão 3) e
+\lstinline|#LKSYNC| (link no mesmo relógio, \autoref{sec:arq-links}). Sem
+\lstinline|#NDSTAC| ou \lstinline|#SDEPTH| o montador calcula a profundidade de cada pilha
+pelo programa. O \lstinline|#NUGAIN| precisa ser potência de dois: \lstinline|eval_finish|
+recusa outro valor.
 
 A largura do campo operando (\lstinline|nbopr|) é derivada do maior entre a memória de
 instruções e a de dados:
@@ -846,17 +912,21 @@ fprintf(f_veri,            ".NBEXPO(%d),\n", nbexpo);
 for (int i = 0; i < opc_cnt(); i++) fprintf(f_veri, ".%s(1),\n", opc_get(i));
 \end{lstlisting}
 
-\section{Imagens de memória (\path{.mif}) geradas}
+\section{Imagens de memória (\texttt{.mif}) geradas}
 \label{sec:arq-mif}
 
 O montador escreve duas imagens de memória em texto binário, uma por linha, à medida que
 varre o Assembly (\file{eval.c}): \path{<proc>_inst.mif} (programa) e \path{<proc>_data.mif}
-(dados). Ambas são abertas em \lstinline|eval_init|:
+(dados). Ambas são abertas em \lstinline|eval_init|, em \lstinline|proc_dir|, que desde a v7.1
+é a pasta do próprio \path{.asm} (a pasta de saída, onde o \tool{asmcomp} escreve tudo):
 
 \begin{lstlisting}[language=C]
-snprintf(aux, sizeof(aux), "%s/Hardware/%s_data.mif", proc_dir, prname); f_data  = fopen(aux, "w");
-snprintf(aux, sizeof(aux), "%s/Hardware/%s_inst.mif", proc_dir, prname); f_instr = fopen(aux, "w");
+snprintf(aux, sizeof(aux), "%s/%s_data.mif", proc_dir, prname); f_data  = fopen(aux, "w");
+snprintf(aux, sizeof(aux), "%s/%s_inst.mif", proc_dir, prname); f_instr = fopen(aux, "w");
 \end{lstlisting}
+
+O Verilog gerado nomeia as duas pelo nome puro (\lstinline|.DFILE("<proc>_data.mif")|,
+\lstinline|.IFILE("<proc>_inst.mif")|), relativo à pasta onde a simulação roda.
 
 \subsection{Imagem de instruções}
 \label{sec:arq-mif-instr}
@@ -891,7 +961,7 @@ else
 Arrays são preenchidos por \lstinline|arr_add| (de \file{array.c}), opcionalmente a partir de
 um arquivo de inicialização (diretiva \lstinline|#arrays|).
 
-\section{Geração do \emph{testbench} (\path{_tb.v})}
+\section{Geração do \emph{testbench} (\texttt{\_tb.v})}
 \label{sec:arq-tb}
 
 Ao final da varredura, \lstinline|eval_finish| invoca \lstinline|hdl_vv_file| (o \path{.v} de
@@ -905,9 +975,16 @@ O \emph{testbench} gerado (\path{<proc>_tb.v}) é autônomo e contém:
   \item[Instância do processador] conectada conforme as portas existentes (entrada, saída,
     interrupção, \lstinline|cheguei|).
   \item[Estímulo de entrada] cada porta de entrada lê de um arquivo
-    \path{Simulation/input_<i>.txt} via \lstinline|$fscanf| na borda de descida do clock.
-  \item[Captura de saída] cada porta de saída grava em \path{Simulation/output_<i>.txt} via
-    \lstinline|$fdisplay| + \lstinline|$fflush| quando seu \emph{enable} está ativo.
+    \path{input_<i>.txt}, na pasta do fonte, via \lstinline|$fscanf| na borda de descida do
+    clock. O caminho é relativo à pasta de saída (\path{../input_<i>.txt} no padrão),
+    calculado pelo \tool{asmcomp} a partir do \lstinline|srcdir| que o compilador anotou em
+    \path{prog_log.txt}; só vira absoluto quando as duas pastas estão em discos diferentes.
+  \item[Captura de saída] cada porta de saída grava em \path{output_<i>.txt}, pelo nome puro
+    (portanto na pasta onde a simulação roda), via \lstinline|$fdisplay| + \lstinline|$fflush|
+    quando seu \emph{enable} está ativo.
+  \item[Parceiro dos links] simulado sozinho, o processador tem o \emph{testbench} como
+    parceiro de cada link: \lstinline|cade(k)| lê as palavras de \path{cade_k.txt}, na pasta
+    do fonte, e cada \lstinline|toma(k, x)| grava \lstinline|x| em \path{toma_k.txt}.
   \item[Dump de forma de onda] \lstinline|$dumpfile|/\lstinline|$dumpvars| produzem o
     \path{.vcd}, incluindo as variáveis e arrays do usuário (espelhados no \path{.v} de topo)
     e os \emph{flags} de pilha e os erros de arredondamento da ULA.
@@ -931,14 +1008,14 @@ Sinais de instrumentação (espelhos de variáveis, \emph{taps} do PC e da memó
 arredondamento em \lstinline|real|) ficam atrás da macro \lstinline|YANC_SIM_VIS|, definida
 automaticamente para Icarus Verilog (que predefine \lstinline|__ICARUS__|) e para Verilator
 quando se passa \lstinline|+define+YANC_TRACE|. Nunca são incluídos na síntese. No \path{.v}
-de topo, comentários \lstinline|/* verilator tracing_off */| e \lstinline|/* verilator
-tracing_on */| delimitam quais sinais entram na forma de onda sob Verilator (escolhido por
+de topo, comentários \lstinline|/* verilator tracing_off */| e
+\lstinline|/* verilator tracing_on */| delimitam quais sinais entram na forma de onda sob Verilator (escolhido por
 velocidade), mantendo os \emph{taps} caros (como o erro de arredondamento real da ULA)
 disponíveis apenas sob Icarus.
 
 \begin{nota}
 A interação entre as imagens \path{.mif}, o \emph{testbench} e as ferramentas de simulação
 (Icarus, Verilator, GTKWave) e síntese (Yosys), bem como o empacotamento dessas ferramentas
-no \emph{bundle} portátil, são detalhados em \autoref{cap:03-pipeline-de-compilacao-yanc} e
+no \emph{bundle} portátil, são detalhados em \autoref{cap:04-yanc-compiladores} e
 nos capítulos sobre o \emph{toolchain}.
 \end{nota}

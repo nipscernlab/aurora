@@ -19,7 +19,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import log from 'electron-log';
 import { ipcMain } from 'electron';
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 
 import { spfDaJanela } from './project_paths.js';
 import {

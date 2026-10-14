@@ -306,7 +306,7 @@
     "lit": "^3.3.3",
     "material-icon-theme": "^5.39.0",
     "monaco-editor": "0.52.2",
-    "simple-git": "^3.36.0",
+    "simple-git": "^4.0.2",
     "web-tree-sitter": "0.27.0",
     "yosys2digitaljs": "^0.10.3",
     "zod": "^4.6.5"

@@ -28,7 +28,17 @@ const handlers = c.electron.handlers;
 const envOriginal = { ...process.env };
 const configVazia = path.join(pasta.raiz, 'gitconfig-vazio');
 fs.writeFileSync(configVazia, '');
+// A simple-git 4 tira do ambiente do git toda variavel GIT_* que nao esteja
+// no allowEnvironment, entao as de baixo valem so para o git que o proprio
+// teste roda. O git da AURORA fica isolado pelo HOME: o ~/.gitconfig que ele
+// le e este, com o autor do teste e o autocrlf desligado, que sobrepoe o
+// gitconfig de sistema do Git for Windows (o GIT_CONFIG_NOSYSTEM nao chega la).
+const casa = path.join(pasta.raiz, 'home');
+fs.mkdirSync(casa, { recursive: true });
+fs.writeFileSync(path.join(casa, '.gitconfig'), '[user]\n\tname = Teste\n\temail = t@t\n[core]\n\tautocrlf = false\n');
 Object.assign(process.env, {
+  HOME: casa,
+  XDG_CONFIG_HOME: path.join(casa, '.config'),
   GIT_CONFIG_GLOBAL: configVazia,
   GIT_CONFIG_NOSYSTEM: '1',
   GIT_AUTHOR_NAME: 'Teste', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 'Teste', GIT_COMMITTER_EMAIL: 't@t',

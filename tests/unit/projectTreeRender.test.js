@@ -197,6 +197,22 @@ describe('RenderMixin.renderTree — processor grouping', () => {
         expect(seps).toContain('__imported__'); // user files + procs → Imported header shown
     });
 
+    it('o cabecalho dos importados passa pela traducao, com o ingles de reserva', () => {
+        const rotulo = () => container
+            .querySelector('.verilog-imported-separator .verilog-processor-separator-label')?.textContent;
+        mgr.verilogFiles = [f('user.v'), f('P/a.v', { proc: 'P' })];
+        try {
+            window.t = (k) => (k === 'fileTree.importedSection' ? 'Importados' : undefined);
+            mgr.renderTree();
+            expect(rotulo()).toBe('Importados');
+        } finally {
+            delete window.t;
+        }
+        container.innerHTML = '';
+        mgr.renderTree();
+        expect(rotulo()).toBe('Imported');
+    });
+
     it('omits the "Imported" header when every file belongs to a processor', () => {
         mgr.verilogFiles = [
             f('P/Hardware/a.v', { proc: 'P' }),

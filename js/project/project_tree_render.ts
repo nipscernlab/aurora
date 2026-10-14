@@ -455,7 +455,7 @@ export const RenderMixin: RenderizacaoDaArvore & ThisType<AnfitriaoDoRender & Re
             <span class="verilog-processor-separator-line"></span>
         `;
         sep.querySelector('.verilog-processor-separator-label')!.textContent =
-            isImported ? 'Imported' : procName;
+            isImported ? (window.t?.('fileTree.importedSection') || 'Imported') : procName;
         const lixeira = sep.querySelector<HTMLButtonElement>('.verilog-processor-delete');
         if (lixeira) {
             const rotulo = (window.t?.('fileTree.crud.deleteProcessor') || 'Delete processor')

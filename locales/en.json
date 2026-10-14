@@ -144,6 +144,7 @@
     "close": "Close"
   },
   "fileTree": {
+    "importedSection": "Imported",
     "crud": {
       "newFile": "New File...",
       "newFolder": "New Folder...",

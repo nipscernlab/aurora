@@ -144,6 +144,7 @@
     "close": "Fechar"
   },
   "fileTree": {
+    "importedSection": "Importados",
     "crud": {
       "newFile": "Novo Arquivo...",
       "newFolder": "Nova Pasta...",

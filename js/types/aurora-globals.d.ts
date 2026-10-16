@@ -159,6 +159,8 @@ interface AuroraElectronAPI {
   onOpenWave?(cb: (data: { vcdPath: string; modulo?: string; sinais?: string[] }) => void): void;
   /** Cria a pasta e o .spf de um projeto novo. O main ignora o terceiro argumento. */
   createProjectStructure(projectPath: string, spfPath: string, name?: string): Promise<{ success?: boolean; message?: string } | null>;
+  /** Seletor de pasta; `null` quando a pessoa cancela. */
+  selectDirectory(opts?: { defaultPath?: string }): Promise<string | null>;
   listRecentProjects?(): Promise<string[] | null>;
   createBackup?(folderPath: string): Promise<{ success?: boolean; message?: string } | null>;
   renameProject?(newName: string): Promise<{ success?: boolean; message?: string; failedStep?: string; steps?: Array<Record<string, unknown>>; newSpfPath?: string; newName?: string; oldName?: string; [k: string]: unknown } | null>;

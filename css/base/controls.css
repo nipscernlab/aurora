@@ -144,7 +144,7 @@
   border-color: var(--status-error);
 }
 
-/* Explicacao logo abaixo de um campo recusado (js/ui/new_project_modal.js).
+/* Explicacao logo abaixo de um campo recusado (js/ui/new_project_modal.ts).
    Antes a unica resposta era a borda vermelha, que diz que algo esta errado e
    nao diz o que. */
 .campo-aviso {

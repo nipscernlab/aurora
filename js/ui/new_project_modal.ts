@@ -1,17 +1,22 @@
 import { electronAPI } from '../app/electron_api.js';
 import { projectManager } from '../project/project_manager.js';
 import { showDialog } from './dialog_manager.js';
-import { analisarNomeDeProjeto, analisarCaminhoDeProjeto, explicar } from '../project/path_rules.js';
+import { analisarNomeDeProjeto, analisarCaminhoDeProjeto, explicar, type Analise } from '../project/path_rules.js';
+
+/*
+ * Compilado por `tsc` (npm run build:ts) num new_project_modal.js ao lado, e
+ * esse .js que o index.html carrega; os imports usam a extensao `.js`.
+ */
 
 document.addEventListener("DOMContentLoaded", () => {
-    const newProjectModal = document.getElementById("newProjectModal");
+    const newProjectModal = document.getElementById("newProjectModal")!;
     const newProjectBtn = document.getElementById("newProjectBtn");
     const newProjectBtnWelcome = document.getElementById("newProjectBtnWelcome");
-    
-    const projectNameInput = document.getElementById('projectNameInput');
-    const projectLocationInput = document.getElementById('projectLocationInput');
 
-    // A validacao vive em js/project/path_rules.js, com teste.
+    const projectNameInput = document.getElementById('projectNameInput') as HTMLInputElement;
+    const projectLocationInput = document.getElementById('projectLocationInput') as HTMLInputElement;
+
+    // A validacao vive em js/project/path_rules.ts, com teste.
     //
     // O que havia aqui eram dois regex, e os dois erravam de lados opostos. O do
     // caminho recusava ate espaco simples, entao "Meus Projetos" era barrado sem
@@ -19,31 +24,32 @@ document.addEventListener("DOMContentLoaded", () => {
     // e um dialogo dizendo "entrada invalida", sem dizer qual caractere nem por
     // que ele impede, que e justamente a informacao que resolve o problema.
 
-    const setErrorStyle = (element) => {
-        element.style.border = "1px solid rgba(255, 82, 82, 0.8)"; 
-        element.style.boxShadow = "0 0 5px rgba(255, 82, 82, 0.2)"; 
+    const setErrorStyle = (element: HTMLElement) => {
+        element.style.border = "1px solid rgba(255, 82, 82, 0.8)";
+        element.style.boxShadow = "0 0 5px rgba(255, 82, 82, 0.2)";
         element.style.transition = "border 0.3s ease";
     };
 
-    const resetInputStyle = (element) => {
+    const resetInputStyle = (element: HTMLElement) => {
         element.style.border = "";
         element.style.boxShadow = "";
     };
 
     /** Mostra ou some com a explicacao logo abaixo do campo. */
-    const mostrarMotivo = (element, texto) => {
-        let aviso = element.parentElement.querySelector('.campo-aviso');
+    const mostrarMotivo = (element: HTMLElement, texto: string) => {
+        const pai = element.parentElement!;
+        let aviso = pai.querySelector('.campo-aviso');
         if (!texto) { aviso?.remove(); return; }
         if (!aviso) {
             aviso = document.createElement('p');
             aviso.className = 'campo-aviso';
-            element.parentElement.appendChild(aviso);
+            pai.appendChild(aviso);
         }
         aviso.textContent = texto;
     };
 
     /** Valida um campo com a regra dada e explica na tela quando recusa. */
-    const validateInput = (element, analisar) => {
+    const validateInput = (element: HTMLInputElement, analisar: (v: string) => Analise) => {
         const r = analisar(element.value.trim());
         if (r.ok) {
             resetInputStyle(element);
@@ -80,7 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if(newProjectBtn) newProjectBtn.addEventListener("click", openModal);
     if(newProjectBtnWelcome) newProjectBtnWelcome.addEventListener("click", openModal);
 
-    document.getElementById('browseBtn').addEventListener('click', async () => {
+    document.getElementById('browseBtn')!.addEventListener('click', async () => {
         try {
             // Open the dialog at the last "new project" location the
             // user picked, falling back to ~/Documents on the main side
@@ -102,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    document.getElementById('generateProjectBtn').addEventListener('click', async () => {
+    document.getElementById('generateProjectBtn')!.addEventListener('click', async () => {
         try {
             const projectName = projectNameInput.value.trim();
             const projectLocation = projectLocationInput.value.trim();
@@ -110,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // tr() is a tiny wrapper around window.t, falls back to the
             // English key path if i18n hasn't booted yet (rare but possible
             // during very early renderer init).
-            const tr = (k) => (window.t ? window.t(k) : k);
+            const tr = (k: string) => (window.t ? window.t(k) : k);
 
             if (!projectName || !projectLocation) {
                 await showDialog({
@@ -147,7 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const result = await electronAPI.createProjectStructure(projectPath, spfPath, projectName);
 
-            if (result.success) {
+            if (result?.success) {
                 // Remember this location so the next New Project
                 // dialog opens at the same parent directory, sibling
                 // projects are the common case.
@@ -168,7 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } catch (error) {
             console.error(error);
-            const tr = (k) => (window.t ? window.t(k) : k);
+            const tr = (k: string) => (window.t ? window.t(k) : k);
             await showDialog({
                 title: tr('dialog.newProject.generationErrorTitle'),
                 message: tr('dialog.newProject.generationErrorMessage'),
@@ -185,5 +191,5 @@ document.addEventListener("DOMContentLoaded", () => {
         resetInputStyle(projectLocationInput);
     }
 
-    document.getElementById('cancelProjectBtn').addEventListener('click', closeNewProjectModal);
+    document.getElementById('cancelProjectBtn')!.addEventListener('click', closeNewProjectModal);
 });

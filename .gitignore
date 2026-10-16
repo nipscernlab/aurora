@@ -311,6 +311,7 @@ js/project/lista_do_spf.js
 js/project/marcas_de_topo.js
 js/project/papel_no_spf.js
 js/compilation/override_badges.js
+js/project/path_rules.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

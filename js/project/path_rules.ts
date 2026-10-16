@@ -1,5 +1,5 @@
 /**
- * path_rules.js: o que um caminho de projeto pode conter.
+ * path_rules.ts: o que um caminho de projeto pode conter.
  *
  * A AURORA aceitava criar projeto em qualquer pasta, e o erro só aparecia
  * depois, vindo de uma ferramenta de linha de comando, com uma mensagem que não
@@ -35,15 +35,18 @@ const PROIBIDOS = ['&', '|', '<', '>', '^', '$', '`', '!', ';', '(', ')',
 const RESERVADOS = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 
 /**
+ * Resultado de uma análise. `motivo` é um código estável, para o chamador
+ * traduzir; `detalhe` traz o trecho problemático, porque apontar o caractere é
+ * o que resolve o problema para quem está lendo o aviso.
+ */
+export type Analise = { ok: boolean; motivo?: string; detalhe?: string };
+
+/**
  * Analisa um caminho de projeto.
  *
- * @param {string} caminho caminho absoluto, ou só o nome da pasta
- * @returns {{ok: boolean, motivo?: string, detalhe?: string}}
- *   `motivo` é um código estável, para o chamador traduzir; `detalhe` traz o
- *   trecho problemático, porque apontar o caractere é o que resolve o problema
- *   para quem está lendo o aviso.
+ * @param caminho caminho absoluto, ou só o nome da pasta
  */
-export function analisarCaminhoDeProjeto(caminho) {
+export function analisarCaminhoDeProjeto(caminho: unknown): Analise {
   const bruto = String(caminho == null ? '' : caminho);
   if (!bruto.trim()) return { ok: false, motivo: 'vazio' };
 
@@ -83,14 +86,14 @@ export function analisarCaminhoDeProjeto(caminho) {
 }
 
 /** Só o nome de uma pasta ou projeto, sem separador. */
-export function analisarNomeDeProjeto(nome) {
+export function analisarNomeDeProjeto(nome: unknown): Analise {
   const n = String(nome == null ? '' : nome);
   if (/[\\/]/.test(n)) return { ok: false, motivo: 'separador' };
   return analisarCaminhoDeProjeto(n);
 }
 
 /** Mensagens em português, prontas para a interface. */
-const MOTIVOS = {
+const MOTIVOS: Record<string, (d?: string) => string> = {
   vazio: () => 'Informe um caminho.',
   controle: () => 'O caminho tem caracteres invisíveis. Digite-o de novo.',
   caractere: (d) => `O caminho não pode conter ${d}. `
@@ -106,8 +109,8 @@ const MOTIVOS = {
 };
 
 /** Texto pronto para um resultado de análise. */
-export function explicar(resultado) {
+export function explicar(resultado: Analise | null | undefined): string {
   if (!resultado || resultado.ok) return '';
-  const f = MOTIVOS[resultado.motivo];
+  const f = resultado.motivo ? MOTIVOS[resultado.motivo] : undefined;
   return f ? f(resultado.detalhe) : 'Caminho inválido.';
 }

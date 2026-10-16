@@ -92,6 +92,22 @@ describe('nome de projeto', () => {
 
     it('aceita um nome comum', () => {
         expect(analisarNomeDeProjeto('cnn_sapho').ok).toBe(true);
+        expect(analisarNomeDeProjeto('fft-v2').ok).toBe(true);
+    });
+
+    // #186. O nome vira pasta E o nome do .spf, e a API da IA ja recusava
+    // espaco (ciclo_do_projeto_ns.ts); o modal herdava a regra do caminho, que
+    // aceita espaco simples de proposito, e deixava passar.
+    it('recusa espaco no nome, que o caminho aceita', () => {
+        const r = analisarNomeDeProjeto('meu projeto');
+        expect(r.ok).toBe(false);
+        expect(r.motivo).toBe('nome');
+        expect(explicar(r)).toContain('espaço');
+    });
+
+    it('recusa o que a API da IA recusa: so letra ASCII, digito, _ e -', () => {
+        expect(analisarNomeDeProjeto('proj.v2').motivo).toBe('nome');
+        expect(explicar(analisarNomeDeProjeto('proj.v2'))).toContain('.');
     });
 });
 

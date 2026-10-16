@@ -85,11 +85,24 @@ export function analisarCaminhoDeProjeto(caminho: unknown): Analise {
   return { ok: true };
 }
 
-/** Só o nome de uma pasta ou projeto, sem separador. */
+/**
+ * Só o nome do projeto, sem separador.
+ *
+ * Mais estreito que o caminho: o nome vira a pasta e o nome do `.spf`, e a
+ * convenção do projeto (a mesma que a API da IA aplica em
+ * `ciclo_do_projeto_ns.ts`) é letra ASCII, dígito, `_` e `-`. O caminho aceita
+ * espaço simples para não barrar "Meus Projetos"; o nome não herda essa folga.
+ */
 export function analisarNomeDeProjeto(nome: unknown): Analise {
   const n = String(nome == null ? '' : nome);
   if (/[\\/]/.test(n)) return { ok: false, motivo: 'separador' };
-  return analisarCaminhoDeProjeto(n);
+  const doCaminho = analisarCaminhoDeProjeto(n);
+  if (!doCaminho.ok) return doCaminho;
+  const fora = [...new Set([...n].filter((c) => !/[A-Za-z0-9_-]/.test(c)))];
+  if (fora.length) {
+    return { ok: false, motivo: 'nome', detalhe: fora.map((c) => (c === ' ' ? 'espaço' : c)).join(' ') };
+  }
+  return { ok: true };
 }
 
 /** Mensagens em português, prontas para a interface. */
@@ -106,6 +119,7 @@ const MOTIVOS: Record<string, (d?: string) => string> = {
   bordas: (d) => `"${d}" começa ou termina com espaço.`,
   pontoFinal: (d) => `"${d}" termina com ponto, o que o Windows não guarda.`,
   separador: () => 'O nome não pode conter barra.',
+  nome: (d) => `O nome do projeto só pode ter letras sem acento, números, _ e -. Tire: ${d}.`,
 };
 
 /** Texto pronto para um resultado de análise. */

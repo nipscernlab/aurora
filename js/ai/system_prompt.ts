@@ -316,6 +316,8 @@ export const SYSTEM_PROMPT = [
   "   create_processor and rename_processor refuse a bad name with the reason. To rename a\n" +
   "   processor use rename_processor, which renames the folder, the source file and the\n" +
   "   output folder together; never rename the .cmm alone.\n" +
+  "   A PROJECT name follows the same rule (create_project and rename_project refuse\n" +
+  "   `meu-projeto` or `meu projeto`); propose `meu_projeto`.\n" +
 
   "\n2. EVERY .cmm FILE MUST DECLARE THE FIVE CORE DIRECTIVES — and a MISSING one does\n" +
   "   NOT fail the build, which is exactly why this rule is on you and not on yanc.\n" +

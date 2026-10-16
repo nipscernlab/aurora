@@ -1,7 +1,8 @@
 import { electronAPI } from '../app/electron_api.js';
 import { projectManager } from '../project/project_manager.js';
 import { showDialog } from './dialog_manager.js';
-import { analisarNomeDeProjeto, analisarCaminhoDeProjeto, explicar, type Analise } from '../project/path_rules.js';
+import { analisarNome, analisarCaminhoDeProjeto, explicar, type Analise } from '../project/path_rules.js';
+import { marcarCampo, limparCampo } from './aviso_do_campo.js';
 
 /*
  * Compilado por `tsc` (npm run build:ts) num new_project_modal.js ao lado, e
@@ -23,41 +24,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // motivo. E, quando barrava, a unica resposta era pintar a borda de vermelho
     // e um dialogo dizendo "entrada invalida", sem dizer qual caractere nem por
     // que ele impede, que e justamente a informacao que resolve o problema.
-
-    const setErrorStyle = (element: HTMLElement) => {
-        element.style.border = "1px solid rgba(255, 82, 82, 0.8)";
-        element.style.boxShadow = "0 0 5px rgba(255, 82, 82, 0.2)";
-        element.style.transition = "border 0.3s ease";
-    };
-
-    const resetInputStyle = (element: HTMLElement) => {
-        element.style.border = "";
-        element.style.boxShadow = "";
-    };
-
-    /** Mostra ou some com a explicacao logo abaixo do campo. */
-    const mostrarMotivo = (element: HTMLElement, texto: string) => {
-        const pai = element.parentElement!;
-        let aviso = pai.querySelector('.campo-aviso');
-        if (!texto) { aviso?.remove(); return; }
-        if (!aviso) {
-            aviso = document.createElement('p');
-            aviso.className = 'campo-aviso';
-            pai.appendChild(aviso);
-        }
-        aviso.textContent = texto;
-    };
+    //
+    // O nome segue a mesma regra do nome de processador, e o aviso e o mesmo
+    // do Processor Hub (js/ui/aviso_do_campo.ts), #187.
 
     /** Valida um campo com a regra dada e explica na tela quando recusa. */
     const validateInput = (element: HTMLInputElement, analisar: (v: string) => Analise) => {
         const r = analisar(element.value.trim());
         if (r.ok) {
-            resetInputStyle(element);
-            mostrarMotivo(element, '');
+            limparCampo(element);
             return true;
         }
-        setErrorStyle(element);
-        mostrarMotivo(element, explicar(r));
+        marcarCampo(element, explicar(r));
         return false;
     };
 
@@ -65,22 +43,22 @@ document.addEventListener("DOMContentLoaded", () => {
         // Campo vazio nao e erro enquanto se digita: o aviso de obrigatorio e
         // do envio, e reclamar antes da primeira tecla e ruido.
         if (!projectNameInput.value.trim()) {
-            resetInputStyle(projectNameInput); mostrarMotivo(projectNameInput, ''); return;
+            limparCampo(projectNameInput); return;
         }
-        validateInput(projectNameInput, analisarNomeDeProjeto);
+        validateInput(projectNameInput, analisarNome);
     });
 
     projectLocationInput.addEventListener('input', () => {
         if (!projectLocationInput.value.trim()) {
-            resetInputStyle(projectLocationInput); mostrarMotivo(projectLocationInput, ''); return;
+            limparCampo(projectLocationInput); return;
         }
         validateInput(projectLocationInput, analisarCaminhoDeProjeto);
     });
 
     const openModal = () => {
         newProjectModal.setAttribute('aria-hidden', 'false');
-        resetInputStyle(projectNameInput);
-        resetInputStyle(projectLocationInput);
+        limparCampo(projectNameInput);
+        limparCampo(projectLocationInput);
     };
 
     if(newProjectBtn) newProjectBtn.addEventListener("click", openModal);
@@ -127,9 +105,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            const rNome = analisarNomeDeProjeto(projectName);
+            const rNome = analisarNome(projectName);
             const rLocal = analisarCaminhoDeProjeto(projectLocation);
-            validateInput(projectNameInput, analisarNomeDeProjeto);
+            validateInput(projectNameInput, analisarNome);
             validateInput(projectLocationInput, analisarCaminhoDeProjeto);
 
             if (!rNome.ok || !rLocal.ok) {
@@ -187,8 +165,8 @@ document.addEventListener("DOMContentLoaded", () => {
         newProjectModal.setAttribute('aria-hidden', 'true');
         projectNameInput.value = '';
         projectLocationInput.value = '';
-        resetInputStyle(projectNameInput);
-        resetInputStyle(projectLocationInput);
+        limparCampo(projectNameInput);
+        limparCampo(projectLocationInput);
     }
 
     document.getElementById('cancelProjectBtn')!.addEventListener('click', closeNewProjectModal);

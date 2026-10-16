@@ -14,6 +14,7 @@ import { electronAPI } from '../app/electron_api.js';
 import { motivoDe } from '../app/api_reply.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from '../project/project_store.js';
+import { analisarNome, explicar } from '../project/path_rules.js';
 import { ok, err, emit } from './api_core.js';
 
 /* ============================================================
@@ -205,9 +206,9 @@ export const renomearProjeto = {
   async renameProject({ newName }: { newName?: string } = {}) {
     const newNm = String(newName || '').trim();
     if (!newNm) return err('newName required');
-    if (/[^A-Za-z0-9_-]/.test(newNm)) {
-      return err('newName may only contain letters, numbers, _ and -');
-    }
+    // A regra de nome e a do modal de projeto novo (js/project/path_rules.ts), #187.
+    const analise = analisarNome(newNm);
+    if (!analise.ok) return err(`invalid project name "${newNm}": ${explicar(analise)}`);
     const spfPath = ProjectStore.getSpfPath();
     if (!spfPath) return err('No project open');
     if (typeof electronAPI?.renameProject !== 'function') {

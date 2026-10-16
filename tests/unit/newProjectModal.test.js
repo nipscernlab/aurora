@@ -43,7 +43,8 @@ beforeAll(async () => {
 });
 
 const $ = (id) => document.getElementById(id);
-const avisoDe = (id) => $(id).parentElement.querySelector('.campo-aviso');
+const avisoDe = (id) => $(id).closest('.form-group').querySelector('.campo-aviso');
+const borda = (id) => $(id).style.getPropertyValue('border');
 
 function digitar(id, valor) {
     $(id).value = valor;
@@ -63,21 +64,35 @@ beforeEach(() => {
 describe('Novo projeto: o aviso embaixo do campo', () => {
     it('nome recusado marca o campo e diz o caractere', () => {
         digitar('projectNameInput', 'a&b');
-        expect($('projectNameInput').style.border).not.toBe('');
+        expect(borda('projectNameInput')).not.toBe('');
         expect(avisoDe('projectNameInput').textContent).toContain('&');
     });
 
     it('apagar o nome tira a marca e o aviso: vazio nao e erro enquanto se digita', () => {
         digitar('projectNameInput', 'a&b');
         digitar('projectNameInput', '');
-        expect($('projectNameInput').style.border).toBe('');
+        expect(borda('projectNameInput')).toBe('');
         expect(avisoDe('projectNameInput')).toBeNull();
+    });
+
+    // #187: a regra e a do processador, entao hifen, que o projeto aceitava,
+    // agora e recusado aqui tambem, com o mesmo texto que o Hub mostra.
+    it('hifen e recusado, como no nome de processador', () => {
+        digitar('projectNameInput', 'meu-proj');
+        expect(avisoDe('projectNameInput').textContent).toContain('Tire: -.');
     });
 
     it('corrigir o nome tira o aviso', () => {
         digitar('projectNameInput', 'a&b');
         digitar('projectNameInput', 'ab');
         expect(avisoDe('projectNameInput')).toBeNull();
+    });
+
+    it('a pasta digitada e validada, e apagada perde o aviso', () => {
+        digitar('projectLocationInput', 'C:\\lab\\a&b');
+        expect(avisoDe('projectLocationInput').textContent).toContain('&');
+        digitar('projectLocationInput', '');
+        expect(avisoDe('projectLocationInput')).toBeNull();
     });
 
     it('a pasta escolhida no seletor e validada na hora', async () => {

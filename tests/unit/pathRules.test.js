@@ -13,7 +13,7 @@
 import { describe, it, expect } from 'vitest';
 
 import {
-    analisarCaminhoDeProjeto, analisarNomeDeProjeto, explicar,
+    analisarCaminhoDeProjeto, analisarNome, explicar,
 } from '../../js/project/path_rules.js';
 
 const ok = (p) => analisarCaminhoDeProjeto(p).ok;
@@ -84,30 +84,50 @@ describe('caminhos que quebram a cadeia de compilacao', () => {
     });
 });
 
-describe('nome de projeto', () => {
-    it('nao aceita barra, porque nome nao e caminho', () => {
-        expect(analisarNomeDeProjeto('meu/proj').motivo).toBe('separador');
-        expect(analisarNomeDeProjeto('meu\\proj').motivo).toBe('separador');
-    });
-
+// #187. Projeto e processador seguem UMA regra de nome, a do processador
+// (pastas_do_processador.ts, a mesma do yanc), mais os nomes que o Windows
+// reserva, porque os dois viram pasta. Antes o projeto aceitava hifen e digito
+// no comeco, e o processador nao; quem criava os dois via avisos diferentes.
+describe('nome de projeto e de processador', () => {
     it('aceita um nome comum', () => {
-        expect(analisarNomeDeProjeto('cnn_sapho').ok).toBe(true);
-        expect(analisarNomeDeProjeto('fft-v2').ok).toBe(true);
+        expect(analisarNome('cnn_sapho').ok).toBe(true);
+        expect(analisarNome('Filtro2').ok).toBe(true);
     });
 
-    // #186. O nome vira pasta E o nome do .spf, e a API da IA ja recusava
-    // espaco (ciclo_do_projeto_ns.ts); o modal herdava a regra do caminho, que
-    // aceita espaco simples de proposito, e deixava passar.
-    it('recusa espaco no nome, que o caminho aceita', () => {
-        const r = analisarNomeDeProjeto('meu projeto');
-        expect(r.ok).toBe(false);
-        expect(r.motivo).toBe('nome');
-        expect(explicar(r)).toContain('espaço');
+    // #186: o nome herdava a regra do caminho, que aceita espaco simples.
+    it('recusa espaco, e o aviso escreve "espaço" em vez de um branco invisivel', () => {
+        const r = analisarNome('meu projeto');
+        expect(r.motivo).toBe('nomeCaracteres');
+        expect(explicar(r)).toContain('Tire: espaço.');
     });
 
-    it('recusa o que a API da IA recusa: so letra ASCII, digito, _ e -', () => {
-        expect(analisarNomeDeProjeto('proj.v2').motivo).toBe('nome');
-        expect(explicar(analisarNomeDeProjeto('proj.v2'))).toContain('.');
+    it('lista cada caractere recusado uma vez so', () => {
+        expect(analisarNome('a-b-c.d').detalhe).toBe('- .');
+        expect(analisarNome('ação').detalhe).toBe('ç ã');
+    });
+
+    it('barra cai na mesma regra, porque nome nao e caminho', () => {
+        expect(analisarNome('meu/proj').motivo).toBe('nomeCaracteres');
+        expect(analisarNome('meu\\proj').detalhe).toBe('\\');
+    });
+
+    it('as recusas do yanc, na ordem dele', () => {
+        expect(analisarNome('').motivo).toBe('nomeVazio');
+        expect(analisarNome(null).motivo).toBe('nomeVazio');
+        expect(analisarNome('2fir').motivo).toBe('nomeDigito');
+        expect(analisarNome('__x').motivo).toBe('nomeSublinhado');
+        expect(analisarNome('wire')).toEqual({ ok: false, motivo: 'nomeReservada', detalhe: 'wire' });
+    });
+
+    it('recusa nome que o Windows reserva, que o yanc aceitaria mas a pasta nao', () => {
+        expect(analisarNome('con')).toEqual({ ok: false, motivo: 'reservado', detalhe: 'con' });
+        expect(analisarNome('LPT1').motivo).toBe('reservado');
+    });
+
+    it('cada recusa tem um texto proprio', () => {
+        const textos = ['', '2fir', '__x', 'wire', 'a b'].map((n) => explicar(analisarNome(n)));
+        expect(new Set(textos).size).toBe(textos.length);
+        expect(textos.every((t) => t && t !== 'Caminho inválido.')).toBe(true);
     });
 });
 

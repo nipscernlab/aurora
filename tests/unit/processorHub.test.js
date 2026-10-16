@@ -93,6 +93,47 @@ describe('Processor Hub: as pilhas ficam com o compilador', () => {
     });
 });
 
+// #187: a mesma regra e o mesmo aviso do modal de projeto novo
+// (tests/unit/newProjectModal.test.js).
+describe('Processor Hub: o aviso do nome', () => {
+    const aviso = () => $('processorName').closest('.form-group').querySelector('.campo-aviso');
+
+    it('nome recusado diz o que tirar e desabilita o botao', () => {
+        mudar('processorName', 'meu filtro');
+        expect(aviso().textContent).toContain('Tire: espaço.');
+        expect($('generateProcessor').disabled).toBe(true);
+    });
+
+    it('palavra reservada do Verilog e nome reservado do Windows tambem explicam', () => {
+        mudar('processorName', 'wire');
+        expect(aviso().textContent).toContain('reservada do Verilog');
+        mudar('processorName', 'con');
+        expect(aviso().textContent).toContain('reservado pelo Windows');
+    });
+
+    it('campo numerico recusado so ganha a borda, sem frase', () => {
+        mudar('inputPorts', '0');
+        expect($('inputPorts').style.getPropertyValue('border')).not.toBe('');
+        expect($('inputPorts').closest('.form-group').querySelector('.campo-aviso')).toBeNull();
+        expect($('generateProcessor').disabled).toBe(true);
+    });
+
+    it('vazio desabilita o botao sem aviso nem borda', () => {
+        mudar('processorName', '');
+        expect(aviso()).toBeNull();
+        expect($('processorName').style.getPropertyValue('border')).toBe('');
+        expect($('generateProcessor').disabled).toBe(true);
+    });
+
+    it('corrigir tira o aviso e libera o botao; o nome vai sem os brancos das pontas', async () => {
+        mudar('processorName', 'meu filtro');
+        mudar('processorName', ' filtro ');
+        expect(aviso()).toBeNull();
+        expect($('generateProcessor').disabled).toBe(false);
+        expect((await gerar()).processorName).toBe('filtro');
+    });
+});
+
 describe('Processor Hub: o seletor de linguagem', () => {
     it('em C++ os quatro campos do C+- mostram o padrao do cppcomp e desabilitam', () => {
         mudar('languageCpp', true);

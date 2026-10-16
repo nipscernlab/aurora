@@ -43,7 +43,9 @@ async function renomear(novo = 'Novo') {
 describe('renameProject', () => {
   it('valida o nome, o projeto e o canal', async () => {
     expect(msg(await ren.renameProject())).toBe('newName required');
-    expect(msg(await ren.renameProject({ newName: 'com espaco' }))).toMatch(/only contain/);
+    // #187: a regra e a do modal (js/project/path_rules.ts), com o texto dele.
+    expect(msg(await ren.renameProject({ newName: 'com espaco' }))).toMatch(/^invalid project name "com espaco": .*Tire: espaço/);
+    expect(msg(await ren.renameProject({ newName: 'novo-nome' }))).toMatch(/Tire: -/);
     const canal = electronAPI.renameProject;
     delete electronAPI.renameProject;
     expect(msg(await ren.renameProject({ newName: 'X' }))).toBe('rename-project IPC unavailable');

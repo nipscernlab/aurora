@@ -248,6 +248,13 @@ describe('o yanc v7.1', () => {
         expect(SYSTEM_PROMPT).toContain('`wire` (keyword)');
     });
 
+    // #187: o projeto segue a regra do processador, e create_project recusa
+    // hifen; a IA que sugerir `meu-projeto` leva a recusa de volta.
+    it('o nome de projeto segue a mesma regra', () => {
+        expect(SYSTEM_PROMPT).toMatch(/A PROJECT name follows the same rule/);
+        expect(SYSTEM_PROMPT).toContain('propose `meu_projeto`');
+    });
+
     it('a AURORA chama so o driver, e o cpppp e o appcomp sairam', () => {
         expect(SYSTEM_PROMPT).toContain('the ONLY binary Aurora calls');
         expect(SYSTEM_PROMPT).toContain('There is no cpppp any more');

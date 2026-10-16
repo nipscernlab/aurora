@@ -16,6 +16,7 @@ import { electronAPI } from '../app/electron_api.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { marcarPapel, type Papel } from '../project/papel_no_spf.js';
+import { analisarNome, explicar } from '../project/path_rules.js';
 import { ok, err, emit } from './api_core.js';
 
 /** Qual topo: o papel que ele assume, a lista desse papel e o ponteiro dela. */
@@ -125,13 +126,13 @@ export const cicloDoProjeto = {
 
   /**
    * Create a new SAPHO project at `location\name` and open it.
-   * `name` must be free of spaces/symbols (project convention).
+   * `name` follows the processor-name rule, the same one the New Project
+   * modal applies (js/project/path_rules.ts), #187.
    */
   async createProject({ name, location }: { name?: string; location?: string } = {}) {
     if (!name || !location) return err('name and location required');
-    if (/[^A-Za-z0-9_-]/.test(name)) {
-      return err('project name may only contain letters, numbers, _ and -');
-    }
+    const analise = analisarNome(name);
+    if (!analise.ok) return err(`invalid project name "${name}": ${explicar(analise)}`);
     try {
       const projectPath = `${location}\\${name}`;
       const spfPath = `${projectPath}\\${name}.spf`;

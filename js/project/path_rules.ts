@@ -19,6 +19,8 @@
  * Isto é aritmética de texto, sem DOM e sem disco, para poder ser testado.
  */
 
+import { problemaNoNomeDoProcessador, type ProblemaNoNome } from '../compilation/pastas_do_processador.js';
+
 /**
  * Caracteres que viram sintaxe em algum elo da cadeia.
  *
@@ -85,23 +87,34 @@ export function analisarCaminhoDeProjeto(caminho: unknown): Analise {
   return { ok: true };
 }
 
+/** O código de `problemaNoNomeDoProcessador` virado `motivo` de `explicar`. */
+const MOTIVO_DO_PROBLEMA: Record<ProblemaNoNome, string> = {
+  vazio: 'nomeVazio',
+  caracteres: 'nomeCaracteres',
+  digito: 'nomeDigito',
+  sublinhado: 'nomeSublinhado',
+  reservada: 'nomeReservada',
+};
+
 /**
- * Só o nome do projeto, sem separador.
+ * O nome de um projeto ou de um processador: uma regra só para os dois (#187).
  *
- * Mais estreito que o caminho: o nome vira a pasta e o nome do `.spf`, e a
- * convenção do projeto (a mesma que a API da IA aplica em
- * `ciclo_do_projeto_ns.ts`) é letra ASCII, dígito, `_` e `-`. O caminho aceita
- * espaço simples para não barrar "Meus Projetos"; o nome não herda essa folga.
+ * A base é a do processador, que é a do yanc (`pastas_do_processador.ts`),
+ * porque o nome dele vira módulo Verilog. O projeto não precisaria de tanto,
+ * mas duas regras parecidas são duas coisas para decorar, e quem criava os
+ * dois via avisos diferentes. Por cima, os nomes que o Windows reserva, que o
+ * yanc aceitaria e a pasta não. O caminho aceita espaço simples para não
+ * barrar "Meus Projetos"; o nome não herda essa folga (#186).
  */
-export function analisarNomeDeProjeto(nome: unknown): Analise {
-  const n = String(nome == null ? '' : nome);
-  if (/[\\/]/.test(n)) return { ok: false, motivo: 'separador' };
-  const doCaminho = analisarCaminhoDeProjeto(n);
-  if (!doCaminho.ok) return doCaminho;
-  const fora = [...new Set([...n].filter((c) => !/[A-Za-z0-9_-]/.test(c)))];
-  if (fora.length) {
-    return { ok: false, motivo: 'nome', detalhe: fora.map((c) => (c === ' ' ? 'espaço' : c)).join(' ') };
+export function analisarNome(nome: unknown): Analise {
+  const n = typeof nome === 'string' ? nome : '';
+  const problema = problemaNoNomeDoProcessador(n);
+  if (problema === 'caracteres') {
+    const fora = [...new Set([...n].filter((c) => !/[A-Za-z0-9_]/.test(c)))];
+    return { ok: false, motivo: 'nomeCaracteres', detalhe: fora.map((c) => (c === ' ' ? 'espaço' : c)).join(' ') };
   }
+  if (problema) return { ok: false, motivo: MOTIVO_DO_PROBLEMA[problema], detalhe: n };
+  if (RESERVADOS.test(n)) return { ok: false, motivo: 'reservado', detalhe: n };
   return { ok: true };
 }
 
@@ -118,8 +131,11 @@ const MOTIVOS: Record<string, (d?: string) => string> = {
   reservado: (d) => `"${d}" é um nome reservado pelo Windows.`,
   bordas: (d) => `"${d}" começa ou termina com espaço.`,
   pontoFinal: (d) => `"${d}" termina com ponto, o que o Windows não guarda.`,
-  separador: () => 'O nome não pode conter barra.',
-  nome: (d) => `O nome do projeto só pode ter letras sem acento, números, _ e -. Tire: ${d}.`,
+  nomeVazio: () => 'Informe um nome.',
+  nomeCaracteres: (d) => `O nome só pode ter letras sem acento, números e _. Tire: ${d}.`,
+  nomeDigito: () => 'O nome não pode começar com número.',
+  nomeSublinhado: () => 'O nome não pode começar com __.',
+  nomeReservada: (d) => `"${d}" é palavra reservada do Verilog.`,
 };
 
 /** Texto pronto para um resultado de análise. */

@@ -2,7 +2,8 @@ import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { PADROES_DO_CPPCOMP as PADROES } from '../project/processor_defaults.js';
 import { criarProcessador } from '../project/processadores_do_spf.js';
-import { problemaNoNomeDoProcessador } from '../compilation/pastas_do_processador.js';
+import { analisarNome, explicar } from '../project/path_rules.js';
+import { marcarCampo, limparCampo } from '../ui/aviso_do_campo.js';
 
 /*
  * Compilado por `tsc` (npm run build:ts) num processor_hub.js ao lado, e esse
@@ -79,21 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- State Management ---
     let currentProjectPath: string | null = null;
 
-    // --- 2. Visual Feedback (Live Red Border) ---
-
-    const setErrorStyle = (element: HTMLElement) => {
-        // Increased border width to 3px as requested
-        element.style.setProperty('border', '3px solid #ff4444', 'important');
-        element.style.setProperty('box-shadow', '0 0 6px rgba(255, 68, 68, 0.4)', 'important');
-        element.style.setProperty('outline', 'none', 'important');
-    };
-
-    const resetInputStyle = (element: HTMLElement | null) => {
-        if (!element) return;
-        element.style.removeProperty('border');
-        element.style.removeProperty('box-shadow');
-        element.style.removeProperty('outline');
-    };
+    // --- 2. Visual Feedback ---
+    // A borda e a frase embaixo do campo sao as do modal de projeto novo
+    // (js/ui/aviso_do_campo.ts), #187.
 
     // --- 3. Validation Logic ---
 
@@ -104,10 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const isValid = conditionFn(value);
 
         if (!isValid) {
-            setErrorStyle(element);
+            marcarCampo(element);
             return false;
         } else {
-            resetInputStyle(element);
+            limparCampo(element);
             return true;
         }
     };
@@ -115,9 +104,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Rule A: Name Validation
     // O nome vira o arquivo fonte, a pasta e o modulo Verilog (yanc v7.1), e
     // a regra e a do yanc: letras ASCII, digitos e _, sem digito nem __ no
-    // inicio, nenhuma palavra reservada do Verilog (pastas_do_processador.ts).
+    // inicio, nenhuma palavra reservada do Verilog (pastas_do_processador.ts),
+    // mais os nomes que o Windows reserva. E a mesma regra e o mesmo aviso do
+    // nome de projeto (js/project/path_rules.ts), #187.
     const checkName = () => {
-        return validateField(inputs.name, (val) => problemaNoNomeDoProcessador(val) === null);
+        const el = inputs.name;
+        if (!el) return false;
+        const nome = el.value.trim();
+        // Vazio nao e erro enquanto se digita, como no modal de projeto: o
+        // botao fica desabilitado, e reclamar antes da primeira tecla e ruido.
+        if (!nome) { limparCampo(el); return false; }
+        const r = analisarNome(nome);
+        if (r.ok) { limparCampo(el); return true; }
+        marcarCampo(el, explicar(r));
+        return false;
     };
 
     // Rule B: Positive Integers (> 0). Empty strings are rejected explicitly
@@ -149,10 +149,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const isConsistent = nBits === (mantissa + exponent + 1);
 
         if (!isConsistent) {
-            if (inputs.nBits) setErrorStyle(inputs.nBits);
+            marcarCampo(inputs.nBits);
         } else {
             // Only reset if it also passes the basic integer check
-            if (nBits > 0) resetInputStyle(inputs.nBits);
+            if (nBits > 0) limparCampo(inputs.nBits);
         }
         return isConsistent;
     };
@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!el.disabled) valoresDoCmm[chave] = el.value;
                 el.value = PADROES_DO_CPPCOMP[chave] ?? el.value;
                 el.disabled = true;
-                resetInputStyle(el);
+                limparCampo(el);
             } else {
                 el.disabled = false;
                 if (chave in valoresDoCmm) el.value = valoresDoCmm[chave];
@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
             modalContainer.setAttribute('aria-hidden', 'true');
         }
         if (form) form.reset();
-        Object.values(inputs).forEach(input => resetInputStyle(input));
+        Object.values(inputs).forEach(input => limparCampo(input));
         // O form.reset() devolve o radio ao C+-, que e o `checked` do HTML;
         // aplicarLinguagem reabilita os campos e limpa os valores guardados.
         for (const chave of Object.keys(valoresDoCmm)) delete valoresDoCmm[chave];

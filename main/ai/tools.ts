@@ -616,14 +616,14 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'create_project',
-    description: 'Create a new SAPHO project under location/name and open it. The name may contain only letters, numbers, underscore or hyphen.',
+    description: 'Create a new SAPHO project under location/name and open it. The name follows the processor-name rule: only ASCII letters, digits and underscore, not starting with a digit or "__", not a Verilog keyword nor a Windows reserved name (con, nul, ...).',
     access: 'write',
     api: ['project', 'createProject'],
     argStyle: 'object',
     inputSchema: {
       type: 'object',
       properties: {
-        name: { type: 'string', description: 'Project name. Becomes the folder name and the .spf basename.' },
+        name: { type: 'string', description: 'Project name, same rule as a processor name. Becomes the folder name and the .spf basename.' },
         location: { type: 'string', description: 'Parent directory for the new project folder' },
       },
       required: ['name', 'location'],
@@ -642,14 +642,14 @@ const TOOL_MANIFEST: ToolDef[] = [
       'calling this you MUST call get_rename_status with the returned jobId, polling a few ' +
       'times if needed, until its status is "done" or "failed", to learn the real outcome ' +
       'and (on failure) the step and reason. The project reopens itself when the job ' +
-      'completes. The name may contain only letters, numbers, underscore or hyphen.',
+      'completes. The name follows the processor-name rule: only ASCII letters, digits and underscore, not starting with a digit or "__", not a Verilog keyword nor a Windows reserved name (con, nul, ...).',
     access: 'write',
     api: ['project', 'renameProject'],
     argStyle: 'object',
     inputSchema: {
       type: 'object',
       properties: {
-        newName: { type: 'string', description: 'New project name (letters, digits, _ or -)' },
+        newName: { type: 'string', description: 'New project name, same rule as a processor name' },
       },
       required: ['newName'],
     },

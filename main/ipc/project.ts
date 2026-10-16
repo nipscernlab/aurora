@@ -39,6 +39,7 @@ import {
   problemaNoNomeDoProcessador,
   segmentosDoFonte,
 } from '../../js/compilation/pastas_do_processador.js';
+import { analisarNome, explicar } from '../../js/project/path_rules.js';
 
 /**
  * A mensagem para um nome que nao serve de processador, na regra do yanc
@@ -1019,9 +1020,10 @@ function register() {
 
       const newNm = String(newName || '').trim();
       if (!newNm) throw new Error('New project name is required');
-      if (!/^[A-Za-z0-9_-]+$/.test(newNm)) {
-        throw new Error('Project name may contain only letters, numbers, underscore or hyphen');
-      }
+      // A regra de nome e a do modal de projeto novo (js/project/path_rules.ts),
+      // #187; ela tambem barra `..` e separador antes do path.join.
+      const analise = analisarNome(newNm);
+      if (!analise.ok) throw new Error(`Invalid project name "${newNm}": ${explicar(analise)}`);
 
       const oldSpfPath = spfAberto;
       const oldRoot = path.dirname(oldSpfPath);

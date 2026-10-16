@@ -966,7 +966,7 @@ describe('rename-project', () => {
     fs.mkdirSync(path.join(path.dirname(p.raiz), 'ocupado'));
     const ev = evento();
     registrar(ev, p.spf);
-    for (const [nome, erro] of [['', 'New project name is required'], ['a/b', /letters, numbers/], ['ocupado', /already exists/]]) {
+    for (const [nome, erro] of [['', 'New project name is required'], ['a/b', /^Invalid project name "a\/b": .*Tire: \//], ['novo-nome', /Tire: -/], ['ocupado', /already exists/]]) {
       const r = await chamar('rename-project', ev, nome);
       expect(r.success).toBe(false);
       expect(r.error).toMatch(erro);

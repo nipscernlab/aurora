@@ -76,7 +76,10 @@ describe('criar e abrir', () => {
 
   it('criar recusa sem nome/local, com nome ruim, e devolve a falha', async () => {
     expect(msg(await ciclo.createProject())).toBe('name and location required');
-    expect(msg(await ciclo.createProject({ name: 'a b', location: 'C:' }))).toMatch(/only contain/);
+    // #187: a regra e a do modal (js/project/path_rules.ts), com o texto dele.
+    expect(msg(await ciclo.createProject({ name: 'a b', location: 'C:' }))).toMatch(/^invalid project name "a b": .*Tire: espaço/);
+    expect(msg(await ciclo.createProject({ name: 'meu-proj', location: 'C:' }))).toMatch(/Tire: -/);
+    expect(electronAPI.createProjectStructure).not.toHaveBeenCalled();
     electronAPI.createProjectStructure.mockResolvedValueOnce({ success: false, message: 'ja existe' });
     expect(msg(await ciclo.createProject({ name: 'a', location: 'C:' }))).toBe('ja existe');
     electronAPI.createProjectStructure.mockResolvedValueOnce(null);

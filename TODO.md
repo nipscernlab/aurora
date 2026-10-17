@@ -19,10 +19,6 @@ re-checagem a cada 3 h, delta por blockmap, retry com backoff de 1/5/15 min e
 depois de hora em hora. São 975 testes unitários, 20 E2E e 27 de toolchain.
 O build publica em `nipscernlab/sapho` e espelha as release notes para lá.
 
-O plano de deploy, na ordem: instalar num PC do LABEL, gerar a release e
-testar, gerar uma segunda release e ver a atualização acontecer, e só então
-implantar na frota. As seções 1 a 4 são esse plano; as demais vêm depois.
-
 ## Estado verificado em 25/09/2026
 
 `main` em `5b49d512`, CI verde, árvore limpa. São 2715 testes unitários, 50
@@ -47,228 +43,11 @@ Por isso o `npm run deadcode` agora tira os `.js` gerados antes do knip.
 
 ---
 
-## 1. Release de teste e ensaio de atualização
+## 1. Atualizador: resiliência
 
-O updater tem 12 testes de agendamento e o delta foi conferido no código, mas
-ninguém nunca viu uma atualização acontecer. A promessa para o laboratório é
-"instala uma vez e atualiza sem voltar presencialmente", e se ela falhar vai
-falhar em 30 máquinas ao mesmo tempo, com aula acontecendo. Este ensaio é o
-passo que a frota não pode ser a primeira a fazer.
-
-- [x] ~~Merge do PR #63 e publicação da 6.4.0.~~ Feito em 11/08/2026. Está em
-      `nipscernlab/sapho` com os três assets, e o portão de integridade conferiu
-      por fora, como um cliente faria: 525 MB, sha512 batendo, blockmap
-      presente, e 79 mil caracteres de changelog espelhados.
-
-      O pipeline nunca tinha rodado inteiro, e quatro defeitos só apareceram
-      aqui, todos corrigidos. A verificação da toolchain procurava `surfer.exe`
-      quando o binário do fork é `surfer-aurora.exe`. O Verilator quebrava no
-      runner porque o `os.tmpdir()` de lá volta em formato curto 8.3 e o til não
-      sobrevive ao Perl do msys. O electron-builder publicava num repositório
-      diferente do que constrói, subiu o instalador e morreu antes do
-      `latest.yml`, deixando uma release publicada e inútil, que é quase
-      certamente a razão de a v6.3.2 ter ido à mão. E o portão que confere o
-      feed lia o `latest.yml` como bytes, então acusava divergência num arquivo
-      correto e ainda mandava apagar a release.
-- [x] ~~Instalar a 6.4.0 na máquina do LABEL e rodar o roteiro da seção 2.7.~~
-      Superado em 22/08/2026: o SAPHO está instalado em TODAS as máquinas do
-      LABEL, e numa versão bem posterior à 6.4.0. Falta confirmar o roteiro da
-      2.7 em cada uma, que é verificação e não instalação.
-- [x] ~~Fazer uma alteração trivial, mergear o novo PR de release, publicar a
-      6.4.1.~~ Feito, e muitas vezes: da 6.4.1 à 6.9.0 saíram nove releases
-      pelo mesmo caminho, todas com tag no repositório. O passo do ensaio que
-      ainda falta não é publicar, é OBSERVAR uma dessas atualizações chegar
-      sozinha numa máquina do LABEL, que é o item seguinte.
-- [x] ~~Abrir o app na máquina do LABEL e observar o ciclo inteiro.~~ Feito em
-      26/08/2026: o Chrysthofer implantou no LABEL e viu a atualização
-      acontecer. Isto fecha o risco que a seção inteira existia para cobrir, e
-      que nenhuma evidência de fora do laboratório alcançava: perfil sem
-      privilégio, AppLocker sobre `%LOCALAPPDATA%`, proxy da universidade e
-      Defender corporativo, todos no caminho ao mesmo tempo.
-
-      O detalhe abaixo era o roteiro do ensaio e fica como registro do que foi
-      observado. A notícia de 22/08/2026, de que TODOS os alunos viram
-      a atualização funcionar nos laptops de casa. Essa evidência vale muito e
-      derruba a hipótese mais provável, a de um defeito no próprio updater, mas
-      não cobre o que é específico do laboratório: perfil sem privilégio,
-      AppLocker restringindo `%LOCALAPPDATA%`, proxy da universidade e o
-      Defender corporativo. É justamente ali que a atualização silenciosa falha,
-      e falharia em trinta máquinas ao mesmo tempo. O ciclo a observar:
-  - a checagem silenciosa dispara ~6 s após o boot e a janela de atualização
-    aparece com o changelog preenchido; corpo vazio significa que o
-    espelhamento de release notes falhou;
-  - o download é incremental, e dá para medir acompanhando os MB transferidos
-    na própria janela contra os ~140 MB do instalador completo;
-  - fechar o app aplica a atualização em silêncio, sem elevação, e a próxima
-    abertura mostra a 6.4.1 com o toast de confirmação;
-  - Configurações > Sobre > Atualizações reflete o que aconteceu.
-- [ ] Resiliência: derrubar a rede no meio do download e confirmar que a janela
-      mostra a contagem regressiva e retoma sozinha, em vez de congelar a barra.
-      NÃO foi coberto pelo ensaio de 26/08, que viu o caminho feliz. É o único
-      pedaço do ensaio do updater que continua por fazer, e agora é um teste
-      isolado, não mais um bloqueio para a frota.
-- [x] ~~Passando tudo, liberar a implantação na frota (seção 2).~~ Liberada e
-      executada em 26/08/2026.
-
-Essas duas releases saem sem assinatura, o que é esperado. A assinatura entra
-depois (seção 3), e o primeiro release assinado será download completo para
-todo mundo, porque a assinatura invalida os blocos do delta; depois dele volta
-o incremental.
-
----
-
-## 2. Implantação nos PCs do LABEL
-
-Material para o suporte técnico. A IDE instala por usuário, sem administrador,
-porque o instalador é NSIS `oneClick` sem elevação: instalar em Arquivos de
-Programas exigiria consentimento de admin a cada atualização, e numa máquina
-onde o aluno não é admin a atualização nunca aconteceria.
-
-Desde a v6.5.0 o instalador abre mostrando a licença (LICENSE + anexo SAPHO,
-gerados a cada build por `scripts/gen-installer-license.js`) e só instala se o
-usuário aceitar. A página é só um portão de leitura: não muda a elevação nem o
-diretório, e tudo acima continua valendo.
-
-| Item | Valor |
-|---|---|
-| Diretório do programa | `%LOCALAPPDATA%\Programs\SAPHO\` (executável `SAPHO.exe`) |
-| Dados e logs | `%APPDATA%\SAPHO\` |
-| Cache do atualizador | `%LOCALAPPDATA%\sapho-updater\` |
-| Toolchain | `%LOCALAPPDATA%\Programs\SAPHO\components\` |
-| Disco por usuário | ~2,3 GB em repouso, ~3,3 GB durante uma atualização (medido em 14/08/2026) |
-| Rede | HTTPS para `github.com` e `objects.githubusercontent.com`, nenhuma obrigatória para compilar |
-
-O que costuma travar: a IDE executa compiladores a partir do perfil do usuário,
-e políticas do tipo "bloquear execução fora de Arquivos de Programas" impedem o
-funcionamento mesmo com a instalação bem-sucedida. Os binários são um conjunto
-fechado por allowlist em [main/compile/binary_allowlist.ts](main/compile/binary_allowlist.ts):
-compiladores SAPHO (`cmmcomp`, `appcomp`, `asmcomp`, `cppcomp`, `cpppp`),
-Icarus (`iverilog`, `vvp`), Verilator com `g++`/`make`/`perl`, Yosys, GTKWave,
-Python 3.12, e as ferramentas de linguagem (`verible-verilog-ls`,
-`slang-server`, `clang-format`). Qualquer binário fora dela é recusado.
-
-Em 22/08/2026 o SAPHO foi instalado em todas as máquinas do LABEL e a cadeia de
-compilação rodou inteira lá dentro. Isso é a prova que faltava para o risco
-principal desta seção: os compiladores executam a partir do perfil do usuário,
-então nenhuma política do tipo "só executa em Arquivos de Programas" está
-barrando o caminho do programa nem o de `components\`, inclusive o
-`components\Temp\` que o Verilator usa para o binário que compila na hora.
-
-O terceiro caminho, `%LOCALAPPDATA%\sapho-updater\pending\`, saiu do escuro em
-26/08/2026: a atualização foi observada funcionando no LABEL, e ela só termina
-executando o instalador de lá. Com isso os três caminhos de execução desta
-seção estão provados em campo, e o laboratório pode ser atualizado sem visita,
-que era a promessa que o projeto fez.
-
-- [x] ~~**2.1 Decidir o modelo de implantação.**~~ Resolvido na prática em
-      26/08/2026: a implantação foi feita e a atualização chegou, então o perfil
-      não é descartado no logoff e a instalação por usuário se sustenta.
-- [ ] **2.2 Exclusões do Defender**, agora sabidamente uma questão de tempo e
-      não de funcionamento: a compilação roda no LABEL com o que estiver
-      configurado hoje. Sem elas o efeito é lentidão, não bloqueio:
-      uma compilação com Verilator gera centenas de intermediários, e cada um
-      passa pela varredura em tempo real. Por GPO, ou por PowerShell
-      administrativo em cada máquina:
-
-      Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Programs\SAPHO"
-      Add-MpPreference -ExclusionPath "$env:APPDATA\SAPHO"
-      Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\sapho-updater"
-
-      A terceira evita revarrer o instalador de ~140 MB a cada atualização.
-- [x] ~~**2.3 Regras AppLocker/SRP**, o ponto crítico.~~ Fechado em 26/08/2026: os três caminhos executam no LABEL. Com a regra padrão de
-      permitir execução só em `%ProgramFiles%` e `%SystemRoot%`, nada dentro de
-      `%LOCALAPPDATA%` executa. São necessárias duas exceções por caminho:
-
-      %LOCALAPPDATA%\Programs\SAPHO\*
-      %LOCALAPPDATA%\Programs\SAPHO\components\*
-      %LOCALAPPDATA%\sapho-updater\pending\*
-
-      A segunda é indispensável e é a que costuma ser esquecida: sem ela a IDE
-      abre normalmente e só falha ao compilar, com erro que parece bug da
-      aplicação. O diretório `components\Temp\` também precisa permitir
-      execução, por causa do executável que o Verilator compila na hora.
-
-      Em 22/08/2026 as duas primeiras ficaram provadas na prática: a cadeia de
-      compilação rodou inteira nas máquinas do LABEL, o que só acontece se a
-      execução a partir do perfil estiver liberada.
-
-      A terceira também ficou provada, em 26/08/2026, quando a atualização foi
-      vista acontecendo no LABEL: ela termina executando o instalador baixado
-      para `%LOCALAPPDATA%\sapho-updater\pending\`, então esse caminho executa.
-      Era o risco de a atualização baixar os ~140 MB, validar o hash e morrer
-      calada no último passo, deixando a máquina na versão velha para sempre.
-- [ ] **2.3.1 Não instalar com "Executar como administrador".** O instalador é
-      por usuário e sem elevação, de propósito. Rodado sob uma conta de
-      administrador, ele instala no perfil daquela conta: o aluno faz login
-      depois e não encontra nada, e o atalho aponta para um caminho que não é o
-      dele. A senha de administrador serve para criar a exceção de política na
-      máquina, não para rodar o instalador. Quem executa o instalador é a conta
-      que vai usar o programa.
-
-      Se a exceção não for possível e a única saída for instalar para todos, o
-      instalador precisa virar `perMachine`, e a consequência tem que ser
-      aceita antes: em `%ProgramFiles%` toda atualização passa a exigir
-      elevação, ou seja, um administrador presente em cada máquina a cada
-      versão. É exatamente a promessa que este projeto fez para não fazer.
-- [ ] **2.4 Smart App Control (Windows 11)**: verificar em Segurança do Windows
-      > Controle de aplicativos e navegador. Ativo, ele bloqueia todo
-      executável não assinado, inclusive os que o Verilator gera durante a
-      simulação, que nunca serão assinados. Numa máquina com ele ligado a
-      simulação por Verilator não roda, e assinar o instalador não resolve.
-- [ ] **2.5 SmartScreen**: confirmar que a política não removeu o "Executar
-      assim mesmo". Se removeu, o aviso deixa de ser aviso e vira bloqueio sem
-      saída pelo lado do usuário.
-- [ ] **2.6 Submeter o instalador ao [Microsoft Security Intelligence portal](https://www.microsoft.com/en-us/wdsi/filesubmission)**,
-      a cada versão nova, como parte do procedimento de atualização. É tarefa
-      da TI e é a ação de maior efeito contra o SmartScreen: a reputação
-      orgânica exige semanas e centenas de instalações limpas, volume que
-      algumas dezenas de máquinas nunca geram.
-
-      QUANDO submeter, decidido em 22/08/2026: só a partir do primeiro
-      instalador assinado. Reputação de SmartScreen se acumula no certificado,
-      e um envio sem assinatura constrói no máximo algo preso ao hash daquele
-      arquivo, que evapora na versão seguinte. A exceção é falso positivo: se o
-      Defender começar a barrar ou colocar em quarentena, submeter na hora,
-      porque aí o assunto é o arquivo e não o publicador. Até hoje isso não
-      aconteceu em nenhuma máquina do LABEL.
-- [x] ~~**2.7 Roteiro de verificação.**~~ Os quatro passos passaram no LABEL até 26/08/2026. Repetir em cada máquina nova continua sendo bom hábito, não pendência. Falhando algum
-      passo, o problema é quase sempre o 2.3. Em 22/08/2026 os passos 1 a 3
-      passaram no LABEL, com a cadeia de compilação rodando inteira; sobra
-      confirmar o passo 4 e repetir a passagem em cada máquina, não só nas que
-      já foram usadas.
-      1. ~~A IDE abre e mostra a tela inicial.~~
-      2. ~~Abrir um projeto de exemplo e compilar, sem erro (exercita os
-         compiladores SAPHO).~~
-      3. ~~Executar a simulação e abrir as formas de onda (exercita
-         Icarus/Verilator, GTKWave e a execução a partir de `components\Temp\`).~~
-      4. ~~Configurações > Sobre > Atualizações não deve dizer que não alcança o
-         servidor.~~ Coberto em 26/08/2026: a atualização chegou e foi aplicada,
-         o que exige alcançar o servidor.
-- [ ] **2.8 Conferir disco e proxy.** O updater usa a configuração de proxy do
-      sistema (Electron/Chromium). O disco é a conta que precisa ser feita
-      antes, porque no LABEL cada aluno tem perfil próprio e a instalação é por
-      perfil: o mesmo SAPHO cabe uma vez para cada aluno que usar aquela
-      máquina. Medido em 14/08/2026, numa instalação real:
-
-      | | |
-      |---|---|
-      | `%LOCALAPPDATA%\Programs\SAPHO` | 2135 MB |
-      | `%APPDATA%\SAPHO` (dados, logs) | 153 MB |
-      | `%LOCALAPPDATA%\sapho-updater` | até 1051 MB durante uma atualização |
-
-      São ~2,3 GB em repouso e ~3,3 GB no pico, por aluno, por máquina. Trinta
-      alunos numa máquina são cerca de 70 GB. O pico é o dobro do instalador
-      porque o electron-updater mantém o arquivo baixado em `pending\` e uma
-      cópia em `installer.exe` para aplicar na saída; some depois de instalar.
-
-      Se a conta não fechar, a saída não é instalar em `%ProgramFiles%` sem
-      pensar: ali toda atualização passa a pedir elevação, e a promessa de
-      atualizar sem visita morre. Ver 2.3.1.
-
-Diagnóstico remoto, quando uma máquina parar de atualizar: peça ao aluno para
-abrir Configurações > Sobre > Atualizações, que mostra situação, última e
-próxima verificação, canal e último erro. O botão Abrir log revela o
-`main.log`, que é o arquivo a anexar num relatório.
+- [ ] Derrubar a rede no meio do download e confirmar que a janela mostra a
+      contagem regressiva e retoma sozinha, em vez de congelar a barra. A
+      atualização já foi vista funcionando; falta o caminho com falha.
 
 ---
 
@@ -1638,8 +1417,6 @@ temática quando for pego.
 
 ### 9.4 Distribuição e institucional
 
-- [ ] **Atualizar todas as máquinas do LABEL** e **conferir o auto-updater lá
-      dentro** (o ensaio viu só o caminho feliz; a seção 1 tem o roteiro).
 - [x] ~~**Garantir que só a conta do dono gere releases.**~~ Feito em 29/08/2026,
       e o buraco era maior do que a tag: a permissão padrão da organização era
       `admin`, então todo membro era admin em todo repositório, podia apagar
@@ -1662,7 +1439,12 @@ temática quando for pego.
       padrão `write` da organização os cobre do mesmo jeito. A opção
       `members_can_delete_repositories` não aceitou mudança pela API, mas
       com ninguém admin ela não tem efeito.
-- [ ] **Enviar ao programa de desenvolvedor da Microsoft** (relacionado ao 2.6).
+- [ ] **Enviar ao programa de desenvolvedor da Microsoft**, e submeter cada
+      instalador novo ao [Microsoft Security Intelligence portal](https://www.microsoft.com/en-us/wdsi/filesubmission),
+      que é a ação de maior efeito contra o SmartScreen. Só a partir do
+      primeiro instalador assinado: a reputação se acumula no certificado, e
+      um envio sem assinatura fica preso ao hash daquele arquivo. A exceção é
+      falso positivo do Defender, que se submete na hora.
 - [ ] **Patente.**
 
 - [x] ~~**Botão de ajuda em todo modal, caindo no capítulo certo do manual.**~~
@@ -1978,33 +1760,6 @@ extração de zip com defesa contra `..` e caminhos absolutos; downloaders da
 toolchain com checksum; git via simple-git com arrays e `--`; todas as
 BrowserWindows com contextIsolation, sandbox e sem nodeIntegration; nenhum
 preload expõe ipcRenderer cru; open-external só http, https e mailto.
-
----
-
-## 11. Passagem da manutenção (09/2026)
-
-Em 23/09/2026 a manutenção da AURORA, as releases, a assinatura e o manual
-passaram para o Arthur Araujo Martins (`ART3121`,
-arthur.araujo@estudante.ufjf.br) e o Prof. Luciano (`lucianomaf`). O
-Chrysthofer fica em tudo durante a transição, para socorrer se algo quebrar, e
-sai quando ela acabar.
-
-- [ ] **11.1 Fechar a passagem.** Os dois com conta própria na SignPath, com
-      dois fatores, convidados na organização SAPHO [OSS] como administradores
-      e aprovadores. O `SAPHO_RELEASE_TOKEN` trocado por um fine-grained token
-      de um admin do `sapho`, porque só admin cria as tags `v*` lá, com o
-      `dry_run` do `release.yml` passando. Os dois no grupo `nips-cern` do
-      GitLab. A senha e o segundo fator de nipscernlab@gmail.com, que é dona da
-      Cloudflare do nipscern.com e do usuário `nipscernlab` do GitLab, passados
-      pessoalmente.
-
-- [ ] **11.2 Fim da transição.** Acaba quando o Arthur soltar uma release
-      sozinho, do merge da PR do release-please ao instalador em
-      `nipscernlab/sapho`, e publicar o manual. Aí: `git revert 9170b6ac`,
-      que tira o Chrysthofer dos gates do `release-please.yml` e do
-      `release.yml` e do CODEOWNERS; tirá-lo também do CODEOWNERS do
-      `nipscernweb`, da tabela de aprovadores em nipscern.com/code-signing e
-      da SignPath; e tirar dele o papel de dono da organização `nipscernlab`.
 
 ## 12. Aberto em 24/09/2026
 

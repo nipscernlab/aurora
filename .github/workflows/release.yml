@@ -245,7 +245,7 @@ jobs:
       # Signing is deliberately NOT a hard gate. SignPath disclaims availability
       # (ToS §9/§10) and can revoke a certificate, so a missing or dead
       # credential degrades to an unsigned build instead of blocking an urgent
-      # fix. The unsigned install path in TODO.md section 2 stays valid forever.
+      # fix. The unsigned install path stays valid forever.
       #
       # Os nomes dos inputs abaixo foram conferidos em 22/08/2026 contra o
       # action.yml publicado da action (branch main): `api-token`,

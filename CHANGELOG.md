@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [7.0.1](https://github.com/nipscernlab/aurora/compare/v7.0.0...v7.0.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **nomes:** projeto e processador com a mesma regra de nome e o mesmo aviso ([992569b](https://github.com/nipscernlab/aurora/commit/992569b9719deaae549f3f258723c03903a6c4ab)), closes [#187](https://github.com/nipscernlab/aurora/issues/187)
+* **projeto:** nome de projeto com espaco volta a ser recusado ([5b9f97d](https://github.com/nipscernlab/aurora/commit/5b9f97de55436a44d4af5c0d6e469ba4bdc598d1)), closes [#186](https://github.com/nipscernlab/aurora/issues/186)
+
+
+### Refactor
+
+* **projeto:** new_project_modal vira .ts, com teste de caracterizacao ([e5f83d0](https://github.com/nipscernlab/aurora/commit/e5f83d0e355fadd5180ccc6ed85497baa21f714b))
+* **projeto:** path_rules vira .ts ([b63385e](https://github.com/nipscernlab/aurora/commit/b63385e7d58e0607c42b5b0f5a73160f0d944008))
+
+
+### Documentation
+
+* **todo:** sai a implantacao no LABEL e a passagem da manutencao ([f65692b](https://github.com/nipscernlab/aurora/commit/f65692bc7b4df4efb35050626568ea5bbac5fad0))
+
 ## [7.0.0](https://github.com/nipscernlab/aurora/compare/v6.21.0...v7.0.0) (2026-10-14)
 
 

@@ -42,7 +42,7 @@ export const SYSTEM_PROMPT = [
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
   "\n\nSAPHO ECOSYSTEM — Scalable-Architecture Processor for Hardware Optimization:\n" +
-  "  • YANC  — Yet Another Compiler (v7.1, cross-platform: Linux + Windows). A multi-stage\n" +
+  "  • YANC  — Yet Another Compiler (v8.0, cross-platform: Linux + Windows). A multi-stage\n" +
   "      toolchain in C + Flex + Bison — one DRIVER, three compilers, and helpers:\n" +
   "      - yanc:    the driver, the ONLY binary Aurora calls. `yanc -S <source>` compiles and\n" +
   "                 stops at the .asm; `yanc <name>.asm` assembles. It finds the compilers\n" +
@@ -83,7 +83,7 @@ export const SYSTEM_PROMPT = [
   "\n\nBUNDLED TOOLCHAIN — everything below ships INSIDE the installer; the user installs nothing.\n" +
   "Every one of these is a WINDOWS build: the packaged toolchain is why SAPHO is Windows-only today.\n" +
   "Version, and what each one CANNOT do — the limit matters more than the version:\n" +
-  "  YANC 7.1            yanc (the driver), cmmcomp, cppcomp, asmcomp, gen_gtkw, comp2gtkw.\n" +
+  "  YANC 8.0            yanc (the driver), cmmcomp, cppcomp, asmcomp, gen_gtkw, comp2gtkw.\n" +
   "                      You never invoke these directly — Aurora drives them via compile_*.\n" +
   "  Icarus Verilog 13.0 iverilog + vvp. Default simulator. Keeps EVERY internal SAPHO signal,\n" +
   "                      and is the slow one on long testbenches.\n" +
@@ -549,26 +549,48 @@ export const SYSTEM_PROMPT = [
   "Combining P_ with _M (e.g. P_NEG_M, P_ABS_M, P_INV_M, P_NRM_M) collapses a\n" +
   "PSH + op-on-memory pair into a single instruction. **First optimisation move**:\n" +
   "look for PSH + <op>_M patterns and replace with P_<op>_M.\n" +
-  "\nDIVISION TAKES THREE WORDS (since yanc v6.0): each divider has two registers inside,\n" +
-  "and its result comes out two cycles later. Every division is written as\n" +
-  "  DIV x; NOP; QUO      MOD x; NOP; REM      F_DIV x; NOP; F_QUO\n" +
-  "and the stack forms S_DIV, S_MOD, SF_DIV are followed by NOP and the same read.\n" +
+  "\nDIVISION TAKES FIVE WORDS, FOUR IN FLOAT (since yanc v8.0): the integer divider has five\n" +
+  "stages and the float divider four, and the result comes out that many cycles later.\n" +
+  "Every division is written as\n" +
+  "  DIV x; NOP; NOP; NOP; QUO      MOD x; NOP; NOP; NOP; REM      F_DIV x; NOP; NOP; F_QUO\n" +
+  "and the stack forms S_DIV, S_MOD, SF_DIV are followed by the same NOPs and the same read.\n" +
   "QUO, REM and F_QUO are assembler aliases with the division's own opcode, so the encoding\n" +
   "did not change. cmmcomp and cppcomp write the sequence by themselves (macros and C++\n" +
   "inline assembly included): a C± or C++ program changes nothing. A hand-written .asm,\n" +
   "including the _aurora_opt one you write, MUST write it out; asmcomp refuses a division\n" +
   "without it:\n" +
-  "  \"Erro: DIV leva três palavras: depois dela vem NOP e a leitura do resultado (esperava\n" +
+  "  \"Erro: DIV leva 5 palavras: depois dela vêm 3 NOP e a leitura do resultado (esperava\n" +
   "   ..., achei ...). Os compiladores escrevem a sequência; num .asm feito à mão, escreva-a.\"\n" +
-  "  \"Erro: o programa termina no meio da sequência de DIV (faltou NOP e QUO).\"\n" +
-  "Never drop the NOP or merge it with other work when optimising. Cost: 2 words and 2\n" +
-  "cycles per division. Gain: the divider no longer sets the clock of the whole processor.\n" +
-  "On sapho_all, one fit per board: DE10-Nano (5CSEBA6U23I7, Quartus 24.1) 9.43 MHz in\n" +
-  "v5.7, 21.9 MHz in v6.0; ZYBO (xc7z010clg400-1, Vivado 2025.2) 8.80 MHz in v5.7, 23.98 MHz\n" +
-  "in v6.0. A program without division keeps its frequency. The SAPHO/ Verilog and asmcomp\n" +
-  "must come from the same yanc release: a v6.0 .asm on an older SAPHO/ divides wrong, and\n" +
-  "vice versa. Division by zero is still undefined (the quotient comes out all ones);\n" +
-  "INT_MIN / -1 still wraps.\n" +
+  "  \"Erro: o programa termina no meio da sequência de DIV (faltaram NOP e QUO).\"\n" +
+  "and reports \"Info: N divisões, 5 palavras cada em DIV/MOD e 4 em F_DIV (M a mais)\".\n" +
+  "Never drop a NOP or merge it with other work when optimising. Cost: 4 words and 4\n" +
+  "cycles per DIV/MOD, 3 per F_DIV. An .asm written for v6.0 to v7.1 (DIV x; NOP; QUO) no\n" +
+  "longer assembles: rewrite each division with the longer sequence.\n" +
+  "\nNOP BEFORE JIZ/LDI/ILI AFTER A FLOAT OPERATION (since yanc v8.0): JIZ and the read index\n" +
+  "of LDI/ILI look at the arithmetic unit BEFORE the float normaliser, so one of them right\n" +
+  "after an operation whose result goes through it gets a NOP in between: F_ADD, F_ADD_V,\n" +
+  "SF_ADD, F_SU1, F_SU2, SF_SU1, SF_SU2, F_MLT, F_MLT_V, SF_MLT, F_DIV, F_QUO, SF_DIV, F_ROT,\n" +
+  "I2F, I2F_M, P_I2F_M, F_INN, PF_INN. asmcomp inserts it BY ITSELF, hand-written .asm\n" +
+  "included, and says \"Info: N NOP inserido(s) entre uma operação float e o JIZ/LDI/ILI logo\n" +
+  "depois dela\". One word and one cycle each. Do not try to save it when optimising: delete\n" +
+  "it and asmcomp puts it back. cmmcomp and cppcomp never write this pattern.\n" +
+  "\nA FLOAT AS A CONDITION GIVES C'S ANSWER (since yanc v8.0, both compilers): if, while,\n" +
+  "for, do, !, && and || (and ?: in C++) test the float's mantissa, AND (2^NBMANT - 1)\n" +
+  "before the JIZ: one word and one cycle per float condition. So if (0.5) is true and\n" +
+  "while (err) stops only at zero. Before v8.0, C± truncated the float to int (every value in\n" +
+  "(-1, 1) was false) and C++ took every float condition as true, even 0.0. In C± a comp is\n" +
+  "true when its real or imaginary part is not zero (C99), and && / || now accept floats.\n" +
+  "The cmmcomp warnings for float/comp conditions are gone; the ones left (float array or\n" +
+  "switch index, comp into int) say \"truncate\". Writing or optimising .asm: to test a float\n" +
+  "use AND with the mantissa mask before JIZ; F2I truncates (at any #FROUND) and is not a\n" +
+  "zero test.\n" +
+  "\nWHAT THE PIPELINE BOUGHT: on sapho_all, DE10-Nano (5CSEBA6U23I7, Quartus 24.1, mean of\n" +
+  "three seeds) 21.8 MHz in v7.1, 32.4 MHz in v8.0; ZYBO (xc7z010clg400-1, Vivado 2025.2)\n" +
+  "23.5 MHz in v7.1, 37.3 MHz in v8.0, with the same area. The divider stopped setting the\n" +
+  "clock in v6.0 (9.43 → 21.9 MHz on the DE10-Nano). The real limit of a given program comes\n" +
+  "from its own synthesis. The SAPHO/ Verilog and asmcomp must come from the same yanc\n" +
+  "release: a v8.0 .asm on an older SAPHO/ divides wrong, and vice versa. Division by zero is\n" +
+  "still undefined (the quotient comes out all ones); INT_MIN / -1 still wraps.\n" +
   "\nOTHER COMMON SHRINK PATTERNS:\n" +
   "  PSH + LOD <v> + ADD <w> + SET <z>   →  LOD <v> + ADD <w> + SET <z>   (no PSH needed if acc not reused)\n" +
   "  LOD <v> + F_ADD <w>                  →  F_ADD_V is NOT an alias — F_ADD <w> already takes mem\n" +

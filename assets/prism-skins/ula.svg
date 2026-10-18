@@ -9,7 +9,7 @@
 
     <text x="11" y="29" class="$cell_id" s:attribute="ref" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 7px; font-style: italic; fill: var(--aurora-mint, #5FE0B0); opacity: 0.85;">u</text>
     <text x="11" y="41" class="nodelabel $cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-weight: 700; font-size: 12px; letter-spacing: 0.2px; fill: var(--prism-module-glyph, #EAF2EE);">ula</text>
-    <text x="12" y="50" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 5.5px; letter-spacing: 0.4px; fill: var(--text-secondary, #9CA1AE);">ALU · 4in 1out</text>
+    <text x="12" y="50" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 5.5px; letter-spacing: 0.4px; fill: var(--text-secondary, #9CA1AE);">ALU · 4in 2out</text>
     <line x1="10" y1="53" x2="118" y2="53" stroke="var(--aurora-mint, #5FE0B0)" stroke-width="0.7" opacity="0.35"/>
 
     <!-- operands / control (west) -->
@@ -27,8 +27,11 @@
     <text x="7" y="103.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">in2</text>
     <g s:x="0" s:y="101" s:pid="in2"/>
     <!-- result (east) -->
-    <rect x="149.0" y="87.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
-    <text x="143" y="90.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: end; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">out</text>
-    <g s:x="150" s:y="88" s:pid="out"/>
+    <rect x="149.0" y="83.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
+    <text x="143" y="86.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: end; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">out</text>
+    <g s:x="150" s:y="84" s:pid="out"/>
+    <rect x="149.0" y="92.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
+    <text x="143" y="95.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: end; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">out_fast</text>
+    <g s:x="150" s:y="93" s:pid="out_fast"/>
   </g>
 </svg>

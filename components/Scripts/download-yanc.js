@@ -32,7 +32,13 @@
  *            arquivo (#PRNAME vira erro), --lang em todas as ferramentas, o
  *            cpppp e o appcomp dentro do cppcomp e do asmcomp, UTF-8 e nenhum
  *            caminho absoluto no Verilog gerado, e os links toma/cade entre
- *            processadores (TOM e CAD nos opcodes 20 e 21).)
+ *            processadores (TOM e CAD nos opcodes 20 e 21).
+ *            v8.0 corta os divisores em cinco estagios (DIV, MOD) e quatro
+ *            (F_DIV): `DIV x; NOP; NOP; NOP; QUO` e `F_DIV x; NOP; NOP;
+ *            F_QUO`; o asmcomp poe um NOP entre operacao float e JIZ/LDI/ILI
+ *            logo depois; condicao float testa a mantissa, como no C; o
+ *            sapho_all vai de 21,8 a 32,4 MHz na DE10-Nano e de 23,5 a 37,3
+ *            na ZYBO. SAPHO/ e asmcomp tem de vir da mesma release.)
  *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
@@ -77,7 +83,7 @@ const { verifyChecksum } = require('./lib/checksum');
 // release). null = compute + log only (no enforcement yet).
 const EXPECTED_SHA256 = null;
 
-const YANC_TAG      = 'v7.1';
+const YANC_TAG      = 'v8.0';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';

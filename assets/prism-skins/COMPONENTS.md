@@ -21,7 +21,7 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 | `instr_dec` | `instr_dec.v` | 12 | hand-crafted (`instr_dec.svg`) | →clk →rst →opcode ←push ←pop ←ula_op ←mem_wr ←req_in ←out_en ←ldi ←sti ←fft |
 | `instr_fetch` | `core.v` | 11 | hand-crafted (`instr_fetch.svg`) | →clk →rst →itr ←cheguei →tom_go →cad_go →instr ←addr →acc ←opcode ←operand |
 | `io_ctrl` | `core.v` | 9 | hand-crafted (`io_ctrl.svg`) | →clk →rst →req_in →out_en →addr ←en_in ←addr_in ←en_out ←addr_out |
-| `mem_ctrl` | `core.v` | 11 | hand-crafted (`mem_ctrl.svg`) | →sti →ldi →fft →wr →ula →base_addr →stk_ofst ←mem_wr ←mem_addr_rd ←mem_addr_wr ←mem_data_wr |
+| `mem_ctrl` | `core.v` | 12 | hand-crafted (`mem_ctrl.svg`) | →sti →ldi →fft →wr →ula →idx →base_addr →stk_ofst ←mem_wr ←mem_addr_rd ←mem_addr_wr ←mem_data_wr |
 | `mem_data` | `processor.v` | 6 | hand-crafted (`mem_data.svg`) | →clk →wr →addr_rd →addr_wr →data_in ←data_out |
 | `mem_instr` | `processor.v` | 3 | hand-crafted (`mem_instr.svg`) | →clk →addr ←data |
 | `myDCFIFO` | `myDCFIFO.v` | 12 | hand-crafted (`myDCFIFO.svg`) | →aclr →wrclk →data →wrreq ←wrfull ←wrusedw →rdclk →rdreq ←rdempty ←rdalmost_empty ←q ←rdusedw |
@@ -32,7 +32,7 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 | `processor` | `processor.v` | 16 | hand-crafted (`processor.svg`) | →clk →rst →io_in ←io_out ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei ←toma ←cade →valeu →taqui →cade_dado ←toma_dado |
 | `rel_addr` | `core.v` | 5 | hand-crafted (`rel_addr.svg`) | →use_oft →fft →offset →addr ←out |
 | `stack` | `core.v` | 6 | hand-crafted (`stack.svg`) | →clk →rst →push →pop →in ←out |
-| `ula` | `ula.v` | 5 | hand-crafted (`ula.svg`) | →op →in1 →in2 ←out →clk |
+| `ula` | `ula.v` | 6 | hand-crafted (`ula.svg`) | →op →in1 →in2 ←out ←out_fast →clk |
 | `ula_abs` | `ula.v` | 2 | hand-crafted (`ula_abs.svg`) | →in ←out |
 | `ula_add` | `ula.v` | 3 | hand-crafted (`ula_add.svg`) | →in1 →in2 ←out |
 | `ula_and` | `ula.v` | 3 | hand-crafted (`ula_and.svg`) | →in1 →in2 ←out |
@@ -58,10 +58,10 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 | `ula_les` | `ula.v` | 3 | hand-crafted (`ula_les.svg`) | →in1 →in2 ←out |
 | `ula_lin` | `ula.v` | 2 | hand-crafted (`ula_lin.svg`) | →in ←out |
 | `ula_lor` | `ula.v` | 3 | hand-crafted (`ula_lor.svg`) | →in1 →in2 ←out |
+| `ula_lzc` | `ula.v` | 2 | hand-crafted (`ula_lzc.svg`) | →in ←out |
 | `ula_mlt` | `ula.v` | 3 | hand-crafted (`ula_mlt.svg`) | →in1 →in2 ←out |
-| `ula_mux` | `ula.v` | 47 | hand-crafted (`ula_mux.svg`) | →op →in1 →in2 →add →mlt →div →mod →sgn →fsgn →neg →negm →fneg →fnegm →abs →absm →fabs →fabsm →pst →pstm →fpst →fpstm →nrm →nrmm →f2i →f2im →ann →orr →cor →inv →invm →lan →lor →lin →linm →les →fles →gre →fgre →equ →shl →shr →srs →smx →fscl →xpo →xpom ←out |
+| `ula_mux` | `ula.v` | 48 | hand-crafted (`ula_mux.svg`) | →op →in1 →in2 →add →mlt →div →mod →sgn →fsgn →neg →negm →fneg →fnegm →abs →absm →fabs →fabsm →pst →pstm →fpst →fpstm →nrm →nrmm →f2i →f2im →ann →orr →cor →inv →invm →lan →lor →lin →linm →les →fles →gre →fgre →equ →shl →shr →srs →smx →fscl →xpo →xpom ←out ←out_fast |
 | `ula_neg` | `ula.v` | 2 | hand-crafted (`ula_neg.svg`) | →in ←out |
-| `ula_nmux` | `ula.v` | 5 | hand-crafted (`ula_nmux.svg`) | →A →B →in1 →in2 ←out |
 | `ula_norm` | `ula.v` | 4 | hand-crafted (`ula_norm.svg`) | →in →in_d →use_d ←out |
 | `ula_nrm` | `ula.v` | 2 | hand-crafted (`ula_nrm.svg`) | →in ←out |
 | `ula_or` | `ula.v` | 3 | hand-crafted (`ula_or.svg`) | →in1 →in2 ←out |

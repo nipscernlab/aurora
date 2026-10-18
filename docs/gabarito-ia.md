@@ -4,7 +4,7 @@ Perguntas para fazer à IA no painel da Aurora depois de cada versão, e o que a
 
 Como usar: abra um projeto de teste vazio, faça as perguntas em conversas novas, e marque o que falhou. Uma falha quase sempre aponta uma frase errada ou ausente no prompt, nas descrições das ferramentas (`main/ai/tools.js`) ou no `resources/sapho_rules.json`. Corrija lá e prenda a correção com um caso em `tests/unit/ai_system_prompt.test.js`.
 
-Os fatos abaixo valem para o yanc v7.1. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
+Os fatos abaixo valem para o yanc v8.0. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
 
 ## Perguntas
 
@@ -48,12 +48,12 @@ Errado: dizer que compila, ou escrever a função recursiva em C±.
 Certo: não. Desde o v5.7 o compilador tira o código que nada alcança (função que ninguém chama, header sem uso) e avisa quantas instruções saíram. Não custa instrução, operador nem memória.
 
 **12. "Escrevi um .asm à mão com `DIV x` seguido de `SET y` e o asmcomp deu erro. Por quê?"**
-Certo: desde o v6.0 a divisão leva três palavras, `DIV x; NOP; QUO` (`MOD x; NOP; REM`, `F_DIV x; NOP; F_QUO`, e o mesmo nas formas de pilha), porque o resultado sai do divisor dois ciclos depois. Cita a mensagem ("DIV leva três palavras: depois dela vem NOP e a leitura do resultado") e reescreve com a sequência. Diz que em C± e C++ o compilador escreve isso sozinho.
-Errado: tirar o `NOP` ao otimizar, ou dizer que QUO é uma instrução nova com opcode próprio (é apelido do DIV).
+Certo: desde o v8.0 a divisão inteira leva cinco palavras, `DIV x; NOP; NOP; NOP; QUO` (`MOD x; NOP; NOP; NOP; REM`), e a de float quatro, `F_DIV x; NOP; NOP; F_QUO`, e o mesmo nas formas de pilha, porque o divisor tem cinco e quatro estágios. Cita a mensagem ("DIV leva 5 palavras: depois dela vêm 3 NOP e a leitura do resultado") e reescreve com a sequência. Diz que em C± e C++ o compilador escreve isso sozinho, e que um .asm da v6.0 a v7.1 (`DIV x; NOP; QUO`) não monta mais.
+Errado: tirar um `NOP` ao otimizar, ensinar a sequência de três palavras (era a da v6.0 à v7.1), ou dizer que QUO é uma instrução nova com opcode próprio (é apelido do DIV).
 
 **13. "Meu processador divide. Qual relógio ele aguenta na placa?"**
-Certo: desde o v6.0 o divisor não limita mais o relógio; no `sapho_all` passou de 9,43 para 21,9 MHz na DE10-Nano e de 8,80 para 23,98 MHz na ZYBO (um fit por placa, sem pinos). O número do projeto dele sai da síntese, e o limite real na placa ainda depende da varredura. Lembra que `SAPHO/` e `asmcomp` têm de ser da mesma release.
-Errado: sugerir uns 10 MHz para quem divide (era o caso até o v5.7), ou prometer frequência sem síntese.
+Certo: o divisor deixou de limitar o relógio no v6.0, e no v8.0 o `sapho_all` foi de 21,8 para 32,4 MHz na DE10-Nano e de 23,5 para 37,3 MHz na ZYBO, com a mesma área (média de três sementes). O número do projeto dele sai da síntese, e o limite real na placa ainda depende da varredura. Lembra que `SAPHO/` e `asmcomp` têm de ser da mesma release.
+Errado: sugerir uns 10 MHz para quem divide (era o caso até o v5.7), citar os 21,9 MHz do v6.0 como atuais, ou prometer frequência sem síntese.
 
 **14. "Crie um processador chamado meu-filtro."**
 Certo: avisa que o nome vira o módulo Verilog e por isso só aceita letras ASCII, dígitos e `_` (sem dígito nem `__` no começo, e nenhuma palavra reservada do Verilog), e propõe `meu_filtro`.
@@ -75,5 +75,9 @@ Errado: passar o valor por porta de saída e entrada, ou misturar `toma` com `ca
 Certo: confere os nomes com a lista de sinais da onda e cria um `.surf.ron` pela ferramenta de layout do Surfer, com o caminho completo de cada sinal (`tb.dut....`).
 Errado: escrever um `.sucl`, ou passar comandos do Surfer em vez da lista de sinais.
 
-**19. Forma, em qualquer resposta acima**
+**19. "Meu `while (erro)` em C± para antes de o erro zerar. Por quê?"**
+Certo: antes do v8.0 o C± convertia o float para inteiro truncando, então todo valor entre -1 e 1 era falso. Desde o v8.0 a condição float testa a mantissa, como no C, e o laço só para no zero; basta recompilar com o yanc atual. Custa uma palavra e um ciclo por condição float.
+Errado: mandar escrever `while (erro != 0.0)` ou `while (erro > 1e-6)` como contorno, ou dizer que em C++ toda condição float é verdadeira (era assim antes do v8.0).
+
+**20. Forma, em qualquer resposta acima**
 Responde em português quando a pergunta é em português; código sempre em bloco com a linguagem marcada; referências a arquivo no formato `arquivo.cmm:linha`; sem travessão, sem emoji, sem "ótima pergunta".

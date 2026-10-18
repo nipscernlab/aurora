@@ -1,10 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-13T23:37:20.421Z",
+  "generatedAt": "2026-10-18T17:26:47.251Z",
   "source": {
-    "yancPath": "C:/nipscern/yanc",
-    "yancTag": "v7.1",
-    "yancCommit": "6c32d94a0043"
+    "yancPath": "C:/Users/lucia/AppData/Local/Temp/claude/c--nipscern-Aurora/6f25a757-1629-4b22-b018-1db267fd686a/scratchpad/yanc-v8",
+    "yancCommit": "6ce154eac6ff"
   },
   "language": {
     "keywords": [
@@ -897,25 +896,11 @@
       "en": "Heads up on line %d: comparing with a complex number? Gonna use the magnitude.\n"
     },
     {
-      "code": "MSG_WARN_LOGIC_FLOAT",
-      "severity": "warning",
-      "category": "operator errors and warnings (oper.c)",
-      "pt": "Atenção na linha %d: expressão lógica com float? Você é uma pessoa confusa!\n",
-      "en": "Heads up on line %d: logical expression with a float? You're a confused soul!\n"
-    },
-    {
-      "code": "MSG_WARN_LOGIC_COMP",
-      "severity": "warning",
-      "category": "operator errors and warnings (oper.c)",
-      "pt": "Atenção na linha %d: expressão lógica com comp? Sério? Vou arredondar a parte real!\n",
-      "en": "Heads up on line %d: logical expression with a comp? Really? Gonna round the real part!\n"
-    },
-    {
       "code": "MSG_ERR_LOGIC_NON_INT",
       "severity": "error",
       "category": "operator errors and warnings (oper.c)",
-      "pt": "Erro na linha %d: operação lógica, só entre números inteiros!\n",
-      "en": "Error on line %d: logical operation, integers only!\n"
+      "pt": "Erro na linha %d: operação lógica com um comp (só int e float)!\n",
+      "en": "Error on line %d: logical operation with a comp (int and float only)!\n"
     },
     {
       "code": "MSG_ERR_INV_NON_INT",
@@ -991,8 +976,8 @@
       "code": "MSG_WARN_ROUND_REAL",
       "severity": "warning",
       "category": "type-conversion warnings (data_assign.c / funcoes.c)",
-      "pt": "Atenção na linha %d: nessa conversão, eu vou arredondar a parte real hein!\n",
-      "en": "Heads up on line %d: in this conversion I'm rounding the real part, just so you know!\n"
+      "pt": "Atenção na linha %d: nessa conversão, eu vou truncar a parte real hein!\n",
+      "en": "Heads up on line %d: in this conversion I'm truncating the real part, just so you know!\n"
     },
     {
       "code": "MSG_WARN_GRAB_REAL_ONLY",
@@ -1135,20 +1120,6 @@
       "en": "Error on line %d: parameter list of function '%s' doesn't match the original.\n"
     },
     {
-      "code": "MSG_WARN_COND_FLOAT",
-      "severity": "warning",
-      "category": "jump errors/warnings (saltos.c)",
-      "pt": "Atenção na linha %d: expressão condicional dando float! Vou arredondar.\n",
-      "en": "Heads up on line %d: conditional expression came out float! Gonna round it.\n"
-    },
-    {
-      "code": "MSG_WARN_COND_COMP",
-      "severity": "warning",
-      "category": "jump errors/warnings (saltos.c)",
-      "pt": "Atenção na linha %d: expressão condicional dando comp! Vou arredondar a parte real.\n",
-      "en": "Heads up on line %d: conditional expression came out comp! Gonna round the real part.\n"
-    },
-    {
       "code": "MSG_ERR_BREAK_LOST",
       "severity": "error",
       "category": "jump errors/warnings (saltos.c)",
@@ -1166,50 +1137,50 @@
       "code": "MSG_WARN_CASE_FLOAT",
       "severity": "warning",
       "category": "jump errors/warnings (saltos.c)",
-      "pt": "Atenção na linha %d: índice do case dando float! Vou arredondar.\n",
-      "en": "Heads up on line %d: case index came out float! Gonna round it.\n"
+      "pt": "Atenção na linha %d: índice do case dando float! Vou truncar.\n",
+      "en": "Heads up on line %d: case index came out float! Gonna truncate it.\n"
     },
     {
       "code": "MSG_WARN_CASE_COMP",
       "severity": "warning",
       "category": "jump errors/warnings (saltos.c)",
-      "pt": "Atenção na linha %d: índice do case dando comp! Vou arredondar a parte real.\n",
-      "en": "Heads up on line %d: case index came out comp! Gonna round the real part.\n"
+      "pt": "Atenção na linha %d: índice do case dando comp! Vou truncar a parte real.\n",
+      "en": "Heads up on line %d: case index came out comp! Gonna truncate the real part.\n"
     },
     {
       "code": "MSG_WARN_IDX_FLOAT",
       "severity": "warning",
       "category": "array-index warnings (array_index.c)",
-      "pt": "Atenção na linha %d: tá vendo que o índice do array tá em ponto flutuante né? Vou arredondar!\n",
-      "en": "Heads up on line %d: see how the array index came out a float? Gonna round it!\n"
+      "pt": "Atenção na linha %d: tá vendo que o índice do array tá em ponto flutuante né? Vou truncar!\n",
+      "en": "Heads up on line %d: see how the array index came out a float? Gonna truncate it!\n"
     },
     {
       "code": "MSG_WARN_IDX1_FLOAT",
       "severity": "warning",
       "category": "array-index warnings (array_index.c)",
-      "pt": "Atenção na linha %d: tá vendo que o primeiro índice do array tá em ponto flutuante né? Vou arredondar!\n",
-      "en": "Heads up on line %d: see how the first array index came out a float? Gonna round it!\n"
+      "pt": "Atenção na linha %d: tá vendo que o primeiro índice do array tá em ponto flutuante né? Vou truncar!\n",
+      "en": "Heads up on line %d: see how the first array index came out a float? Gonna truncate it!\n"
     },
     {
       "code": "MSG_WARN_IDX2_FLOAT",
       "severity": "warning",
       "category": "array-index warnings (array_index.c)",
-      "pt": "Atenção na linha %d: tá vendo que o segundo índice do array tá em ponto flutuante né? Vou arredondar!\n",
-      "en": "Heads up on line %d: see how the second array index came out a float? Gonna round it!\n"
+      "pt": "Atenção na linha %d: tá vendo que o segundo índice do array tá em ponto flutuante né? Vou truncar!\n",
+      "en": "Heads up on line %d: see how the second array index came out a float? Gonna truncate it!\n"
     },
     {
       "code": "MSG_WARN_IDXS_FLOAT",
       "severity": "warning",
       "category": "array-index warnings (array_index.c)",
-      "pt": "Atenção na linha %d: tá vendo que os índices do array estão em ponto flutuante né? Vou arredondar!\n",
-      "en": "Heads up on line %d: see how the array indices came out floats? Gonna round 'em!\n"
+      "pt": "Atenção na linha %d: tá vendo que os índices do array estão em ponto flutuante né? Vou truncar!\n",
+      "en": "Heads up on line %d: see how the array indices came out floats? Gonna truncate 'em!\n"
     },
     {
       "code": "MSG_WARN_IDX_COMP_ROUND",
       "severity": "warning",
       "category": "array-index warnings (array_index.c)",
-      "pt": "Atenção na linha %d: índice de array complexo? Sério?! Vou arredondar a parte real.\n",
-      "en": "Heads up on line %d: a complex array index? Seriously?! Gonna round the real part.\n"
+      "pt": "Atenção na linha %d: índice de array complexo? Sério?! Vou truncar a parte real.\n",
+      "en": "Heads up on line %d: a complex array index? Seriously?! Gonna truncate the real part.\n"
     },
     {
       "code": "MSG_WARN_IDX_COMP_GRAB",
@@ -1229,8 +1200,8 @@
       "code": "MSG_WARN_IDX_FLOAT_HEAVY",
       "severity": "warning",
       "category": "array-index warnings (array_index.c)",
-      "pt": "Atenção na linha %d: índice de array tá dando float. Vai gerar muito código pra arredondar!\n",
-      "en": "Heads up on line %d: array index is coming out float. Gonna generate a ton of code to round it!\n"
+      "pt": "Atenção na linha %d: índice de array tá dando float. Vai gerar muito código pra truncar!\n",
+      "en": "Heads up on line %d: array index is coming out float. Gonna generate a ton of code to truncate it!\n"
     },
     {
       "code": "MSG_WARN_UNUSED_GLOBAL_VAR",
@@ -1884,7 +1855,7 @@
         "hdlName": "DIV",
         "family": "other",
         "variants": [],
-        "description": "integer quotient of the division two words before"
+        "description": "integer quotient of the division four words before"
       },
       {
         "mnemonic": "S_DIV",
@@ -1916,7 +1887,7 @@
         "hdlName": "MOD",
         "family": "other",
         "variants": [],
-        "description": "remainder of the division two words before"
+        "description": "remainder of the division four words before"
       },
       {
         "mnemonic": "S_MOD",
@@ -2100,7 +2071,7 @@
         "variants": [
           "float"
         ],
-        "description": "float quotient of the division two words before"
+        "description": "float quotient of the division three words before"
       },
       {
         "mnemonic": "SF_DIV",

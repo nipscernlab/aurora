@@ -151,10 +151,11 @@ describe('as pilhas ficam com o compilador', () => {
 
     it('os padroes citados sao os do yanc que o instalador baixa', () => {
         // Numeros de Compilers/ASMComp/Sources/eval.c, iguais do v5.6 ao
-        // v7.1 (conferidos na tag v7.1). Quando o YANC_TAG mudar, este caso cai
-        // de proposito: reconfira os padroes e o que uma pilha omitida vale, e
-        // atualize o prompt, o docs/gabarito-ia.md e este teste juntos.
-        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v7.1');
+        // v8.0 (conferidos na tag v8.0: o v8.0 so mexeu ali na sequencia da
+        // divisao). Quando o YANC_TAG mudar, este caso cai de proposito:
+        // reconfira os padroes e o que uma pilha omitida vale, e atualize o
+        // prompt, o docs/gabarito-ia.md e este teste juntos.
+        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v8.0');
         expect(SYSTEM_PROMPT).toContain('NUBITS 32, NBMANT 23, NBEXPO 8');
         expect(SYSTEM_PROMPT).toContain('NUGAIN 128, FFTSIZ 3');
         // v5.7: omitida, a profundidade sai do programa (pico + 1, minimo 2).
@@ -198,24 +199,45 @@ describe('o yanc v5.7', () => {
     });
 });
 
-// O que o yanc v6.0 mudou no que o modelo deve dizer (yanc/CHANGELOG, v6.0).
-describe('o yanc v6.0', () => {
-    it('toda divisao vira tres palavras, e o .asm feito a mao tem de escreve-las', () => {
+// O que o yanc v8.0 mudou no que o modelo deve dizer (yanc/CHANGELOG, v8.0, e o
+// texto que o repo yanc mandou para a AURORA em 18/10/2026).
+describe('o yanc v8.0', () => {
+    it('divisao em cinco palavras, quatro em float, e o .asm feito a mao tem de escreve-las', () => {
         // O modelo escreve .asm no _aurora_opt; sem a sequencia o asmcomp recusa.
-        // Mensagens de Compilers/ASMComp/Headers/messages.h na tag v6.0.
-        expect(SYSTEM_PROMPT).toContain('DIV x; NOP; QUO      MOD x; NOP; REM      F_DIV x; NOP; F_QUO');
+        // Mensagens de Compilers/ASMComp/Headers/messages.h na tag v8.0.
+        expect(SYSTEM_PROMPT).toContain('DIV x; NOP; NOP; NOP; QUO      MOD x; NOP; NOP; NOP; REM      F_DIV x; NOP; NOP; F_QUO');
+        expect(SYSTEM_PROMPT).not.toContain('DIV x; NOP; QUO      MOD');
         expect(SYSTEM_PROMPT).toContain('S_DIV, S_MOD, SF_DIV');
-        expect(SYSTEM_PROMPT).toContain('DIV leva três palavras');
-        expect(SYSTEM_PROMPT).toContain('o programa termina no meio da sequência de DIV');
-        expect(SYSTEM_PROMPT).toContain('Never drop the NOP');
+        expect(SYSTEM_PROMPT).toContain('DIV leva 5 palavras: depois dela vêm 3 NOP');
+        expect(SYSTEM_PROMPT).toContain('o programa termina no meio da sequência de DIV (faltaram NOP e QUO)');
+        expect(SYSTEM_PROMPT).toContain('5 palavras cada em DIV/MOD e 4 em F_DIV');
+        expect(SYSTEM_PROMPT).toContain('Never drop a NOP');
+        expect(SYSTEM_PROMPT).toContain('4 words and 4\ncycles per DIV/MOD, 3 per F_DIV');
         // 117 no v6.0; 119 desde que TOM e CAD (toma/cade) entraram no yanc v7.1.
         expect(SYSTEM_PROMPT).toContain('119 mnemonics');
     });
 
-    it('cita o ganho medido e que SAPHO/ e asmcomp vem da mesma release', () => {
-        expect(SYSTEM_PROMPT).toMatch(/9\.43 MHz in\s+v5\.7, 21\.9 MHz in v6\.0/);
-        expect(SYSTEM_PROMPT).toContain('8.80 MHz in v5.7, 23.98 MHz');
-        expect(SYSTEM_PROMPT).toContain('must come from the same yanc release');
+    it('o NOP antes do JIZ/LDI/ILI depois de float e do asmcomp, e nao se economiza', () => {
+        expect(SYSTEM_PROMPT).toContain('NOP BEFORE JIZ/LDI/ILI AFTER A FLOAT OPERATION');
+        expect(SYSTEM_PROMPT).toMatch(/asmcomp inserts it BY ITSELF/);
+        expect(SYSTEM_PROMPT).toContain('NOP inserido(s) entre uma operação float e o JIZ/LDI/ILI');
+        expect(SYSTEM_PROMPT).toMatch(/delete\s+it and asmcomp puts it back/);
+        for (const op of ['F_ADD', 'SF_MLT', 'F_QUO', 'I2F_M', 'PF_INN']) expect(SYSTEM_PROMPT).toContain(op);
+    });
+
+    it('condicao float da a resposta do C, nos dois compiladores', () => {
+        expect(SYSTEM_PROMPT).toContain("A FLOAT AS A CONDITION GIVES C'S ANSWER");
+        expect(SYSTEM_PROMPT).toContain('AND (2^NBMANT - 1)');
+        expect(SYSTEM_PROMPT).toContain('if (0.5) is true');
+        expect(SYSTEM_PROMPT).toMatch(/F2I truncates \(at any #FROUND\) and is not a\s+zero test/);
+        expect(SYSTEM_PROMPT).toMatch(/a comp is\s+true when its real or imaginary part is not zero/);
+    });
+
+    it('cita o ganho medido (media de tres sementes) e que SAPHO/ e asmcomp vem da mesma release', () => {
+        expect(SYSTEM_PROMPT).toMatch(/21\.8 MHz in v7\.1, 32\.4 MHz in v8\.0/);
+        expect(SYSTEM_PROMPT).toMatch(/23\.5 MHz in v7\.1, 37\.3 MHz in v8\.0/);
+        expect(SYSTEM_PROMPT).toContain('mean of\nthree seeds');
+        expect(SYSTEM_PROMPT).toContain('must come from the same yanc\nrelease');
     });
 });
 

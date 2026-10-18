@@ -97,7 +97,8 @@ describe('registro', () => {
         }).toMatchSnapshot();
     });
     it('o assembly conhece as leituras da divisao do yanc v6.0', () => {
-        // `DIV x; NOP; QUO`: QUO, REM e F_QUO sao apelidos do asmcomp v6.0.
+        // `DIV x; NOP; NOP; NOP; QUO` desde o v8.0 (`DIV x; NOP; QUO` no v6.0):
+        // QUO, REM e F_QUO sao apelidos do asmcomp desde o v6.0.
         const mon = monacoFalso();
         setupASMLanguage(mon);
         expect(mon.tokenizadores.asm.instructions).toEqual(

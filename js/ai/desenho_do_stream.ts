@@ -33,7 +33,7 @@ export interface PainelDoStream {
   _streamRenderRaf?: number | null;
   _streamRenderTimer?: ReturnType<typeof setTimeout> | null;
   currentAssistantContentEl: HTMLElement | null;
-  hadToolCalls?: boolean;
+  contaDoTurno?: ContaDoTurno;
   appendBubble(role: string, content: string): HTMLElement;
   showThinking(show: boolean): void;
   scrollToBottom(): void;
@@ -207,6 +207,29 @@ function comRealceDoNovo(text: string, revealOffset: number): string {
 }
 
 /**
+ * O que uma resposta fez, para a frase de fecho: se escreveu algum texto (antes
+ * ou depois das ferramentas), quantas ferramentas chamou e quantas terminaram
+ * bem. Zera a cada resposta, inclusive entre as partes de um follow-up.
+ */
+export interface ContaDoTurno { texto: boolean; chamadas: number; certas: number }
+
+export function novaContaDoTurno(): ContaDoTurno {
+  return { texto: false, chamadas: 0, certas: 0 };
+}
+
+/**
+ * A linha que fecha uma resposta que so chamou ferramentas, ou `null` quando
+ * nao cabe linha nenhuma (houve texto, ou nenhuma chamada). So diz que tudo
+ * terminou quando tudo terminou: chamada que falhou, foi negada ou nao voltou
+ * entra na conta do que nao terminou (#184).
+ */
+export function fraseSemTexto(conta: ContaDoTurno | undefined): string | null {
+  if (!conta || conta.texto || !conta.chamadas) return null;
+  if (conta.certas === conta.chamadas) return '_All actions completed. Ask a follow-up if you want details._';
+  return `_The assistant ended without a written reply, and ${conta.chamadas - conta.certas} of ${conta.chamadas} actions did not complete. The list above shows which._`;
+}
+
+/**
  * Sela o que o turno produziu: revela o ultimo segmento, guarda-o e arruma o
  * DOM. E tudo o que o commitTurn faz MENOS o encerramento do turno, porque o
  * `finish` com `more` precisa so desta metade.
@@ -222,17 +245,17 @@ export function selarTextoDoTurno(p: PainelDoStream): void {
     p.turnText.slice(p._committedTurnLen || 0)).trim();
   if (cleanText) {
     p.messages.push({ role: 'assistant', content: cleanText });
+    if (p.contaDoTurno) p.contaDoTurno.texto = true;
   }
   if (p.currentAssistantContentEl) {
     highlightCodeBlocks(p.currentAssistantContentEl);
     linkifyFileRefs(p.currentAssistantContentEl);
   }
 
-  // O modelo chamou ferramentas e nao explicou nada (comum em alguns modelos
-  // do Ollama): uma linha diz que o turno acabou.
-  if (!cleanText && p.hadToolCalls) {
-    p.appendBubble('assistant', '_All actions completed. Ask a follow-up if you want details._');
-  }
+  // O modelo chamou ferramentas e nao escreveu nada na resposta inteira (comum
+  // em alguns modelos do Ollama): uma linha diz que o turno acabou, e como.
+  const frase = fraseSemTexto(p.contaDoTurno);
+  if (frase) p.appendBubble('assistant', frase);
 
   limparBaloesVazios(p);
 }

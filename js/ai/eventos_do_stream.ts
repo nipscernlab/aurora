@@ -14,6 +14,8 @@
 import { isSubProvider } from './ai_metadata.js';
 import { colherCitacaoDeFerramenta, juntarCitacao } from './citacoes_do_chat.js';
 import { stripToolCallArtifacts } from './tool_call_text.js';
+import { novaContaDoTurno } from './desenho_do_stream.js';
+import { terminouBem } from './chips_de_ferramenta.js';
 import type { PainelDoTurno, PacoteDoStream } from './turno_do_chat.js';
 
 export function tratarEvento(p: PainelDoTurno, ev: PacoteDoStream | null | undefined): void {
@@ -48,9 +50,12 @@ export function tratarEvento(p: PainelDoTurno, ev: PacoteDoStream | null | undef
           p.turnText.slice(p._committedTurnLen || 0)).trim();
         if (seg) p.messages.push({ role: 'assistant', content: seg });
         p._committedTurnLen = p.turnText.length;
+        // A frase de fecho conta o texto de antes da ferramenta tambem (#184).
+        p.contaDoTurno ??= novaContaDoTurno();
+        if (seg) p.contaDoTurno.texto = true;
+        p.contaDoTurno.chamadas++;
       }
       p.showThinking(false);
-      p.hadToolCalls = true;
       p.startToolChip(ev.toolName, ev.args, ev.toolUseId);
       p.currentAssistantContentEl = null;
       p.segmentBuffer = '';
@@ -58,6 +63,7 @@ export function tratarEvento(p: PainelDoTurno, ev: PacoteDoStream | null | undef
       break;
     case 'tool-result':
       p.finishToolChip(ev.toolName, ev.result, ev.toolUseId);
+      if (p.contaDoTurno && terminouBem(ev.result)) p.contaDoTurno.certas++;
       // Uma citacao VERIFICADA e um resultado de ferramenta como outro
       // qualquer, e vira linha no mesmo bloco que a citacao nativa da API.
       // Os dois caminhos convergem aqui de proposito: quem le a resposta nao

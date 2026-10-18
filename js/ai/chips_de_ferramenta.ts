@@ -144,6 +144,12 @@ export function iniciarChip(p: PainelDosChips, toolName: string | undefined, arg
  * chamadas paralelas da mesma ferramenta colidiriam e um chip giraria para
  * sempre. Sem id (eventos antigos), casa pelo nome.
  */
+/** Se um resultado de ferramenta conta como terminado bem: so `ok: false` falha. */
+export function terminouBem(result: unknown): boolean {
+  const r = result as { ok?: boolean } | null | undefined;
+  return !(r && r.ok === false);
+}
+
 export function terminarChip(p: PainelDosChips, toolName: string | undefined, result: unknown, toolUseId?: string | null): void {
   const name = toolName || 'tool';
   let idx = -1;
@@ -163,7 +169,7 @@ export function terminarChip(p: PainelDosChips, toolName: string | undefined, re
   const running = p.runningChips.splice(idx, 1)[0];
   const { el, args } = running;
   const r = result as { ok?: boolean; error?: string } | null | undefined;
-  const ok = !(r && r.ok === false);
+  const ok = terminouBem(result);
   const denied = !ok && /denied/i.test((r && r.error) || '');
   const statusStr = ok ? 'done' : (denied ? 'denied' : 'failed');
   el.classList.remove('running');

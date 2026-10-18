@@ -17,6 +17,7 @@ import { SUB_META, isSubProvider, STREAM_STALL_MS, STREAM_STALL_HARD_MS } from '
 import type { MensagemDoChat } from './chat_history.js';
 import { buildApiMessages, buildProjectContext } from './chat_turn.js';
 import { registrarCitacoes } from './citacoes_do_chat.js';
+import { novaContaDoTurno, type ContaDoTurno } from './desenho_do_stream.js';
 import { lerContextoDoTurno } from './contexto_do_turno.js';
 import { SYSTEM_PROMPT } from './system_prompt.js';
 
@@ -39,7 +40,7 @@ export interface PainelDoTurno {
   segmentBuffer: string;
   currentAssistantContentEl: HTMLElement | null;
   runningChips: Array<{ toolName: string; toolUseId: string | null; args: unknown; el: HTMLElement }>;
-  hadToolCalls?: boolean;
+  contaDoTurno?: ContaDoTurno;
   pendingConfirms: Set<(allowed: boolean) => void>;
   pendingAskUserQuestions?: Set<(r: { answer: string; selected: string[] }) => void>;
   unsubChatEvent?: (() => void) | null;
@@ -388,7 +389,7 @@ export function proximoSegmento(p: PainelDoTurno): void {
   p._revealLength = 0;
   p._toolGroup = null;                  // next tool call opens a new group
   p.runningChips = [];
-  p.hadToolCalls = false;
+  p.contaDoTurno = novaContaDoTurno();
 }
 
 export function zerarTurno(p: PainelDoTurno): void {
@@ -406,7 +407,7 @@ export function zerarTurno(p: PainelDoTurno): void {
   p.currentSessionId = null;
   p.runningChips = [];
   p._toolGroup = null;
-  p.hadToolCalls = false;
+  p.contaDoTurno = novaContaDoTurno();
   // Auto-deny any confirmation cards still open when the turn ends
   // (e.g. the user hit Stop while a card was waiting).
   for (const decide of p.pendingConfirms) decide(false);

@@ -193,3 +193,59 @@ describe('o fecho do segmento', () => {
     expect(baloes()[0].querySelector('img')).toBeTruthy();
   });
 });
+
+// #184. A frase de fecho dizia "All actions completed" quando a resposta
+// terminava numa ferramenta, mesmo com texto escrito ANTES dela, mesmo com a
+// ferramenta falhando, e no fecho da primeira parte de um follow-up.
+describe('a frase de quem nao escreveu nada', () => {
+  const textos = () => baloes().map((b) => b.querySelector('.ai-msg-content').textContent.trim());
+  const chamada = (id) => ({ type: 'tool-call', toolName: 'read_file', args: {}, toolUseId: id });
+  const resultado = (id, result = { ok: true, data: {} }) => ({ type: 'tool-result', toolName: 'read_file', result, toolUseId: id });
+
+  it('so ferramentas, todas certas: a frase de antes, que entao e verdade', async () => {
+    const emitir = await turno();
+    emitir(chamada('a')); emitir(resultado('a'));
+    emitir({ type: 'finish' });
+    expect(textos().at(-1)).toBe('_All actions completed. Ask a follow-up if you want details._');
+  });
+
+  it('texto antes da ferramenta: nada de frase, a resposta existe', async () => {
+    const emitir = await turno();
+    emitir({ type: 'text-delta', delta: 'Vou ler o arquivo.' });
+    emitir(chamada('a')); emitir(resultado('a'));
+    emitir({ type: 'finish' });
+    escoar();
+    expect(textos().join('|')).not.toMatch(/All actions completed|did not complete/);
+  });
+
+  it('ferramenta que falhou, ou que nao terminou: a frase diz quantas', async () => {
+    const emitir = await turno();
+    emitir(chamada('a')); emitir(resultado('a'));
+    emitir(chamada('b')); emitir(resultado('b', { ok: false, error: 'boom' }));
+    emitir(chamada('c'));
+    emitir({ type: 'finish' });
+    expect(textos().at(-1)).toBe('_The assistant ended without a written reply, and 2 of 3 actions did not complete. The list above shows which._');
+  });
+
+  it('follow-up: cada parte conta a sua, e o fecho da primeira nao mente', async () => {
+    const emitir = await turno();
+    emitir({ type: 'text-delta', delta: 'Primeira resposta.' });
+    emitir(chamada('a')); emitir(resultado('a'));
+    emitir({ type: 'finish', more: true });
+    escoar();
+    expect(textos().join('|')).not.toMatch(/All actions completed/);
+    // A segunda parte so chama ferramenta, e falha: a frase e dela.
+    emitir(chamada('b')); emitir(resultado('b', { ok: false, error: 'boom' }));
+    emitir({ type: 'finish' });
+    expect(textos().at(-1)).toMatch(/1 of 1 actions did not complete/);
+  });
+});
+
+describe('fraseSemTexto', () => {
+  it('sem chamada ou com texto nao ha frase', async () => {
+    const { fraseSemTexto } = await import('../../js/ai/desenho_do_stream.ts');
+    expect(fraseSemTexto(undefined)).toBeNull();
+    expect(fraseSemTexto({ texto: false, chamadas: 0, certas: 0 })).toBeNull();
+    expect(fraseSemTexto({ texto: true, chamadas: 2, certas: 0 })).toBeNull();
+  });
+});

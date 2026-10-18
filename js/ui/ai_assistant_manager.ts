@@ -30,7 +30,7 @@ import {
 import { iniciarChip, terminarChip, fecharGrupo } from '../ai/chips_de_ferramenta.js';
 import { rolarAoFim, ligarRolagem } from '../ai/rolagem_do_chat.js';
 import { mostrarPensando, mostrarDownloadDaCli, limparDownloadDaCli, somarUso, atualizarContador } from '../ai/indicadores_do_turno.js';
-import { receberPedaco, revelarSegmento, cancelarDesenho, selarTextoDoTurno } from '../ai/desenho_do_stream.js';
+import { receberPedaco, revelarSegmento, cancelarDesenho, selarTextoDoTurno, type ContaDoTurno } from '../ai/desenho_do_stream.js';
 import { ligarComposer, perguntarSobreSelecao } from '../ai/composer_do_chat.js';
 import { novoBalao, novoDivisor } from '../ai/baloes_do_chat.js';
 import {
@@ -160,7 +160,7 @@ class AIAssistantManager {
   declare _streamRenderTimer?: ReturnType<typeof setTimeout> | null;
   runningChips: ChipEmVoo[];
   declare _toolGroup: (GrupoDeFerramentas & { total: number }) | null;
-  declare hadToolCalls: boolean;
+  declare contaDoTurno?: ContaDoTurno;
   _lastMsgRole: string | null;
   declare _isStreaming: boolean;
   declare _lastEventAt?: number;

@@ -336,29 +336,38 @@ describe('criar layouts', () => {
     expect(msg(await wave.createGtkwLayout({ name: 'v', signals: ['tb.clk'] }))).toBe('No project open');
   });
 
-  it('Surfer: escreve o .sucl, registra e devolve o resultado da criacao, e nao o do registro', async () => {
-    const r = await wave.createSurferLayout({ name: 'vista', commands: ['add_variable tb.clk', '  ', 'zoom_fit'] });
-    expect(r.data).toEqual({ filePath: 'C:\\p\\vista.sucl', opened: false, commands: 2 });
-    expect(disco.get('C:\\p\\vista.sucl')).toBe('# Gerado pela Aurora Intelligence.\n# Arquivo de comandos do Surfer (.sucl): um comando por linha.\nadd_variable tb.clk\nzoom_fit\n');
-    expect(lista('surferFiles')[0]).toMatchObject({ path: 'C:\\p\\vista.sucl', isActive: true });
+  // #185: o pedido explicito sai em .surf.ron, como o layout automatico, e nao
+  // mais em .sucl. O formato esta em tests/unit/surferCustom.test.js.
+  it('Surfer: escreve o .surf.ron, registra e devolve o resultado da criacao, e nao o do registro', async () => {
+    const r = await wave.createSurferLayout({ name: 'vista', signals: ['tb.dut.acc', 'clk'] });
+    expect(r.data).toEqual({ filePath: 'C:\\p\\vista.surf.ron', opened: false, signals: 1, ignored: ['clk'] });
+    expect(disco.get('C:\\p\\vista.surf.ron')).toContain('name: "acc"');
+    expect(lista('surferFiles')[0]).toMatchObject({ path: 'C:\\p\\vista.surf.ron', isActive: true });
+  });
+
+  it('Surfer: o nome pode vir com a extensao, que nao se repete', async () => {
+    const r = await wave.createSurferLayout({ name: 'vista.surf.ron', signals: ['tb.clk'] });
+    expect(r.data.filePath).toBe('C:\\p\\vista.surf.ron');
   });
 
   it('Surfer com open: a abertura roda, e a recusa dela volta em openError', async () => {
-    const r = await wave.createSurferLayout({ name: 'vista', commands: 'zoom_fit', open: true });
+    const r = await wave.createSurferLayout({ name: 'vista', signals: ['tb.clk'], open: true });
     expect(r.data.opened).toBe(false);
     expect(r.data.openError.message).toMatch(/file is required/);
   });
 
-  it('Surfer: recusa sem nome, sem projeto, sem comando, e devolve a falha de escrever ou registrar', async () => {
+  it('Surfer: recusa sem nome, sem projeto, sem sinal, e devolve a falha de escrever ou registrar', async () => {
     expect(msg(await wave.createSurferLayout())).toBe('name required');
-    expect(msg(await wave.createSurferLayout({ name: 'v', commands: [' '] }))).toMatch(/commands required/);
-    expect(msg(await wave.createSurferLayout({ name: 'v' }))).toMatch(/commands required/);
+    expect(msg(await wave.createSurferLayout({ name: 'v', signals: ['clk'] }))).toMatch(/signals required/);
+    expect(msg(await wave.createSurferLayout({ name: 'v' }))).toMatch(/signals required/);
+    // Quem ainda manda a forma antiga ouve o porque, e nao um "sem sinal" mudo.
+    expect(msg(await wave.createSurferLayout({ name: 'v', commands: ['zoom_fit'] }))).toMatch(/commands.*no longer.*signals/);
     electronAPI.writeFile.mockRejectedValueOnce(new Error('protegido'));
-    expect(msg(await wave.createSurferLayout({ name: 'v', commands: ['x'] }))).toBe('Could not write C:\\p\\v.sucl: protegido');
+    expect(msg(await wave.createSurferLayout({ name: 'v', signals: ['tb.x'] }))).toBe('Could not write C:\\p\\v.surf.ron: protegido');
     spf.testbenchFile = '';
-    expect(msg(await wave.createSurferLayout({ name: 'v', commands: ['x'] }))).toMatch(/No testbench top set/);
+    expect(msg(await wave.createSurferLayout({ name: 'v', signals: ['tb.x'] }))).toMatch(/No testbench top set/);
     ProjectStore.clearProject();
-    expect(msg(await wave.createSurferLayout({ name: 'v', commands: ['x'] }))).toBe('No project open');
+    expect(msg(await wave.createSurferLayout({ name: 'v', signals: ['tb.x'] }))).toBe('No project open');
   });
 
   function lista(campo) { return estados.get('C:\\p|tb_top')?.[campo] || []; }

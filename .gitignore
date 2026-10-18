@@ -313,6 +313,7 @@ js/project/papel_no_spf.js
 js/compilation/override_badges.js
 js/project/path_rules.js
 js/ui/aviso_do_campo.js
+js/wave/surfer_custom.js
 js/ui/new_project_modal.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js

@@ -1797,25 +1797,50 @@ const TOOL_MANIFEST: ToolDef[] = [
   {
     name: 'create_surfer_layout',
     description:
-      'Create a Surfer command file (.sucl) that sets up a waveform view, register it '
-      + 'for the active testbench and optionally open Surfer with it. Write ONE Surfer '
-      + 'command per line (load_file, add_variable, zoom_fit, ...); see the Surfer command '
-      + 'reference. NOTE: this deliberately writes .sucl and not .surf.ron — .surf.ron is '
-      + "the RON serialisation of Surfer's internal state, it has no published schema and "
-      + 'changes between versions, while .sucl is documented and meant to be hand-written. '
-      + 'To drop a layout later, use remove_surfer_file.',
+      'Create a Surfer layout (.surf.ron, the same format Aurora generates on its own) '
+      + 'from an explicit signal list, write it at the project root, register it for the '
+      + 'active testbench and optionally open Surfer with it. The Surfer sibling of '
+      + 'create_gtkw_layout, with the same signal entries plus colour and alias. Do not '
+      + 'write .sucl command files: they cannot group, colour per signal, and target '
+      + 'items by a fragile index. When no layout is active, Aurora GENERATES a curated '
+      + 'one from the dump on every run; prefer that default, and create a layout here '
+      + 'when the user asked for specific signals in a specific order. Signals must exist '
+      + 'in the dump, with their scope: check with list_wave_signals first. To drop a '
+      + 'layout later, use remove_surfer_file.',
     access: 'write',
     api: ['wave', 'createSurferLayout'],
     argStyle: 'object',
     inputSchema: {
       type: 'object',
       properties: {
-        name: { type: 'string', description: 'Layout name, without extension. Becomes <name>.sucl at the project root.' },
-        commands: { type: 'array', items: { type: 'string' }, description: 'Surfer commands, one per entry, in the order they should run.' },
+        name: { type: 'string', description: 'Layout name, without extension. Becomes <name>.surf.ron at the project root.' },
+        signals: {
+          type: 'array',
+          description: 'Signals top to bottom. Either a full path string, or an object for control over base, grouping, colour and label.',
+          items: {
+            oneOf: [
+              { type: 'string', description: 'Full signal path with its scope, e.g. "tb.dut.acc".' },
+              {
+                type: 'object',
+                properties: {
+                  path: { type: 'string', description: 'Full signal path with its scope, e.g. "tb.dut.acc".' },
+                  // As duas listas tem que ser as do RADIX_SURFER e do
+                  // CORES_SURFER em js/wave/surfer_custom.ts, que e quem aceita
+                  // ou recusa; o tool_manifest.test.js compara.
+                  radix: { type: 'string', enum: ['bin', 'dec', 'signed', 'hex', 'oct'], description: "Display base. Omit for Surfer's default (a square wave for one bit, hex for a bus); bin only for buses." },
+                  group: { type: 'string', description: 'Consecutive signals sharing this name land in one open group.' },
+                  color: { type: 'string', enum: ['Green', 'Red', 'Yellow', 'Blue', 'Pink', 'Orange', 'Gray', 'Violet'], description: 'Trace colour from the Surfer theme.' },
+                  alias: { type: 'string', description: 'Label shown instead of the signal name.' },
+                },
+                required: ['path'],
+              },
+            ],
+          },
+        },
         open: { type: 'boolean', description: 'true also launches Surfer with this layout. Default false.' },
         setActive: { type: 'boolean', description: 'true (default) makes it the active layout for the testbench.' },
       },
-      required: ['name', 'commands'],
+      required: ['name', 'signals'],
     },
   },
   {

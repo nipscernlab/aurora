@@ -117,7 +117,7 @@ const NAMESPACES: Readonly<Record<string, Readonly<Record<string, string>>>> = O
     addGtkwFile:        'Register a .gtkw file from the project for the active testbench',
     setActiveGtkwFile:  'Pick which registered .gtkw file GTKWave loads',
     removeGtkwFile:     'Drop a .gtkw file from the active testbench list',
-    createSurferLayout: 'Write a .sucl Surfer layout and register it for the testbench',
+    createSurferLayout: 'Write a .surf.ron Surfer layout from a signal list and register it for the testbench',
     createGtkwLayout: 'Write a .gtkw layout from a signal list and register it for the testbench',
     listSurferFiles:    'List Surfer layouts (.surf.ron/.sucl) registered for the active testbench',
     openSurfer:         'Open a waveform file in Surfer, optionally with a saved layout',

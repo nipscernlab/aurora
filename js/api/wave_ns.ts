@@ -28,6 +28,7 @@ import { getViewer as getWaveViewer, setViewer as setWaveViewer } from '../wave/
 import { getSurferMultiWindow, setSurferMultiWindow } from '../wave/surfer_window_preference.js';
 import { flattenSignalPaths } from '../wave/signal_parser.js';
 import { buildCustomGtkw } from '../wave/gtkw_custom.js';
+import { buildCustomSurfer } from '../wave/surfer_custom.js';
 import { ok, err, emit } from './api_core.js';
 import { listarArquivosDoProjeto } from './arvore_do_projeto.js';
 
@@ -529,15 +530,13 @@ export const waveNs = {
   setActiveSurferFile(filePath?: string | null) { return ativarLayout(SURFER, filePath); },
 
   /**
-   * Cria um arquivo de comandos do Surfer e, se pedido, abre o Surfer com ele.
+   * Escreve um .surf.ron com os sinais pedidos, registra para o testbench ativo
+   * e, se pedido, abre o Surfer com ele.
    *
-   * Sobre o formato, que e a decisao que importa aqui: a IA escreve um `.sucl`,
-   * e nao um `.surf.ron`. O `.surf.ron` e a serializacao RON do estado interno
-   * do Surfer, feita pelo serde, e nao tem esquema publicado: escrever um a mao
-   * e apostar na forma privada de uma struct que muda entre versoes. O `.sucl` e
-   * o oposto, e documentado (docs/commands do surfer-aurora), e feito para ser
-   * escrito a mao e faz a mesma coisa do ponto de vista de quem usa: monta a
-   * visao. Por isso o caminho de criacao passa por ele.
+   * O irmao do `createGtkwLayout`, com a mesma entrada. Ate 10/2026 escrevia
+   * um `.sucl` a partir de comandos soltos; o porque da troca esta no
+   * surfer_custom.ts, que e puro e testado (#185). Um `.sucl` que ja exista
+   * continua podendo ser registrado e aberto.
    *
    * O arquivo entra na lista de layouts do testbench ativo, entao aparece no
    * seletor junto com os que ja existiam.
@@ -547,25 +546,23 @@ export const waveNs = {
    * chamada voltava logo depois de registrar, com o envelope do registro no
    * lugar do resultado, e o `open` nunca rodava.
    */
-  async createSurferLayout({ name, commands, open = false, setActive = true }: { name?: string; commands?: string[] | string; open?: boolean; setActive?: boolean } = {}) {
+  async createSurferLayout({ name, signals, commands, open = false, setActive = true }: { name?: string; signals?: NonNullable<Parameters<typeof buildCustomSurfer>[0]>['signals']; commands?: unknown; open?: boolean; setActive?: boolean } = {}) {
     if (!name) return err('name required');
     const projectPath = ProjectStore.getProjectPath();
     if (!projectPath) return err('No project open');
 
-    const linhas = Array.isArray(commands) ? commands : String(commands || '').split('\n');
-    const corpo = linhas.map((l) => String(l).trim()).filter(Boolean);
-    if (!corpo.length) return err('commands required — one Surfer command per line');
+    const { conteudo, sinais, ignorados } = buildCustomSurfer({ signals });
+    if (!sinais) {
+      if (commands !== undefined) {
+        return err('commands is no longer accepted: pass signals, one signal path per entry, e.g. "tb.dut.acc"; the layout is written as .surf.ron');
+      }
+      return err('signals required — one signal path per entry, with its scope, e.g. "tb.dut.acc"');
+    }
 
-    const base = String(name).replace(/[^\w.-]+/g, '_').replace(/\.sucl$/i, '');
-    const alvo = await electronAPI.joinPath(projectPath, `${base}.sucl`);
-    const texto = [
-      '# Gerado pela Aurora Intelligence.',
-      '# Arquivo de comandos do Surfer (.sucl): um comando por linha.',
-      ...corpo,
-      '',
-    ].join('\n');
+    const base = String(name).replace(/[^\w.-]+/g, '_').replace(/(\.surf)?\.ron$/i, '');
+    const alvo = await electronAPI.joinPath(projectPath, `${base}.surf.ron`);
 
-    try { await electronAPI.writeFile(alvo, texto); }
+    try { await electronAPI.writeFile(alvo, conteudo); }
     catch (e) { return err(`Could not write ${alvo}: ${(e as Error | null)?.message || e}`); }
 
     const add = await registrarLayout(SURFER, { filePath: alvo, setActive });
@@ -576,7 +573,7 @@ export const waveNs = {
       const r = await waveNs.openSurfer({ file: undefined, layout: alvo });
       if (!r.ok) return ok({ filePath: alvo, opened: false, openError: r.error });
     }
-    return ok({ filePath: alvo, opened: !!open, commands: corpo.length });
+    return ok({ filePath: alvo, opened: !!open, signals: sinais, ignored: ignorados });
   },
 
   /** Drop one Surfer layout entry from the active testbench's list. */

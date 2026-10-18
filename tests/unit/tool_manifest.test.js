@@ -186,6 +186,22 @@ describe('TOOL_MANIFEST', () => {
         expect([...objeto.properties.radix.enum].sort()).toEqual([...RADIX_VALIDOS].sort());
     });
 
+    // #185: o create_surfer_layout escreve .surf.ron pelo surfer_custom, com a
+    // mesma entrada do create_gtkw_layout; base e cor copiadas pelo mesmo
+    // motivo do teste acima.
+    it('the create_surfer_layout lists match the writer, and commands is gone', async () => {
+        const { RADIX_SURFER, CORES_SURFER } = await import('../../js/wave/surfer_custom.ts');
+        const def = TOOL_MANIFEST.find((d) => d.name === 'create_surfer_layout');
+        expect(def).toMatchObject({ access: 'write', api: ['wave', 'createSurferLayout'], argStyle: 'object' });
+        expect(def.inputSchema.required).toEqual(['name', 'signals']);
+        expect(def.inputSchema.properties).not.toHaveProperty('commands');
+        expect(def.description).toContain('.surf.ron');
+        expect(def.description).not.toMatch(/writes \.sucl/);
+        const objeto = def.inputSchema.properties.signals.items.oneOf.find((v) => v.type === 'object');
+        expect([...objeto.properties.radix.enum].sort()).toEqual([...RADIX_SURFER].sort());
+        expect([...objeto.properties.color.enum].sort()).toEqual([...CORES_SURFER].sort());
+    });
+
     // TODO 13b, passo 6 (09/10/2026): o papel de cada arquivo e da pessoa. A
     // IA classifica so o que ela criou, dizendo que classificou; o resto ela
     // pergunta antes. Por isso o papel e opcional no create_file, e trocar o

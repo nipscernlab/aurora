@@ -74,7 +74,7 @@ afterEach(() => {
 });
 
 describe('a palavra de pensando', () => {
-  it('aparece ao despachar, uma so, com os tres pontos; o texto que chega a tira', async () => {
+  it('aparece ao despachar, uma so, com os tres pontos; o fim do turno a tira', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
     const emitir = await turno();
     expect(pensando()).toHaveLength(1);

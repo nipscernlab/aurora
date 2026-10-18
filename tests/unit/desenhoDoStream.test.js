@@ -96,7 +96,8 @@ describe('a maquina de escrever', () => {
     expect(baloes()).toHaveLength(0);            // nada antes do quadro
     quadro();
     expect(conteudo().textContent).toBe(texto.slice(0, 16));   // 16% da distancia
-    expect(painel.thinkingEl).toBeNull();
+    // A palavra de pensando continua, embaixo do texto (#183).
+    expect(painel.messagesEl.lastElementChild).toBe(painel.thinkingEl);
     quadro();
     // o que ja estava na tela fica sem realce; o trecho novo vem num span
     expect(conteudo().querySelector('.ai-fade-reveal').textContent).toBe(texto.slice(16, 30));
@@ -191,6 +192,47 @@ describe('o fecho do segmento', () => {
     emitir({ type: 'finish' });
     expect(baloes().map((b) => b.querySelector('.ai-msg-content').textContent.trim())).toEqual(['', 'fim']);
     expect(baloes()[0].querySelector('img')).toBeTruthy();
+  });
+});
+
+// #183. A palavra de pensando saia quando chegava o primeiro texto ou a
+// primeira ferramenta, e a resposta seguia sem sinal de que nao tinha
+// terminado. Agora ela fica ate o fim, sempre embaixo do ultimo conteudo.
+describe('a palavra de pensando durante a resposta', () => {
+  const ultimo = () => painel.messagesEl.lastElementChild;
+
+  it('fica embaixo do texto, da ferramenta e do texto seguinte, e sai so no fim', async () => {
+    const emitir = await turno();
+    emitir({ type: 'text-delta', delta: 'Vou ler.' });
+    escoar();
+    expect(ultimo()).toBe(painel.thinkingEl);
+    expect(ultimo().previousElementSibling.classList.contains('ai-msg-assistant')).toBe(true);
+
+    emitir({ type: 'tool-call', toolName: 'read_file', args: {}, toolUseId: 'a' });
+    expect(ultimo()).toBe(painel.thinkingEl);
+    emitir({ type: 'tool-result', toolName: 'read_file', result: { ok: true }, toolUseId: 'a' });
+    expect(ultimo()).toBe(painel.thinkingEl);
+
+    emitir({ type: 'text-delta', delta: 'Pronto.' });
+    escoar();
+    expect(ultimo()).toBe(painel.thinkingEl);
+    expect(painel.messagesEl.querySelectorAll('.ai-thinking-wrap')).toHaveLength(1);
+
+    emitir({ type: 'finish' });
+    expect(painel.thinkingEl).toBeNull();
+    expect(painel.messagesEl.querySelector('.ai-thinking-wrap')).toBeNull();
+  });
+
+  it('follow-up: fica entre as partes, e sai no fim da ultima', async () => {
+    const emitir = await turno();
+    emitir({ type: 'text-delta', delta: 'Primeira.' });
+    emitir({ type: 'finish', more: true });
+    expect(ultimo()).toBe(painel.thinkingEl);
+    emitir({ type: 'text-delta', delta: 'Segunda.' });
+    escoar();
+    expect(ultimo()).toBe(painel.thinkingEl);
+    emitir({ type: 'finish' });
+    expect(painel.thinkingEl).toBeNull();
   });
 });
 

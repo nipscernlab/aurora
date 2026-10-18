@@ -55,8 +55,10 @@ export function tratarEvento(p: PainelDoTurno, ev: PacoteDoStream | null | undef
         if (seg) p.contaDoTurno.texto = true;
         p.contaDoTurno.chamadas++;
       }
-      p.showThinking(false);
       p.startToolChip(ev.toolName, ev.args, ev.toolUseId);
+      // A ferramenta roda e a resposta continua: a palavra desce para baixo
+      // do chip, em vez de sair (#183).
+      p.showThinking(true);
       p.currentAssistantContentEl = null;
       p.segmentBuffer = '';
       p._revealLength = 0;

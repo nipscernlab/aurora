@@ -34,6 +34,7 @@ export interface PainelDoStream {
   _streamRenderTimer?: ReturnType<typeof setTimeout> | null;
   currentAssistantContentEl: HTMLElement | null;
   contaDoTurno?: ContaDoTurno;
+  thinkingEl?: HTMLElement | null;
   appendBubble(role: string, content: string): HTMLElement;
   showThinking(show: boolean): void;
   scrollToBottom(): void;
@@ -55,6 +56,15 @@ function largarBalao(p: PainelDoStream): void {
 }
 
 /** O balao do segmento, criado so quando ha texto de verdade para mostrar. */
+/**
+ * Leva a palavra de pensando para baixo do que acabou de entrar, se ela ainda
+ * estiver na tela. Nao a recria: este desenho tambem roda no fecho do turno,
+ * depois de ela ter saido.
+ */
+function pensandoNoFim(p: PainelDoStream): void {
+  if (p.thinkingEl) p.showThinking(true);
+}
+
 function balaoDoSegmento(p: PainelDoStream): HTMLElement {
   if (!p.currentAssistantContentEl) {
     const bubble = p.appendBubble('assistant', '');
@@ -90,9 +100,9 @@ export function revelarSegmento(p: PainelDoStream): void {
     return;
   }
 
-  p.showThinking(false);
   const nadaMostrado = !p.currentAssistantContentEl || !((p._revealLength as number) > 0);
   const el = balaoDoSegmento(p);
+  pensandoNoFim(p);
   el.innerHTML = renderMarkdown(displayText);
   highlightCodeBlocks(el);
   linkifyFileRefs(el);
@@ -158,10 +168,10 @@ function desenharStream(p: PainelDoStream): void {
     return;
   }
 
-  // Texto de verdade vai entrar: os pontos de pensando saem AGORA, e nao no
-  // primeiro pedaco cru, para nao haver vao entre os pontos e as palavras.
-  p.showThinking(false);
+  // Texto de verdade vai entrar: o balao nasce agora, e a palavra de pensando
+  // desce para baixo dele, porque a resposta ainda nao acabou (#183).
   const el = balaoDoSegmento(p);
+  pensandoNoFim(p);
 
   // A maquina de escrever: o cursor (_revealLength, caracteres ja mostrados)
   // avanca uma fracao da distancia por quadro, para um bloco grande das CLIs

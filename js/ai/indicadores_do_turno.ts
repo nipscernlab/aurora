@@ -57,9 +57,15 @@ const PALAVRAS = [
 /** Os tres pontos que fazem as vezes de reticencias. */
 const PONTOS = '<span class="ai-thinking-dots"><span></span><span></span><span></span></span>';
 
-/** Mostra ou tira a palavra de pensando; mostrar de novo nao duplica. */
+/**
+ * Mostra ou tira a palavra de pensando. Mostrar de novo nao duplica: leva a
+ * que ja existe para o fim, embaixo do que acabou de entrar, porque ela fica a
+ * resposta inteira e so sai quando o turno termina (#183).
+ */
 export function mostrarPensando(p: PainelDosIndicadores, mostrar: boolean): void {
-  if (mostrar && !p.thinkingEl) {
+  if (mostrar && p.thinkingEl) {
+    if (p.messagesEl.lastElementChild !== p.thinkingEl) p.messagesEl.appendChild(p.thinkingEl);
+  } else if (mostrar) {
     const word = PALAVRAS[Math.floor(Math.random() * PALAVRAS.length)];
     const el = document.createElement('div');
     el.className = 'ai-thinking-wrap';

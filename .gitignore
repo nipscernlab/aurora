@@ -346,6 +346,7 @@ main/paths.js
 main/python/pylib_paths.js
 main/ipc/project.js
 main/ai/tools.js
+main/ai/claude_code.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

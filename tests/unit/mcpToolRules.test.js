@@ -109,24 +109,33 @@ describe('o bloco de regras concorda com o codigo', () => {
     });
 });
 
+/**
+ * O fonte de um motor: o .ts quando ele ja foi convertido (o .js ao lado e o
+ * que o build:ts emite, e nao e o que alguem edita), senao o .js.
+ */
+function fonteDoMotor(motor) {
+    const ts = path.join(RAIZ, 'main', 'ai', `${motor}.ts`);
+    return fs.readFileSync(fs.existsSync(ts) ? ts : path.join(RAIZ, 'main', 'ai', `${motor}.js`), 'utf8');
+}
+const TRAZ_AS_REGRAS = /require\('\.\/mcp_tool_rules'\)|from '\.\/mcp_tool_rules\.js'/;
+
 describe('nenhum motor guarda a copia dele', () => {
     for (const motor of MOTORES) {
-        it(`${motor}.js nao redeclara o bloco`, () => {
-            const fonte = fs.readFileSync(path.join(RAIZ, 'main', 'ai', `${motor}.js`), 'utf8');
+        it(`${motor} nao redeclara o bloco`, () => {
+            const fonte = fonteDoMotor(motor);
             // A copia era um literal de array com o catalogo dentro.
             expect(fonte).not.toMatch(/MCP_TOOL_RULES\s*=\s*\[/);
-            expect(fonte).toMatch(/require\('\.\/mcp_tool_rules'\)/);
+            expect(fonte).toMatch(TRAZ_AS_REGRAS);
         });
 
-        it(`${motor}.js faz o require ANTES de usar o bloco`, () => {
+        it(`${motor} traz o bloco ANTES de usa-lo`, () => {
             // Foi exatamente isto que quebrou a primeira versao deste commit:
             // o require entrou abaixo do uso num dos quatro, e o aplicativo
             // inteiro morria no boot com "Cannot access 'REGRAS_CLAUDE'
             // before initialization". Um teste que so procura o require no
             // arquivo nao ve isso; a ordem e que importa.
-            const linhas = fs.readFileSync(
-                path.join(RAIZ, 'main', 'ai', `${motor}.js`), 'utf8').split('\n');
-            const ondeRequire = linhas.findIndex((l) => l.includes("require('./mcp_tool_rules')"));
+            const linhas = fonteDoMotor(motor).split('\n');
+            const ondeRequire = linhas.findIndex((l) => TRAZ_AS_REGRAS.test(l));
             const ondeUso = linhas.findIndex((l) => /MCP_TOOL_RULES\s*=\s*REGRAS_/.test(l));
             expect(ondeRequire).toBeGreaterThanOrEqual(0);
             expect(ondeUso).toBeGreaterThanOrEqual(0);

@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * claude_code.js: Claude Code CLI bridge for Aurora Intelligence.
+ * claude_code.ts: Claude Code CLI bridge for Aurora Intelligence.
  *
  * Lets the AI panel talk to the user's Claude Pro/MAX *subscription*
  * instead of a metered API key. It does this by shelling out to the
@@ -25,34 +24,86 @@
  *   { type:'error',       message }
  */
 
-'use strict';
+import { spawn, execFile, type ChildProcess } from 'node:child_process';
+import path from 'node:path';
+import os from 'node:os';
+import fs from 'node:fs';
+import log from 'electron-log';
 
-const { spawn, execFile } = require('child_process');
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
-const log = require('electron-log');
-
-const state = require('../state');
-const { spfDoSender } = require('../ipc/project_paths');
-const auroraMcp = require('./aurora_mcp_server');
-const cliLocator = require('./cli_locator');
-const { locateClaude } = cliLocator;
-const cliDownloader = require('./cli_downloader');
-const attachments = require('./attachments');
-const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } = require('./timeouts');
+import state from '../state.js';
+import { spfDoSender } from '../ipc/project_paths.js';
+import auroraMcp from './aurora_mcp_server.js';
+import cliLocator from './cli_locator.js';
+import cliDownloader from './cli_downloader.js';
+import attachments from './attachments.js';
+import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } from './timeouts.js';
 // Agent SDK engine (ESTUDO §18.5 step 2), preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
-const claudeAgent = require('./claude_agent');
-const { REGRAS_CLAUDE } = require('./mcp_tool_rules');
+import claudeAgent from './claude_agent.js';
+import { REGRAS_CLAUDE } from './mcp_tool_rules.js';
+// Shared with the Agent SDK engine (claude_agent.js), one list, two consumers.
+// Two hand-kept copies is exactly how AskUserQuestion drifted back on over
+// there and silently stopped rendering its card. See native_tools.js.
+import { NATIVE_TOOLS, DISALLOWED_TOOLS } from './native_tools.js';
+
+/*
+ * Compilado por `tsc` (npm run build:ts, tsconfig.main.json) num
+ * claude_code.js CommonJS ao lado; quem consome continua fazendo
+ * require('./ai/claude_code').
+ */
+
+/** Quem pediu o turno: o webContents da janela, ou o que os testes passam. */
+type Janela = {
+  id?: number;
+  isDestroyed(): boolean;
+  send(canal: string, pacote: unknown): void;
+} | null | undefined;
+
+/** Um turno em voo: o processo da CLI, ou os controles que o SDK registra. */
+type Sessao = {
+  proc?: ChildProcess;
+  owner?: number | null;
+  markAborted?: () => void;
+  stop?: () => void;
+  pushUserMessage?: (content: string) => unknown;
+};
+
+/** O claudeAiOauth do .credentials.json, no que interessa aqui. */
+type Credenciais = {
+  accessToken?: string;
+  subscriptionType?: string;
+  rateLimitTier?: string;
+  expiresAt?: number | string;
+};
+
+/** Uma janela de limite de uso, como a CLI a manda. */
+type JanelaDeLimite = { rateLimitType: string; [k: string]: unknown };
+
+/** Uma mensagem da conversa, como o renderer manda. */
+type Mensagem = { role: string; content: string; attachments?: unknown[] };
+
+/** O pedido de um turno (ver start). */
+type PedidoDoTurno = {
+  sessionId?: string;
+  conversationId?: string;
+  messages?: Mensagem[];
+  system?: string;
+  systemContext?: string;
+  systemFixo?: string;
+  modelId?: string;
+  effort?: string;
+  permission?: string;
+};
+
+const { locateClaude } = cliLocator;
 
 /** sessionId → { proc } for in-flight turns. */
-const sessions = new Map();
+const sessions = new Map<string, Sessao>();
 /** conversationId → claude CLI session_id, so follow-up turns `--resume`. */
-const convSessions = new Map();
+const convSessions = new Map<string, string>();
 
 /** Most recent rate-limit windows, keyed by type ('five_hour' | 'weekly' | …). */
-let rateLimitWindows = {};
+const rateLimitWindows: Record<string, JanelaDeLimite> = {};
 /** Tokens / cost tallied across every Claude Code turn this app run. */
 let sessionTokens = 0;
 let sessionCostUsd = 0;
@@ -66,15 +117,13 @@ let sessionCostUsd = 0;
  * (`@anthropic-ai/claude-code` dependency) first, then a global install
  * on PATH. See `cli_locator.js`, it owns the dev / packaged-app /
  * `.cmd`-shim resolution and caches the result.
- *
- * @returns {{exe:string, viaShim:boolean}|null}
  */
-function resolveBinary() {
+function resolveBinary(): { exe: string; viaShim: boolean } | null {
   return locateClaude();
 }
 
 /** Read the Claude Code OAuth credentials (subscription info), or null. */
-function readCredentials() {
+function readCredentials(): Credenciais | null {
   try {
     const p = path.join(os.homedir(), '.claude', '.credentials.json');
     const j = JSON.parse(fs.readFileSync(p, 'utf-8'));
@@ -84,7 +133,7 @@ function readCredentials() {
   }
 }
 
-function execFileText(/** @type {string} */ binPath, /** @type {string[]} */ args, timeoutMs = 6000) {
+function execFileText(binPath: string, args: string[], timeoutMs = 6000): Promise<string> {
   // Same shim issue as spawn(): `.cmd` files require an explicit cmd.exe
   // invocation on Node >= 20.12. Without this, `claude --version` would
   // throw EINVAL even when the binary path exists. The bundled native
@@ -94,7 +143,7 @@ function execFileText(/** @type {string} */ binPath, /** @type {string[]} */ arg
     cmd = 'cmd.exe';
     finalArgs = ['/d', '/s', '/c', binPath, ...args];
   }
-  return new Promise((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     execFile(cmd, finalArgs, { timeout: timeoutMs, windowsHide: true }, (err, stdout) => {
       if (err) reject(err);
       else resolve(String(stdout || ''));
@@ -105,12 +154,12 @@ function execFileText(/** @type {string} */ binPath, /** @type {string[]} */ arg
 /**
  * Probe the local Claude Code install + subscription login. Cheap, it
  * reads the credentials file rather than spending tokens on a ping.
- *
- * @returns {Promise<{installed:boolean, path?:string, version?:string,
- *   authed?:boolean, plan?:string, rateLimitTier?:string, expiresAt?:number,
- *   expired?:boolean}>}
  */
-async function detect() {
+export async function detect(): Promise<{
+  installed: boolean; downloadable?: boolean; path?: string; version?: string;
+  authed?: boolean; plan?: string | null; rateLimitTier?: string | null;
+  expiresAt?: number | null; expired?: boolean;
+}> {
   const bin = resolveBinary();
   if (!bin) {
     // Not on disk yet. Report whether we CAN fetch it on demand (B12) and
@@ -138,13 +187,13 @@ async function detect() {
     authed: !!(creds && creds.accessToken),
     plan: (creds && creds.subscriptionType) || null,
     rateLimitTier: (creds && creds.rateLimitTier) || null,
-    expiresAt: /** @type {any} */ (expiresAt || null),
+    expiresAt: expiresAt || null,
     expired: expiresAt ? Date.now() > expiresAt : false,
   };
 }
 
 /** Snapshot of subscription usage for the panel's usage bars. */
-function getUsage() {
+export function getUsage() {
   const creds = readCredentials();
   return {
     plan: (creds && creds.subscriptionType) || null,
@@ -157,7 +206,7 @@ function getUsage() {
 //  Chat
 // ---------------------------------------------------------------------------
 
-function sendEvent(/** @type {any} */ webContents, /** @type {string} */ sessionId, /** @type {string} */ type, /** @type {any} */ data) {
+function sendEvent(webContents: Janela, sessionId: string, type: string, data?: Record<string, unknown> | null): void {
   if (!webContents || webContents.isDestroyed()) return;
   try {
     webContents.send('ai:chat-event', { sessionId, type, ...(data || {}) });
@@ -185,7 +234,7 @@ function sendEvent(/** @type {any} */ webContents, /** @type {string} */ session
  * own permission UI doesn't fit in our headless flow anyway, let the
  * renderer's inline card be the single source of truth.
  */
-function permissionFlag(/** @type {any} */ _mode) {
+function permissionFlag(_mode?: string): string {
   return 'bypassPermissions';
 }
 
@@ -197,9 +246,9 @@ function permissionFlag(/** @type {any} */ _mode) {
  * janela A em `--add-dir`: ele lia e escrevia no projeto errado, e com
  * permissao concedida, porque a pasta estava mesmo autorizada.
  *
- * @param {any} [webContents] quem pediu o turno (ai.js ja o tem em maos)
+ * @param webContents quem pediu o turno (ai.js ja o tem em maos)
  */
-function workspaceDir(webContents) {
+function workspaceDir(webContents?: Janela): string {
   const spf = spfDoSender(webContents) || state.currentOpenProjectPath;
   if (spf) {
     try {
@@ -215,7 +264,7 @@ function workspaceDir(webContents) {
  *  the project as cwd a `rename_project` couldn't complete until the turn ended.
  *  The project stays fully readable via --add-dir, and every Aurora tool uses
  *  absolute paths, so cwd need not be the project. */
-function agentScratchDir() {
+function agentScratchDir(): string {
   const dir = path.join(os.tmpdir(), 'aurora-ai-cwd');
   try { fs.mkdirSync(dir, { recursive: true }); } catch (_) { /* best-effort */ }
   return dir;
@@ -250,10 +299,7 @@ const MCP_TOOL_RULES = REGRAS_CLAUDE;
  *    (also steered by MCP_TOOL_RULES), which renders the real interactive
  *    card and pipes the answer back through the MCP bridge.
  */
-// Shared with the Agent SDK engine (claude_agent.js), one list, two consumers.
-// Two hand-kept copies is exactly how AskUserQuestion drifted back on over
-// there and silently stopped rendering its card. See native_tools.js.
-const { NATIVE_TOOLS, DISALLOWED_TOOLS } = require('./native_tools');
+// NATIVE_TOOLS e DISALLOWED_TOOLS vem de native_tools.js (import no topo).
 
 /**
  * Ensure the Aurora MCP server is up and (re)write the `--mcp-config`
@@ -267,10 +313,10 @@ const { NATIVE_TOOLS, DISALLOWED_TOOLS } = require('./native_tools');
  * tambem, senao a segunda janela reescreveria o arquivo da primeira e as
  * ferramentas das duas iriam para a mesma.
  *
- * @param {any} [webContents] quem pediu o turno
- * @returns {Promise<string>} absolute path to the mcp-config JSON
+ * @param webContents quem pediu o turno
+ * @returns absolute path to the mcp-config JSON
  */
-async function ensureMcpConfig(webContents) {
+async function ensureMcpConfig(webContents?: Janela): Promise<string> {
   const url = await auroraMcp.ensureStarted(webContents);
   const dono = webContents && !webContents.isDestroyed?.() ? webContents.id : 'x';
   const cfgPath = path.join(os.tmpdir(), `aurora-mcp-${process.pid}-${dono}.json`);
@@ -282,17 +328,13 @@ async function ensureMcpConfig(webContents) {
 /**
  * Run one chat turn through the Claude Code CLI.
  *
- * @param {object} payload
- * @param {string} payload.sessionId           per-turn id (renderer-generated)
- * @param {string} [payload.conversationId]    stable id → enables --resume
- * @param {{role:string,content:string}[]} payload.messages
- * @param {string} [payload.system]
- * @param {string} [payload.modelId]           'default' | 'sonnet' | 'opus' | …
- * @param {string} [payload.effort]            low | medium | high | xhigh | max
- * @param {string} [payload.permission]        ask | writes | allow
- * @param {Electron.WebContents} webContents
+ *   payload.sessionId       per-turn id (renderer-generated)
+ *   payload.conversationId  stable id → enables --resume
+ *   payload.modelId         'default' | 'sonnet' | 'opus' | …
+ *   payload.effort          low | medium | high | xhigh | max
+ *   payload.permission      ask | writes | allow
  */
-async function start(payload, webContents) {
+export async function start(payload: PedidoDoTurno | null | undefined, webContents: Janela): Promise<void> {
   const {
     sessionId, conversationId, messages,
     system, systemContext, systemFixo, effort, modelId, permission,
@@ -329,7 +371,7 @@ async function start(payload, webContents) {
     }
     try {
       bin = await cliDownloader.ensureCli('claude', {
-        onProgress: (p) => sendEvent(webContents, sessionId, 'cli-download', { ...p, cli: 'Claude Code' }),
+        onProgress: (p: Record<string, unknown>) => sendEvent(webContents, sessionId, 'cli-download', { ...p, cli: 'Claude Code' }),
       });
       cliLocator.invalidate(); // so detect()/usage see the freshly-installed CLI
     } catch (e) {
@@ -365,13 +407,15 @@ async function start(payload, webContents) {
         effort,
         bin,
       },
-      webContents,
+      // O claude_agent.js declara o WebContents inteiro do Electron, e daqui
+      // so se usa id, isDestroyed e send: o resto nunca e lido.
+      webContents as unknown as Electron.WebContents,
       {
         sendEvent,
         convSessions,
         sessions,
-        addUsage: (t, c) => { sessionTokens += t; sessionCostUsd += c; },
-        setRateLimit: (info) => { /** @type {Record<string, any>} */ (rateLimitWindows)[info.rateLimitType] = info; },
+        addUsage: (t: number, c: number) => { sessionTokens += t; sessionCostUsd += c; },
+        setRateLimit: (info: JanelaDeLimite) => { rateLimitWindows[info.rateLimitType] = info; },
         workspaceDir,
       },
     );
@@ -529,7 +573,7 @@ async function start(payload, webContents) {
   if (!env.MCP_TOOL_TIMEOUT) env.MCP_TOOL_TIMEOUT = String(MCP_TOOL_CALL_MS);
   if (!env.MCP_TIMEOUT) env.MCP_TIMEOUT = String(MCP_STARTUP_MS); // server startup
 
-  let proc;
+  let proc: ChildProcess;
   try {
     // On Windows, npm installs the CLI as `claude.cmd` (a batch shim).
     // Since Node v20.12 (CVE-2024-27980) `.bat`/`.cmd` files cannot be
@@ -557,13 +601,13 @@ async function start(payload, webContents) {
   let fullText = '';
   let finished = false;
   let aborted = false;
-  const seenToolCalls = new Set();
+  const seenToolCalls = new Set<string>();
   // tool_use_id → toolName, so when the CLI replies with a `tool_result`
   // user-block we can re-attach the original tool name + emit a
   // tool-result event the renderer can actually correlate. Without this
   // map every chip would stay in the "running…" state forever because
   // we used to emit `toolName: 'tool'` (literal) on every result.
-  const toolUseNames = new Map();
+  const toolUseNames = new Map<string, string>();
 
   // Anti-freeze: if the CLI goes silent for this long with NO tool call in
   // flight, treat it as wedged and kill it so the renderer isn't left spinning.
@@ -573,7 +617,7 @@ async function start(payload, webContents) {
   // event can't desync it (which would pause the timer forever or fire it
   // during a legit tool).
   const INACTIVITY_MS = CLI_INACTIVITY_MS;
-  const pendingTools = new Set();
+  const pendingTools = new Set<string | null>();
   let stalled = false;
 
   // Tree-kill the CLI + its children (MCP client, any grandchildren). Shared by
@@ -587,8 +631,7 @@ async function start(payload, webContents) {
     } catch (_) { /* the close handler still fires */ }
   };
 
-  /** @type {ReturnType<typeof setTimeout>|null} */
-  let inactivityTimer = null;
+  let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
   const armInactivity = () => {
     if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
     if (finished || aborted || pendingTools.size > 0) return;
@@ -611,11 +654,13 @@ async function start(payload, webContents) {
   // signal, not a deadline.
   sessions.set(sessionId, { proc, owner: webContents?.id ?? null, markAborted: () => { aborted = true; } });
 
-  try { proc.stdin.write(prompt); proc.stdin.end(); }
+  try { proc.stdin!.write(prompt); proc.stdin!.end(); }
   catch (_) { /* the CLI may have exited already; close path handles it */ }
   armInactivity();
 
-  const handleObject = (/** @type {any} */ obj) => {
+  // O stream-json da CLI nao tem tipo publicado: le-se campo a campo.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleObject = (obj: any) => {
     if (!obj || typeof obj !== 'object') return;
     switch (obj.type) {
       case 'system':
@@ -626,7 +671,7 @@ async function start(payload, webContents) {
 
       case 'rate_limit_event': {
         const info = obj.rate_limit_info;
-        if (info && info.rateLimitType) /** @type {Record<string, any>} */ (rateLimitWindows)[info.rateLimitType] = info;
+        if (info && info.rateLimitType) rateLimitWindows[info.rateLimitType] = info;
         break;
       }
 
@@ -680,7 +725,7 @@ async function start(payload, webContents) {
               resultText = b.content;
             } else if (Array.isArray(b.content)) {
               resultText = b.content
-                .map((/** @type {any} */ c) => (c && c.type === 'text' ? c.text : ''))
+                .map((c: { type?: string; text?: string } | null) => (c && c.type === 'text' ? c.text : ''))
                 .filter(Boolean).join('\n');
             }
             sendEvent(webContents, sessionId, 'tool-result', {
@@ -728,7 +773,7 @@ async function start(payload, webContents) {
     }
   };
 
-  proc.stdout.on('data', (chunk) => {
+  proc.stdout!.on('data', (chunk: Buffer) => {
     stdoutBuf += chunk.toString();
     let nl;
     while ((nl = stdoutBuf.indexOf('\n')) !== -1) {
@@ -741,7 +786,7 @@ async function start(payload, webContents) {
     armInactivity();
   });
 
-  proc.stderr.on('data', (chunk) => { stderrBuf += chunk.toString(); });
+  proc.stderr!.on('data', (chunk: Buffer) => { stderrBuf += chunk.toString(); });
 
   proc.on('error', (err) => {
     sessions.delete(sessionId);
@@ -777,7 +822,7 @@ async function start(payload, webContents) {
 
 /** Stop one session handle, SDK turns expose stop() (AbortController);
  *  legacy spawns expose proc (tree-killed via taskkill on Windows). */
-function stopSession(/** @type {any} */ s) {
+function stopSession(s: Sessao | undefined): boolean {
   if (!s) return false;
   if (s.markAborted) s.markAborted();
   if (typeof s.stop === 'function') {
@@ -796,7 +841,7 @@ function stopSession(/** @type {any} */ s) {
 }
 
 /** Abort an in-flight turn. Returns true if a session was stopped. */
-function abort(/** @type {string} */ sessionId) {
+export function abort(sessionId: string): boolean {
   return stopSession(sessions.get(sessionId));
 }
 
@@ -808,11 +853,9 @@ function abort(/** @type {string} */ sessionId) {
  * falls back to its own follow-up queue. Also returns false once the turn is
  * winding down, which is what keeps a late message from vanishing.
  *
- * @param {string} sessionId
- * @param {string} content
- * @returns {boolean} true when the live turn accepted it
+ * @returns true when the live turn accepted it
  */
-function pushUserMessage(sessionId, content) {
+export function pushUserMessage(sessionId: string, content: string): boolean {
   const s = sessions.get(sessionId);
   if (!s || typeof s.pushUserMessage !== 'function') return false;
   try { return !!s.pushUserMessage(content); }
@@ -828,9 +871,8 @@ function pushUserMessage(sessionId, content) {
  * `ownerId` (id do webContents), so as daquela janela: o reaper de reload em
  * windows.js chamava sem filtro, e um Ctrl+R em qualquer janela matava as
  * CLIs de IA de todas.
- * @param {number} [ownerId]
  */
-function killAll(ownerId) {
+export function killAll(ownerId?: number): void {
   for (const [id, s] of sessions) {
     if (ownerId != null && s.owner !== ownerId) continue;
     stopSession(s);
@@ -839,8 +881,6 @@ function killAll(ownerId) {
 }
 
 /** Drop the cached CLI-side session for a conversation (e.g. on "new chat"). */
-function forgetConversation(/** @type {string} */ conversationId) {
+export function forgetConversation(conversationId: string): void {
   if (conversationId) convSessions.delete(conversationId);
 }
-
-module.exports = { detect, getUsage, start, abort, pushUserMessage, killAll, forgetConversation };

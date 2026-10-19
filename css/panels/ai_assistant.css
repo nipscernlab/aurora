@@ -2869,22 +2869,30 @@ body.resizing-ai-corner * {
 }
 .ai-askq-submit:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
-/* O botao de voltar o codigo, na bolha da mensagem do usuario.
+/* O botao de voltar o codigo, na mensagem do usuario.
 
-   Canto superior, apagado ate o mouse chegar na bolha: e uma acao rara e
+   Na linha do rotulo, encostado a direita e no mesmo eixo do "YOU" (#182).
+   Antes era absoluto no canto da bolha e ficava metade sobre a borda e o
+   texto da caixa. Apagado ate o mouse chegar na mensagem: e uma acao rara e
    grande, e um icone sempre aceso ao lado de cada mensagem viraria ruido em
-   toda conversa. Aparecer no hover e o mesmo tratamento das outras acoes de
-   mensagem. */
-.ai-msg-user { position: relative; }
+   toda conversa. O espaco dele fica reservado, entao aparecer nao mexe em
+   nada. */
+.ai-msg-user .ai-msg-role {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
 .ai-msg-rewind {
-  position: absolute;
-  top: var(--space-1);
-  right: var(--space-1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  /* A linha do rotulo e mais baixa que o botao; a margem negativa evita que
+     a mensagem da pessoa fique mais alta que a da assistente. */
+  margin-block: -3px;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;

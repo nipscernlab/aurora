@@ -73,7 +73,10 @@ export function novoBalao(p: PainelDosBaloes, role: string, content: string, { e
     voltar.title = dica;
     voltar.setAttribute('aria-label', dica);
     voltar.addEventListener('click', () => voltarAoPontoDaBolha(el));
-    el.appendChild(voltar);
+    // Na linha do rotulo, depois do "You", e nao solto no canto da bolha, onde
+    // ficava metade sobre a borda e o texto da caixa (#182). A mensagem da
+    // pessoa sempre tem rotulo, porque ela reinicia a sequencia.
+    el.querySelector('.ai-msg-role')?.appendChild(voltar);
   }
   const contentEl = el.querySelector('.ai-msg-content') as HTMLElement;
   if (content) {

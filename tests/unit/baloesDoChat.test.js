@@ -89,6 +89,18 @@ describe('os baloes', () => {
     expect(painel.appendBubble('assistant', 'd').querySelector('.ai-msg-rewind')).toBeNull();
   });
 
+  // #182: o botao ficava solto no canto da bolha, metade sobre a linha do
+  // rotulo e metade sobre a borda e o texto da caixa. Agora mora na linha do
+  // rotulo, depois do "You", e a caixa do texto fica livre.
+  it('o botao de voltar mora na linha do rotulo, e nao sobre o texto', async () => {
+    await abrir();
+    const b = painel.appendBubble('user', 'uma linha so');
+    const voltar = b.querySelector('.ai-msg-rewind');
+    expect(voltar.parentElement.classList.contains('ai-msg-role')).toBe(true);
+    expect(b.querySelector('.ai-msg-role').textContent.trim()).toBe('You');
+    expect(b.querySelector('.ai-msg-content').contains(voltar)).toBe(false);
+  });
+
   it('o botao volta ao ponto da mensagem; sem ponto, avisa em vez de fingir', async () => {
     await abrir();
     listarPontos.mockResolvedValue([{ id: 'p-9', mensagemId: 'm-1' }]);

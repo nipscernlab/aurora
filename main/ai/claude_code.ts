@@ -680,7 +680,6 @@ export async function start(payload: PedidoDoTurno | null | undefined, webConten
   armInactivity();
 
   // O stream-json da CLI nao tem tipo publicado: le-se campo a campo.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleObject = (obj: any) => {
     if (!obj || typeof obj !== 'object') return;
     switch (obj.type) {

@@ -2871,7 +2871,7 @@ body.resizing-ai-corner * {
 
 /* O botao de voltar o codigo, na mensagem do usuario.
 
-   Na linha do rotulo, encostado a direita e no mesmo eixo do "YOU" (#182).
+   Na linha do rotulo, encostado a direita e no mesmo eixo do "YOU" (issue 182).
    Antes era absoluto no canto da bolha e ficava metade sobre a borda e o
    texto da caixa. Apagado ate o mouse chegar na mensagem: e uma acao rara e
    grande, e um icone sempre aceso ao lado de cada mensagem viraria ruido em

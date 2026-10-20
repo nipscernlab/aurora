@@ -31,9 +31,14 @@ but not required.
 
 ## Pull requests
 
-Fork, branch from `main`, and keep one logical change per pull request. Run
-`npm install` and `npm start` first to confirm the IDE still launches on your
-machine.
+Members of the laboratory work on a branch of this repository, named
+`<login>/<topic>` and taken from `main`. Contributors from outside the
+laboratory fork and branch from `main` in the fork: a pull request from a fork
+runs without the repository secrets and does not get the same checks. This
+follows section 4 of the [organization guidelines](https://github.com/nipscernlab/.github/blob/main/GUIDELINES.md#4-commits).
+
+Keep one logical change per pull request. Run `npm install` and `npm start`
+first to confirm the IDE still launches on your machine.
 
 Match the surrounding code. Indentation follows `.editorconfig`, which is four
 spaces under `js/` and two under `main/`. Comment the why, not the what; the

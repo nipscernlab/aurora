@@ -255,25 +255,61 @@
 /* Escolha da linguagem do processador (Processor Hub). Duas opcoes que se
    excluem, entao radio e nao caixa de marcar: o fonte e .cmm ou .cpp, nunca
    os dois. A dica embaixo so aparece no modo C++, explicando por que metade
-   do formulario ficou apagada. */
+   do formulario ficou apagada.
+
+   O desenho e o do controle segmentado da barra (a chave do simulador,
+   css/shell/toolbar.css), na altura dos campos do formulario: antes era o
+   radio cru do navegador, o unico controle da interface sem o estilo dela
+   (issue 188). Os radios continuam la, escondidos so da vista: o teclado, o
+   leitor de tela e o processor_hub.ts os usam como sempre. */
 .radio-row {
-  display: flex;
-  gap: var(--space-4);
-  align-items: center;
+  display: inline-flex;
+  align-items: stretch;
+  height: var(--h-input);
   margin-top: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg);
 }
 
 .radio-option {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  padding: 0 var(--space-4);
   cursor: pointer;
   font-size: var(--text-sm);
-  color: var(--text);
+  font-weight: var(--font-medium);
+  color: var(--text-muted);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
+.radio-option + .radio-option {
+  border-left: 1px solid var(--border);
+}
+
+.radio-option:hover {
+  color: var(--text);
+  background-color: var(--overlay-hover);
+}
+
+.radio-option:has(input:checked) {
+  color: var(--text-on-accent);
+  background-color: var(--accent-strong);
+}
+
+.radio-option:has(input:focus-visible) {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Fora da vista, mas no fluxo do formulario e do Tab. */
 .radio-option input[type="radio"] {
-  accent-color: var(--accent);
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
   cursor: pointer;
 }
 

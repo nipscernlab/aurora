@@ -211,8 +211,30 @@ describe('o yanc v9.1', () => {
         expect(SYSTEM_PROMPT).toContain('80 columns x 30 rows');
         expect(SYSTEM_PROMPT).toMatch(/128 clears the screen/);
         expect(SYSTEM_PROMPT).toMatch(/129\s+followed by two words, row and column/);
-        expect(SYSTEM_PROMPT).toContain('VGA_CLK = ~clk');
-        expect(SYSTEM_PROMPT).toMatch(/not\s+yet checked on a board/);
+    });
+
+    // O sistema inteiro na DE2-115 (texto do yanc de 20/10/2026, com a pinagem
+    // conferida no relatorio de fit de um projeto que rodou na placa).
+    it('DE2-115: um relogio so, o PLL, o .sdc, o reset e as duas formas do VGA_CLK', () => {
+        expect(SYSTEM_PROMPT).toMatch(/ONE clock for everything\. A PLL takes CLOCK_50 to 25 MHz/);
+        expect(SYSTEM_PROMPT).toContain('rst = ~KEY[0] | ~locked');
+        expect(SYSTEM_PROMPT).toMatch(/derive_pll_clocks, derive_clock_uncertainty/);
+        expect(SYSTEM_PROMPT).toMatch(/has not run on a board yet: say so if asked/);
+        expect(SYSTEM_PROMPT).toContain('create_generated_clock');
+        expect(SYSTEM_PROMPT).toMatch(/vga_clk = ~clk is what the yanc manual recommends/);
+        expect(SYSTEM_PROMPT).toMatch(/vga_clk = clk is what worked on the board/);
+        expect(SYSTEM_PROMPT).toContain('PS2_CLK and PS2_DAT are INPUTS');
+    });
+
+    it('DE2-115: a pinagem conferida, e nunca inventar pino de outra placa', () => {
+        for (const p of ['CLOCK_50 Y2', 'PS2_CLK G6', 'PS2_DAT H5', 'VGA_CLK A12', 'VGA_HS G13', 'VGA_VS C13', 'VGA_BLANK_N F11', 'VGA_SYNC_N C10']) {
+            expect(SYSTEM_PROMPT).toContain(p);
+        }
+        expect(SYSTEM_PROMPT).toContain('VGA_R[0..7] E12 E11 D10 F12 G10 J12 H8 H10');
+        expect(SYSTEM_PROMPT).toContain('VGA_G[0..7] G8 G11 F8 H12 C8 B8 F10 C9');
+        expect(SYSTEM_PROMPT).toContain('VGA_B[0..7] B10 A10 C11 B11 A11 C12 D11 D12');
+        expect(SYSTEM_PROMPT).toContain('NEVER INVENT AN FPGA PIN NUMBER');
+        expect(SYSTEM_PROMPT).toMatch(/ask for the\s+board's pin file/);
     });
 
     it('a tabela de codigos comum e o teclado revisado', () => {

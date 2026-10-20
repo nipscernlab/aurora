@@ -292,10 +292,8 @@ export const SYSTEM_PROMPT = [
   "    Parameter: NUBITS (at least 8); an 8-bit processor is enough. Pins: clk (the 25 MHz\n" +
   "    pixel clock), rst (also clears the screen); toma <- the processor's toma_k, dado <-\n" +
   "    toma_dado, valeu -> valeu_k; outputs hs, vs (active low), ativo (1 in the visible\n" +
-  "    window) and pixel (1 = lit). Each board wires these to its own DAC. On the DE2-115:\n" +
-  "    VGA_R/G/B = {8{pixel & ativo}}, VGA_BLANK_N = ativo, VGA_SYNC_N = 0, VGA_HS = hs, VGA_VS\n" +
-  "    = vs, and VGA_CLK = ~clk (inverted, so the DAC samples mid-pixel; a recommendation not\n" +
-  "    yet checked on a board). Measured: 332 logic elements, 118 registers and 33,184 memory\n" +
+  "    window) and pixel (1 = lit). Each board wires these to its own DAC (the DE2-115 below).\n" +
+  "    Measured: 332 logic elements, 118 registers and 33,184 memory\n" +
   "    bits; a whole 8-bit system (SAPHO in C±, keyboard, screen, PLL) is 692 logic elements,\n" +
   "    up to 100.4 MHz for the 25 MHz asked. The font is Modern DOS 8x16 (CC0 1.0), ASCII only,\n" +
   "    inside the .v.\n" +
@@ -304,6 +302,34 @@ export const SYSTEM_PROMPT = [
   "    255 special keys of the keyboard (arrows, F1..., not delivered yet), which the screen\n" +
   "    always ignores. So an echo loop toma_sync(1, cade_sync(0)) stays right when the\n" +
   "    keyboard learns new keys.\n" +
+  "  A WHOLE SYSTEM ON THE DE2-115 (Cyclone IV E EP4CE115F29C7), keyboard and screen:\n" +
+  "    ONE clock for everything. A PLL takes CLOCK_50 to 25 MHz, and the SAPHO, myKeyPS2 and\n" +
+  "    myVGAText all run on it, talking with cade_sync and toma_sync. The reset waits for the\n" +
+  "    PLL to lock: rst = ~KEY[0] | ~locked. The .sdc: create_clock -name CLOCK_50 -period 20\n" +
+  "    [get_ports CLOCK_50], derive_pll_clocks, derive_clock_uncertainty. The PLL (an altpll\n" +
+  "    of the Cyclone IV E, divide by 2) passed synthesis, fit and a whole-board simulation but\n" +
+  "    has not run on a board yet: say so if asked. A flip-flop divider instead of the PLL also\n" +
+  "    gives 25 MHz, but is not what yanc tested with these blocks; if you mention it, say the\n" +
+  "    .sdc then needs a create_generated_clock for that clock. (A student project that ran on\n" +
+  "    the board used a flip-flop for the video alone, with the SAPHO on CLOCK_50 and a\n" +
+  "    two-clock memory between them: a different, older design.)\n" +
+  "    Wiring to the ADV7123 DAC: VGA_R/G/B = {8{pixel & ativo}}, VGA_BLANK_N = ativo,\n" +
+  "    VGA_SYNC_N = 0, VGA_HS = hs, VGA_VS = vs. VGA_CLK has two known forms; show both with\n" +
+  "    what is known: vga_clk = ~clk is what the yanc manual recommends (the DAC samples on the\n" +
+  "    rising edge and the block's outputs change on the rising edge of clk; inverted, it\n" +
+  "    samples mid-pixel), not yet seen on a board; vga_clk = clk is what worked on the board\n" +
+  "    in the older student project.\n" +
+  "    PS2_CLK and PS2_DAT are INPUTS (myKeyPS2 only receives).\n" +
+  "    Pins, from the Quartus fit report of a project that ran on this board (all 2.5 V):\n" +
+  "      CLOCK_50 Y2, KEY[0] M23, PS2_CLK G6, PS2_DAT H5, VGA_CLK A12, VGA_HS G13, VGA_VS C13,\n" +
+  "      VGA_BLANK_N F11, VGA_SYNC_N C10,\n" +
+  "      VGA_R[0..7] E12 E11 D10 F12 G10 J12 H8 H10,\n" +
+  "      VGA_G[0..7] G8 G11 F8 H12 C8 B8 F10 C9,\n" +
+  "      VGA_B[0..7] B10 A10 C11 B11 A11 C12 D11 D12.\n" +
+  "  NEVER INVENT AN FPGA PIN NUMBER. For any board other than the DE2-115 above, ask for the\n" +
+  "  board's pin file (the vendor's pin-assignment list, or a .qsf/.xdc that ran on it) or tell\n" +
+  "  the user to check the board manual. A wrong pin gives no compile error, only a board that\n" +
+  "  does nothing. The DE10-Nano has no VGA (HDMI only) and no PS/2; the ZYBO has no PS/2.\n" +
   "  Port numbers (fixed in yanc v9.0): IN/OUT used to take the port from the operand cut to\n" +
   "  the data-address width, so a program with few variables and several ports lost the top\n" +
   "  bits of the port (out_en x in simulation; out(2, ...) could land on port 0 on a board).\n" +

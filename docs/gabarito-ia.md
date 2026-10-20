@@ -88,12 +88,16 @@ Certo: escreve `#NUBITS 16` e não precisa de `#NBMANT` nem `#NBEXPO`, porque de
 Errado: exigir mantissa e expoente que somem 15, ou dizer que sem eles o asmcomp recusa (era assim até o v8.0).
 
 **22. "Quero escrever texto num monitor VGA."**
-Certo: usa o bloco `SAPHO/myVGAText.v` ao lado do processador e escreve cada caractere com `toma_sync(k, c)` (ou `toma(k, c)` em outro clock). Diz que é uma tela de 80 x 30 caracteres, que 10 muda de linha, 8 apaga, 128 limpa e 129 seguido de linha e coluna põe o cursor, e que o clock do bloco é o de pixel, 25 MHz. Mostra a ligação (`toma <- toma_k`, `dado <- toma_dado`, `valeu -> valeu_k`, e `hs`, `vs`, `ativo` e `pixel` para o conversor da placa) e, na DE2-115, `VGA_CLK = ~clk`, avisando que isso ainda não foi conferido em placa.
+Certo: usa o bloco `SAPHO/myVGAText.v` ao lado do processador e escreve cada caractere com `toma_sync(k, c)` (ou `toma(k, c)` em outro clock). Diz que é uma tela de 80 x 30 caracteres, que 10 muda de linha, 8 apaga, 128 limpa e 129 seguido de linha e coluna põe o cursor, e que o clock do bloco é o de pixel, 25 MHz. Mostra a ligação (`toma <- toma_k`, `dado <- toma_dado`, `valeu -> valeu_k`, e `hs`, `vs`, `ativo` e `pixel` para o conversor da placa) e, na DE2-115, as duas formas do `VGA_CLK`: `~clk`, que o manual do yanc recomenda e ainda não foi visto em placa, e `clk`, que funcionou num projeto anterior na placa.
 Errado: gerar o sincronismo VGA no programa, ou dizer que não há bloco de vídeo (era assim até o v9.0).
 
 **23. "Como leio um número do teclado e escrevo na tela em C++?"**
 Certo: `#include <iostream>`, `cin >> n` e `cout << ...`, com o teclado no link 0 e a tela no link 1, no clock do processador; sem `cade_sync` nem `toma_sync` no programa. Se for ler uma linha depois de um número, lembra do `cin.ignore(100, '\n')`. Outros links vão por `#define YANC_STDIN_LINK` e `YANC_STDOUT_LINK` antes do primeiro `#include`.
 Errado: `printf`, `scanf`, `std::string` ou `std::getline(cin, s)`, que ainda não existem, decodificar scancode, ou dar a uma variável o nome `hex` ou `cout`.
 
-**24. Forma, em qualquer resposta acima**
+**24. "Monte na DE2-115 um sistema com o teclado e a tela."**
+Certo: um relógio só, um PLL de 50 para 25 MHz, com o SAPHO, o `myKeyPS2` e o `myVGAText` nele, falando com `cade_sync` e `toma_sync`; reset `~KEY[0] | ~locked`; o `.sdc` com `create_clock` de 20 ns no `CLOCK_50`, `derive_pll_clocks` e `derive_clock_uncertainty`; `PS2_CLK` e `PS2_DAT` como entrada; a pinagem da placa (`CLOCK_50` em Y2, `PS2_CLK` em G6, `VGA_CLK` em A12, as cores, e o resto); e diz que o PLL ainda não rodou em placa.
+Errado: inventar número de pino, rodar o SAPHO a 50 MHz com o `myVGAText` sem PLL, ou declarar `PS2_CLK` e `PS2_DAT` como bidirecionais. Pedida a mesma coisa para outra placa, o certo é pedir o arquivo de pinos dela, e não inventar.
+
+**25. Forma, em qualquer resposta acima**
 Responde em português quando a pergunta é em português; código sempre em bloco com a linguagem marcada; referências a arquivo no formato `arquivo.cmm:linha`; sem travessão, sem emoji, sem "ótima pergunta".

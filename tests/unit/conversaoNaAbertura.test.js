@@ -13,7 +13,7 @@ vi.mock('../../js/ui/dialog_manager.js', () => ({
 const spf = vi.hoisted(() => ({ estrutura: null, escritas: 0 }));
 vi.mock('../../js/project/spf_store.js', () => ({
   SpfStore: {
-    update: vi.fn(async (_p, fn) => { spf.escritas++; fn(spf.estrutura); }),
+    update: vi.fn(async (_p, fn, opcoes) => { spf.escritas++; spf.opcoes = opcoes; fn(spf.estrutura); }),
     read: vi.fn(async () => spf.estrutura),
   },
 }));
@@ -72,8 +72,11 @@ describe('oferecerConversao', () => {
 
   it('com o sim: converte, grava o .spf e mostra o relatorio', async () => {
     const d = disco({ 'P/fir/Software/fir.cmm': '#PRNAME fir\n#NUBITS 16\n' });
+    d.getAppVersion = async () => '7.1.0';
     dialogos.respostas.push('converter');
     const r = await oferecerConversao('P/p.spf', 'P', ['fir'], d);
+    // #210: o .spf passa a dizer que versao converteu.
+    expect(spf.opcoes).toEqual({ appVersion: '7.1.0' });
     expect(r.movidos).toEqual([{ de: 'P/fir/Software/fir.cmm', para: 'P/fir/fir.cmm' }]);
     expect(d.mapa.get('P/fir/fir.cmm')).toBe('#NUBITS 16\n');
     expect(spf.estrutura.synthesizableFiles[0].path).toBe('P/fir/fir.cmm');

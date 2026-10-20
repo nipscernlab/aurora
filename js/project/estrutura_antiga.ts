@@ -229,6 +229,8 @@ export interface DiscoDaConversao {
   deleteFileOrDirectory(alvo: string): Promise<unknown>;
   /** Manda para a Lixeira do Windows, de onde da para voltar. */
   trashPath(alvo: string): Promise<{ success?: boolean; error?: string } | null>;
+  /** A versao do app, para o .spf dizer quem o converteu (#210). */
+  getAppVersion?(): Promise<string>;
 }
 
 /** A listagem de uma pasta, ou `null` quando ela nao existe ou nao lista. */

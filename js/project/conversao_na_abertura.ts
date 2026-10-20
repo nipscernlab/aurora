@@ -119,12 +119,15 @@ export async function oferecerConversao(
     const r = await converter(projeto, antigos, disco);
     const mapa = mapaDosMovidos(r);
     if (mapa.size) {
+      // O .spf passa a dizer que versao o converteu, e nao a que o criou (#210).
+      let appVersion: string | undefined;
+      try { appVersion = (await disco.getAppVersion?.()) || undefined; } catch { /* sem a versao, so nao carimba */ }
       await SpfStore.update(spfPath, (cfg) => {
         remapearEstrutura(cfg as unknown as EstruturaDoSpf, mapa);
         // O gerado que foi para a Lixeira sai das listas ate a proxima
         // compilacao o recriar (#211).
         tirarDasListas(cfg as unknown as EstruturaDoSpf, r.descartados.map((d) => d.para));
-      });
+      }, { appVersion });
     }
 
     // O rename que mantem o nome do modulo que o top-level instancia (o do

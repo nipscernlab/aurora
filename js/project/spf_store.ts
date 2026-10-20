@@ -294,7 +294,13 @@ export const SpfStore = {
    *
    * Updates pro mesmo spfPath serializam em ordem de chegada.
    */
-  update(spfPath: string, mutator: (structure: SpfStructure) => void | Promise<void>): Promise<SpfStructure> {
+  update(
+    spfPath: string,
+    mutator: (structure: SpfStructure) => void | Promise<void>,
+    // `appVersion`: carimba a versao do app no metadata. A conversao de um
+    // projeto antigo usa, para o .spf dizer que versao o converteu (#210).
+    opcoes: { appVersion?: string } = {},
+  ): Promise<SpfStructure> {
     const prev = writeChainByPath.get(spfPath) ?? Promise.resolve();
     const next = prev.then(async () => {
       // Update sempre le do disco (nao do cache in-flight) pra que
@@ -317,7 +323,11 @@ export const SpfStore = {
       // doc.structure em memoria, so o que vai pro disco e normalizado.
       const stored = contractStructurePaths(doc.structure, resolveBaseDir(doc.structure, spfPath));
       const updated: SpfDocument = {
-        metadata: { ...doc.metadata, lastModified: new Date().toISOString() },
+        metadata: {
+          ...doc.metadata,
+          lastModified: new Date().toISOString(),
+          ...(opcoes.appVersion ? { appVersion: opcoes.appVersion } : {}),
+        },
         structure: stored,
       };
       await writeRaw(spfPath, updated);

@@ -134,6 +134,21 @@ describe('SpfStore read coalescing', () => {
     });
 });
 
+// #210: a conversao de um projeto antigo gravava o .spf e deixava o
+// appVersion de quem o criou (6.20.0). Quem converte pede o carimbo.
+describe('SpfStore.update e o appVersion', () => {
+    it('sem a opcao, o appVersion fica como estava; com ela, e carimbado', async () => {
+        window.electronAPI._files.set('/proj/a.spf', JSON.stringify({
+            metadata: { projectName: 'a', appVersion: '6.20.0' }, structure: { processors: [] },
+        }));
+        await SpfStore.update('/proj/a.spf', (s) => { s.processors.push({ name: 'x' }); });
+        expect(JSON.parse(window.electronAPI._files.get('/proj/a.spf')).metadata.appVersion).toBe('6.20.0');
+        await SpfStore.update('/proj/a.spf', () => {}, { appVersion: '7.1.0' });
+        const meta = JSON.parse(window.electronAPI._files.get('/proj/a.spf')).metadata;
+        expect(meta).toMatchObject({ projectName: 'a', appVersion: '7.1.0' });
+    });
+});
+
 describe('SpfStore.update dispatches aurora:spf-changed', () => {
     it('dispara o evento apos um write bem-sucedido', async () => {
         window.electronAPI._files.set('/proj/a.spf', JSON.stringify({

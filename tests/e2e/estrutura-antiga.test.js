@@ -166,7 +166,10 @@ describe('Aurora E2E — o projeto da estrutura antiga e convertido na abertura'
       expect(fs.existsSync(path.join(fixture.proc, sub)), sub).toBe(false);
     }
 
-    // O .spf aponta para os lugares novos e esqueceu os campos de pasta.
+    // O .spf diz que versao o converteu (#210), aponta para os lugares novos
+    // e esqueceu os campos de pasta.
+    const versao = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8')).version;
+    expect(JSON.parse(fs.readFileSync(fixture.spfPath, 'utf8')).metadata.appVersion).toBe(versao);
     const spf = JSON.parse(fs.readFileSync(fixture.spfPath, 'utf8')).structure;
     expect(JSON.stringify(spf)).not.toMatch(/Software|Hardware|Simulation/);
     expect(spf.processors[0]).toMatchObject({ name: 'fir', clk: 100, numClocks: 400 });

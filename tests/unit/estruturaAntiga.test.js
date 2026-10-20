@@ -204,6 +204,23 @@ describe('inspecionar e converter, no disco', () => {
     },
   };
 
+  // #218: num projeto ja convertido as tres pastas antigas nao existem, que e o
+  // caso normal. Lista-las fazia o main registrar tres ENOENT no terminal a
+  // cada abertura. Agora a existencia e conferida antes, sem listar.
+  it('projeto ja convertido: nao tenta listar pasta antiga que nao existe', async () => {
+    const d = discoFalso({ arquivos: { 'P/fir/fir.cmm': 'x', 'P/fir/fir/fir.v': 'v' } });
+    const listadas = [];
+    const listar = d.getFolderFiles;
+    d.getFolderFiles = async (dir) => { listadas.push(dir); return listar(dir); };
+    d.fileExists = async (p) => d.pastas.has(p) || d.arquivos.has(p);
+    expect(await inspecionar('P', ['fir'], d)).toEqual([]);
+    expect(listadas).toEqual([]);
+    // A pergunta que falha conta como pasta ausente, como a listagem que falha.
+    d.fileExists = async () => { throw new Error('canal caiu'); };
+    expect(await inspecionar('P', ['fir'], d)).toEqual([]);
+    expect(listadas).toEqual([]);
+  });
+
   it('acha so os processadores que ainda tem subpasta antiga', async () => {
     const d = discoFalso(PROJETO_ANTIGO);
     const achados = await inspecionar('P', ['fir', 'novo', 'sumido'], d);

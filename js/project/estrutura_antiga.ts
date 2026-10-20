@@ -231,10 +231,20 @@ export interface DiscoDaConversao {
   trashPath(alvo: string): Promise<{ success?: boolean; error?: string } | null>;
   /** A versao do app, para o .spf dizer quem o converteu (#210). */
   getAppVersion?(): Promise<string>;
+  /** Se o caminho existe; pergunta que nao deixa erro no log do main (#218). */
+  fileExists?(caminho: string): Promise<boolean>;
 }
 
 /** A listagem de uma pasta, ou `null` quando ela nao existe ou nao lista. */
 async function listar(disco: DiscoDaConversao, dir: string): Promise<EntradaDaPasta[] | null> {
+  // A pasta que nao existe e o caso normal (projeto ja convertido), e listar
+  // assim mesmo fazia o main registrar um ENOENT por pasta antiga a cada
+  // abertura (#218). Perguntar antes nao deixa rastro no log.
+  try {
+    if (disco.fileExists && !(await disco.fileExists(dir))) return null;
+  } catch {
+    return null;
+  }
   let entradas: unknown;
   try {
     entradas = await disco.getFolderFiles(dir);

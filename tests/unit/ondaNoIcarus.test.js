@@ -82,7 +82,13 @@ function makeFakeApi() {
         _arquivos: arquivos,
         joinPath: vi.fn(async (...partes) => {
             if (!partes.every((p) => typeof p === 'string')) throw new TypeError('join-path');
-            return partes.join('/').replace(/\/+/g, '/');
+            // Como o path.join do main: tambem resolve `..`.
+            const segs = [];
+            for (const s of partes.join('/').replace(/\/+/g, '/').split('/')) {
+                if (s === '..' && segs.length && segs.at(-1) !== '..') segs.pop();
+                else segs.push(s);
+            }
+            return segs.join('/');
         }),
         dirname: vi.fn(async (p) => p.split('/').slice(0, -1).join('/')),
         fileExists: vi.fn(async (p) => arquivos.has(p)),
@@ -234,6 +240,28 @@ describe('o preparo do Wave', () => {
         await chamar.preparar(mod, CONFIG, TOP, TEMP);
         expect(visiveis()).toContainEqual(['twave', 'terminal.wave.fopenMissing {"path":"C:/antiga/entrada.txt"}', 'warning']);
         expect(msgs().filter((m) => m.startsWith('terminal.wave.fopenMissing'))).toHaveLength(1);
+    });
+
+    // #212: o <proc>_tb.v que o yanc gera roda na pasta de saida e le
+    // ../input_0.txt, que existe a partir dela. A conferencia resolvia o
+    // relativo a partir da pasta do processo da AURORA e avisava em falso.
+    it('$fopen relativo resolve a partir da pasta onde a simulacao roda', async () => {
+        const tbGerado = `${PROJ}/sapho_all/sapho_all/sapho_all_tb.v`;
+        api._arquivos.set(tbGerado, 'module sapho_all_tb; integer f, g; initial begin '
+            + 'f = $fopen("../input_0.txt", "r"); g = $fopen("../input_1.txt", "r"); #9 $finish; end endmodule');
+        api._arquivos.set(`${PROJ}/sapho_all/input_0.txt`, '5');
+        const mod = await novoModulo({ ...CONFIG_SPF, testbenchFile: tbGerado, processors: [{ name: 'sapho_all' }] });
+        await chamar.preparar(mod, { ...CONFIG, testbenchFile: tbGerado }, 'sapho_all_tb', TEMP);
+        const avisos = msgs().filter((m) => m.startsWith('terminal.wave.fopenMissing'));
+        expect(avisos).toEqual([`terminal.wave.fopenMissing {"path":"${PROJ}/sapho_all/input_1.txt"}`]);
+    });
+
+    it('$fopen relativo de testbench do projeto vale tambem na pasta dele, de onde a AURORA copia', async () => {
+        api._arquivos.set(TB, 'module filtro_tb; integer f; initial begin f = $fopen("dados/x.txt", "r"); #9 $finish; end endmodule');
+        api._arquivos.set(`${PROJ}/Simulation/dados/x.txt`, '1');
+        const mod = await novoModulo();
+        await chamar.preparar(mod, CONFIG, TOP, TEMP);
+        expect(msgs().filter((m) => m.startsWith('terminal.wave.fopenMissing'))).toEqual([]);
     });
 
     it('sem a biblioteca HDL, e sem conseguir reler o testbench, segue', async () => {

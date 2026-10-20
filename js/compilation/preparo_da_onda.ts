@@ -12,6 +12,7 @@ import { electronAPI } from '../app/electron_api.js';
 import type { TerminalManager } from './processor_compiler.js';
 import { resolveWaveSelection, type DecisaoDaOnda } from './wave_signal_validator.js';
 import { extractFopenReads } from '../wave/fopen_paths.js';
+import { diretorioDaSimulacao } from './arquivos_da_simulacao.js';
 import { instrumentTestbenchSource } from '../wave/testbench_instrumenter.js';
 
 const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
@@ -22,6 +23,8 @@ type Terminal = Pick<TerminalManager, 'appendToTerminal'>;
 export interface ContextoDoPreparo {
     projectPath: string;
     componentsPath: string | null;
+    /** Os processadores do .spf, para saber de que pasta a simulacao roda. */
+    projectConfig?: { processors?: unknown[] } | null;
     terminalManager: Terminal;
     /** A selecao que o layout automatico do .gtkw e do Surfer le depois. */
     _validatedWaveSelection?: string[] | null;
@@ -133,14 +136,25 @@ export async function instrumentarTestbench(
  * avisar antes, a AURORA tem. So caminhos que resolvem para literal entram
  * (fopen_paths.ts), porque um aviso errado ensina a ignorar o certo. Aviso,
  * nunca bloqueio: o dono do testbench pode saber algo que nos nao sabemos.
+ *
+ * Um caminho relativo vale a partir da pasta onde a simulacao roda (a de
+ * diretorioDaSimulacao: a de saida para o <proc>_tb.v que o yanc gera, que le
+ * `../input_N.txt`), ou a partir da pasta do testbench, de onde a AURORA copia
+ * os dados antes de simular. Resolvido a partir da pasta do processo da
+ * AURORA, como era, o aviso saia em falso (#212).
  */
-async function conferirFopenDeLeitura(terminal: Terminal, testbenchPath: string): Promise<void> {
+async function conferirFopenDeLeitura(ctx: ContextoDoPreparo, testbenchPath: string): Promise<void> {
     try {
         const fonteTb = await electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
+        const pastaDoTb = await electronAPI.dirname(testbenchPath);
+        const pastaDaSimulacao = await diretorioDaSimulacao(
+            ctx.projectPath, ctx.projectConfig?.processors, testbenchPath, pastaDoTb);
         for (const { path: alvo } of extractFopenReads(fonteTb)) {
-            if (!(await electronAPI.fileExists(alvo))) {
-                terminal.appendToTerminal('twave', tr('terminal.wave.fopenMissing', { path: alvo }), 'warning');
-            }
+            const absoluto = /^([a-zA-Z]:)?[\\/]/.test(alvo);
+            const ondeRoda = absoluto ? alvo : await electronAPI.joinPath(pastaDaSimulacao, alvo);
+            if (await electronAPI.fileExists(ondeRoda)) continue;
+            if (!absoluto && await electronAPI.fileExists(await electronAPI.joinPath(pastaDoTb, alvo))) continue;
+            ctx.terminalManager.appendToTerminal('twave', tr('terminal.wave.fopenMissing', { path: ondeRoda }), 'warning');
         }
     } catch (_e) { /* conferencia e cortesia; sem ela a simulacao segue igual */ }
 }
@@ -181,6 +195,6 @@ export async function prepararWave(
 
     const fileSet = new Set(config.synthesizableFiles);
     fileSet.add(tbPath);
-    await conferirFopenDeLeitura(ctx.terminalManager, testbenchFile);
+    await conferirFopenDeLeitura(ctx, testbenchFile);
     return { fileSet, instrumentedTbPath: tbPath, decision };
 }

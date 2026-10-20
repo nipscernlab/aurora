@@ -262,6 +262,10 @@
 }
 
 .split-float-btn.hidden { display: none; }
+/* Com o Surfer na frente nao ha o que dividir (issue 189). O tab_manager.ts
+   marca o #monaco-editor com .com-surfer enquanto a aba ativa e a do Surfer;
+   o botao mora no painel que contem esse editor. */
+.split-pane:has(.com-surfer) > .split-float-btn { display: none; }
 
 .split-float-btn i { font-size: 16px; line-height: 1; }
 

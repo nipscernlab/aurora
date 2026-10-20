@@ -386,6 +386,23 @@ describe('fechar', () => {
     expect(TabManager.unsavedChanges.has(A)).toBe(true);
   });
 
+  // #189: o botao de dividir o editor continuava com o Surfer na frente. O
+  // contêiner do editor ganha uma marca enquanto a aba ativa e o Surfer, e o
+  // CSS esconde o botao do painel que a contem (css/editor, .com-surfer).
+  it('com o Surfer ativo, o contêiner do editor fica marcado; voltar ao texto tira a marca', async () => {
+    const editor = document.getElementById('monaco-editor');
+    await abrir(A);
+    expect(editor.classList.contains('com-surfer')).toBe(false);
+    TabManager.openSurferWave('C:/p/w.vcd', 'about:blank#w', 'wave:C:/p/w.vcd');
+    expect(editor.classList.contains('com-surfer')).toBe(true);
+    await TabManager.activateTab(A);
+    expect(editor.classList.contains('com-surfer')).toBe(false);
+    await TabManager.activateTab('C:/p/w.vcd');
+    expect(editor.classList.contains('com-surfer')).toBe(true);
+    await TabManager.closeTab('C:/p/w.vcd');
+    await TabManager.closeTab(A);
+  });
+
   it('PRISM e Surfer: fechar esquece a aba; o Surfer derruba o servidor; o visualizador sai', async () => {
     TabManager.openSurferWave('C:/p/w.vcd', 'about:blank#w', 'wave:C:/p/w.vcd');
     expect(document.querySelector('.surfer-viewer')).not.toBeNull();

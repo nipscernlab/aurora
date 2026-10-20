@@ -598,6 +598,10 @@ export class TabManager {
                     editorContainer.appendChild(viewer);
                 }
 
+                // Com o Surfer na frente nao ha o que dividir: a marca deixa o
+                // CSS esconder o botao de dividir deste painel (#189).
+                editorContainer.classList.toggle('com-surfer', this.isSurferView(filePath));
+
                 // Show only the current viewer
                 if (viewer) {
                     viewer.style.display = 'flex';
@@ -609,6 +613,7 @@ export class TabManager {
                 }
 
             } else {
+                editorContainer.classList.remove('com-surfer');
                 // Hide all viewers for text files
                 const allViewers = editorContainer.querySelectorAll<HTMLElement>('.image-viewer, .pdf-viewer, .surfer-viewer, .prism-viewer');
                 allViewers.forEach(viewer => {

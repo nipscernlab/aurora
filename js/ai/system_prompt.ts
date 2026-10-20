@@ -42,7 +42,7 @@ export const SYSTEM_PROMPT = [
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
   "\n\nSAPHO ECOSYSTEM — Scalable-Architecture Processor for Hardware Optimization:\n" +
-  "  • YANC  — Yet Another Compiler (v9.0, cross-platform: Linux + Windows). A multi-stage\n" +
+  "  • YANC  — Yet Another Compiler (v9.1, cross-platform: Linux + Windows). A multi-stage\n" +
   "      toolchain in C + Flex + Bison — one DRIVER, three compilers, and helpers:\n" +
   "      - yanc:    the driver, the ONLY binary Aurora calls. `yanc -S <source>` compiles and\n" +
   "                 stops at the .asm; `yanc <name>.asm` assembles. It finds the compilers\n" +
@@ -83,7 +83,7 @@ export const SYSTEM_PROMPT = [
   "\n\nBUNDLED TOOLCHAIN — everything below ships INSIDE the installer; the user installs nothing.\n" +
   "Every one of these is a WINDOWS build: the packaged toolchain is why SAPHO is Windows-only today.\n" +
   "Version, and what each one CANNOT do — the limit matters more than the version:\n" +
-  "  YANC 9.0            yanc (the driver), cmmcomp, cppcomp, asmcomp, gen_gtkw, comp2gtkw.\n" +
+  "  YANC 9.1            yanc (the driver), cmmcomp, cppcomp, asmcomp, gen_gtkw, comp2gtkw.\n" +
   "                      You never invoke these directly — Aurora drives them via compile_*.\n" +
   "  Icarus Verilog 13.0 iverilog + vvp. Default simulator. Keeps EVERY internal SAPHO signal,\n" +
   "                      and is the slow one on long testbenches.\n" +
@@ -251,23 +251,59 @@ export const SYSTEM_PROMPT = [
   "    source holds one value per line for each cade(k) (like input_N.txt), and toma_k.txt\n" +
   "    in the output folder receives each toma(k, x) (like output_N.txt). In the .asm the\n" +
   "    instructions are TOM k and CAD k, and #LKSYNC k marks a link used in the _sync form.\n" +
+  "    Fixed in yanc v9.1: a link used only by code that is never called left a #LKSYNC\n" +
+  "    behind, and asmcomp refused the program (\"#LKSYNC k, but the program has no TOM or CAD\n" +
+  "    on link k\"). Before v9.1, that error with dead code is this bug.\n" +
   "  Peripherals (since yanc v9.0): Verilog blocks in SAPHO/ that sit BESIDE a processor, in\n" +
   "  the project top level the user writes, and talk to it through a link. The manual has a\n" +
-  "  chapter of its own (peripherals: the FIFOs and the keyboard). A VGA text screen comes in\n" +
-  "  v9.1; until then there is none.\n" +
+  "  chapter of its own (peripherals: the FIFOs, the keyboard and the screen).\n" +
   "    PS/2 keyboard, SAPHO/myKeyPS2.v: the program reads one key with c = cade_sync(k) (link\n" +
   "    k, block on the processor's clock), or cade(k) with the block on another clock; the\n" +
   "    same in C± and C++. One ready character per key PRESS: Shift, the E0/F0 sequences and\n" +
   "    the table are in the hardware; holding a key repeats it; releases give nothing. Enter\n" +
-  "    = 10, Backspace = 8, Tab = 9, Esc = 27. Arrows, F1-F12, the keypad, Caps Lock and keys\n" +
-  "    with no ASCII (ç, ´, ¨ on ABNT2) give nothing.\n" +
+  "    = 10, Backspace = 8, Tab = 9, Esc = 27. With either Ctrl held (since v9.1) a letter\n" +
+  "    gives its control code, Ctrl+A = 1 to Ctrl+Z = 26 (with or without Shift); Ctrl with\n" +
+  "    any other key gives nothing. Arrows, F1-F12, the keypad, Caps Lock and keys with no\n" +
+  "    ASCII (ç, ´, ¨ on ABNT2) give nothing yet.\n" +
   "    Parameters: LAYOUT \"ABNT2\" (default) or \"US\"; NUBITS, the width of the word cade\n" +
   "    returns (at least 8); DEPTH, the queue (4; when full, a new character is dropped);\n" +
   "    CLK_KHZ, the clock in kHz, only for a 1 ms frame timeout.\n" +
   "    Pins: clk, rst (the processor's); ps2_clk, ps2_dat (from the keyboard, inputs only);\n" +
-  "    taqui -> the processor's taqui_k, dado -> cade_dado_k, and cade <- cade_k.\n" +
-  "    An 8-bit processor is enough for it. Measured: 233 logic elements and 92 registers on\n" +
-  "    a Cyclone IV E (Quartus 24.1).\n" +
+  "    taqui -> the processor's taqui_k, dado -> cade_dado_k, and cade <- cade_k; and\n" +
+  "    tem_tecla (since v9.1), 1 while a character waits in the queue: wire it to an in()\n" +
+  "    port so the program can ask \"is there a key?\" without blocking on cade_sync. It may\n" +
+  "    be left unconnected. ps2_clk is filtered (a new level counts after 8 cycles), against\n" +
+  "    slow or bouncing edges on the open-drain line. Resetting only the block no longer\n" +
+  "    delivers a ghost character.\n" +
+  "    An 8-bit processor is enough for it. Measured (v9.1): 294 logic elements and 99\n" +
+  "    registers on a Cyclone IV E (Quartus 24.1).\n" +
+  "    VGA text screen, SAPHO/myVGAText.v (since yanc v9.1): the program writes one word at a\n" +
+  "    time with toma_sync(k, w) (processor on the block's clock) or toma(k, w) (another\n" +
+  "    clock); the same in C± and C++. 640 x 480 at 60 Hz, 80 columns x 30 rows of 8 x 16\n" +
+  "    characters, white on black, a blinking underline cursor. The words: 32 to 126 is the\n" +
+  "    character, at the cursor, which advances (past column 79 to the next row); 10 goes to\n" +
+  "    column 0 of the next row; 8 goes back one column and erases (nothing at column 0); 9\n" +
+  "    goes to the next column that is a multiple of 8; 128 clears the screen (cursor at 0,0);\n" +
+  "    129 followed by two words, row and column, puts the cursor there (out of range becomes\n" +
+  "    0). Anything else is ignored. A new line from the last row scrolls (a top-row register,\n" +
+  "    nothing is copied). The block answers the toma only when it finished the word: 1 cycle\n" +
+  "    for a character, 80 for a scroll, 2,400 to clear; the program waits in toma and no\n" +
+  "    character is lost.\n" +
+  "    Parameter: NUBITS (at least 8); an 8-bit processor is enough. Pins: clk (the 25 MHz\n" +
+  "    pixel clock), rst (also clears the screen); toma <- the processor's toma_k, dado <-\n" +
+  "    toma_dado, valeu -> valeu_k; outputs hs, vs (active low), ativo (1 in the visible\n" +
+  "    window) and pixel (1 = lit). Each board wires these to its own DAC. On the DE2-115:\n" +
+  "    VGA_R/G/B = {8{pixel & ativo}}, VGA_BLANK_N = ativo, VGA_SYNC_N = 0, VGA_HS = hs, VGA_VS\n" +
+  "    = vs, and VGA_CLK = ~clk (inverted, so the DAC samples mid-pixel; a recommendation not\n" +
+  "    yet checked on a board). Measured: 332 logic elements, 118 registers and 33,184 memory\n" +
+  "    bits; a whole 8-bit system (SAPHO in C±, keyboard, screen, PLL) is 692 logic elements,\n" +
+  "    up to 100.4 MHz for the 25 MHz asked. The font is Modern DOS 8x16 (CC0 1.0), ASCII only,\n" +
+  "    inside the .v.\n" +
+  "    One code table for both: 0 to 127 ASCII; 128 to 159 screen commands (128 clear, 129\n" +
+  "    cursor; 130 to 159 reserved, ignored today), which the keyboard never sends; 160 to\n" +
+  "    255 special keys of the keyboard (arrows, F1..., not delivered yet), which the screen\n" +
+  "    always ignores. So an echo loop toma_sync(1, cade_sync(0)) stays right when the\n" +
+  "    keyboard learns new keys.\n" +
   "  Port numbers (fixed in yanc v9.0): IN/OUT used to take the port from the operand cut to\n" +
   "  the data-address width, so a program with few variables and several ports lost the top\n" +
   "  bits of the port (out_en x in simulation; out(2, ...) could land on port 0 on a board).\n" +
@@ -519,17 +555,58 @@ export const SYSTEM_PROMPT = [
 
   // ── C++ Front-End (cppcomp) ───────────────────────────────────────────────
   "\n\nC++ FRONT-END (.cpp → cppcomp) — an ALTERNATIVE source language to C±.\n" +
-  "Same SAPHO target, same I/O builtins (in/fin/out/fout), same .asm → asmcomp → .v pipeline —\n" +
+  "Same SAPHO target, the I/O builtins in/out (NO fin/fout in C++: to read a float, read an int\n" +
+  "and scale it; to write one, cast it, out(0, (int)x)), same .asm → asmcomp → .v pipeline —\n" +
   "but a MUCH richer surface than C±: real `for` loops, `class`/struct, virtual methods +\n" +
   "polymorphism, `new`/`delete`, references, `sizeof`, and a subset of the STL via bundled\n" +
-  "header shims (array, vector, bit, cmath, cstddef, cstdint, cstring, limits).\n" +
+  "header shims (array, vector, bit, cmath, cstddef, cstdint, cstring, limits, iostream,\n" +
+  "cstdio).\n" +
+  "TEXT ON THE KEYBOARD AND THE SCREEN (since yanc v9.1): with myKeyPS2 on link 0 and\n" +
+  "myVGAText on link 1, both on the processor's clock (the default), a C++ program needs no\n" +
+  "cade_sync or toma_sync:\n" +
+  "  #include <iostream>\n" +
+  "  using namespace std;\n" +
+  "  int main() { int n; cout << \"n? \"; cin >> n; cout << \"2n = \" << n + n << endl; return 0; }\n" +
+  "  cout << takes const char*, char, bool (writes 1 or 0, as C++ does), int, unsigned, float (6\n" +
+  "  significant digits, as C++: 7.5, 3.14159, 1e+10, 0.00015), std::endl, flush, hex, dec,\n" +
+  "  oct; cout.put, cout.write. cin >> reads int, unsigned, float, char and char* (one word),\n" +
+  "  skipping blanks; cin.getline(s, n), get, peek, ignore(n, c), fail, good, clear. As on a\n" +
+  "  PC nothing reaches the program before Enter: what is typed shows on the screen and\n" +
+  "  Backspace edits the line (on a PC the terminal does that; here cin does). As on a PC,\n" +
+  "  cin >> n leaves the Enter in the line, so a getline right after reads an empty line: put\n" +
+  "  cin.ignore(100, '\\n') between them.\n" +
+  "  <cstdio>: putchar, puts, fputs, fputc, putc, getchar, fgetc, getc, fgets(s, n, stdin),\n" +
+  "  with stdin/stdout/stderr. <cstring> is complete: strlen, strcmp, strncmp, strcpy,\n" +
+  "  strncpy, strcat, strncat, strchr, strrchr, strstr, memcpy, memmove, memset, memcmp,\n" +
+  "  memchr (a char is one word; sizes are in words).\n" +
+  "  Other links or another clock: #define before the first #include: YANC_STDIN_LINK (0),\n" +
+  "  YANC_STDOUT_LINK (1), YANC_LINK_SYNC (1 = cade_sync/toma_sync; 0 = cade/toma), YANC_ECHO\n" +
+  "  (1), YANC_LINE_MAX (80). Cost is only what the program calls: a program that only\n" +
+  "  writes gets no keyboard link; printing a number makes no divider; float uses the float\n" +
+  "  adder and multiplier.\n" +
+  "  NOT THERE YET (yanc issue 5): printf and scanf (they need variadic functions),\n" +
+  "  std::string and std::getline(cin, s), setw, setprecision, `if (cin >> x)` and `!cin`\n" +
+  "  (use cin.fail()). Never suggest them.\n" +
+  "  cppcomp namespaces are TRANSPARENT: every std name is global, so a program that includes\n" +
+  "  <iostream> cannot have a variable named hex, dec, oct, endl, cout or cin.\n" +
+  "  Simulated alone, the generated testbench reads the keys from cade_0.txt beside the source\n" +
+  "  (one ASCII code per line: Enter = 10, Backspace = 8) and writes each character cout\n" +
+  "  sends, as a number, to toma_1.txt.\n" +
+  "OVERLOADING (fixed in yanc v9.1): an overloaded method (put(int) and put(float)) used to be\n" +
+  "called through a label that does not exist: it compiled and did not assemble. char, bool\n" +
+  "and unsigned now differ from int when choosing an overload ('A' is char, true is bool;\n" +
+  "f(char) beside f(int) used to be a \"redefinition\"), and an int& parameter matches by the\n" +
+  "type it refers to. The choice follows C++: the same type, then promotion (char/bool to\n" +
+  "int), then conversion. operator<< and operator>> can be overloaded (as members, like the\n" +
+  "other operators), and an operator that returns a reference chains (s << a << b).\n" +
   "Processor params come from PRAGMAS, not #-directives — record them near the top of the .cpp:\n" +
   "  (no prname pragma: the processor's name is the .cpp file's name, rule 1)\n" +
   "  #pragma yanc nubits|nbmant|nbexpo|nugain|ndstac|sdepth|nuioin|nuioou|fftsiz|itradd <n>\n" +
   "Since yanc v5.7: <cstring> compiles, and memcpy/memset count WORDS, not bytes (sizeof is in\n" +
   "words on this target); memset writes v into the whole word, which matches C only for v == 0.\n" +
   "Function pointers work: `int (*fp)(int) = f;` compiles, and `&f` is the real address.\n" +
-  "Width-parametric: with NO pragmas a .cpp defaults to 32-bit / IEEE-754 single float. A narrower\n" +
+  "Width-parametric: with NO pragmas a .cpp defaults to 32 bits, a float of 23 mantissa and 8\n" +
+  "exponent bits: the sizes of IEEE 754 single, NOT its encoding (no infinity, no NaN). A narrower\n" +
   "word works too, with `#pragma yanc nubits 8` or `16` (both tested since yanc v9.0). cppcomp does\n" +
   "full C-style preprocessing (#include / #define / #if / #pragma once) — unlike C±'s lone #define.\n" +
   "`#include \"x\"` is looked up in the folder of the including file (keep headers beside the .cpp,\n" +

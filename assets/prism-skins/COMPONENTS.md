@@ -26,7 +26,8 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 | `mem_instr` | `processor.v` | 3 | hand-crafted (`mem_instr.svg`) | →clk →addr ←data |
 | `myDCFIFO` | `myDCFIFO.v` | 12 | hand-crafted (`myDCFIFO.svg`) | →aclr →wrclk →data →wrreq ←wrfull ←wrusedw →rdclk →rdreq ←rdempty ←rdalmost_empty ←q ←rdusedw |
 | `myFIFO` | `myFIFO.v` | 10 | hand-crafted (`myFIFO.svg`) | →clk →data →rdreq →sclr →wrreq ←almost_empty ←empty ←full ←q ←usedw |
-| `myKeyPS2` | `myKeyPS2.v` | 7 | hand-crafted (`myKeyPS2.svg`) | →clk →rst →ps2_clk →ps2_dat ←taqui ←dado →cade |
+| `myKeyPS2` | `myKeyPS2.v` | 8 | hand-crafted (`myKeyPS2.svg`) | →clk →rst →ps2_clk →ps2_dat ←taqui ←dado →cade ←tem_tecla |
+| `myVGAText` | `myVGAText.v` | 9 | hand-crafted (`myVGAText.svg`) | →clk →rst →toma →dado ←valeu ←hs ←vs ←ativo ←pixel |
 | `norm_mux` | `ula.v` | 8 | hand-crafted (`norm_mux.svg`) | →op →fadd →fmlt →fdiv →i2f →i2fm →frot ←out |
 | `pc` | `core.v` | 5 | hand-crafted (`pc.svg`) | →clk →rst →load →data ←addr |
 | `prefetch` | `core.v` | 16 | hand-crafted (`prefetch.svg`) | →rst →tom_go →cad_go →self_addr ←pc_self →pc_instr ←opcode ←operand →mem_instr ←instr_addr ←pc_l →is_um ←isp_push ←isp_pop →itr ←cheguei |

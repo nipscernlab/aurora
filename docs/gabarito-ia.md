@@ -4,7 +4,7 @@ Perguntas para fazer à IA no painel da Aurora depois de cada versão, e o que a
 
 Como usar: abra um projeto de teste vazio, faça as perguntas em conversas novas, e marque o que falhou. Uma falha quase sempre aponta uma frase errada ou ausente no prompt, nas descrições das ferramentas (`main/ai/tools.js`) ou no `resources/sapho_rules.json`. Corrija lá e prenda a correção com um caso em `tests/unit/ai_system_prompt.test.js`.
 
-Os fatos abaixo valem para o yanc v9.0. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
+Os fatos abaixo valem para o yanc v9.1. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
 
 ## Perguntas
 
@@ -80,12 +80,20 @@ Certo: antes do v8.0 o C± convertia o float para inteiro truncando, então todo
 Errado: mandar escrever `while (erro != 0.0)` ou `while (erro > 1e-6)` como contorno, ou dizer que em C++ toda condição float é verdadeira (era assim antes do v8.0).
 
 **20. "Quero ler um teclado PS/2 no meu processador."**
-Certo: usa o bloco `SAPHO/myKeyPS2.v` ao lado do processador, no top-level, e lê cada tecla com `c = cade_sync(k)` (ou `cade(k)` com o bloco em outro clock). Diz que ele entrega um caractere pronto por tecla apertada (Shift e a tabela ficam no hardware; Enter vira 10), com `LAYOUT` "ABNT2" por padrão, e mostra a ligação: `ps2_clk` e `ps2_dat` do teclado, `taqui -> taqui_k`, `dado -> cade_dado_k`, `cade <- cade_k`. Um processador de 8 bits basta.
+Certo: usa o bloco `SAPHO/myKeyPS2.v` ao lado do processador, no top-level, e lê cada tecla com `c = cade_sync(k)` (ou `cade(k)` com o bloco em outro clock). Diz que ele entrega um caractere pronto por tecla apertada (Shift e a tabela ficam no hardware; Enter vira 10), com `LAYOUT` "ABNT2" por padrão, e mostra a ligação: `ps2_clk` e `ps2_dat` do teclado, `taqui -> taqui_k`, `dado -> cade_dado_k`, `cade <- cade_k`. Um processador de 8 bits basta. Desde o v9.1, sabe que Ctrl com uma letra dá o código de controle (Ctrl+A = 1) e que a saída `tem_tecla`, ligada numa porta de `in()`, deixa o programa perguntar se há tecla sem ficar preso no `cade_sync`.
 Errado: decodificar o scancode no programa, ler o teclado por `in()`, ou prometer setas, F1-F12 e `ç`, que o bloco não entrega.
 
 **21. "Meu processador só usa inteiros. Configure 16 bits."**
 Certo: escreve `#NUBITS 16` e não precisa de `#NBMANT` nem `#NBEXPO`, porque desde o v9.0 a regra `NUBITS = NBMANT + NBEXPO + 1` só vale para programa com float.
 Errado: exigir mantissa e expoente que somem 15, ou dizer que sem eles o asmcomp recusa (era assim até o v8.0).
 
-**22. Forma, em qualquer resposta acima**
+**22. "Quero escrever texto num monitor VGA."**
+Certo: usa o bloco `SAPHO/myVGAText.v` ao lado do processador e escreve cada caractere com `toma_sync(k, c)` (ou `toma(k, c)` em outro clock). Diz que é uma tela de 80 x 30 caracteres, que 10 muda de linha, 8 apaga, 128 limpa e 129 seguido de linha e coluna põe o cursor, e que o clock do bloco é o de pixel, 25 MHz. Mostra a ligação (`toma <- toma_k`, `dado <- toma_dado`, `valeu -> valeu_k`, e `hs`, `vs`, `ativo` e `pixel` para o conversor da placa) e, na DE2-115, `VGA_CLK = ~clk`, avisando que isso ainda não foi conferido em placa.
+Errado: gerar o sincronismo VGA no programa, ou dizer que não há bloco de vídeo (era assim até o v9.0).
+
+**23. "Como leio um número do teclado e escrevo na tela em C++?"**
+Certo: `#include <iostream>`, `cin >> n` e `cout << ...`, com o teclado no link 0 e a tela no link 1, no clock do processador; sem `cade_sync` nem `toma_sync` no programa. Se for ler uma linha depois de um número, lembra do `cin.ignore(100, '\n')`. Outros links vão por `#define YANC_STDIN_LINK` e `YANC_STDOUT_LINK` antes do primeiro `#include`.
+Errado: `printf`, `scanf`, `std::string` ou `std::getline(cin, s)`, que ainda não existem, decodificar scancode, ou dar a uma variável o nome `hex` ou `cout`.
+
+**24. Forma, em qualquer resposta acima**
 Responde em português quando a pergunta é em português; código sempre em bloco com a linguagem marcada; referências a arquivo no formato `arquivo.cmm:linha`; sem travessão, sem emoji, sem "ótima pergunta".

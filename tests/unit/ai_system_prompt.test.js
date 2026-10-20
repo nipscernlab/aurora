@@ -151,12 +151,12 @@ describe('as pilhas ficam com o compilador', () => {
 
     it('os padroes citados sao os do yanc que o instalador baixa', () => {
         // Numeros de Compilers/ASMComp/Sources/eval.c, iguais do v5.6 ao
-        // v9.0 (conferidos na tag v9.0: o v8.0 mexeu ali na sequencia da
+        // v9.1 (conferidos na tag v9.1: o v8.0 mexeu ali na sequencia da
         // divisao, o v9.0 em quando a regra do float vale). Quando o YANC_TAG
         // mudar, este caso cai de proposito: reconfira os padroes e o que uma
         // pilha omitida vale, e atualize o prompt, o docs/gabarito-ia.md e
         // este teste juntos.
-        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v9.0');
+        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v9.1');
         expect(SYSTEM_PROMPT).toContain('NUBITS 32, NBMANT 23, NBEXPO 8');
         expect(SYSTEM_PROMPT).toContain('NUGAIN 128, FFTSIZ 3');
         // v5.7: omitida, a profundidade sai do programa (pico + 1, minimo 2).
@@ -202,6 +202,52 @@ describe('o yanc v5.7', () => {
 
 // O que o yanc v8.0 mudou no que o modelo deve dizer (yanc/CHANGELOG, v8.0, e o
 // texto que o repo yanc mandou para a AURORA em 18/10/2026).
+// O que o yanc v9.1 mudou no que o modelo deve dizer (yanc/CHANGELOG, v9.1, e o
+// texto que o repo yanc mandou para a AURORA em 20/10/2026).
+describe('o yanc v9.1', () => {
+    it('a tela VGA: como escrever, as palavras, pinos e a ligacao na DE2-115', () => {
+        expect(SYSTEM_PROMPT).toContain('SAPHO/myVGAText.v');
+        expect(SYSTEM_PROMPT).toContain('toma_sync(k, w)');
+        expect(SYSTEM_PROMPT).toContain('80 columns x 30 rows');
+        expect(SYSTEM_PROMPT).toMatch(/128 clears the screen/);
+        expect(SYSTEM_PROMPT).toMatch(/129\s+followed by two words, row and column/);
+        expect(SYSTEM_PROMPT).toContain('VGA_CLK = ~clk');
+        expect(SYSTEM_PROMPT).toMatch(/not\s+yet checked on a board/);
+    });
+
+    it('a tabela de codigos comum e o teclado revisado', () => {
+        expect(SYSTEM_PROMPT).toMatch(/128 to 159 screen commands/);
+        expect(SYSTEM_PROMPT).toMatch(/160 to\s+255 special keys/);
+        expect(SYSTEM_PROMPT).toContain('Ctrl+A = 1 to Ctrl+Z = 26');
+        expect(SYSTEM_PROMPT).toContain('tem_tecla');
+        expect(SYSTEM_PROMPT).toMatch(/294 logic elements and 99\s+registers/);
+        expect(SYSTEM_PROMPT).not.toContain('233 logic elements');
+    });
+
+    it('C++: iostream, cstdio e cstring no teclado e na tela, e o que ainda nao existe', () => {
+        expect(SYSTEM_PROMPT).toContain('cin >> n; cout << "2n = " << n + n << endl;');
+        expect(SYSTEM_PROMPT).toContain("cin.ignore(100, '\\n')");
+        expect(SYSTEM_PROMPT).toContain('YANC_STDIN_LINK (0)');
+        expect(SYSTEM_PROMPT).toMatch(/printf and scanf \(they need variadic functions\)/);
+        expect(SYSTEM_PROMPT).toMatch(/cannot have a variable named hex, dec, oct, endl, cout or cin/);
+        expect(SYSTEM_PROMPT).toMatch(/limits, iostream,\s+cstdio/);
+    });
+
+    it('C++: a sobrecarga corrigida, e a correcao do #LKSYNC', () => {
+        expect(SYSTEM_PROMPT).toContain('OVERLOADING (fixed in yanc v9.1)');
+        expect(SYSTEM_PROMPT).toMatch(/operator<< and operator>> can be overloaded/);
+        expect(SYSTEM_PROMPT).toContain('Fixed in yanc v9.1: a link used only by code that is never called');
+    });
+
+    // Dois erros antigos do bloco de C++, achados pelo yanc ao conferir.
+    it('o C++ nao tem fin/fout, e o float tem os tamanhos do IEEE 754, nao a codificacao', () => {
+        expect(SYSTEM_PROMPT).not.toContain('in/fin/out/fout');
+        expect(SYSTEM_PROMPT).toContain('NO fin/fout in C++');
+        expect(SYSTEM_PROMPT).not.toContain('IEEE-754 single float');
+        expect(SYSTEM_PROMPT).toMatch(/NOT its encoding \(no infinity, no NaN\)/);
+    });
+});
+
 // O que o yanc v9.0 mudou no que o modelo deve dizer (yanc/CHANGELOG, v9.0, e o
 // texto que o repo yanc mandou para a AURORA em 19/10/2026).
 describe('o yanc v9.0', () => {
@@ -222,7 +268,8 @@ describe('o yanc v9.0', () => {
         expect(SYSTEM_PROMPT).toContain('LAYOUT "ABNT2" (default) or "US"');
         expect(SYSTEM_PROMPT).toContain("taqui -> the processor's taqui_k, dado -> cade_dado_k, and cade <- cade_k");
         expect(SYSTEM_PROMPT).toContain('An 8-bit processor is enough for it');
-        expect(SYSTEM_PROMPT).toMatch(/VGA text screen comes in\s+v9\.1/);
+        // v9.1: a tela existe, e a frase de que ela viria saiu.
+        expect(SYSTEM_PROMPT).not.toMatch(/until then there is none/);
     });
 
     it('as duas correcoes: o numero de porta cortado e o F_SCL', () => {

@@ -43,7 +43,11 @@
  *            teclado PS/2 (myKeyPS2.v), lido com cade_sync(k); programa sem
  *            float dispensa #NBMANT/#NBEXPO; o numero de porta de IN/OUT
  *            deixa de ser cortado na largura do endereco; F_SCL corrigido.
- *            SAPHO/ e asmcomp tem de vir da mesma release.)
+ *            SAPHO/ e asmcomp tem de vir da mesma release.
+ *            v9.1 traz a tela de texto VGA (myVGAText.v, escrita com
+ *            toma_sync), o teclado revisado (Ctrl, tem_tecla), uma tabela de
+ *            codigos comum aos dois, e no C++ os headers <iostream>,
+ *            <cstdio> e um <cstring> completo sobre o teclado e a tela.)
  *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
@@ -88,7 +92,7 @@ const { verifyChecksum } = require('./lib/checksum');
 // release). null = compute + log only (no enforcement yet).
 const EXPECTED_SHA256 = null;
 
-const YANC_TAG      = 'v9.0';
+const YANC_TAG      = 'v9.1';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';

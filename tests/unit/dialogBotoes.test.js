@@ -122,4 +122,26 @@ describe('dialogo: o que aparece quando o botao vem sem label', () => {
     document.querySelector('.confirm-btn[data-action="voltar"]').click();
     expect(await p).toBe('voltar');
   });
+
+  it('clique no fundo fecha como cancel', async () => {
+    const p = showDialog({ title: 't', message: 'm', buttons: [{ label: 'Ok', action: 'ok', type: 'save' }] });
+    const fundo = document.querySelector('.confirm-modal');
+    fundo.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(await p).toBe('cancel');
+  });
+
+  // #209: a pergunta da conversao fechava num clique fora e contava como
+  // "Agora nao". Com fecharPorFora: false, so um botao (ou o Esc) responde.
+  it('com fecharPorFora: false, o clique no fundo nao responde; o botao sim', async () => {
+    let respondido = false;
+    const p = showDialog({
+      title: 't', message: 'm', fecharPorFora: false,
+      buttons: [{ label: 'Converter', action: 'converter', type: 'save' }],
+    }).then((r) => { respondido = true; return r; });
+    document.querySelector('.confirm-modal').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(respondido).toBe(false);
+    document.querySelector('.confirm-btn[data-action="converter"]').click();
+    expect(await p).toBe('converter');
+  });
 });

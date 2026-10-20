@@ -5,9 +5,11 @@
  * A regra (decidida em 13/10/2026): converter ao abrir, pedindo confirmacao
  * uma vez por projeto antes de mover arquivos da pessoa, e mostrar depois o
  * que foi movido. "Uma vez por projeto" quer dizer uma pergunta para o
- * projeto inteiro, e nao uma por arquivo ou por processador; quem disser
- * "agora nao" nao e perguntado de novo nesta sessao, e o projeto segue sem
- * compilar ate ser convertido.
+ * projeto inteiro, e nao uma por arquivo ou por processador. Quem disser
+ * "agora nao" e avisado de que o projeto nao compila ate ser convertido, e a
+ * pergunta volta quando o projeto abrir de novo. Ate 20/10/2026 a recusa valia
+ * ate fechar a AURORA, e um clique fora da pergunta contava como recusa: o
+ * projeto ficava travado, sem aviso (#209).
  *
  * O que vai para onde, e a troca dos caminhos do .spf, moram em
  * estrutura_antiga.ts; aqui so a conversa e a gravacao.
@@ -18,6 +20,7 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
+import { showCardNotification } from '../ui/notification.js';
 import { SpfStore } from './spf_store.js';
 import { setAvailableProcessors } from './processor_list.js';
 import { renomearProcessador } from './processadores_do_spf.js';
@@ -35,13 +38,6 @@ export type Renomeador = (de: string, para: string) => Promise<{ success?: boole
 
 const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
-/** Os projetos que ja recusaram nesta sessao, pela chave do .spf. */
-const recusados = new Set<string>();
-
-/** Para o teste: esquece as recusas. */
-export function esquecerRecusas(): void {
-  recusados.clear();
-}
 
 /** Texto para dentro do HTML do dialogo, que entra por innerHTML. */
 function escapar(texto: string): string {
@@ -98,8 +94,6 @@ export async function oferecerConversao(
   renomear: Renomeador = renomearProcessador as Renomeador,
 ): Promise<ResultadoNaAbertura | null> {
   try {
-    const chave = spfPath.replace(/\\/g, '/').toLowerCase();
-    if (recusados.has(chave)) return null;
     const antigos = await inspecionar(projeto, nomesDosProcessadores(processors), disco);
     if (antigos.length === 0) return null;
 
@@ -107,13 +101,18 @@ export async function oferecerConversao(
       title: tr('dialog.estruturaAntiga.title'),
       message: mensagemComLista(tr('dialog.estruturaAntiga.message'), antigos.map((p) => p.nome)),
       variant: 'warning',
+      // Um clique fora sem querer valia como "Agora nao" (#209).
+      fecharPorFora: false,
       buttons: [
         { label: tr('dialog.estruturaAntiga.depois'), action: 'depois', type: 'cancel' },
         { label: tr('dialog.estruturaAntiga.converter'), action: 'converter', type: 'primary' },
       ],
     });
     if (escolha !== 'converter') {
-      recusados.add(chave);
+      // "Agora nao" ou Esc. O projeto nao compila assim, e isso tem de ser
+      // dito, nao descoberto olhando as pastas. Reabrir o projeto pergunta de
+      // novo: a recusa ja nao vale ate fechar a AURORA, como valia (#209).
+      showCardNotification(tr('dialog.estruturaAntiga.adiada'), 'warning', 12000, 'AURORA');
       return null;
     }
 

@@ -488,6 +488,7 @@
       "semPrname": "{{arquivo}}: a linha do nome ({{nome}}) saiu. O módulo Verilog agora tem o nome do arquivo.",
       "nomeInvalido": "O nome \"{{nome}}\" não serve mais de processador (vira módulo Verilog: só letras ASCII, dígitos e _). Renomeie o processador.",
       "pastaFicou": "{{pasta}} não ficou vazia e continua lá.",
+      "adiada": "Conversão adiada. O projeto não compila até ser convertido. Para converter, abra o projeto de novo.",
       "descartados": "{{n}} arquivo(s) gerado(s) pelo yanc antigo foram para a Lixeira. Compile o projeto antes de usar o .v fora da AURORA: a compilação os gera de novo.",
       "renomear": "Antes do yanc v7.1 o módulo Verilog tinha o nome da linha #PRNAME; agora tem o nome do arquivo. Para o top-level do projeto continuar achando o módulo, ou para o nome servir de módulo, a AURORA pode renomear estes processadores (a pasta, o fonte e a pasta de saída):",
       "renomearBotao": "Renomear",

@@ -45,6 +45,12 @@ export interface OpcoesDeDialogo {
   /** Chave da tabela de ajuda (js/ui/help_link.ts). */
   ajuda?: string;
   lista?: string[];
+  /**
+   * false: o clique no fundo nao fecha. Para a pergunta cuja resposta muda o
+   * projeto, onde um clique sem querer nao pode valer como "nao" (#209). O Esc
+   * continua respondendo cancel, porque e uma tecla de proposito.
+   */
+  fecharPorFora?: boolean;
 }
 
 const VARIANT_ICONS: Record<string, string> = {
@@ -77,7 +83,7 @@ function inferVariant(buttons: any[]): string {
  *   quebrava em duas colunas espremidas e cortava o texto de cada um no meio,
  *   que foi o que apareceu no seletor de ponto de restauracao.
  */
-export function showDialog({ title, message, buttons, variant, ajuda, lista }: OpcoesDeDialogo): Promise<string> {
+export function showDialog({ title, message, buttons, variant, ajuda, lista, fecharPorFora = true }: OpcoesDeDialogo): Promise<string> {
     return new Promise((resolve) => {
         // Replace any existing dialog
         document.querySelectorAll('.confirm-modal').forEach(el => el.remove());
@@ -191,7 +197,7 @@ export function showDialog({ title, message, buttons, variant, ajuda, lista }: O
                 return;
             }
             // Click on backdrop
-            if (e.target === modal) {
+            if (e.target === modal && fecharPorFora) {
                 cleanup('cancel');
             }
         });

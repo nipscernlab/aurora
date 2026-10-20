@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 //
 // A conversa da conversao da estrutura antiga na abertura do projeto
-// (js/project/conversao_na_abertura.ts): pergunta uma vez por projeto, converte
+// (js/project/conversao_na_abertura.ts): pergunta uma vez por abertura, converte
 // so com o sim, grava o .spf com os caminhos novos e mostra o que mudou.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -23,9 +23,13 @@ vi.mock('../../js/project/processor_list.js', () => ({
 }));
 vi.mock('../../js/project/processadores_do_spf.js', () => ({ renomearProcessador: vi.fn() }));
 vi.mock('../../js/app/electron_api.js', () => ({ electronAPI: {} }));
+const avisos = vi.hoisted(() => []);
+vi.mock('../../js/ui/notification.js', () => ({
+  showCardNotification: vi.fn((m, tipo) => { avisos.push([m, tipo]); }),
+}));
 
 import {
-  esquecerRecusas, linhasDoRelatorio, mensagemComLista, oferecerConversao,
+  linhasDoRelatorio, mensagemComLista, oferecerConversao,
 } from '../../js/project/conversao_na_abertura.ts';
 
 /** Um disco minimo: so Software/ do processador fir, com o fonte. */
@@ -55,7 +59,6 @@ beforeEach(() => {
   dialogos.respostas.length = 0;
   spf.estrutura = { synthesizableFiles: [{ name: 'fir.v', path: 'P/fir/Software/fir.cmm' }], processors: [{ name: 'fir' }] };
   spf.escritas = 0;
-  esquecerRecusas();
   lista.semeada = null;
   delete window.t;
 });
@@ -81,14 +84,27 @@ describe('oferecerConversao', () => {
     expect(dialogos.pedidos[1].message).toContain('fir/Software/fir.cmm → fir/fir.cmm');
   });
 
-  it('com o nao: nada muda, e a pergunta nao volta nesta sessao', async () => {
+  // #209: a pergunta fechava num clique fora e contava como "Agora nao", sem
+  // aviso, e a recusa valia ate fechar a AURORA: reabrir o projeto nao
+  // perguntava de novo, e o projeto seguia sem compilar.
+  it('a pergunta nao fecha por clique fora', async () => {
     const d = disco({ 'P/fir/Software/fir.cmm': '#NUBITS 16\n' });
     dialogos.respostas.push('depois');
-    expect(await oferecerConversao('P/p.spf', 'P', ['fir'], d)).toBeNull();
+    await oferecerConversao('P/p.spf', 'P', ['fir'], d);
+    expect(dialogos.pedidos[0].fecharPorFora).toBe(false);
+  });
+
+  it('com o nao (ou o Esc): nada muda, avisa que o projeto nao compila, e reabrir pergunta de novo', async () => {
+    const d = disco({ 'P/fir/Software/fir.cmm': '#NUBITS 16\n' });
+    for (const resposta of ['depois', 'cancel']) {
+      avisos.length = 0;
+      dialogos.respostas.push(resposta);
+      expect(await oferecerConversao('P/p.spf', 'P', ['fir'], d)).toBeNull();
+      expect(avisos).toEqual([['dialog.estruturaAntiga.adiada', 'warning']]);
+    }
     expect(d.mapa.has('P/fir/Software/fir.cmm')).toBe(true);
     expect(spf.escritas).toBe(0);
-    expect(await oferecerConversao('P\\P.SPF', 'P', ['fir'], d)).toBeNull();
-    expect(dialogos.pedidos).toHaveLength(1);
+    expect(dialogos.pedidos).toHaveLength(2);
   });
 
   it('nada movido: nao grava o .spf; aviso no relatorio quando o nome nao serve', async () => {
@@ -123,7 +139,6 @@ describe('oferecerConversao', () => {
     expect((await oferecerConversao('P/p.spf', 'P', ['fir', 'a-b'], d, renomear)).renomeados).toEqual([]);
     expect(renomear).not.toHaveBeenCalled();
 
-    esquecerRecusas();
     const d2 = disco({ 'P/fir/Software/fir.cmm': '#PRNAME filtro\n', 'P/a-b/Software/a-b.cmm': 'x' });
     dialogos.respostas.push('converter', 'renomear');
     const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});

@@ -7,7 +7,7 @@
  * ai_assistant_manager.js (TODO 13.3), que so poe o resultado na tela.
  */
 
-import { formatPlanLabel } from './ai_metadata.js';
+import { comandoDeLogin, formatPlanLabel } from './ai_metadata.js';
 import type { EntradaDeProvedor, MetaDaAssinatura, MetaDoProvedor } from './ai_metadata.js';
 import { escapeHtml } from './chat_render.js';
 
@@ -18,6 +18,8 @@ export interface EstadoDaCli {
   authed?: boolean;
   plan?: string;
   version?: string;
+  /** O executavel que o main achou, quando ha um. */
+  path?: string;
 }
 
 export interface LinhaDeEstado { state: 'on' | 'off' | 'warn'; html: string }
@@ -32,6 +34,10 @@ export function estadoDaAssinatura(
   let icon = 'ph-x-circle';
   let title: string;
   let detail = '';
+  // O detalhe vai escapado. O comando de login e a excecao: vai num <code>, e
+  // por isso chega aqui ja em HTML, com o comando escapado dentro. Antes o
+  // <code> ia no texto e aparecia escrito na tela.
+  let detailHtml = '';
 
   if (!s) {
     title = `Checking ${sm.cliName}…`;
@@ -42,7 +48,13 @@ export function estadoDaAssinatura(
   } else if (!s.authed) {
     state = 'warn'; icon = 'ph-warning-circle';
     title = 'Not signed in';
-    detail = `Run <code>${sm.loginCmd}</code> in a terminal, then re-check.`;
+    // #190: sem a CLI no disco, a primeira mensagem a baixa e devolve o
+    // comando de login dela; com a CLI, o comando leva o caminho do executavel.
+    if (!s.installed && sm.loginBaixaACli) {
+      detail = `Send a message: Aurora downloads ${sm.cliName} first, then shows the sign-in command.`;
+    } else {
+      detailHtml = `Run <code>${escapeHtml(comandoDeLogin(sm, s.path))}</code> in a terminal, then re-check.`;
+    }
   } else if (!s.installed) {
     // B12: signed in and downloadable, ready to use; the ~230 MB binary is
     // fetched on the first message (then this flips to the version detail).
@@ -68,7 +80,7 @@ export function estadoDaAssinatura(
           <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
         </button>
       </div>
-      ${detail ? `<p class="ai-cc-detail">${escapeHtml(detail)}</p>` : ''}`,
+      ${detailHtml || detail ? `<p class="ai-cc-detail">${detailHtml || escapeHtml(detail)}</p>` : ''}`,
   };
 }
 

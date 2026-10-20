@@ -12,6 +12,7 @@
  */
 
 import { escaparHtml } from './anexos_do_chat.js';
+import { comandoDeLogin } from './ai_metadata.js';
 
 /** Um item da fila deste lado: texto e anexos, como a pessoa mandou. */
 export interface ItemDaFila { text: string; atts?: unknown[] }
@@ -51,10 +52,13 @@ export function desenharFila(
 }
 
 /** O estado da CLI de assinatura, como o main o responde. */
-export interface EstadoDaAssinatura { installed?: boolean; downloadable?: boolean; authed?: boolean }
+export interface EstadoDaAssinatura { installed?: boolean; downloadable?: boolean; authed?: boolean; path?: string }
 
 /** O que o painel sabe de cada assinatura (ai_metadata.SUB_META). */
-export interface DadosDaAssinatura { cliName: string; loginCmd: string; notInstalled: string; installHint: string }
+export interface DadosDaAssinatura {
+  cliName: string; loginCmd: string; loginArgs: string; loginBaixaACli: boolean;
+  notInstalled: string; installHint: string;
+}
 
 /**
  * O aviso quando a assinatura nao pode atender, ou null quando pode.
@@ -65,10 +69,13 @@ export interface DadosDaAssinatura { cliName: string; loginCmd: string; notInsta
 export function avisoDeAssinatura(s: EstadoDaAssinatura | null | undefined, sm: DadosDaAssinatura): string | null {
   const pronta = !!(s && s.installed && s.authed);
   const vaiBuscar = !!(s && !s.installed && s.downloadable && s.authed);
-  if (pronta || vaiBuscar) return null;
+  // #190: sem login e sem a CLI, o turno baixa a CLI e devolve o comando de
+  // login com o caminho dela, o unico executavel de quem nao tem Node.
+  const baixaParaLogar = !!(s && !s.installed && s.downloadable && !s.authed && sm.loginBaixaACli);
+  if (pronta || vaiBuscar || baixaParaLogar) return null;
   const semLogin = !!(s && (s.installed || s.downloadable) && !s.authed);
   return semLogin
-    ? `**${sm.cliName} is not signed in.** Run \`${sm.loginCmd}\` in a ` +
+    ? `**${sm.cliName} is not signed in.** Run \`${comandoDeLogin(sm, s?.path)}\` in a ` +
       'terminal, then open the model menu and click re-check.'
     : `**${sm.notInstalled}.** ${sm.installHint}, then open the model ` +
       'menu and click re-check.';

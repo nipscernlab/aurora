@@ -236,7 +236,13 @@ describe('linha de estado da conexao', () => {
     const semLogin = ver({ installed: true, authed: false });
     expect(semLogin[0]).toBe('warn');
     expect(semLogin[1]).toContain('Not signed in');
-    expect(semLogin[1]).toContain('claude login');
+    // #190: `claude login` nao existe na CLI; e `claude auth login`, e com o
+    // caminho do executavel quando o main o conhece (sem Node, e o unico).
+    expect(semLogin[1]).toContain('claude auth login');
+    expect(ver({ installed: true, authed: false, path: 'C:\\a&b\\claude.exe' })[1]).toContain('"C:\\a&b\\claude.exe" auth login');
+    expect(estado().innerHTML).toContain('C:\\a&amp;b');
+    // Sem a CLI e sem login: a mensagem baixa a CLI, e so entao ha com o que logar.
+    expect(ver({ installed: false, downloadable: true, authed: false })).toEqual(['warn', expect.stringContaining('Send a message')]);
     expect(ver({ installed: false, downloadable: true, authed: true })).toEqual(['on', expect.stringContaining('Downloads on first message')]);
     expect(ver({ installed: true, authed: true, plan: 'max', version: '2.1' })[1]).toContain('2.1');
     expect(ver({ installed: true, authed: true })[1]).toMatch(/Claude Code · \S+/);

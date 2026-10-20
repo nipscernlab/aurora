@@ -8,7 +8,7 @@
  *     claude -p --output-format stream-json --verbose --include-partial-messages
  *
  * The CLI authenticates with the subscription via its own OAuth login
- * (`claude login`); Aurora never sees or stores a token. We deliberately
+ * (`claude auth login`); Aurora never sees or stores a token. We deliberately
  * strip `ANTHROPIC_API_KEY` from the child environment so the CLI cannot
  * silently fall back to metered API billing.
  *
@@ -175,7 +175,7 @@ export async function detect(): Promise<{
   if (!bin) {
     // Not on disk yet. Report whether we CAN fetch it on demand (B12) and
     // whether the subscription is already signed in (creds are independent of
-    // the binary, they come from the user's external `claude login`), so the
+    // the binary, they come from the user's external `claude auth login`), so the
     // panel can offer "downloads on first use" instead of a dead "not installed".
     const creds = readCredentials();
     return {
@@ -361,22 +361,21 @@ export async function start(payload: PedidoDoTurno | null | undefined, webConten
     throw new Error('messages must be a non-empty array');
   }
 
-  // Sign-in is checked first: the OAuth credentials come from the user's
-  // external `claude login` and are independent of where the binary lives, so
-  // there's no point downloading ~230 MB only to bounce off a missing login.
-  if (!readCredentials()) {
-    sendEvent(webContents, sessionId, 'error', {
-      message: 'Claude Code is not signed in. Run `claude login` in a terminal, then reconnect.',
-    });
-    return;
-  }
+  // Sem login, o binario vem ANTES do aviso (#190). O login se faz com a
+  // propria CLI (`claude auth login`), e sem Node no computador nao ha
+  // `claude` no PATH: o unico executavel e o que a Aurora tem ou baixa aqui.
+  // Conferir o login primeiro poupava os ~230 MB, mas deixava quem nao tem
+  // Node sem com o que logar. O aviso leva o caminho do executavel.
+  const logado = !!readCredentials();
 
   let bin = resolveBinary();
   if (!bin) {
     // B12: the installer no longer bundles the CLI, fetch it on first use.
     if (!cliDownloader.isDownloadable('claude')) {
       sendEvent(webContents, sessionId, 'error', {
-        message: 'Claude Code CLI not found. Install it, then reopen this panel.',
+        message: logado
+          ? 'Claude Code CLI not found. Install it, then reopen this panel.'
+          : 'Claude Code is not signed in. Run `claude auth login` in a terminal, then reconnect.',
       });
       return;
     }
@@ -391,6 +390,17 @@ export async function start(payload: PedidoDoTurno | null | undefined, webConten
       });
       return;
     }
+  }
+
+  if (!logado) {
+    sendEvent(webContents, sessionId, 'error', {
+      message: 'Claude Code is not signed in. Open a terminal (PowerShell or cmd), run\n\n'
+        // Como codigo: o balao desenha Markdown, e la a barra invertida do
+        // caminho seria lida como escape.
+        + `\`"${bin.exe}" auth login\`\n\n`
+        + 'and finish the sign-in in the browser. Then open the model menu and click re-check.',
+    });
+    return;
   }
 
   // ---- Agent SDK engine (preferred) ----------------------------------------

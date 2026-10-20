@@ -21,7 +21,15 @@ export interface MetaDaAssinatura {
   cliName: string;
   notInstalled: string;
   installHint: string;
+  /** O comando de login, como se digita quando a CLI esta no PATH. */
   loginCmd: string;
+  /** Os argumentos de login, para montar o comando com o caminho do executavel. */
+  loginArgs: string;
+  /**
+   * Se o turno baixa a CLI mesmo sem login (#190): sem Node nao ha a CLI no
+   * PATH, e o executavel que a Aurora baixa e o unico com que logar.
+   */
+  loginBaixaACli: boolean;
 }
 
 /** Um provedor na lista do popover. */
@@ -127,7 +135,10 @@ export const SUB_META: Record<string, MetaDaAssinatura> = {
     cliName: 'Claude Code',
     notInstalled: 'Claude Code not installed',
     installHint: 'Reinstall Aurora, or run: npm i -g @anthropic-ai/claude-code',
-    loginCmd: 'claude login',
+    // `claude login` nao existe nesta CLI: vira uma pergunta numa sessao nova.
+    loginCmd: 'claude auth login',
+    loginArgs: 'auth login',
+    loginBaixaACli: true,
   },
   'chatgpt': {
     models: CHATGPT_MODELS,
@@ -141,8 +152,19 @@ export const SUB_META: Record<string, MetaDaAssinatura> = {
     notInstalled: 'Codex CLI not installed',
     installHint: 'Reinstall Aurora, or run: npm i -g @openai/codex',
     loginCmd: 'codex login',
+    loginArgs: 'login',
+    // O codex_cli confere o login antes de baixar: sem login, nada baixa.
+    loginBaixaACli: false,
   },
 };
+
+/**
+ * O comando de login de uma assinatura: com o caminho do executavel quando o
+ * main o conhece (sem Node, e o unico que existe), senao o nome da CLI.
+ */
+export function comandoDeLogin(sm: Pick<MetaDaAssinatura, 'loginCmd' | 'loginArgs'>, caminho?: string | null): string {
+  return caminho ? `"${caminho}" ${sm.loginArgs}` : sm.loginCmd;
+}
 
 /** True when `name` is a subscription-backed CLI provider. */
 export function isSubProvider(name: string | null | undefined): boolean {

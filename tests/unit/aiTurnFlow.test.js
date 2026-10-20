@@ -761,10 +761,26 @@ describe('envio e fila: os cantos', () => {
     api.getClaudeCodeStatus = vi.fn(async () => ({ status: null }));
     await mandar('oi');
     expect(bolhas().at(-1).texto).toContain('Claude Code not installed');
-    painel.subStatus['claude-code'] = { installed: true, authed: false };
+    painel.subStatus['claude-code'] = { installed: true, authed: false, path: 'C:\\cli\\claude.exe' };
     await mandar('oi');
     expect(bolhas().at(-1).texto).toContain('Claude Code is not signed in');
+    expect(bolhas().at(-1).texto).toContain('"C:\\cli\\claude.exe" auth login');
     painel.subStatus['claude-code'] = { installed: false, downloadable: true, authed: true };
+    await mandar('oi');
+    expect(api.startChat).toHaveBeenCalledTimes(1);
+  });
+
+  // #190: sem login e sem a CLI, o envio segue: o main baixa a CLI e devolve o
+  // comando de login dela. O Codex nao baixa sem login, entao la o aviso fica.
+  it('sem login e sem CLI: o Claude Code envia para baixar; o Codex avisa', async () => {
+    await abrirPainel();
+    painel.currentProvider = 'chatgpt';
+    painel.subStatus.chatgpt = { installed: false, downloadable: true, authed: false };
+    await mandar('oi');
+    expect(api.startChat).not.toHaveBeenCalled();
+    expect(bolhas().at(-1).texto).toContain('codex login');
+    painel.currentProvider = 'claude-code';
+    painel.subStatus['claude-code'] = { installed: false, downloadable: true, authed: false };
     await mandar('oi');
     expect(api.startChat).toHaveBeenCalledTimes(1);
   });

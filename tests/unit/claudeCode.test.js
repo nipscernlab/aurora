@@ -221,11 +221,34 @@ describe('start: antes de rodar', () => {
     await expect(cc.start(turno({ sessionId: 'dup' }), janela)).rejects.toThrow('session already active: dup');
   });
 
-  it('sem login, avisa e nao baixa nem lanca nada', async () => {
+  // #190. Sem Node nao ha `claude` no PATH: o unico executavel e o que a Aurora
+  // tem. O aviso da o comando com o caminho dele, e com `auth login`, porque
+  // `claude login` nao existe nesta CLI (vira uma pergunta numa sessao nova).
+  it('sem login, com a CLI no disco: o comando de login com o caminho dela, sem lancar nada', async () => {
+    local.locateClaude.mockReturnValue(binario);
     await cc.start(turno(), janela);
-    expect(ultimo('error').message).toBe('Claude Code is not signed in. Run `claude login` in a terminal, then reconnect.');
+    const msg = ultimo('error').message;
+    expect(msg).toMatch(/^Claude Code is not signed in\./);
+    expect(msg).toContain('"C:\\fake\\claude.exe" auth login');
+    expect(msg).not.toContain('claude login');
     expect(baixador.ensureCli).not.toHaveBeenCalled();
     expect(spawns).toHaveLength(0);
+  });
+
+  it('sem login e sem a CLI: baixa, para haver com o que logar, e da o comando do baixado', async () => {
+    baixador.ensureCli.mockImplementation(async (_qual, { onProgress }) => { onProgress({ phase: 'download', pct: 10 }); return { exe: 'C:\\aurora\\cli\\claude.exe', viaShim: false }; });
+    await cc.start(turno(), janela);
+    expect(ultimo('cli-download')).toMatchObject({ pct: 10 });
+    expect(local.invalidate).toHaveBeenCalled();
+    expect(ultimo('error').message).toContain('"C:\\aurora\\cli\\claude.exe" auth login');
+    expect(agente.tryStart).not.toHaveBeenCalled();
+    expect(spawns).toHaveLength(0);
+  });
+
+  it('sem login, sem a CLI e sem como baixar: o comando generico', async () => {
+    baixador.isDownloadable.mockReturnValue(false);
+    await cc.start(turno(), janela);
+    expect(ultimo('error').message).toContain('`claude auth login`');
   });
 
   it('sem binario e sem como baixar: avisa', async () => {

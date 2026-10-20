@@ -168,7 +168,11 @@ describe('TOOL_MANIFEST', () => {
         const candidatos = [...new Set(
             [...prompt.matchAll(/\b([a-z][a-z0-9]*(?:_[a-z0-9]+){1,4})\b/g)].map((m) => m[1]),
         )];
-        const fantasmas = candidatos.filter((n) => verbo.test(n) && !nomes.has(n));
+        // Comandos de outras ferramentas que o prompt cita pelo nome de verdade,
+        // e que so parecem ferramenta da AURORA: os do .sdc do Quartus, que o
+        // texto da DE2-115 ensina (20/10/2026). Entra aqui so nome de fora.
+        const deFora = new Set(['create_clock', 'get_ports', 'create_generated_clock']);
+        const fantasmas = candidatos.filter((n) => verbo.test(n) && !nomes.has(n) && !deFora.has(n));
         expect(fantasmas).toEqual([]);
     });
 

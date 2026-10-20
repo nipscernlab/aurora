@@ -479,7 +479,7 @@
     },
     "estruturaAntiga": {
       "title": "Projeto na estrutura de pastas antiga",
-      "message": "Desde o yanc v7.1 cada processador guarda o fonte e os dados em <proc>/, e o que o yanc gera em <proc>/<proc>/. As pastas Software, Hardware e Simulation deixaram de existir, e este projeto não compila sem a conversão. Os arquivos que você escreveu vão para a pasta do processador, os gerados vão para a pasta de saída, e nada é apagado; a linha #PRNAME, que o yanc agora recusa, sai do fonte. Processadores a converter:",
+      "message": "Desde o yanc v7.1 cada processador guarda o fonte e os dados em <proc>/, e o que o yanc gera em <proc>/<proc>/. As pastas Software, Hardware e Simulation deixaram de existir, e este projeto não compila sem a conversão. Os arquivos que você escreveu vão para a pasta do processador. Os que o yanc antigo gerou (o .v, os .mif, o .asm, as saídas da simulação) vão para a Lixeira, porque não valem com o yanc atual; a próxima compilação gera tudo de novo. A linha #PRNAME, que o yanc agora recusa, sai do fonte. Processadores a converter:",
       "converter": "Converter",
       "depois": "Agora não",
       "feitoTitle": "Projeto convertido",
@@ -488,6 +488,7 @@
       "semPrname": "{{arquivo}}: a linha do nome ({{nome}}) saiu. O módulo Verilog agora tem o nome do arquivo.",
       "nomeInvalido": "O nome \"{{nome}}\" não serve mais de processador (vira módulo Verilog: só letras ASCII, dígitos e _). Renomeie o processador.",
       "pastaFicou": "{{pasta}} não ficou vazia e continua lá.",
+      "descartados": "{{n}} arquivo(s) gerado(s) pelo yanc antigo foram para a Lixeira. Compile o projeto antes de usar o .v fora da AURORA: a compilação os gera de novo.",
       "renomear": "Antes do yanc v7.1 o módulo Verilog tinha o nome da linha #PRNAME; agora tem o nome do arquivo. Para o top-level do projeto continuar achando o módulo, ou para o nome servir de módulo, a AURORA pode renomear estes processadores (a pasta, o fonte e a pasta de saída):",
       "renomearBotao": "Renomear",
       "manterNomes": "Manter os nomes"

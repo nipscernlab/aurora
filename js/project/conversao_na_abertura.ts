@@ -23,7 +23,7 @@ import { setAvailableProcessors } from './processor_list.js';
 import { renomearProcessador } from './processadores_do_spf.js';
 import { nomesDosProcessadores } from '../compilation/pastas_do_processador.js';
 import {
-  converter, inspecionar, mapaDosMovidos, remapearEstrutura, renomesSugeridos,
+  converter, inspecionar, mapaDosMovidos, remapearEstrutura, renomesSugeridos, tirarDasListas,
   type DiscoDaConversao, type EstruturaDoSpf, type RenomeSugerido, type ResultadoDaConversao,
 } from './estrutura_antiga.js';
 
@@ -78,6 +78,11 @@ export function linhasDoRelatorio(projeto: string, r: ResultadoDaConversao): str
   for (const d of r.pastasQueFicaram) {
     linhas.push(tr('dialog.estruturaAntiga.pastaFicou', { pasta: relativo(projeto, d) }));
   }
+  // O que o yanc antigo gerou foi para a Lixeira (#211): uma linha so, porque
+  // listar cada .mif e .asm afogaria o que a pessoa precisa ler.
+  if (r.descartados?.length) {
+    linhas.push(tr('dialog.estruturaAntiga.descartados', { n: r.descartados.length }));
+  }
   return linhas;
 }
 
@@ -115,7 +120,12 @@ export async function oferecerConversao(
     const r = await converter(projeto, antigos, disco);
     const mapa = mapaDosMovidos(r);
     if (mapa.size) {
-      await SpfStore.update(spfPath, (cfg) => remapearEstrutura(cfg as unknown as EstruturaDoSpf, mapa));
+      await SpfStore.update(spfPath, (cfg) => {
+        remapearEstrutura(cfg as unknown as EstruturaDoSpf, mapa);
+        // O gerado que foi para a Lixeira sai das listas ate a proxima
+        // compilacao o recriar (#211).
+        tirarDasListas(cfg as unknown as EstruturaDoSpf, r.descartados.map((d) => d.para));
+      });
     }
 
     // O rename que mantem o nome do modulo que o top-level instancia (o do

@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   chaveDoCaminho, converter, ehGeradoPeloYanc, inspecionar, mapaDosMovidos,
-  planoDeConversao, remapearEstrutura, renomesSugeridos, tirarPrname,
+  planoDeConversao, remapearEstrutura, renomesSugeridos, tirarDasListas, tirarPrname,
 } from '../../js/project/estrutura_antiga.ts';
 
 describe('ehGeradoPeloYanc', () => {
@@ -132,8 +132,14 @@ function discoFalso(inicial) {
     for (const d of pastas) if (pai(d) === dir) nomes.set(d, true);
     return [...nomes].map(([p, ehPasta]) => ({ name: p.split('/').pop(), path: p, isDirectory: ehPasta }));
   };
+  const lixeira = [];
+  const lixeiraDeVerdade = async (a) => {
+    if (!arquivos.has(a)) return { success: false, error: 'nao existe' };
+    arquivos.delete(a); lixeira.push(a); return { success: true };
+  };
   return {
-    arquivos, pastas,
+    arquivos, pastas, lixeira, lixeiraDeVerdade,
+    trashPath: lixeiraDeVerdade,
     joinPath: async (...p) => p.join('/'),
     getFolderFiles: async (dir) => (pastas.has(dir) ? filhos(dir) : (() => { throw new Error('ENOENT'); })()),
     renamePath: async (de, para) => {
@@ -155,6 +161,33 @@ function discoFalso(inicial) {
     },
   };
 }
+
+// #211: o gerado que foi para a Lixeira so volta na proxima compilacao. Nas
+// listas do .spf ele apareceria como "sumido", e o aviso oferece remover a
+// referencia; a arvore o descobre de novo na pasta de saida depois de compilar.
+describe('tirarDasListas', () => {
+  it('tira das tres listas, por caminho, e deixa os ponteiros e o resto', () => {
+    const e = {
+      topLevelFile: 'P/top.v',
+      testbenchFile: 'P/fir/fir/fir_tb.v',
+      synthesizableFiles: [{ name: 'fir.v', path: 'P/fir/fir/fir.v' }, { name: 'top.v', path: 'P/top.v' }, 'P/FIR/fir/fir.v', null],
+      testbenchFiles: [{ name: 'fir_tb.v', path: 'P\\fir\\fir\\fir_tb.v', isTopLevel: true }],
+      unclassifiedFiles: 'nao e lista',
+    };
+    tirarDasListas(e, ['P/fir/fir/fir.v', 'P/fir/fir/fir_tb.v']);
+    expect(e.synthesizableFiles).toEqual([{ name: 'top.v', path: 'P/top.v' }, null]);
+    expect(e.testbenchFiles).toEqual([]);
+    expect(e.unclassifiedFiles).toBe('nao e lista');
+    expect(e.testbenchFile).toBe('P/fir/fir/fir_tb.v');
+    expect(e.topLevelFile).toBe('P/top.v');
+  });
+
+  it('sem caminho a tirar, nada muda', () => {
+    const e = { synthesizableFiles: [{ path: 'a' }] };
+    tirarDasListas(e, []);
+    expect(e.synthesizableFiles).toEqual([{ path: 'a' }]);
+  });
+});
 
 describe('inspecionar e converter, no disco', () => {
   const PROJETO_ANTIGO = {
@@ -179,21 +212,46 @@ describe('inspecionar e converter, no disco', () => {
     expect(achados[0].subpastas.Software.map((e) => e.nome).sort()).toEqual(['fir.asm', 'fir.cmm', 'lut.txt']);
   });
 
-  it('move tudo, tira a linha do nome, apaga as subpastas vazias e da o mapa para o .spf', async () => {
+  // #211: o que o yanc antigo gerou ia para a pasta de saida como se valesse.
+  // O .v apontava para os .mif na Hardware/, que a conversao apaga, e fora
+  // da AURORA (Quartus, Vivado) virava processador de memorias vazias. E foi
+  // montado por outro asmcomp, que nao casa com o SAPHO/ novo. Agora vai para
+  // a Lixeira, e a proxima compilacao gera tudo de novo.
+  it('o que e da pessoa vai para a pasta do processador; o gerado pelo yanc antigo, para a Lixeira', async () => {
     const d = discoFalso(PROJETO_ANTIGO);
     const r = await converter('P', await inspecionar('P', ['fir'], d), d);
 
     expect([...d.arquivos.keys()].filter((a) => a.startsWith('P/fir/')).sort()).toEqual([
-      'P/fir/fir.cmm', 'P/fir/fir/fir.asm', 'P/fir/fir/fir.v', 'P/fir/fir/fir_tb.v', 'P/fir/fir/output_0.txt',
-      'P/fir/input_0.txt', 'P/fir/lut.txt',
+      'P/fir/fir.cmm', 'P/fir/input_0.txt', 'P/fir/lut.txt',
     ]);
+    expect(d.lixeira.sort()).toEqual([
+      'P/fir/Hardware/fir.v', 'P/fir/Simulation/fir_tb.v', 'P/fir/Simulation/output_0.txt', 'P/fir/Software/fir.asm',
+    ]);
+    expect(d.pastas.has('P/fir/fir')).toBe(true);
     expect(d.arquivos.get('P/fir/fir.cmm')).toBe('#NUBITS 16\nvoid main(){}\n');
     expect(r.semPrname).toEqual([{ processador: 'fir', arquivo: 'P/fir/fir.cmm', nomeAntigo: 'fir_velho' }]);
     expect(r.pulados).toEqual([]);
     expect(r.pastasQueFicaram).toEqual([]);
     for (const sub of ['Software', 'Hardware', 'Simulation']) expect(d.pastas.has(`P/fir/${sub}`)).toBe(false);
-    expect(r.movidos).toHaveLength(7);
+    expect(r.movidos).toHaveLength(3);
+    expect(r.descartados).toHaveLength(4);
+    // O .spf aponta o gerado para onde a proxima compilacao o recria.
     expect(mapaDosMovidos(r).get('p/fir/hardware/fir.v')).toBe('P/fir/fir/fir.v');
+    expect(mapaDosMovidos(r).get('p/fir/fir.cmm')).toBeUndefined();
+    expect(mapaDosMovidos(r).get('p/fir/software/fir.cmm')).toBe('P/fir/fir.cmm');
+  });
+
+  it('gerado que a Lixeira recusa fica onde estava, e a pasta antiga tambem', async () => {
+    const d = discoFalso(PROJETO_ANTIGO);
+    d.trashPath = async (a) => (a.endsWith('fir.v') ? { success: false, error: 'sem lixeira' } : d.lixeiraDeVerdade(a));
+    const r = await converter('P', await inspecionar('P', ['fir'], d), d);
+    expect(d.arquivos.has('P/fir/Hardware/fir.v')).toBe(true);
+    expect(r.pulados).toEqual([{ de: 'P/fir/Hardware/fir.v', para: 'P/fir/fir/fir.v', motivo: 'sem lixeira' }]);
+    expect(r.pastasQueFicaram).toEqual(['P/fir/Hardware']);
+    const d2 = discoFalso(PROJETO_ANTIGO);
+    d2.trashPath = async () => { throw new Error('EPERM'); };
+    const r2 = await converter('P', await inspecionar('P', ['fir'], d2), d2);
+    expect(r2.pulados.map((p) => p.motivo)).toEqual(['EPERM', 'EPERM', 'EPERM', 'EPERM']);
   });
 
   it('destino que ja existe nao e sobrescrito: o arquivo fica e a pasta antiga tambem', async () => {
@@ -218,14 +276,17 @@ describe('inspecionar e converter, no disco', () => {
     const renomear = d.renamePath;
     d.renamePath = async (de, para) => {
       if (de.endsWith('lut.txt')) throw new Error('EBUSY');
-      if (de.endsWith('fir_tb.v')) return null;
+      if (de.endsWith('input_0.txt')) return null;
       return renomear(de, para);
     };
+    const lixeira = d.trashPath;
+    d.trashPath = async (a) => (a.endsWith('fir_tb.v') ? null : lixeira(a));
     d.deleteFileOrDirectory = async () => { throw new Error('EPERM'); };
     const r = await converter('P', await inspecionar('P', ['fir'], d), d);
     expect(r.pulados.map((p) => [p.de, p.motivo])).toEqual([
       ['P/fir/Software/lut.txt', 'EBUSY'],
       ['P/fir/Simulation/fir_tb.v', '?'],
+      ['P/fir/Simulation/input_0.txt', '?'],
     ]);
     expect(r.pastasQueFicaram).toEqual(['P/fir/Software', 'P/fir/Hardware', 'P/fir/Simulation']);
   });

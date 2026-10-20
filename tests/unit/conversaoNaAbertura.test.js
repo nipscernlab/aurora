@@ -170,4 +170,16 @@ describe('o texto do dialogo', () => {
       'dialog.estruturaAntiga.pastaFicou {"pasta":"D:/fora/Software"}',
     ]);
   });
+
+  // #211: o gerado pelo yanc antigo vai para a Lixeira, e o relatorio diz
+  // quantos e que a compilacao os refaz, sem listar arquivo por arquivo.
+  it('o relatorio resume o que foi para a Lixeira, numa linha so', () => {
+    window.t = (k, p) => `${k} ${JSON.stringify(p || {})}`;
+    const base = { movidos: [], pulados: [], semPrname: [], nomesInvalidos: [], pastasQueFicaram: [] };
+    expect(linhasDoRelatorio('C:\\proj', {
+      ...base,
+      descartados: [{ de: 'C:\\proj\\fir\\Hardware\\fir.v', para: 'x' }, { de: 'C:\\proj\\fir\\Software\\fir.asm', para: 'y' }],
+    })).toEqual(['dialog.estruturaAntiga.descartados {"n":2}']);
+    expect(linhasDoRelatorio('C:\\proj', { ...base, descartados: [] })).toEqual([]);
+  });
 });

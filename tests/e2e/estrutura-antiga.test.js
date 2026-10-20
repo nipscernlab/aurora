@@ -152,12 +152,16 @@ describe('Aurora E2E — o projeto da estrutura antiga e convertido na abertura'
     await window.waitForFunction(() => (window.availableProcessors || [])
       .map((p) => (typeof p === 'string' ? p : p && p.name)).includes('filtro'), null, { timeout: 15_000 });
 
-    // O disco: o fonte e os dados em fir/, o gerado em fir/fir/, nada apagado.
+    // O disco: o fonte e os dados em fir/. O que o yanc antigo gerou foi para
+    // a Lixeira do Windows (#211; aqui, os tres arquivos de mentira do teste),
+    // e a pasta de saida fica vazia ate a proxima compilacao.
     expect(fs.readFileSync(path.join(fixture.proc, 'fir.cmm'), 'utf8')).toBe(CMM.replace('#PRNAME fir\n', ''));
     expect(fs.existsSync(path.join(fixture.proc, 'input_0.txt'))).toBe(true);
+    expect(fs.existsSync(path.join(fixture.proc, 'fir'))).toBe(true);
     for (const f of ['fir.asm', 'fir.v', 'fir_tb.v']) {
-      expect(fs.existsSync(path.join(fixture.proc, 'fir', f)), f).toBe(true);
+      expect(fs.existsSync(path.join(fixture.proc, 'fir', f)), f).toBe(false);
     }
+    expect(relatorio).toMatch(/\d+ .*(Lixeira|Recycle Bin)/);
     for (const sub of ['Software', 'Hardware', 'Simulation']) {
       expect(fs.existsSync(path.join(fixture.proc, sub)), sub).toBe(false);
     }

@@ -10,9 +10,11 @@
  * Um projeto antigo aberto sem conversao nao compila: a AURORA procura o fonte
  * em <proc>/ e nao acha.
  *
- * A conversao MOVE e nao apaga. O que o yanc gerava (o .asm, o .v, o _tb.v, os
- * .mif, as tabelas, as saidas da simulacao) vai para a pasta de saida, onde a
- * proxima compilacao o sobrescreve; o resto, que e da pessoa (o fonte, os
+ * A conversao nao apaga de vez. O que o yanc antigo gerava (o .asm, o .v, o
+ * _tb.v, os .mif, as tabelas, as saidas da simulacao) vai para a Lixeira do
+ * Windows, de onde da para voltar, e a proxima compilacao gera tudo de novo
+ * (#211: ir para a pasta de saida o fazia parecer valido, e nao era); o resto,
+ * que e da pessoa (o fonte, os
  * arquivos de vetor, input_N.txt, um .v que ela pos em Hardware/), vai para a
  * pasta do processador. Um destino que ja existe nao e sobrescrito: o arquivo
  * fica onde estava e entra no relatorio. A subpasta antiga so sai quando fica
@@ -143,6 +145,27 @@ export interface EstruturaDoSpf {
 }
 
 /**
+ * Tira das listas do .spf (sintetizaveis, testbenches, sem papel) as entradas
+ * destes caminhos. E o que a conversao faz com o gerado que foi para a Lixeira
+ * (#211): ate a proxima compilacao ele nao existe, e na lista apareceria como
+ * "sumido", com o aviso oferecendo remover a referencia. Depois de compilar, a
+ * arvore o descobre de novo na pasta de saida, com o papel de la. Os ponteiros
+ * (topo e testbench) ficam: apontam para onde o arquivo vai renascer.
+ */
+export function tirarDasListas(estrutura: EstruturaDoSpf, caminhos: readonly string[]): void {
+  if (!caminhos.length) return;
+  const fora = new Set(caminhos.map(chaveDoCaminho));
+  for (const chave of ['synthesizableFiles', 'testbenchFiles', 'unclassifiedFiles'] as const) {
+    const lista = estrutura[chave];
+    if (!Array.isArray(lista)) continue;
+    estrutura[chave] = lista.filter((f: unknown) => {
+      const c = typeof f === 'string' ? f : (f && typeof f === 'object' ? (f as { path?: unknown }).path : null);
+      return !(typeof c === 'string' && fora.has(chaveDoCaminho(c)));
+    });
+  }
+}
+
+/**
  * Troca no .spf todo caminho que a conversao moveu. `mapa` vai da chave do
  * caminho velho (chaveDoCaminho) ao caminho novo, absoluto. Um arquivo dentro
  * de uma pasta movida tambem acompanha. Nas entradas de processador saem os
@@ -204,6 +227,8 @@ export interface DiscoDaConversao {
   readFile(arquivo: string, opcoes?: unknown): Promise<string>;
   writeFile(arquivo: string, texto: string): Promise<unknown>;
   deleteFileOrDirectory(alvo: string): Promise<unknown>;
+  /** Manda para a Lixeira do Windows, de onde da para voltar. */
+  trashPath(alvo: string): Promise<{ success?: boolean; error?: string } | null>;
 }
 
 /** A listagem de uma pasta, ou `null` quando ela nao existe ou nao lista. */
@@ -243,6 +268,11 @@ export async function inspecionar(
 /** O que a conversao fez, para o relatorio e para o .spf. */
 export interface ResultadoDaConversao {
   movidos: Array<{ de: string; para: string }>;
+  /**
+   * O que o yanc antigo gerou e foi para a Lixeira, com o lugar onde a proxima
+   * compilacao o recria (e para onde o .spf passa a apontar).
+   */
+  descartados: Array<{ de: string; para: string }>;
   /** O que ficou onde estava, com o porque (destino ja existia, erro). */
   pulados: Array<{ de: string; para: string; motivo: string }>;
   /** Fonte cuja linha de nome saiu, de que processador, e o nome que ela dava. */
@@ -260,7 +290,7 @@ export interface ResultadoDaConversao {
 export async function converter(
   projeto: string, procs: readonly ProcessadorAntigo[], disco: DiscoDaConversao,
 ): Promise<ResultadoDaConversao> {
-  const r: ResultadoDaConversao = { movidos: [], pulados: [], semPrname: [], nomesInvalidos: [], pastasQueFicaram: [] };
+  const r: ResultadoDaConversao = { movidos: [], descartados: [], pulados: [], semPrname: [], nomesInvalidos: [], pastasQueFicaram: [] };
   const plano = planoDeConversao(procs);
 
   for (const p of procs) {
@@ -271,6 +301,22 @@ export async function converter(
   for (const m of plano) {
     const de = await disco.joinPath(projeto, ...m.de);
     const para = await disco.joinPath(projeto, ...m.para);
+    // O que o yanc antigo gerou vai para a Lixeira, e nao para a pasta de saida
+    // (#211). O .v apontava para os .mif na Hardware/, que esta conversao
+    // apaga, e foi montado por outro asmcomp, que nao casa com o SAPHO/ novo:
+    // levado ao Quartus ou ao Vivado, dava um processador de memorias vazias.
+    // A proxima compilacao gera tudo de novo, com o yanc atual.
+    if (m.gerado) {
+      let lixo: Awaited<ReturnType<DiscoDaConversao['trashPath']>>;
+      try {
+        lixo = await disco.trashPath(de);
+      } catch (e) {
+        lixo = { success: false, error: (e as Error | null)?.message || String(e) };
+      }
+      if (lixo && lixo.success) r.descartados.push({ de, para });
+      else r.pulados.push({ de, para, motivo: lixo?.error || '?' });
+      continue;
+    }
     let resposta: Awaited<ReturnType<DiscoDaConversao['renamePath']>>;
     try {
       resposta = await disco.renamePath(de, para, { overwrite: false });
@@ -279,7 +325,7 @@ export async function converter(
     }
     if (resposta && resposta.success) {
       r.movidos.push({ de, para });
-      if (!m.gerado && languageFromFileName(m.para[m.para.length - 1])) {
+      if (languageFromFileName(m.para[m.para.length - 1])) {
         await tirarNomeDoFonte(disco, para, m.processador, r);
       }
     } else {
@@ -357,8 +403,9 @@ export function renomesSugeridos(
 
 /**
  * O mapa de caminhos para o .spf (remapearEstrutura), a partir do que a
- * conversao moveu de fato.
+ * conversao moveu de fato. O gerado que foi para a Lixeira entra com o lugar
+ * onde a proxima compilacao o recria.
  */
-export function mapaDosMovidos(r: Pick<ResultadoDaConversao, 'movidos'>): Map<string, string> {
-  return new Map(r.movidos.map((m) => [chaveDoCaminho(m.de), m.para]));
+export function mapaDosMovidos(r: Pick<ResultadoDaConversao, 'movidos' | 'descartados'>): Map<string, string> {
+  return new Map([...r.movidos, ...(r.descartados || [])].map((m) => [chaveDoCaminho(m.de), m.para]));
 }

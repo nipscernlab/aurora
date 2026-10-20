@@ -37,6 +37,10 @@ for (const d of [casa, temp, semNada, projeto]) fs.mkdirSync(d, { recursive: tru
 const pathOriginal = process.env.PATH;
 const homedirOriginal = os.homedir;
 const tmpdirOriginal = os.tmpdir;
+// Com CLAUDE_CONFIG_DIR definido (como na maquina de quem abriu o #181), o
+// modulo leria o login de verdade de quem roda o teste.
+const configDirOriginal = process.env.CLAUDE_CONFIG_DIR;
+delete process.env.CLAUDE_CONFIG_DIR;
 process.env.PATH = semNada;
 os.homedir = () => casa;
 os.tmpdir = () => temp;
@@ -113,6 +117,7 @@ function require_spawn_nao_e_falso() { return req('node:child_process').spawn.to
 
 afterAll(() => {
   process.env.PATH = pathOriginal;
+  if (configDirOriginal !== undefined) process.env.CLAUDE_CONFIG_DIR = configDirOriginal;
   os.homedir = homedirOriginal;
   os.tmpdir = tmpdirOriginal;
   fs.rmSync(raiz, { recursive: true, force: true });
@@ -170,6 +175,31 @@ describe('detect', () => {
     expect((await cc.detect()).authed).toBe(false);
     fs.writeFileSync(credenciais, JSON.stringify({ outra: 1 }));
     expect((await cc.detect()).authed).toBe(false);
+  });
+
+  // #181: a CLI guarda o login na pasta do CLAUDE_CONFIG_DIR quando ele existe
+  // (e no ~/.claude so quando nao existe); a Aurora olhava sempre o ~/.claude.
+  it('com CLAUDE_CONFIG_DIR, o login e o de la, e nao o do ~/.claude', async () => {
+    const outra = path.join(raiz, 'config-do-claude');
+    fs.mkdirSync(outra, { recursive: true });
+    fs.writeFileSync(path.join(outra, '.credentials.json'), JSON.stringify({ claudeAiOauth: { accessToken: 'de-la' } }));
+    const antes = process.env.CLAUDE_CONFIG_DIR;
+    try {
+      process.env.CLAUDE_CONFIG_DIR = outra;
+      expect((await cc.detect()).authed).toBe(true);
+      await cc.start(turno(), janela);
+      expect(eventos.some((e) => /not signed in/.test(e.message || ''))).toBe(false);
+      // O ~/.claude nao vale com a variavel definida: a CLI tambem nao o le.
+      fs.rmSync(path.join(outra, '.credentials.json'));
+      logar();
+      expect((await cc.detect()).authed).toBe(false);
+      // So brancos e o mesmo que nao ter a variavel, como na CLI.
+      process.env.CLAUDE_CONFIG_DIR = '   ';
+      expect((await cc.detect()).authed).toBe(true);
+    } finally {
+      if (antes === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+      else process.env.CLAUDE_CONFIG_DIR = antes;
+    }
   });
 
   it('um .cmd roda pelo cmd.exe', async () => {

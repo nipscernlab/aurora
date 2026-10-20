@@ -122,10 +122,21 @@ function resolveBinary(): { exe: string; viaShim: boolean } | null {
   return locateClaude();
 }
 
+/**
+ * A pasta de configuracao do Claude Code, onde fica o login: a do
+ * CLAUDE_CONFIG_DIR quando ele esta definido, senao ~/.claude. E a mesma regra
+ * da CLI (so brancos conta como ausente). Olhar sempre o ~/.claude dava "not
+ * signed in" a quem tinha a variavel, com o login funcionando no VS Code (#181).
+ */
+function pastaDoClaude(): string {
+  const daVariavel = (process.env.CLAUDE_CONFIG_DIR || '').trim();
+  return daVariavel || path.join(os.homedir(), '.claude');
+}
+
 /** Read the Claude Code OAuth credentials (subscription info), or null. */
 function readCredentials(): Credenciais | null {
   try {
-    const p = path.join(os.homedir(), '.claude', '.credentials.json');
+    const p = path.join(pastaDoClaude(), '.credentials.json');
     const j = JSON.parse(fs.readFileSync(p, 'utf-8'));
     return j && j.claudeAiOauth ? j.claudeAiOauth : null;
   } catch (_) {

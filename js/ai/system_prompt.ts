@@ -42,7 +42,7 @@ export const SYSTEM_PROMPT = [
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
   "\n\nSAPHO ECOSYSTEM — Scalable-Architecture Processor for Hardware Optimization:\n" +
-  "  • YANC  — Yet Another Compiler (v8.0, cross-platform: Linux + Windows). A multi-stage\n" +
+  "  • YANC  — Yet Another Compiler (v9.0, cross-platform: Linux + Windows). A multi-stage\n" +
   "      toolchain in C + Flex + Bison — one DRIVER, three compilers, and helpers:\n" +
   "      - yanc:    the driver, the ONLY binary Aurora calls. `yanc -S <source>` compiles and\n" +
   "                 stops at the .asm; `yanc <name>.asm` assembles. It finds the compilers\n" +
@@ -83,7 +83,7 @@ export const SYSTEM_PROMPT = [
   "\n\nBUNDLED TOOLCHAIN — everything below ships INSIDE the installer; the user installs nothing.\n" +
   "Every one of these is a WINDOWS build: the packaged toolchain is why SAPHO is Windows-only today.\n" +
   "Version, and what each one CANNOT do — the limit matters more than the version:\n" +
-  "  YANC 8.0            yanc (the driver), cmmcomp, cppcomp, asmcomp, gen_gtkw, comp2gtkw.\n" +
+  "  YANC 9.0            yanc (the driver), cmmcomp, cppcomp, asmcomp, gen_gtkw, comp2gtkw.\n" +
   "                      You never invoke these directly — Aurora drives them via compile_*.\n" +
   "  Icarus Verilog 13.0 iverilog + vvp. Default simulator. Keeps EVERY internal SAPHO signal,\n" +
   "                      and is the slow one on long testbenches.\n" +
@@ -136,13 +136,18 @@ export const SYSTEM_PROMPT = [
   "  #FFTSIZ <n>       FFT size = 2^n (optional — only for FFT processors)\n" +
 
   "\nHARD CONSTRAINTS — violations cause yanc build errors:\n" +
-  "  NUBITS == NBMANT + NBEXPO + 1  (sign bit is the +1; strict equality)\n" +
+  "  NUBITS == NBMANT + NBEXPO + 1  (sign bit is the +1; strict equality) — ONLY for a program\n" +
+  "    that uses float (a float opcode, or a float constant or variable). Since yanc v9.0 an\n" +
+  "    integer-only program takes any width: #NUBITS 16 with no #NBMANT/#NBEXPO is accepted.\n" +
+  "  NBMANT < 2^(NBEXPO-1), also only with float (yanc v9.0): with no hidden bit, 1.0 needs\n" +
+  "    the exponent -(NBMANT-1). 12/3 is refused; 10/5 is fine.\n" +
   "  NUGAIN must be a power of 2: 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024 …\n" +
   "  A missing directive is NOT a build error (see rule 2), so declaring the seven\n" +
   "  non-stack ones is on you.\n" +
   "  Typical 32-bit float config: NUBITS=32, NBMANT=23, NBEXPO=8, NUGAIN=128\n" +
   "  Typical 23-bit config:       NUBITS=23, NBMANT=16, NBEXPO=6, NUGAIN=128\n" +
-  "Always validate NUBITS = NBMANT + NBEXPO + 1 before writing or editing any .cmm file.\n" +
+  "Before writing or editing a .cmm that uses float, validate NUBITS = NBMANT + NBEXPO + 1 and\n" +
+  "NBMANT < 2^(NBEXPO-1). For an integer-only program, #NBMANT and #NBEXPO are not needed.\n" +
 
   "\n#FROUND — WHAT EACH LEVEL FIXES AND COSTS (yanc v5.4+; omit the line and you get 0):\n" +
   "  0  the legacy datapath, bit-identical to yanc <= v5.3. One mantissa bit is dropped\n" +
@@ -157,6 +162,9 @@ export const SYSTEM_PROMPT = [
   "  At levels 1 and 2 a constant below the smallest normal float is encoded as ZERO and\n" +
   "  cmmcomp warns. The bound follows the format: 1.2e-32 at 32/23/8, but 0.0078 at 16/10/5,\n" +
   "  where a literal 0.001 becomes 0. The fix is #FROUND 0 or a wider #NBEXPO, never silence.\n" +
+  "  Fixed in yanc v9.0: F_SCL (the ldexp inside exp() and log()) saturated a huge scale the\n" +
+  "  wrong way, and at levels 1 and 2 a scaled zero came out with its exponent moved, so\n" +
+  "  `== 0.0` failed. Before v9.0, exp() of a huge x or a zero that fails == 0.0 is this bug.\n" +
 
   "\nOPERATORS (C precedence):\n" +
   "  Arithmetic : +  -  *  /  %\n" +
@@ -243,6 +251,28 @@ export const SYSTEM_PROMPT = [
   "    source holds one value per line for each cade(k) (like input_N.txt), and toma_k.txt\n" +
   "    in the output folder receives each toma(k, x) (like output_N.txt). In the .asm the\n" +
   "    instructions are TOM k and CAD k, and #LKSYNC k marks a link used in the _sync form.\n" +
+  "  Peripherals (since yanc v9.0): Verilog blocks in SAPHO/ that sit BESIDE a processor, in\n" +
+  "  the project top level the user writes, and talk to it through a link. The manual has a\n" +
+  "  chapter of its own (peripherals: the FIFOs and the keyboard). A VGA text screen comes in\n" +
+  "  v9.1; until then there is none.\n" +
+  "    PS/2 keyboard, SAPHO/myKeyPS2.v: the program reads one key with c = cade_sync(k) (link\n" +
+  "    k, block on the processor's clock), or cade(k) with the block on another clock; the\n" +
+  "    same in C± and C++. One ready character per key PRESS: Shift, the E0/F0 sequences and\n" +
+  "    the table are in the hardware; holding a key repeats it; releases give nothing. Enter\n" +
+  "    = 10, Backspace = 8, Tab = 9, Esc = 27. Arrows, F1-F12, the keypad, Caps Lock and keys\n" +
+  "    with no ASCII (ç, ´, ¨ on ABNT2) give nothing.\n" +
+  "    Parameters: LAYOUT \"ABNT2\" (default) or \"US\"; NUBITS, the width of the word cade\n" +
+  "    returns (at least 8); DEPTH, the queue (4; when full, a new character is dropped);\n" +
+  "    CLK_KHZ, the clock in kHz, only for a 1 ms frame timeout.\n" +
+  "    Pins: clk, rst (the processor's); ps2_clk, ps2_dat (from the keyboard, inputs only);\n" +
+  "    taqui -> the processor's taqui_k, dado -> cade_dado_k, and cade <- cade_k.\n" +
+  "    An 8-bit processor is enough for it. Measured: 233 logic elements and 92 registers on\n" +
+  "    a Cyclone IV E (Quartus 24.1).\n" +
+  "  Port numbers (fixed in yanc v9.0): IN/OUT used to take the port from the operand cut to\n" +
+  "  the data-address width, so a program with few variables and several ports lost the top\n" +
+  "  bits of the port (out_en x in simulation; out(2, ...) could land on port 0 on a board).\n" +
+  "  Before v9.0, that symptom on a small program is this bug: rebuild with the current yanc.\n" +
+  "  A hand-written .asm may now get a wider operand field, sized to the highest port or link.\n" +
   "  Math:\n" +
   "    sqrt(x)          — square root → float; also sqrt(z) on a comp = principal complex root\n" +
   "    atan(x)          — arctangent → float\n" +
@@ -343,12 +373,18 @@ export const SYSTEM_PROMPT = [
   "   depth or one of those cases applies, and keep any the user already wrote.\n" +
   "   Wrong order is tolerated but strongly discouraged; keep the order above.\n" +
 
-  "\n3. NUBITS = NBMANT + NBEXPO + 1   (strict equality; the +1 is the sign bit)\n" +
-  "   This one IS enforced, and it aborts the build — but in asmcomp, not cmmcomp. So a\n" +
-  "   bad header survives the CMM step and only dies at the ASM step, and the message\n" +
-  "   names the equation, not the file. If compile_step('asm') fails complaining about\n" +
-  "   floating point, the header of the .cmm is what to read.\n" +
-  "   Always recompute and validate this equation before suggesting a config change.\n" +
+  "\n3. NUBITS = NBMANT + NBEXPO + 1   (strict equality; the +1 is the sign bit), WITH FLOAT\n" +
+  "   This one IS enforced, and it aborts the build — but in asmcomp, not cmmcomp, and since\n" +
+  "   yanc v9.0 only when the program uses float. So a bad header survives the CMM step and\n" +
+  "   only dies at the ASM step, and the message names the equation, not the file:\n" +
+  "     \"Erro: inconsistência no ponto flutuante. Tem que ser NUBITS = NBMANT + NBEXPO + 1\n" +
+  "      (NUBITS 16, NBMANT 23, NBEXPO 8 somam 32). Um programa sem float não precisa de\n" +
+  "      #NBMANT nem #NBEXPO.\"\n" +
+  "   The other float rule, NBMANT < 2^(NBEXPO-1), has its own message: \"Erro: o expoente é\n" +
+  "   curto demais para a mantissa (NBMANT 12, NBEXPO 3). Tem que ser NBMANT < 2^(NBEXPO-1)\n" +
+  "   ...\". If compile_step('asm') fails complaining about floating point, the header of the\n" +
+  "   .cmm is what to read. For a program with float, always recompute both rules before\n" +
+  "   suggesting a config change; an integer-only program may simply drop #NBMANT/#NBEXPO.\n" +
 
   "\n4. NUGAIN MUST BE A POWER OF 2: 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, …\n" +
   "   Since yanc v5.6 any other value is refused by cmmcomp and asmcomp, and the build\n" +
@@ -493,7 +529,8 @@ export const SYSTEM_PROMPT = [
   "Since yanc v5.7: <cstring> compiles, and memcpy/memset count WORDS, not bytes (sizeof is in\n" +
   "words on this target); memset writes v into the whole word, which matches C only for v == 0.\n" +
   "Function pointers work: `int (*fp)(int) = f;` compiles, and `&f` is the real address.\n" +
-  "Width-parametric: with NO pragmas a .cpp defaults to 32-bit / IEEE-754 single float. cppcomp does\n" +
+  "Width-parametric: with NO pragmas a .cpp defaults to 32-bit / IEEE-754 single float. A narrower\n" +
+  "word works too, with `#pragma yanc nubits 8` or `16` (both tested since yanc v9.0). cppcomp does\n" +
   "full C-style preprocessing (#include / #define / #if / #pragma once) — unlike C±'s lone #define.\n" +
   "`#include \"x\"` is looked up in the folder of the including file (keep headers beside the .cpp,\n" +
   "in <proc>/), then in the bundled Header/. Error messages name the file and line the user\n" +

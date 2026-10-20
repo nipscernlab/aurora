@@ -27,8 +27,8 @@
     <text x="7" y="95.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">out_en</text>
     <g s:x="0" s:y="93" s:pid="out_en"/>
     <rect x="-1.0" y="101.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
-    <text x="7" y="104.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">addr</text>
-    <g s:x="0" s:y="102" s:pid="addr"/>
+    <text x="7" y="104.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">opnd</text>
+    <g s:x="0" s:y="102" s:pid="opnd"/>
     <!-- outputs (east) -->
     <rect x="149.0" y="65.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="143" y="68.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: end; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">en_in</text>

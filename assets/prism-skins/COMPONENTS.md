@@ -20,12 +20,13 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 | `div_array` | `ula.v` | 8 | hand-crafted (`div_array.svg`) | →r0 →nb →d →side ←q ←rem ←side_o →clk |
 | `instr_dec` | `instr_dec.v` | 12 | hand-crafted (`instr_dec.svg`) | →clk →rst →opcode ←push ←pop ←ula_op ←mem_wr ←req_in ←out_en ←ldi ←sti ←fft |
 | `instr_fetch` | `core.v` | 11 | hand-crafted (`instr_fetch.svg`) | →clk →rst →itr ←cheguei →tom_go →cad_go →instr ←addr →acc ←opcode ←operand |
-| `io_ctrl` | `core.v` | 9 | hand-crafted (`io_ctrl.svg`) | →clk →rst →req_in →out_en →addr ←en_in ←addr_in ←en_out ←addr_out |
+| `io_ctrl` | `core.v` | 9 | hand-crafted (`io_ctrl.svg`) | →clk →rst →req_in →out_en →opnd ←en_in ←addr_in ←en_out ←addr_out |
 | `mem_ctrl` | `core.v` | 12 | hand-crafted (`mem_ctrl.svg`) | →sti →ldi →fft →wr →ula →idx →base_addr →stk_ofst ←mem_wr ←mem_addr_rd ←mem_addr_wr ←mem_data_wr |
 | `mem_data` | `processor.v` | 6 | hand-crafted (`mem_data.svg`) | →clk →wr →addr_rd →addr_wr →data_in ←data_out |
 | `mem_instr` | `processor.v` | 3 | hand-crafted (`mem_instr.svg`) | →clk →addr ←data |
 | `myDCFIFO` | `myDCFIFO.v` | 12 | hand-crafted (`myDCFIFO.svg`) | →aclr →wrclk →data →wrreq ←wrfull ←wrusedw →rdclk →rdreq ←rdempty ←rdalmost_empty ←q ←rdusedw |
 | `myFIFO` | `myFIFO.v` | 10 | hand-crafted (`myFIFO.svg`) | →clk →data →rdreq →sclr →wrreq ←almost_empty ←empty ←full ←q ←usedw |
+| `myKeyPS2` | `myKeyPS2.v` | 7 | hand-crafted (`myKeyPS2.svg`) | →clk →rst →ps2_clk →ps2_dat ←taqui ←dado →cade |
 | `norm_mux` | `ula.v` | 8 | hand-crafted (`norm_mux.svg`) | →op →fadd →fmlt →fdiv →i2f →i2fm →frot ←out |
 | `pc` | `core.v` | 5 | hand-crafted (`pc.svg`) | →clk →rst →load →data ←addr |
 | `prefetch` | `core.v` | 16 | hand-crafted (`prefetch.svg`) | →rst →tom_go →cad_go →self_addr ←pc_self →pc_instr ←opcode ←operand →mem_instr ←instr_addr ←pc_l →is_um ←isp_push ←isp_pop →itr ←cheguei |

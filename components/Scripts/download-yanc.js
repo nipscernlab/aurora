@@ -38,7 +38,12 @@
  *            F_QUO`; o asmcomp poe um NOP entre operacao float e JIZ/LDI/ILI
  *            logo depois; condicao float testa a mantissa, como no C; o
  *            sapho_all vai de 21,8 a 32,4 MHz na DE10-Nano e de 23,5 a 37,3
- *            na ZYBO. SAPHO/ e asmcomp tem de vir da mesma release.)
+ *            na ZYBO. SAPHO/ e asmcomp tem de vir da mesma release.
+ *            v9.0 traz perifericos em SAPHO/, ao lado do processador: o
+ *            teclado PS/2 (myKeyPS2.v), lido com cade_sync(k); programa sem
+ *            float dispensa #NBMANT/#NBEXPO; o numero de porta de IN/OUT
+ *            deixa de ser cortado na largura do endereco; F_SCL corrigido.
+ *            SAPHO/ e asmcomp tem de vir da mesma release.)
  *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
@@ -83,7 +88,7 @@ const { verifyChecksum } = require('./lib/checksum');
 // release). null = compute + log only (no enforcement yet).
 const EXPECTED_SHA256 = null;
 
-const YANC_TAG      = 'v8.0';
+const YANC_TAG      = 'v9.0';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';

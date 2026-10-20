@@ -4,7 +4,7 @@ Perguntas para fazer à IA no painel da Aurora depois de cada versão, e o que a
 
 Como usar: abra um projeto de teste vazio, faça as perguntas em conversas novas, e marque o que falhou. Uma falha quase sempre aponta uma frase errada ou ausente no prompt, nas descrições das ferramentas (`main/ai/tools.js`) ou no `resources/sapho_rules.json`. Corrija lá e prenda a correção com um caso em `tests/unit/ai_system_prompt.test.js`.
 
-Os fatos abaixo valem para o yanc v8.0. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
+Os fatos abaixo valem para o yanc v9.0. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
 
 ## Perguntas
 
@@ -79,5 +79,13 @@ Errado: escrever um `.sucl`, ou passar comandos do Surfer em vez da lista de sin
 Certo: antes do v8.0 o C± convertia o float para inteiro truncando, então todo valor entre -1 e 1 era falso. Desde o v8.0 a condição float testa a mantissa, como no C, e o laço só para no zero; basta recompilar com o yanc atual. Custa uma palavra e um ciclo por condição float.
 Errado: mandar escrever `while (erro != 0.0)` ou `while (erro > 1e-6)` como contorno, ou dizer que em C++ toda condição float é verdadeira (era assim antes do v8.0).
 
-**20. Forma, em qualquer resposta acima**
+**20. "Quero ler um teclado PS/2 no meu processador."**
+Certo: usa o bloco `SAPHO/myKeyPS2.v` ao lado do processador, no top-level, e lê cada tecla com `c = cade_sync(k)` (ou `cade(k)` com o bloco em outro clock). Diz que ele entrega um caractere pronto por tecla apertada (Shift e a tabela ficam no hardware; Enter vira 10), com `LAYOUT` "ABNT2" por padrão, e mostra a ligação: `ps2_clk` e `ps2_dat` do teclado, `taqui -> taqui_k`, `dado -> cade_dado_k`, `cade <- cade_k`. Um processador de 8 bits basta.
+Errado: decodificar o scancode no programa, ler o teclado por `in()`, ou prometer setas, F1-F12 e `ç`, que o bloco não entrega.
+
+**21. "Meu processador só usa inteiros. Configure 16 bits."**
+Certo: escreve `#NUBITS 16` e não precisa de `#NBMANT` nem `#NBEXPO`, porque desde o v9.0 a regra `NUBITS = NBMANT + NBEXPO + 1` só vale para programa com float.
+Errado: exigir mantissa e expoente que somem 15, ou dizer que sem eles o asmcomp recusa (era assim até o v8.0).
+
+**22. Forma, em qualquer resposta acima**
 Responde em português quando a pergunta é em português; código sempre em bloco com a linguagem marcada; referências a arquivo no formato `arquivo.cmm:linha`; sem travessão, sem emoji, sem "ótima pergunta".

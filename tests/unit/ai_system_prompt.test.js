@@ -151,11 +151,12 @@ describe('as pilhas ficam com o compilador', () => {
 
     it('os padroes citados sao os do yanc que o instalador baixa', () => {
         // Numeros de Compilers/ASMComp/Sources/eval.c, iguais do v5.6 ao
-        // v8.0 (conferidos na tag v8.0: o v8.0 so mexeu ali na sequencia da
-        // divisao). Quando o YANC_TAG mudar, este caso cai de proposito:
-        // reconfira os padroes e o que uma pilha omitida vale, e atualize o
-        // prompt, o docs/gabarito-ia.md e este teste juntos.
-        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v8.0');
+        // v9.0 (conferidos na tag v9.0: o v8.0 mexeu ali na sequencia da
+        // divisao, o v9.0 em quando a regra do float vale). Quando o YANC_TAG
+        // mudar, este caso cai de proposito: reconfira os padroes e o que uma
+        // pilha omitida vale, e atualize o prompt, o docs/gabarito-ia.md e
+        // este teste juntos.
+        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v9.0');
         expect(SYSTEM_PROMPT).toContain('NUBITS 32, NBMANT 23, NBEXPO 8');
         expect(SYSTEM_PROMPT).toContain('NUGAIN 128, FFTSIZ 3');
         // v5.7: omitida, a profundidade sai do programa (pico + 1, minimo 2).
@@ -201,6 +202,40 @@ describe('o yanc v5.7', () => {
 
 // O que o yanc v8.0 mudou no que o modelo deve dizer (yanc/CHANGELOG, v8.0, e o
 // texto que o repo yanc mandou para a AURORA em 18/10/2026).
+// O que o yanc v9.0 mudou no que o modelo deve dizer (yanc/CHANGELOG, v9.0, e o
+// texto que o repo yanc mandou para a AURORA em 19/10/2026).
+describe('o yanc v9.0', () => {
+    it('a regra NUBITS = NBMANT + NBEXPO + 1 vale so com float, e a do expoente curto entra', () => {
+        expect(SYSTEM_PROMPT).toMatch(/strict equality\) — ONLY for a program\s+that uses float/);
+        expect(SYSTEM_PROMPT).toContain('#NUBITS 16 with no #NBMANT/#NBEXPO is accepted');
+        expect(SYSTEM_PROMPT).toContain('NBMANT < 2^(NBEXPO-1)');
+        expect(SYSTEM_PROMPT).not.toContain('Always validate NUBITS = NBMANT + NBEXPO + 1 before writing or editing any .cmm file');
+        // Mensagens de Compilers/ASMComp/Headers/messages.h na tag v9.0.
+        expect(SYSTEM_PROMPT).toContain('Um programa sem float não precisa de\n      #NBMANT nem #NBEXPO.');
+        expect(SYSTEM_PROMPT).toContain('o expoente é\n   curto demais para a mantissa');
+    });
+
+    it('o teclado PS/2: como ler, o que entrega, parametros e pinos', () => {
+        expect(SYSTEM_PROMPT).toContain('SAPHO/myKeyPS2.v');
+        expect(SYSTEM_PROMPT).toContain('c = cade_sync(k)');
+        expect(SYSTEM_PROMPT).toMatch(/Enter\s+= 10, Backspace = 8, Tab = 9, Esc = 27/);
+        expect(SYSTEM_PROMPT).toContain('LAYOUT "ABNT2" (default) or "US"');
+        expect(SYSTEM_PROMPT).toContain("taqui -> the processor's taqui_k, dado -> cade_dado_k, and cade <- cade_k");
+        expect(SYSTEM_PROMPT).toContain('An 8-bit processor is enough for it');
+        expect(SYSTEM_PROMPT).toMatch(/VGA text screen comes in\s+v9\.1/);
+    });
+
+    it('as duas correcoes: o numero de porta cortado e o F_SCL', () => {
+        expect(SYSTEM_PROMPT).toContain('Port numbers (fixed in yanc v9.0)');
+        expect(SYSTEM_PROMPT).toContain('out(2, ...) could land on port 0');
+        expect(SYSTEM_PROMPT).toContain('Fixed in yanc v9.0: F_SCL');
+    });
+
+    it('o C++ aceita palavra menor que 32 bits', () => {
+        expect(SYSTEM_PROMPT).toContain('`#pragma yanc nubits 8` or `16`');
+    });
+});
+
 describe('o yanc v8.0', () => {
     it('divisao em cinco palavras, quatro em float, e o .asm feito a mao tem de escreve-las', () => {
         // O modelo escreve .asm no _aurora_opt; sem a sequencia o asmcomp recusa.

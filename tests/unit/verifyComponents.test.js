@@ -100,10 +100,10 @@ injetar('download-surfer.js', modulo('surfer', {
   FORK_ARTIFACT: { tag: 'f1' }, SENTINEL_FILE: sentinela('surfer'), alreadyInstalled: () => mundo.presente.surfer,
   get PUBLISHED() { return mundo.publicado; },
 }));
-injetar('download-verible.js', modulo('verible', {
+injetar('download-verible.cts', modulo('verible', {
   VERIBLE_TAG: 'v1', SENTINEL_FILE: sentinela('verible'), alreadyInstalled: () => mundo.presente.verible,
 }));
-injetar('download-slang-server.js', modulo('slang', {
+injetar('download-slang-server.cts', modulo('slang', {
   SLANG_SERVER_TAG: 's1', SENTINEL_FILE: sentinela('slang'), alreadyInstalled: () => mundo.presente.slang,
 }));
 injetar('download-clang-format.js', modulo('clang-format', {
@@ -129,7 +129,7 @@ beforeEach(() => {
     if (mundo.spawnLanca) throw new Error('spawn quebrou');
     const chave = Object.entries({
       'download-toolchain.js': 'toolchain', 'download-yanc.js': 'yanc', 'download-gtkwave-nipscern.js': 'gtkwave',
-      'download-surfer.js': 'surfer', 'download-verible.js': 'verible', 'download-slang-server.js': 'slang',
+      'download-surfer.js': 'surfer', 'download-verible.cts': 'verible', 'download-slang-server.cts': 'slang',
       'download-clang-format.js': 'clang-format',
     }).find(([f]) => args[0].endsWith(f))[1];
     mundo.baixados = [...(mundo.baixados || []), { chave, args: args.slice(1) }];
@@ -333,7 +333,7 @@ describe('sem pergunta', () => {
   });
 
   it('sem sentinela conhecida, vale o codigo de saida; sem tag, "instalado"', async () => {
-    const mod = req.cache[path.join(SCRIPTS, 'download-verible.js')].exports;
+    const mod = req.cache[path.join(SCRIPTS, 'download-verible.cts')].exports;
     const orig = { sentinela: mod.SENTINEL_FILE, tag: mod.VERIBLE_TAG };
     mod.SENTINEL_FILE = null;
     mod.VERIBLE_TAG = null;
@@ -389,7 +389,7 @@ describe('interativo', () => {
   });
 
   it('recusar o rebaixamento nao pergunta um a um; sem tag, "pinada"', async () => {
-    const mod = req.cache[path.join(SCRIPTS, 'download-verible.js')].exports;
+    const mod = req.cache[path.join(SCRIPTS, 'download-verible.cts')].exports;
     const tag = mod.VERIBLE_TAG;
     mod.VERIBLE_TAG = null;
     mundo.presente.verible = false;

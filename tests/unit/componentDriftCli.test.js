@@ -38,8 +38,8 @@ const TAGS = {
   yanc: ['download-yanc.js', 'YANC_TAG'],
   gtkwave: ['download-gtkwave-nipscern.js', 'GTKWAVE_TAG'],
   surfer: ['download-surfer.js', null],
-  verible: ['download-verible.js', 'VERIBLE_TAG'],
-  slang: ['download-slang-server.js', 'SLANG_SERVER_TAG'],
+  verible: ['download-verible.cts', 'VERIBLE_TAG'],
+  slang: ['download-slang-server.cts', 'SLANG_SERVER_TAG'],
   'clang-format': ['download-clang-format.js', 'CLANG_FORMAT_TAG'],
 };
 

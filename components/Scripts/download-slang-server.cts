@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * Aurora IDE - slang-server bootstrap
  *
@@ -25,15 +24,18 @@
  * compila/edita; so a analise semantica slang fica indisponivel ate o
  * setup, o Verilog ainda tem o Verible, que e independente).
  *
- * Usage:  node components/Scripts/download-slang-server.js [--force]
+ * Usage:  node components/Scripts/download-slang-server.cts [--force]
  */
 
-const https = require('https');
-const fs    = require('fs');
-const path  = require('path');
-const { extractZip: extrairZip } = require('./lib/extract');
-const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
-const { verifyChecksum } = require('./lib/checksum');
+// .cts: TypeScript em CommonJS, que o Node 22 e o do Electron executam
+// direto (sem build), e que quem le este modulo continua carregando com
+// require. O `as typeof import(...)` so da os tipos; o Node o apaga.
+const https = require('https') as typeof import('https');
+const fs    = require('fs') as typeof import('fs');
+const path  = require('path') as typeof import('path');
+const { extractZip: extrairZip } = require('./lib/extract') as typeof import('./lib/extract.js');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp') as typeof import('./lib/version_stamp.js');
+const { verifyChecksum } = require('./lib/checksum') as typeof import('./lib/checksum.js');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -58,25 +60,25 @@ const VERSION_STAMP = path.join(INSTALL_DIR, NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function log(/** @type {string} */ msg) { console.log(`[slang-server] ${msg}`); }
-function err(/** @type {string} */ msg) { console.error(`[slang-server] ERROR: ${msg}`); }
+function log(msg: string): void { console.log(`[slang-server] ${msg}`); }
+function err(msg: string): void { console.error(`[slang-server] ERROR: ${msg}`); }
 
-function alreadyInstalled() {
+function alreadyInstalled(): boolean {
     return fs.existsSync(SENTINEL_FILE);
 }
 
-function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
-    return new Promise((resolve, reject) => {
+function downloadFile(url: string, dest: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
         log(`Downloading ${url}`);
 
         const file = fs.createWriteStream(dest);
         let total = 0;
         let received = 0;
 
-        function doRequest(/** @type {any} */ requestUrl, redirectCount = 0) {
+        function doRequest(requestUrl: string | undefined, redirectCount = 0): void {
             if (redirectCount > 5) { reject(new Error('Too many redirects')); return; }
 
-            const parsedUrl = new URL(requestUrl);
+            const parsedUrl = new URL(String(requestUrl));
             const opts = {
                 hostname: parsedUrl.hostname,
                 path:     parsedUrl.pathname + parsedUrl.search,
@@ -96,7 +98,7 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
                 }
 
                 total = parseInt(res.headers['content-length'] || '0', 10);
-                res.on('data', (chunk) => {
+                res.on('data', (chunk: Buffer) => {
                     received += chunk.length;
                     if (total > 0) {
                         const pct = Math.round((received / total) * 100);
@@ -110,13 +112,13 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
             }).on('error', reject);
         }
 
-        file.on('finish', () => file.close(resolve));
+        file.on('finish', () => file.close(() => resolve()));
         file.on('error', reject);
         doRequest(url);
     });
 }
 
-async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+async function extractZip(zipPath: string, destDir: string): Promise<void> {
     // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
     // Expand-Archive de antes como reserva se algo sair do esperado.
     await extrairZip(zipPath, destDir, { log, tag: 'slang-server' });
@@ -125,8 +127,8 @@ async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ d
 // O zip traz slang-server.exe (+ README.txt) na raiz; pode (em outras
 // versoes) vir numa subpasta. Acha o .exe em ate 1 nivel e move SO ele
 // pra bin/, descartando o README/restante.
-function extractExeOnly() {
-    let found = null;
+function extractExeOnly(): void {
+    let found: string | null = null;
     const direct = path.join(TMP_EXTRACT, LS_EXE_NAME);
     if (fs.existsSync(direct)) {
         found = direct;
@@ -144,13 +146,13 @@ function extractExeOnly() {
     fs.copyFileSync(found, SENTINEL_FILE);
 }
 
-function rmrf(/** @type {string} */ p) {
+function rmrf(p: string): void {
     try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* best-effort */ }
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<void> {
     const force = process.argv.includes('--force');
 
     const carimbo = decidir({ instalado: alreadyInstalled(), carimbo: VERSION_STAMP, tag: SLANG_SERVER_TAG });

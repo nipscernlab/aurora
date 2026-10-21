@@ -63,7 +63,10 @@ function janela() {
 const evento = (j) => ({ sender: { janela: j } });
 
 /** Instalador falso do verible: o comportamento vem por variavel de ambiente. */
+// Dentro de uma funcao porque o instalador de verdade e .cts, e o TypeScript
+// nao aceita `return` no nivel do modulo, que o JavaScript em CommonJS aceita.
 const INSTALADOR = `
+(function () {
 const fs = require('fs');
 const path = require('path');
 const raiz = path.join(__dirname, '..');
@@ -86,6 +89,7 @@ fs.mkdirSync(bin, { recursive: true });
 fs.writeFileSync(path.join(bin, 'verible-verilog-ls.exe'), 'x');
 fs.writeFileSync(path.join(raiz, 'Packages', 'verible', '.aurora-version'), modo === 'velho' ? 'v0-antiga' : process.env.COMP_TESTE_VERSAO);
 if (process.argv.includes('--force')) fs.writeFileSync(path.join(raiz, 'forcado.txt'), '1');
+})();
 `;
 
 let comp;
@@ -109,7 +113,7 @@ beforeAll(async () => {
   registros = [...new Set([registro, viaVite.default ?? viaVite])];
   versaoVerible = lista.componentes.find((c) => c.chave === 'verible').versao;
   process.env.COMP_TESTE_VERSAO = versaoVerible;
-  fs.writeFileSync(path.join(scripts, 'download-verible.js'), INSTALADOR);
+  fs.writeFileSync(path.join(scripts, 'download-verible.cts'), INSTALADOR);
 });
 
 afterAll(() => {
@@ -171,7 +175,7 @@ describe('componentes:instalar', () => {
   });
 
   it('instalador ausente e componente desconhecido nao disparam nada', async () => {
-    expect(await handlers.get('componentes:instalar')(evento(null), 'slang')).toEqual({ ok: false, erro: 'instalador ausente: download-slang-server.js' });
+    expect(await handlers.get('componentes:instalar')(evento(null), 'slang')).toEqual({ ok: false, erro: 'instalador ausente: download-slang-server.cts' });
     expect(await handlers.get('componentes:instalar')(evento(null), 'nada')).toEqual({ ok: false, erro: 'componente desconhecido' });
   });
 

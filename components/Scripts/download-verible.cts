@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * Aurora IDE - Verible bootstrap
  *
@@ -25,15 +24,18 @@
  * compila/simula/edita; so o LSP de Verilog fica indisponivel ate o
  * setup, o editor cai pro highlight estatico do Monaco, sem erros).
  *
- * Usage:  node components/Scripts/download-verible.js [--force]
+ * Usage:  node components/Scripts/download-verible.cts [--force]
  */
 
-const https = require('https');
-const fs    = require('fs');
-const path  = require('path');
-const { extractZip: extrairZip } = require('./lib/extract');
-const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
-const { verifyChecksum } = require('./lib/checksum');
+// .cts: TypeScript em CommonJS, que o Node 22 e o do Electron executam
+// direto (sem build), e que quem le este modulo continua carregando com
+// require. O `as typeof import(...)` so da os tipos; o Node o apaga.
+const https = require('https') as typeof import('https');
+const fs    = require('fs') as typeof import('fs');
+const path  = require('path') as typeof import('path');
+const { extractZip: extrairZip } = require('./lib/extract') as typeof import('./lib/extract.js');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp') as typeof import('./lib/version_stamp.js');
+const { verifyChecksum } = require('./lib/checksum') as typeof import('./lib/checksum.js');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -59,25 +61,25 @@ const VERSION_STAMP = path.join(INSTALL_DIR, NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function log(/** @type {string} */ msg) { console.log(`[verible] ${msg}`); }
-function err(/** @type {string} */ msg) { console.error(`[verible] ERROR: ${msg}`); }
+function log(msg: string): void { console.log(`[verible] ${msg}`); }
+function err(msg: string): void { console.error(`[verible] ERROR: ${msg}`); }
 
-function alreadyInstalled() {
+function alreadyInstalled(): boolean {
     return fs.existsSync(SENTINEL_FILE);
 }
 
-function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
-    return new Promise((resolve, reject) => {
+function downloadFile(url: string, dest: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
         log(`Downloading ${url}`);
 
         const file = fs.createWriteStream(dest);
         let total = 0;
         let received = 0;
 
-        function doRequest(/** @type {any} */ requestUrl, redirectCount = 0) {
+        function doRequest(requestUrl: string | undefined, redirectCount = 0): void {
             if (redirectCount > 5) { reject(new Error('Too many redirects')); return; }
 
-            const parsedUrl = new URL(requestUrl);
+            const parsedUrl = new URL(String(requestUrl));
             const opts = {
                 hostname: parsedUrl.hostname,
                 path:     parsedUrl.pathname + parsedUrl.search,
@@ -97,7 +99,7 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
                 }
 
                 total = parseInt(res.headers['content-length'] || '0', 10);
-                res.on('data', (chunk) => {
+                res.on('data', (chunk: Buffer) => {
                     received += chunk.length;
                     if (total > 0) {
                         const pct = Math.round((received / total) * 100);
@@ -113,13 +115,13 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
 
         // Resolve apenas depois que o stream e fechado, caso contrario
         // o extract roda em cima de um arquivo ainda em escrita.
-        file.on('finish', () => file.close(resolve));
+        file.on('finish', () => file.close(() => resolve()));
         file.on('error', reject);
         doRequest(url);
     });
 }
 
-async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+async function extractZip(zipPath: string, destDir: string): Promise<void> {
     // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
     // Expand-Archive de antes como reserva se algo sair do esperado.
     await extrairZip(zipPath, destDir, { log, tag: 'verible' });
@@ -128,8 +130,8 @@ async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ d
 // O zip traz tudo numa subpasta `verible-<tag>-win64/`. Procura o
 // verible-verilog-ls.exe (1 nivel abaixo), move SO ele pra bin/, e
 // descarta o resto da extracao, a AURORA nao usa os outros binarios.
-function extractLsOnly() {
-    let found = null;
+function extractLsOnly(): void {
+    let found: string | null = null;
     for (const entry of fs.readdirSync(TMP_EXTRACT, { withFileTypes: true })) {
         if (!entry.isDirectory()) {
             // zip sem subpasta: o exe pode estar na raiz da extracao
@@ -149,13 +151,13 @@ function extractLsOnly() {
     fs.copyFileSync(found, SENTINEL_FILE);
 }
 
-function rmrf(/** @type {string} */ p) {
+function rmrf(p: string): void {
     try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* best-effort */ }
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<void> {
     const force = process.argv.includes('--force');
 
     const carimbo = decidir({ instalado: alreadyInstalled(), carimbo: VERSION_STAMP, tag: VERIBLE_TAG });

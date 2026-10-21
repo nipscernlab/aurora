@@ -58,7 +58,7 @@ describe('o inventario do toolchain bate com o que o instalador baixa', () => {
     });
 
     it('a versao do slang-server citada e a tag que o download fixa', () => {
-        const tag = tagDe('download-slang-server.js', 'SLANG_SERVER_TAG');
+        const tag = tagDe('download-slang-server.cts', 'SLANG_SERVER_TAG');
         expect(tag).toBeTruthy();
         expect(SYSTEM_PROMPT).toContain(`slang-server ${tag.replace(/^v/, '')}`);
     });

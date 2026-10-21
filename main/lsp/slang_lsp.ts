@@ -3,7 +3,7 @@
  *
  * Spawns a single long-lived `slang-server` (hudson-trading/slang-server,
  * bundled in components/Packages/slang-server/bin via
- * download-slang-server.js) and speaks Content-Length-framed JSON-RPC over
+ * download-slang-server.cts) and speaks Content-Length-framed JSON-RPC over
  * stdio. Unlike Verible (O2, syntactic + per-file), slang ELABORATES the
  * whole design, so it catches semantic errors Verible can't (undeclared
  * identifiers, type/port mismatches, unused signals, …) and offers

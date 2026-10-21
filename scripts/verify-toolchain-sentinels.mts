@@ -1,4 +1,4 @@
-// verify-toolchain-sentinels.js: prove the bundled toolchain is on disk
+// verify-toolchain-sentinels.mts: prove the bundled toolchain is on disk
 // before a release is allowed to package it.
 //
 // The downloaders in components/Scripts exit 0 when they fail, on purpose: a
@@ -16,36 +16,47 @@
 // Reading the sentinel from the module that creates it is what stops that
 // happening again: rename a binary and this follows.
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = path.resolve(__dirname, '..');
+// Os downloaders sao CommonJS (.js e .cts): carregados por require, como antes.
+const carregar = createRequire(import.meta.url);
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // Each entry names the downloader and the export that holds its sentinel.
 // `download-docs.js` and `download-tree-sitter-grammars.js` are absent on
 // purpose: neither installs an executable, and neither declares a single file
 // that proves the install.
-const COMPONENTS = [
+const COMPONENTS: Array<[string, string, string]> = [
   ['toolchain (msys)', 'download-toolchain.js', 'MSYS_SENTINEL'],
   ['yanc', 'download-yanc.js', 'SENTINEL_FILE'],
   ['gtkwave', 'download-gtkwave-nipscern.js', 'SENTINEL_FILE'],
   ['surfer', 'download-surfer.js', 'SENTINEL_FILE'],
-  ['verible', 'download-verible.js', 'SENTINEL_FILE'],
+  ['verible', 'download-verible.cts', 'SENTINEL_FILE'],
   ['clang-format', 'download-clang-format.js', 'SENTINEL_FILE'],
-  ['slang-server', 'download-slang-server.js', 'SENTINEL_FILE'],
+  ['slang-server', 'download-slang-server.cts', 'SENTINEL_FILE'],
 ];
 
-function main() {
-  const missing = [];
-  const rows = [];
+/**
+ * A conferencia, sem imprimir nem sair: as linhas da tabela e o que faltou.
+ * `componentes` e `pastaDosScripts` existem para o teste; o padrao e o repo.
+ */
+export function verificar(
+  componentes: ReadonlyArray<[string, string, string]> = COMPONENTS,
+  pastaDosScripts: string = path.join(REPO_ROOT, 'components', 'Scripts'),
+): { rows: string[]; missing: string[] } {
+  const missing: string[] = [];
+  const rows: string[] = [];
 
-  for (const [name, file, exportName] of COMPONENTS) {
-    const modulePath = path.join(REPO_ROOT, 'components', 'Scripts', file);
-    let sentinel;
+  for (const [name, file, exportName] of componentes) {
+    const modulePath = path.join(pastaDosScripts, file);
+    let sentinel: string | undefined;
     try {
-      sentinel = require(modulePath)[exportName];
+      sentinel = carregar(modulePath)[exportName];
     } catch (err) {
-      missing.push(`${name}: cannot load ${file} — ${err.message}`);
+      missing.push(`${name}: cannot load ${file} — ${err instanceof Error ? err.message : err}`);
       continue;
     }
     if (!sentinel) {
@@ -62,7 +73,14 @@ function main() {
       missing.push(`${name}: ${rel}`);
     }
   }
+  return { rows, missing };
+}
 
+// O main imprime e sai do processo: o teste o roda como processo
+// (tests/unit/verifyToolchainSentinels.test.js), fora da vista da cobertura.
+/* v8 ignore start */
+function main(): void {
+  const { rows, missing } = verificar();
   console.log(rows.join('\n'));
 
   if (missing.length) {
@@ -76,4 +94,6 @@ function main() {
   console.log(`\nAll ${COMPONENTS.length} toolchain components present.`);
 }
 
-main();
+// So roda chamado direto (o release.yml); importado pelo teste, nao.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+/* v8 ignore stop */

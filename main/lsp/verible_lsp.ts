@@ -2,7 +2,7 @@
  * verible_lsp.ts: minimal stdio Language Server bridge for Verilog (O2).
  *
  * Spawns a single long-lived `verible-verilog-ls` (bundled in
- * components/Packages/verible/bin via download-verible.js) and speaks
+ * components/Packages/verible/bin via download-verible.cts) and speaks
  * Content-Length-framed JSON-RPC with it over stdio. Renderer-facing IPC
  * (`lsp:*`) lets the Monaco editor (js/editor/lsp_integration.js) get
  * live diagnostics, formatting, outline symbols, hover and

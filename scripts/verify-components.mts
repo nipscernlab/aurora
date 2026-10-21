@@ -163,7 +163,7 @@ const COMPONENTS: Array<{ key: string; label: string; script: string; build: (m:
   {
     key: 'verible',
     label: 'Verible (verible-verilog-ls) — language server Verilog',
-    script: 'download-verible.js',
+    script: 'download-verible.cts',
     build: (m) => ({
       pinnedTag: m.VERIBLE_TAG,
       sentinel: m.SENTINEL_FILE,
@@ -175,7 +175,7 @@ const COMPONENTS: Array<{ key: string; label: string; script: string; build: (m:
   {
     key: 'slang',
     label: 'slang-server — language server SystemVerilog',
-    script: 'download-slang-server.js',
+    script: 'download-slang-server.cts',
     build: (m) => ({
       pinnedTag: m.SLANG_SERVER_TAG,
       sentinel: m.SENTINEL_FILE,

@@ -213,7 +213,7 @@ jobs:
         # release for a file that was present under the name everything else in
         # the repo already used. The script asks each downloader where its
         # binary lands, so renaming one cannot desynchronise this again.
-        run: node scripts/verify-toolchain-sentinels.js
+        run: node scripts/verify-toolchain-sentinels.mts
 
       # The toolchain is on disk at this point and nowhere else in CI, so this
       # is the one opportunity to prove it actually works before we ship it.

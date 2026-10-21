@@ -118,7 +118,25 @@ jobs:
             Write-Host "::error::The PAT needs the 'Contents: read and write' permission."
             exit 1
           }
-          Write-Host "Publish access to $env:DIST_REPO confirmed."
+          # O permissions.push acima e o que a CONTA pode no repositorio, nao o
+          # que o token fino recebeu: um PAT so com leitura passa por ele e o
+          # release cai no upload, depois do build. A prova de escrita bate no
+          # endpoint que o electron-builder usa, criar release, com corpo vazio.
+          # O GitHub confere a permissao antes do corpo: com escrita responde
+          # 422 (falta tag_name) e nada e criado; sem escrita, 403.
+          try {
+            Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/$env:DIST_REPO/releases" -Headers $headers -ContentType 'application/json' -Body '{}' | Out-Null
+            Write-Host "::error::An empty release request was accepted by $env:DIST_REPO; check what it created."
+            exit 1
+          } catch {
+            $codigo = [int]$_.Exception.Response.StatusCode
+            if ($codigo -ne 422) {
+              Write-Host "::error::SAPHO_RELEASE_TOKEN cannot create releases on $env:DIST_REPO (HTTP $codigo)."
+              Write-Host "::error::The PAT needs the 'Contents: read and write' permission on that repository."
+              exit 1
+            }
+          }
+          Write-Host "Publish access to $env:DIST_REPO confirmed (the token can create releases)."
           # O token e pessoal e vence. O GitHub diz quando, num cabecalho de
           # toda resposta feita com ele; aqui isso vira uma linha em todo
           # release e um aviso quando faltar um mes, em vez de o release

@@ -2,13 +2,13 @@
   "_leia": "Dados do manifesto dos CLIs de IA baixados sob demanda. Reescrito por scripts/sync-cli-manifest.js a partir de package.json e package-lock.json, e conferido por scripts/check-pinned-versions.js. A logica que consome isto, e o que cada campo significa, esta em main/ai/cli_manifest.ts. Nao edite a mao: rode npm i <pacote>@<versao> e depois node scripts/sync-cli-manifest.js.",
   "claude": {
     "base": "@anthropic-ai/claude-code",
-    "version": "2.1.289",
+    "version": "2.1.296",
     "platforms": {
       "win32:x64": {
         "pkg": "@anthropic-ai/claude-code-win32-x64",
-        "version": "2.1.289",
-        "tarball": "https://registry.npmjs.org/@anthropic-ai/claude-code-win32-x64/-/claude-code-win32-x64-2.1.289.tgz",
-        "integrity": "sha512-t6PwcRoMIeuNPbnkf9bFxdUv3xBgUSnk1yRU3r8b5CjovwzV1zUY/talE4rgGAvcTwmndirtWOny/3LPf6Ju+w==",
+        "version": "2.1.296",
+        "tarball": "https://registry.npmjs.org/@anthropic-ai/claude-code-win32-x64/-/claude-code-win32-x64-2.1.296.tgz",
+        "integrity": "sha512-g2aYBzYM5YTDio0ulAoGIGgtGRMa08WAecer4wuOUrKPwVPRfyRdmoZI01BNS8jF9yupDmQycBMuBcVui/VGNw==",
         "exe": "claude.exe",
         "rg": null
       }
@@ -16,13 +16,13 @@
   },
   "codex": {
     "base": "@openai/codex",
-    "version": "0.160.0",
+    "version": "0.162.1",
     "platforms": {
       "win32:x64": {
         "pkg": "@openai/codex-win32-x64",
-        "version": "0.160.0-win32-x64",
-        "tarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.160.0-win32-x64.tgz",
-        "integrity": "sha512-/gCFcuOmGlQkgGivWCtY8BNEDixh70Pue0HZOk9S8bj2vUIE1GLD9zcNB/KqqDJmn0S+lIttauLpzQnw6HOCHA==",
+        "version": "0.162.1-win32-x64",
+        "tarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.162.1-win32-x64.tgz",
+        "integrity": "sha512-dfl4MhHuEi0ARKyNmrTxk+RQmsWNCQAoVLUtrYq+yrW1C8P2sg5ziwgHUUACHjYLKuACV7ARH5Nq5pnCz3GlaQ==",
         "exe": "vendor/x86_64-pc-windows-msvc/bin/codex.exe",
         "rg": "vendor/x86_64-pc-windows-msvc/codex-path",
         "exeLegado": [

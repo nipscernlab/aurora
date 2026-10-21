@@ -221,7 +221,7 @@ export const COMPONENTES: Componente[] = [
     downloadMB: 2,
     essencial: false,
     script: 'download-verible.cts',
-    versao: 'v0.0-4135-g7807ee1a',
+    versao: 'v0.0-4296-g0f262651',
     carimbo: 'Packages/verible/.aurora-version',
   },
   {
@@ -239,7 +239,7 @@ export const COMPONENTES: Componente[] = [
     downloadMB: 3,
     essencial: false,
     script: 'download-slang-server.cts',
-    versao: 'v0.2.9',
+    versao: 'v0.3.1',
     carimbo: 'Packages/slang-server/.aurora-version',
   },
   {

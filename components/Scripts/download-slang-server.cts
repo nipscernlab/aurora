@@ -41,9 +41,9 @@ const { verifyChecksum } = require('./lib/checksum') as typeof import('./lib/che
 
 // Pinned SHA-256 of slang-server-windows-x64.zip (GitHub release asset,
 // immutable per tag). Verified before extraction; a mismatch aborts.
-const EXPECTED_SHA256 = 'b35408facd59e46b56b0c57df7009662c4840d87e426f4ed4bfbc4c16cb1a5e0';
+const EXPECTED_SHA256 = '8ceac5165ad30f0a7bd2cf2501a8152e2dfb9deb370dc72d706daded5ab6a623';
 
-const SLANG_SERVER_TAG      = 'v0.2.9';
+const SLANG_SERVER_TAG      = 'v0.3.1';
 const SLANG_SERVER_FILENAME = 'slang-server-windows-x64.zip';
 const DOWNLOAD_URL          = `https://github.com/hudson-trading/slang-server/releases/download/${SLANG_SERVER_TAG}/${SLANG_SERVER_FILENAME}`;
 

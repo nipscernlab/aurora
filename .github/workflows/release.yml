@@ -314,7 +314,7 @@ jobs:
       - name: Upload the unsigned installer for SignPath
         if: ${{ env.SIGN == 'true' }}
         id: upload-unsigned
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: unsigned-installer
           path: release/sapho-aurora-Setup-*.exe
@@ -375,7 +375,7 @@ jobs:
       # certo, e nao um erro.
       - name: Upload the signed installer for inspection (sign_only)
         if: ${{ inputs.sign_only == true }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: signed-installer
           path: |

@@ -73,4 +73,18 @@ describe('o instalador acompanha a mesma regra', () => {
   it('traz o que ficou de instalacoes antigas em vez de re-baixar', () => {
     expect(nsh).toContain('$INSTDIR\\components\\Packages');
   });
+
+  it('as pastas do yanc saem antes da copia, e so quando o instalador as traz (issue 213)', () => {
+    // Copiar por cima deixava o appcomp e o cpppp da v6 em bin\ depois da v7.1.
+    const instalar = nsh.slice(nsh.indexOf('!macro customInstall'), nsh.indexOf('!macro customUnInstall'));
+    const copia = instalar.indexOf('CopyFiles /SILENT "$INSTDIR\\resources\\components_tmp');
+    for (const pasta of ['bin', 'SAPHO', 'Header', 'Macros']) {
+      const limpa = instalar.indexOf(`!insertmacro SubstituirPastaDoYanc "${pasta}"`);
+      expect(limpa, pasta).toBeGreaterThan(-1);
+      expect(limpa, pasta).toBeLessThan(copia);
+    }
+    const macro = nsh.slice(nsh.indexOf('!macro SubstituirPastaDoYanc'), nsh.indexOf('!macro customInstall'));
+    expect(macro).toContain('${If} ${FileExists} "$INSTDIR\\resources\\components_tmp\\${PASTA}\\*"');
+    expect(macro).toContain('RMDir /r "$LOCALAPPDATA\\SAPHO\\components\\${PASTA}"');
+  });
 });

@@ -122,3 +122,61 @@ describe('download do yanc', () => {
             .rejects.toThrow('Too many redirects');
     });
 });
+
+describe('a versao nova substitui a anterior (issue 213)', () => {
+    let m;
+    beforeAll(() => { m = carregar(); });
+
+    /** Um components/ com o que sobrou de uma v6 e o que nao e do yanc. */
+    function componentesAntigos() {
+        const dir = tmp();
+        const arquivos = {
+            'bin/appcomp.exe': 'v6', 'bin/cpppp.exe': 'v6', 'bin/cppcomp.exe': 'v6', 'bin/.yanc-version': 'v6.0',
+            'SAPHO/core.v': 'v6', 'Header/cmath': 'v6', 'Macros/float_sin.asm': 'v6',
+            'example/media.cmm': 'v6', 'HDL/core.v': 'v5.5',
+            'Packages/iverilog/bin/iverilog.exe': 'x', 'Scripts/download-yanc.js': 'x', 'PyLibs/a.py': 'x', 'README.md': 'x',
+        };
+        for (const [rel, corpo] of Object.entries(arquivos)) {
+            fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+            fs.writeFileSync(path.join(dir, rel), corpo);
+        }
+        return dir;
+    }
+
+    it('apaga as pastas do yanc, inclusive a HDL antiga, e devolve quais', () => {
+        const dir = componentesAntigos();
+        expect(m.limparInstalacaoAnterior(dir)).toEqual(['bin', 'SAPHO', 'Header', 'Macros', 'example', 'HDL']);
+        for (const pasta of m.PASTAS_DO_YANC) expect(fs.existsSync(path.join(dir, pasta)), pasta).toBe(false);
+    });
+
+    it('o que nao e do yanc fica', () => {
+        const dir = componentesAntigos();
+        m.limparInstalacaoAnterior(dir);
+        for (const rel of ['Packages/iverilog/bin/iverilog.exe', 'Scripts/download-yanc.js', 'PyLibs/a.py', 'README.md']) {
+            expect(fs.existsSync(path.join(dir, rel)), rel).toBe(true);
+        }
+    });
+
+    it('sem instalacao anterior nao apaga nada', () => {
+        expect(m.limparInstalacaoAnterior(tmp())).toEqual([]);
+    });
+
+    it('limpa ANTES de extrair, e extrai o zip em components/', async () => {
+        const dir = componentesAntigos();
+        const chamadas = [];
+        const log = console.log;
+        console.log = () => {};
+        try {
+            await m.substituirInstalacao('yanc.zip', dir, async (zip, destino) => {
+                chamadas.push({ zip, destino, appcompNaHora: fs.existsSync(path.join(dir, 'bin', 'appcomp.exe')) });
+            });
+        } finally {
+            console.log = log;
+        }
+        expect(chamadas).toEqual([{ zip: 'yanc.zip', destino: dir, appcompNaHora: false }]);
+    });
+
+    it('a instalacao de verdade e em components/ da raiz', () => {
+        expect(m.COMPONENTS_DIR).toBe(path.join(RAIZ, 'components'));
+    });
+});

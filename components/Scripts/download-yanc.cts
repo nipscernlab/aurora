@@ -121,6 +121,13 @@ const HDL_SENTINEL    = path.join(ROOT_DIR, 'components', 'SAPHO', 'core.v');
 const HEADER_SENTINEL = path.join(ROOT_DIR, 'components', 'Header', 'cmath');
 const MACROS_SENTINEL = path.join(ROOT_DIR, 'components', 'Macros', 'float_sin.asm');
 const TMP_ZIP       = path.join(ROOT_DIR, YANC_FILENAME);
+const COMPONENTS_DIR = path.join(ROOT_DIR, 'components');
+// As pastas que a release do yanc traz inteiras, e que por isso sao dela: a
+// versao nova SUBSTITUI cada uma, nao se mistura com a anterior. Extrair por
+// cima deixava o que a nova nao traz mais, e o appcomp e o cpppp, que sairam
+// na v7.1, seguiam em bin/ respondendo `--version` 6.0 (issue 213). HDL/ e o
+// nome antigo de SAPHO/, que nenhuma release traz desde a v5.7.
+const PASTAS_DO_YANC = ['bin', 'SAPHO', 'Header', 'Macros', 'example', 'HDL'];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -208,6 +215,33 @@ async function extractZip(zipPath: string, destDir: string): Promise<void> {
     await extrairZip(zipPath, destDir, { log, tag: 'yanc' });
 }
 
+// Apaga as pastas do yanc que existirem em componentsDir e devolve quais.
+// O resto de components/ (Packages, Scripts, PyLibs, projetos) nao e do yanc
+// e fica.
+function limparInstalacaoAnterior(componentsDir: string): string[] {
+    const apagadas: string[] = [];
+    for (const pasta of PASTAS_DO_YANC) {
+        const alvo = path.join(componentsDir, pasta);
+        if (!fs.existsSync(alvo)) continue;
+        fs.rmSync(alvo, { recursive: true, force: true });
+        apagadas.push(pasta);
+    }
+    return apagadas;
+}
+
+// Troca a instalacao anterior pela do zip. Chamada so depois de o zip estar
+// baixado e conferido: uma falha de rede nao pode deixar o aluno sem o
+// compilador que ele ja tinha.
+async function substituirInstalacao(
+    zipPath: string,
+    componentsDir: string,
+    extrair: (zip: string, destino: string) => Promise<void> = extractZip,
+): Promise<void> {
+    const apagadas = limparInstalacaoAnterior(componentsDir);
+    if (apagadas.length) log(`Removed the previous YANC folders: ${apagadas.join(', ')}.`);
+    await extrair(zipPath, componentsDir);
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -233,8 +267,7 @@ async function main(): Promise<void> {
         await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
         // O zip empacota como bin/cmmcomp.exe etc. Extraindo em
         // components/ resulta em components/bin/cmmcomp.exe, perfeito.
-        const COMPONENTS_DIR = path.join(ROOT_DIR, 'components');
-        await extractZip(TMP_ZIP, COMPONENTS_DIR);
+        await substituirInstalacao(TMP_ZIP, COMPONENTS_DIR);
 
         fs.unlinkSync(TMP_ZIP);
 
@@ -272,6 +305,10 @@ module.exports = {
     installedTag,
     downloadFile,
     extractZip,
+    limparInstalacaoAnterior,
+    substituirInstalacao,
+    PASTAS_DO_YANC,
+    COMPONENTS_DIR,
     DOWNLOAD_URL,
     YANC_TAG,
     YANC_FILENAME,

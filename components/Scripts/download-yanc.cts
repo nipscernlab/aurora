@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * Aurora IDE - YANC compiler bootstrap
  *
@@ -57,7 +56,7 @@
  *
  * Scripts/ NAO esta no zip a partir do v4.1, o yanc parou de empacotar
  * essa pasta (proc2rtl.ys / TCLs antigos). Aurora gerencia seus proprios
- * scripts em components/Scripts/ (copy-components, download-*.js).
+ * scripts em components/Scripts/ (copy-components, download-*).
  *
  * Roda no prestart, depois do download do toolchain principal e antes
  * do copy-components.
@@ -75,16 +74,19 @@
  * instalacao v3 antiga (so 4 binarios) tem o sentinel falhando e o
  * script re-baixa v4 automaticamente, sem precisar de --force.
  *
- * Usage:  node components/Scripts/download-yanc.js [--force]
+ * Usage:  node components/Scripts/download-yanc.cts [--force]
  *   --force   re-download even if components/bin/cppcomp.exe is present
  */
 
-const https = require('https');
-const fs    = require('fs');
-const path  = require('path');
-const { extractZip: extrairZip } = require('./lib/extract');
-const { escreverCarimbo } = require('./lib/version_stamp');
-const { verifyChecksum } = require('./lib/checksum');
+// .cts: TypeScript em CommonJS, que o Node 22 e o do Electron executam
+// direto (sem build), e que quem le este modulo continua carregando com
+// require. O `as typeof import(...)` so da os tipos; o Node o apaga.
+const https = require('https') as typeof import('https');
+const fs    = require('fs') as typeof import('fs');
+const path  = require('path') as typeof import('path');
+const { extractZip: extrairZip } = require('./lib/extract') as typeof import('./lib/extract.js');
+const { escreverCarimbo } = require('./lib/version_stamp') as typeof import('./lib/version_stamp.js');
+const { verifyChecksum } = require('./lib/checksum') as typeof import('./lib/checksum.js');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -122,20 +124,20 @@ const TMP_ZIP       = path.join(ROOT_DIR, YANC_FILENAME);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function log(/** @type {string} */ msg) { console.log(`[yanc] ${msg}`); }
-function err(/** @type {string} */ msg) { console.error(`[yanc] ERROR: ${msg}`); }
+function log(msg: string): void { console.log(`[yanc] ${msg}`); }
+function err(msg: string): void { console.error(`[yanc] ERROR: ${msg}`); }
 
-function binariesPresent() {
+function binariesPresent(): boolean {
     return fs.existsSync(SENTINEL_FILE) && fs.existsSync(HDL_SENTINEL)
         && fs.existsSync(HEADER_SENTINEL) && fs.existsSync(MACROS_SENTINEL);
 }
 
 // Tag recorded by the last successful install, or null when absent (installed
 // before this marker existed, or never installed).
-function installedTag() {
+function installedTag(): string | null {
     try {
         return fs.readFileSync(VERSION_SENTINEL, 'utf8').trim() || null;
-    } catch (_) {
+    } catch {
         return null;
     }
 }
@@ -143,22 +145,22 @@ function installedTag() {
 // "Installed AND at the pinned version." Skipping the download only when BOTH
 // hold is what makes a YANC_TAG bump actually reach devs who already had the
 // previous version.
-function alreadyInstalled() {
+function alreadyInstalled(): boolean {
     return binariesPresent() && installedTag() === YANC_TAG;
 }
 
-function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
-    return new Promise((resolve, reject) => {
+function downloadFile(url: string, dest: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
         log(`Downloading ${url}`);
 
         const file = fs.createWriteStream(dest);
         let total = 0;
         let received = 0;
 
-        function doRequest(/** @type {any} */ requestUrl, redirectCount = 0) {
+        function doRequest(requestUrl: string | undefined, redirectCount = 0): void {
             if (redirectCount > 5) { reject(new Error('Too many redirects')); return; }
 
-            const parsedUrl = new URL(requestUrl);
+            const parsedUrl = new URL(String(requestUrl));
             const opts = {
                 hostname: parsedUrl.hostname,
                 path:     parsedUrl.pathname + parsedUrl.search,
@@ -178,7 +180,7 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
                 }
 
                 total = parseInt(res.headers['content-length'] || '0', 10);
-                res.on('data', (chunk) => {
+                res.on('data', (chunk: Buffer) => {
                     received += chunk.length;
                     if (total > 0) {
                         const pct = Math.round((received / total) * 100);
@@ -194,13 +196,13 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
 
         // Resolve apenas depois que o stream e fechado, caso contrario
         // o extract roda em cima de um arquivo ainda em escrita.
-        file.on('finish', () => file.close(resolve));
+        file.on('finish', () => file.close(() => resolve()));
         file.on('error', reject);
         doRequest(url);
     });
 }
 
-async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+async function extractZip(zipPath: string, destDir: string): Promise<void> {
     // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
     // Expand-Archive de antes como reserva se algo sair do esperado.
     await extrairZip(zipPath, destDir, { log, tag: 'yanc' });
@@ -208,7 +210,7 @@ async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ d
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<void> {
     const force = process.argv.includes('--force');
 
     if (alreadyInstalled() && !force) {

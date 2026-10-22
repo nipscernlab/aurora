@@ -48,8 +48,8 @@ describe('SYSTEM_PROMPT', () => {
 // e nao tem fonte de verdade aqui, entao fica de fora deste bloco de proposito.
 describe('o inventario do toolchain bate com o que o instalador baixa', () => {
     it('a versao do YANC citada e a tag que o download fixa', () => {
-        const tag = tagDe('download-yanc.js', 'YANC_TAG');
-        expect(tag, 'YANC_TAG saiu do download-yanc.js').toBeTruthy();
+        const tag = tagDe('download-yanc.cts', 'YANC_TAG');
+        expect(tag, 'YANC_TAG saiu do download-yanc.cts').toBeTruthy();
         // A tag e `v5.3`; o prompt escreve `v5.3` no ecossistema e `YANC 5.3`
         // no inventario, entao as duas grafias tem que acompanhar a tag.
         const numero = tag.replace(/^v/, '');
@@ -156,7 +156,7 @@ describe('as pilhas ficam com o compilador', () => {
         // mudar, este caso cai de proposito: reconfira os padroes e o que uma
         // pilha omitida vale, e atualize o prompt, o docs/gabarito-ia.md e
         // este teste juntos.
-        expect(tagDe('download-yanc.js', 'YANC_TAG')).toBe('v9.1');
+        expect(tagDe('download-yanc.cts', 'YANC_TAG')).toBe('v9.1');
         expect(SYSTEM_PROMPT).toContain('NUBITS 32, NBMANT 23, NBEXPO 8');
         expect(SYSTEM_PROMPT).toContain('NUGAIN 128, FFTSIZ 3');
         // v5.7: omitida, a profundidade sai do programa (pico + 1, minimo 2).

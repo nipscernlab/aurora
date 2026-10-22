@@ -71,7 +71,7 @@ it is in Git. `npm start` runs `bootstrap`, which downloads them:
 `components/Packages/` (Icarus, Verilator, Python, Yosys, GTKWave, ...) and,
 from a pinned [yanc](https://github.com/nipscernlab/yanc) release,
 `components/bin`, `SAPHO`, `Header` and `Macros`. The pin is `YANC_TAG` in
-`components/Scripts/download-yanc.js`. The SAPHO Verilog and the yanc assembler
+`components/Scripts/download-yanc.cts`. The SAPHO Verilog and the yanc assembler
 must come from the same yanc version. To try an unreleased yanc, see "Testing a
 local yanc build" in the README.
 

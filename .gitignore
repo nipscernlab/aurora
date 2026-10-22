@@ -59,7 +59,7 @@ resources/docs/
 components/.aurora-versions.json
 
 # YANC compilers (yanc, cmmcomp, cppcomp, asmcomp, comp2gtkw) — built from
-# the separate nipscernlab/yanc repo. download-yanc.js fetches them
+# the separate nipscernlab/yanc repo. download-yanc.cts fetches them
 # from that repo's GitHub Releases at prestart, same model as the main
 # toolchain bundle above.
 components/bin/
@@ -69,7 +69,7 @@ components/bin/
 # (float_sin.asm, ...). All three ship INSIDE the yanc release
 # (yanc-bin-vX.zip carries bin/ + SAPHO/ + Header/ + Macros/) so they stay
 # version-matched with the compilers that emit code against them.
-# download-yanc.js extracts them, and the yanc's Scripts/aurora.bat (testing a
+# download-yanc.cts extracts them, and the yanc's Scripts/aurora.bat (testing a
 # local yanc) copies the same folders; do NOT commit a copy that can drift stale
 # or show up as a spurious diff after every yanc bump (e.g. v5.1 swapped the LUT
 # macros for minimax — committed copies would dirty every dev's working tree on

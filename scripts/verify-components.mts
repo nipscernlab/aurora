@@ -124,7 +124,7 @@ const COMPONENTS: Array<{ key: string; label: string; script: string; build: (m:
   {
     key: 'yanc',
     label: 'YANC (compiladores C±/ASM/C++/App + SAPHO/Header/Macros)',
-    script: 'download-yanc.js',
+    script: 'download-yanc.cts',
     build: (m) => ({
       pinnedTag: m.YANC_TAG,
       sentinel: m.SENTINEL_FILE,

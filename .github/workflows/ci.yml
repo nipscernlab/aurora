@@ -81,6 +81,13 @@ jobs:
       - name: AI tools reference is up to date
         run: node scripts/gen-ai-tools-doc.js --check
 
+      # O que a Aurora Intelligence sabe de C+- (resources/sapho_rules.json)
+      # sai dos fontes do yanc. Este check clona o yanc na tag que o
+      # download-yanc.cts fixa, regenera e compara: falha quando alguem sobe
+      # o YANC_TAG sem rodar o rules:sync (issue 217).
+      - name: C+- rules match the bundled YANC
+        run: npm run rules:sync -- --check
+
       - name: Dead code (unused files + dependencies)
         run: npm run deadcode
 

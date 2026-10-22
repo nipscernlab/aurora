@@ -2,43 +2,61 @@
 /**
  * sync-sapho-rules.mts: dev-only generator for `resources/sapho_rules.json`.
  *
- * Reads the yanc compiler sources (default `C:\Users\LCOM\Documents\Github\yanc`,
- * overridable via `--yanc <path>` or `$YANC_PATH`) and consolidates the
- * CMM language surface (keywords, types, operators, hardware directives,
- * bilingual error/warning catalog, grammar skeleton) into a single static
- * JSON the Aurora Intelligence panel ships with.
+ * Reads the yanc compiler sources and consolidates the CMM language surface
+ * (keywords, types, operators, hardware directives, bilingual error/warning
+ * catalog, grammar skeleton) into a single static JSON the Aurora
+ * Intelligence panel ships with.
+ *
+ * Which yanc
+ * ----------
+ * By default, the one AURORA bundles: the YANC_TAG pinned in
+ * components/Scripts/download-yanc.cts, cloned from nipscernlab/yanc into a
+ * temporary folder. `--yanc <path>` or `$YANC_PATH` reads a local checkout
+ * instead, for trying a yanc that has no tag yet.
+ *
+ *     npm run rules:sync              regenerate from the pinned tag
+ *     npm run rules:sync -- --check   fail if the committed JSON differs
  *
  * Why this exists
  * ---------------
- * yanc is *not* bundled into the AURORA installer, the binaries are
- * pulled at runtime/setup, and the source tree only lives on a
- * maintainer's machine. Without this sync, the AI would have no idea
- * which directives exist, what their defaults are, or what error
- * messages mean. Run before each release (or whenever yanc changes):
- *
- *     npm run rules:sync
- *
- * The resulting JSON is checked into git so CI / packaging never has
- * to look for yanc.
+ * The binaries come from the yanc release, but the language they accept is
+ * only written down in the yanc sources. Without this sync, the AI would
+ * have no idea which directives exist, what their defaults are, or what
+ * error messages mean. The JSON is checked into git so packaging never has
+ * to look for yanc, and CI runs `--check` so it cannot drift from the
+ * bundled version (issue 217: it used to be generated from a clone on one
+ * maintainer's machine, whenever someone remembered).
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_PATH  = path.join(REPO_ROOT, 'resources', 'sapho_rules.json');
-const DEFAULT_YANC = 'C:\\Users\\LCOM\\Documents\\Github\\yanc';
+const PINO_DO_YANC = path.join(REPO_ROOT, 'components', 'Scripts', 'download-yanc.cts');
+const YANC_REPO = 'https://github.com/nipscernlab/yanc.git';
 
 /* ============================================================
  *  Argument / env resolution
  * ========================================================== */
 
-function resolveYancPath(): string {
-  const idx = process.argv.indexOf('--yanc');
-  if (idx >= 0 && process.argv[idx + 1]) return process.argv[idx + 1];
-  if (process.env.YANC_PATH) return process.env.YANC_PATH;
-  return DEFAULT_YANC;
+/** O YANC_TAG que a AURORA empacota, lido do fonte do download-yanc. */
+export function tagFixada(fonteDoDownload: string): string {
+  const m = fonteDoDownload.match(/^const YANC_TAG\s*=\s*'([^']+)'/m);
+  if (!m) throw new Error('YANC_TAG not found in components/Scripts/download-yanc.cts');
+  return m[1];
+}
+
+/**
+ * null quando o JSON versionado e o que acabou de ser gerado sao iguais; senao,
+ * a mensagem que o CI mostra.
+ */
+export function conferir(versionado: string | null, gerado: string, tag: string | null): string | null {
+  if (versionado === gerado) return null;
+  const qual = tag ? `YANC ${tag}` : 'this yanc checkout';
+  return `resources/sapho_rules.json does not match ${qual}. Run \`npm run rules:sync\` and commit the result.`;
 }
 
 export function readSafe(p: string): string | null {
@@ -48,13 +66,6 @@ export function readSafe(p: string): string | null {
     console.warn(`[sync-sapho-rules] missing: ${path.relative(process.cwd(), p)}`);
     return null;
   }
-}
-
-function gitCommit(yancPath: string): string | null {
-  try {
-    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: yancPath, stdio: ['ignore', 'pipe', 'ignore'] })
-      .toString().trim().slice(0, 12);
-  } catch { return null; }
 }
 
 /* ============================================================
@@ -577,15 +588,12 @@ export function parseAsmLexer(src: string | null): AsmOpcode[] | null {
  *  Main
  * ========================================================== */
 
-/* v8 ignore start */ // a cola da linha de comando: le o yanc do disco e grava o JSON
-function main() {
-  const yancPath = resolveYancPath();
-  if (!fs.existsSync(yancPath)) {
-    console.error(`[sync-sapho-rules] yanc path not found: ${yancPath}`);
-    console.error('Pass --yanc <path> or set YANC_PATH.');
-    process.exit(1);
-  }
-
+/**
+ * O sapho_rules.json de um checkout do yanc. Sem data nem caminho local: o
+ * mesmo yanc da sempre o mesmo texto, e e isso que deixa o `--check` do CI
+ * comparar byte a byte.
+ */
+export function gerarRegras(yancPath: string, origem: { yancTag: string | null; yancCommit: string | null }) {
   // yanc v4+ aninha os compilers em Compilers/<name>/
   const cmm = {
     lex:     readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Sources', 'CMMComp.l')),
@@ -601,19 +609,14 @@ function main() {
 
   const lex        = parseLexer(cmm.lex);
   const directives = buildDirectives(lex, cmm.dirC, cmm.dirH);
-  /* v8 ignore next */ // main() so roda pela linha de comando e grava o sapho_rules.json; a regra e testada em tirarAsQueSairam
   tirarAsQueSairam(directives, cmm.grammar);
   const messages   = parseMessages(cmm.msg);
   const grammar    = parseGrammar(cmm.grammar);
   const opcodes    = parseAsmLexer(asm.lex);
 
-  const out = {
+  return {
     schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    source: {
-      yancPath: path.resolve(yancPath).replace(/\\/g, '/'),
-      yancCommit: gitCommit(yancPath),
-    },
+    source: origem,
     language: lex ? {
       keywords:        lex.keywords.sort(),
       types:           lex.types.sort(),
@@ -628,19 +631,83 @@ function main() {
     messages,
     asm: opcodes ? { opcodes } : null,
   };
+}
 
-  fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
-  fs.writeFileSync(OUT_PATH, JSON.stringify(out, null, 2) + '\n');
+export function serializar(regras: ReturnType<typeof gerarRegras>): string {
+  return JSON.stringify(regras, null, 2) + '\n';
+}
 
-  const rel = path.relative(REPO_ROOT, OUT_PATH).replace(/\\/g, '/');
-  console.log(`[sync-sapho-rules] wrote ${rel}`);
-  console.log(`  keywords:   ${out.language.keywords?.length ?? 0}`);
-  console.log(`  directives: ${Object.keys(directives).length}`);
-  console.log(`  messages:   ${messages.length}`);
-  console.log(`  tokens:     ${grammar.tokens.length}`);
-  console.log(`  productions:${grammar.productions.length}`);
-  console.log(`  asm opcodes:${opcodes?.length ?? 0}`);
-  if (out.source.yancCommit) console.log(`  yanc commit: ${out.source.yancCommit}`);
+/* v8 ignore start */ // a cola da linha de comando: clona o yanc, grava ou confere o JSON
+/** A checkout local pedido por --yanc ou $YANC_PATH; null = a tag fixada. */
+function resolveYancPath(): string | null {
+  const idx = process.argv.indexOf('--yanc');
+  if (idx >= 0 && process.argv[idx + 1]) return process.argv[idx + 1];
+  if (process.env.YANC_PATH) return process.env.YANC_PATH;
+  return null;
+}
+
+function git(yancPath: string, args: string[]): string | null {
+  try {
+    return execFileSync('git', args, { cwd: yancPath, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch { return null; }
+}
+
+function main() {
+  const check = process.argv.includes('--check');
+  const local = resolveYancPath();
+  let yancPath: string;
+  let yancTag: string | null;
+  let temporario: string | null = null;
+
+  if (local) {
+    if (!fs.existsSync(local)) {
+      console.error(`[sync-sapho-rules] yanc path not found: ${local}`);
+      process.exit(1);
+    }
+    yancPath = local;
+    yancTag = git(local, ['describe', '--tags', '--exact-match', 'HEAD']);
+  } else {
+    yancTag = tagFixada(fs.readFileSync(PINO_DO_YANC, 'utf8'));
+    temporario = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-rules-yanc-'));
+    console.log(`[sync-sapho-rules] cloning ${YANC_REPO} at ${yancTag}`);
+    // A tag do yanc e anotada: o git avisa que ela "nao e um commit" e conta
+    // do HEAD destacado. So o erro interessa, e ele sobe na excecao.
+    execFileSync('git', ['-c', 'advice.detachedHead=false', 'clone', '--quiet', '--depth', '1', '--branch', yancTag, YANC_REPO, temporario],
+      { stdio: ['ignore', 'ignore', 'pipe'] });
+    yancPath = temporario;
+  }
+
+  try {
+    const commit = git(yancPath, ['rev-parse', 'HEAD']);
+    const regras = gerarRegras(yancPath, { yancTag, yancCommit: commit ? commit.slice(0, 12) : null });
+    const texto = serializar(regras);
+    const rel = path.relative(REPO_ROOT, OUT_PATH).replace(/\\/g, '/');
+
+    if (check) {
+      const versionado = fs.existsSync(OUT_PATH) ? fs.readFileSync(OUT_PATH, 'utf8') : null;
+      const erro = conferir(versionado, texto, yancTag);
+      if (erro) {
+        console.error(`[sync-sapho-rules] ${erro}`);
+        process.exit(1);
+      }
+      console.log(`[sync-sapho-rules] ${rel} matches ${yancTag ? `YANC ${yancTag}` : yancPath}.`);
+      return;
+    }
+
+    fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
+    fs.writeFileSync(OUT_PATH, texto);
+
+    console.log(`[sync-sapho-rules] wrote ${rel}`);
+    console.log(`  keywords:   ${regras.language.keywords?.length ?? 0}`);
+    console.log(`  directives: ${Object.keys(regras.directives).length}`);
+    console.log(`  messages:   ${regras.messages.length}`);
+    console.log(`  tokens:     ${regras.grammar.tokens.length}`);
+    console.log(`  productions:${regras.grammar.productions.length}`);
+    console.log(`  asm opcodes:${regras.asm?.opcodes.length ?? 0}`);
+    console.log(`  yanc:       ${yancTag ?? '(no tag)'} ${regras.source.yancCommit ?? ''}`);
+  } finally {
+    if (temporario) fs.rmSync(temporario, { recursive: true, force: true });
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main();

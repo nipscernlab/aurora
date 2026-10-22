@@ -14,6 +14,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildDirectives,
   classifyMnemonic,
+  conferir,
+  gerarRegras,
+  serializar,
+  tagFixada,
   parseAsmLexer,
   parseGrammar,
   parseLexer,
@@ -202,5 +206,55 @@ describe('as diretivas que sairam da linguagem (yanc v7.1)', () => {
     };
     tirarAsQueSairam(diretivas, GRAMATICA);
     expect(Object.keys(diretivas)).toEqual(['NUBITS', 'NUGAIN']);
+  });
+});
+
+// Issue 217: o JSON vem da tag que a AURORA empacota, e o CI confere.
+describe('de que yanc vem o sapho_rules.json', () => {
+  const RAIZ = path.resolve(import.meta.dirname, '..', '..');
+
+  it('tagFixada le o YANC_TAG do fonte do download', () => {
+    expect(tagFixada("const X = 1;\nconst YANC_TAG      = 'v9.1';\n")).toBe('v9.1');
+    expect(() => tagFixada('const OUTRA = 1;')).toThrow('YANC_TAG not found');
+  });
+
+  it('o JSON versionado diz que veio da tag que o download-yanc fixa', () => {
+    // Sem rede: pega quem sobe o YANC_TAG e esquece o rules:sync. O CI ainda
+    // roda o --check, que regenera e compara o conteudo.
+    const regras = JSON.parse(fs.readFileSync(path.join(RAIZ, 'resources', 'sapho_rules.json'), 'utf8'));
+    const tag = tagFixada(fs.readFileSync(path.join(RAIZ, 'components', 'Scripts', 'download-yanc.cts'), 'utf8'));
+    expect(regras.source.yancTag).toBe(tag);
+    expect(regras.source.yancCommit).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  it('conferir: igual passa, diferente diz o que fazer', () => {
+    expect(conferir('a', 'a', 'v9.1')).toBeNull();
+    expect(conferir('a', 'b', 'v9.1')).toMatch(/does not match YANC v9\.1\. Run `npm run rules:sync`/);
+    expect(conferir(null, 'b', null)).toMatch(/does not match this yanc checkout/);
+  });
+
+  it('gerarRegras le o checkout e nao grava data nem caminho local', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-sapho-rules-'));
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const fontes = path.join(dir, 'Compilers', 'CMMComp', 'Sources');
+      fs.mkdirSync(fontes, { recursive: true });
+      fs.writeFileSync(path.join(fontes, 'CMMComp.l'), LEXER);
+      const origem = { yancTag: 'v9.1', yancCommit: 'bf3d0da1a8a6' };
+      const regras = gerarRegras(dir, origem);
+      expect(regras.source).toEqual(origem);
+      expect(regras.language.types).toEqual(['int']);
+      expect(regras.directives.NUBITS.symbol).toBe('#NUBITS');
+      expect(regras.asm).toBeNull();
+      const texto = serializar(regras);
+      expect(texto).not.toContain('generatedAt');
+      expect(texto).not.toContain(dir.replace(/\\/g, '/'));
+      expect(texto.endsWith('}\n')).toBe(true);
+      // O mesmo checkout da o mesmo texto: e o que deixa o --check comparar.
+      expect(serializar(gerarRegras(dir, origem))).toBe(texto);
+    } finally {
+      aviso.mockRestore();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

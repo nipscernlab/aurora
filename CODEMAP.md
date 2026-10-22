@@ -75,8 +75,9 @@ from a pinned [yanc](https://github.com/nipscernlab/yanc) release,
 must come from the same yanc version. To try an unreleased yanc, see "Testing a
 local yanc build" in the README.
 
-`resources/sapho_rules.json`, which the AI assistant reads, is generated from a
-yanc checkout by `npm run rules:sync` and committed.
+`resources/sapho_rules.json`, which the AI assistant reads, is generated from the
+yanc sources at the pinned `YANC_TAG` by `npm run rules:sync` and committed; CI
+regenerates it and fails if the committed copy differs.
 
 ## Following a feature
 

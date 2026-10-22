@@ -313,7 +313,7 @@
     "simple-git": "^4.0.2",
     "web-tree-sitter": "0.27.1",
     "yosys2digitaljs": "^0.10.3",
-    "zod": "^4.6.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",

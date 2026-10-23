@@ -211,18 +211,19 @@ The assistant panel and the editor's introspection read a static
 [`resources/sapho_rules.json`](resources/sapho_rules.json) that captures the C±
 language surface: keywords, hardware directives, the bilingual error catalogue,
 and a grammar skeleton. It is extracted from the
-[yanc](https://github.com/nipscernlab/yanc) source tree, which is not bundled
-with the installer, so the file has to be regenerated on a maintainer machine
-whenever yanc changes.
+[yanc](https://github.com/nipscernlab/yanc) source tree at the `YANC_TAG` that
+`components/Scripts/download-yanc.cts` pins, so it always describes the yanc
+AURORA bundles.
 
 ```powershell
-$env:YANC_PATH = 'D:\path\to\yanc'
-npm run rules:sync
+npm run rules:sync              # clone yanc at YANC_TAG and regenerate
+npm run rules:sync -- --check   # what CI runs: fail if the JSON differs
 ```
 
-The script prints keyword, directive and message counts along with the yanc
-commit it read. Commit the regenerated JSON so CI never has to reach yanc
-directly.
+To read an untagged local yanc instead, set `$env:YANC_PATH = 'D:\path\to\yanc'`
+or pass `--yanc <path>`. The script prints keyword, directive and message
+counts along with the yanc tag and commit it read. Commit the regenerated JSON
+in the same change that moves `YANC_TAG`; the packaged app never reaches yanc.
 
 ## Testing a local yanc build
 

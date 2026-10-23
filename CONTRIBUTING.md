@@ -170,7 +170,8 @@ bypassing branch protection.
 
 Aurora Intelligence only knows what `js/ai/system_prompt.ts`,
 `resources/sapho_rules.json` and the tool descriptions tell it. When a release
-moves `YANC_TAG`, run `npm run rules:sync` against that yanc and reread the
+moves `YANC_TAG`, run `npm run rules:sync` (it clones yanc at that tag; CI
+fails until you do) and reread the
 prompt's claims about directives and defaults; a test pins them to the tag and
 fails until you do. After publishing, go through `docs/gabarito-ia.md` in the
 installed app: the tests check the text the model receives, not what it answers.

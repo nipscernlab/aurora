@@ -7,12 +7,29 @@
 ; $LOCALAPPDATA\SAPHO\components, que a atualizacao nao alcanca, e e o mesmo
 ; caminho que main/paths.js resolve.
 
+; As pastas do YANC vem inteiras em cada versao e substituem as anteriores, em
+; vez de se misturar com elas: copiar por cima deixava o que a versao nova nao
+; traz mais, e o appcomp e o cpppp, que sairam na v7.1, seguiam em bin\
+; respondendo (issue 213). So apaga a pasta que o instalador traz, para nunca
+; deixar o usuario sem ela; e a mesma lista do download-yanc.cts.
+!macro SubstituirPastaDoYanc PASTA
+  ${If} ${FileExists} "$INSTDIR\resources\components_tmp\${PASTA}\*"
+    RMDir /r "$LOCALAPPDATA\SAPHO\components\${PASTA}"
+  ${EndIf}
+!macroend
+
 !macro customInstall
   ; O instalador traz apenas o que e essencial (Scripts, bin do YANC, SAPHO) em
   ; resources\components_tmp. Copiamos POR CIMA da pasta persistente, para o
   ; que o usuario baixou continuar onde esta. CopyFiles cria o destino se ele
   ; nao existir, entao instalacao nova e atualizacao seguem o mesmo caminho.
   CreateDirectory "$LOCALAPPDATA\SAPHO\components"
+  !insertmacro SubstituirPastaDoYanc "bin"
+  !insertmacro SubstituirPastaDoYanc "SAPHO"
+  !insertmacro SubstituirPastaDoYanc "Header"
+  !insertmacro SubstituirPastaDoYanc "Macros"
+  ; HDL\ e o nome antigo de SAPHO\, que nenhuma versao traz desde a v5.7.
+  RMDir /r "$LOCALAPPDATA\SAPHO\components\HDL"
   CopyFiles /SILENT "$INSTDIR\resources\components_tmp\*.*" "$LOCALAPPDATA\SAPHO\components"
   RMDir /r "$INSTDIR\resources\components_tmp"
 

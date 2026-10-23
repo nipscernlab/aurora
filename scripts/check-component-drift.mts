@@ -134,7 +134,7 @@ const COMPONENTS: Array<{ key: string; label: string; ours: boolean; script: str
     key: 'yanc',
     label: 'YANC — compiladores do SAPHO',
     ours: true,
-    script: 'download-yanc.js',
+    script: 'download-yanc.cts',
     tagOf: (m) => m.YANC_TAG,
     family: /^v\d/,
     upstream: { kind: 'github-releases', repo: 'nipscernlab/yanc' },

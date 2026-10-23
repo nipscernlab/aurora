@@ -31,7 +31,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 // that proves the install.
 const COMPONENTS: Array<[string, string, string]> = [
   ['toolchain (msys)', 'download-toolchain.js', 'MSYS_SENTINEL'],
-  ['yanc', 'download-yanc.js', 'SENTINEL_FILE'],
+  ['yanc', 'download-yanc.cts', 'SENTINEL_FILE'],
   ['gtkwave', 'download-gtkwave-nipscern.js', 'SENTINEL_FILE'],
   ['surfer', 'download-surfer.js', 'SENTINEL_FILE'],
   ['verible', 'download-verible.cts', 'SENTINEL_FILE'],

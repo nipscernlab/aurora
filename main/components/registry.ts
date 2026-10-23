@@ -162,7 +162,7 @@ export const COMPONENTES: Componente[] = [
     // O YANC nao e so o bin/: o release dele traz tambem SAPHO/ (a biblioteca
     // Verilog do processador), Header/ (shims de C++) e Macros/ (ponto
     // flutuante em .asm), tudo casado por versao com os compiladores. Um
-    // representante de cada area, os MESMOS que o download-yanc.js usa como
+    // representante de cada area, os MESMOS que o download-yanc.cts usa como
     // sentinela, e o que faz o doctor enxergar um SAPHO/ apagado ou uma
     // atualizacao pela metade como o que sao: YANC incompleto.
     arquivosChave: [
@@ -176,7 +176,7 @@ export const COMPONENTES: Componente[] = [
     // O único que fica no instalador. São doze megabytes, e é o SAPHO em si.
     essencial: true,
     requerParaCompilar: true,
-    script: 'download-yanc.js',
+    script: 'download-yanc.cts',
     versao: 'v9.1',
     // O YANC ja tinha carimbo proprio antes dos outros; o nome fica.
     carimbo: 'bin/.yanc-version',

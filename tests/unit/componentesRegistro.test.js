@@ -187,7 +187,7 @@ describe('arquivos-chave', () => {
   it('todo arquivo-chave mora numa area do proprio componente', () => {
     // O YANC e a excecao declarada: o release dele espalha quatro areas
     // (bin, SAPHO, Header, Macros), todas instaladas e conferidas pelo
-    // download-yanc.js. Qualquer outro componente vive numa pasta so, e um
+    // download-yanc.cts. Qualquer outro componente vive numa pasta so, e um
     // arquivo-chave fora dela seria o doctor diagnosticando o componente
     // errado.
     const AREAS = { yanc: ['bin/', 'SAPHO/', 'Header/', 'Macros/'] };
@@ -206,7 +206,7 @@ describe('arquivos-chave', () => {
   });
 
   it('os arquivos-chave do yanc sao as sentinelas do proprio instalador', () => {
-    // download-yanc.js confere SAPHO/core.v, Header/cmath e Macros/float_sin.asm
+    // download-yanc.cts confere SAPHO/core.v, Header/cmath e Macros/float_sin.asm
     // como prova de instalacao completa. O catalogo tem que olhar os mesmos
     // arquivos, senao o instalador e o doctor discordam sobre o que e uma
     // instalacao inteira.

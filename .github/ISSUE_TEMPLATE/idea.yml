@@ -1,0 +1,10 @@
+name: Idea or task
+description: Note something to do, fix or try. One field is enough.
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What
+      description: What should be done, and why if it is not obvious. The maintainer adds the rest.
+    validations:
+      required: true

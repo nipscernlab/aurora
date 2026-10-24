@@ -4,6 +4,59 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [7.1.0](https://github.com/nipscernlab/aurora/compare/v7.0.0...v7.1.0) (2026-10-24)
+
+
+### Features
+
+* **componentes:** verible v0.0-4296 e slang-server v0.3.1 ([67eba3e](https://github.com/nipscernlab/aurora/commit/67eba3e8895d0a279e96d43003db4f6037d9a1e6)), closes [#81](https://github.com/nipscernlab/aurora/issues/81)
+* **ia:** a IA sabe montar o teclado e a tela na DE2-115, e nao inventa pino ([05822bd](https://github.com/nipscernlab/aurora/commit/05822bd29fa351ce966cc97e5da2465b51ef4d5b))
+* **ia:** sem Node, a Aurora baixa o Claude Code e da o comando de login ([577253d](https://github.com/nipscernlab/aurora/commit/577253d2693e277c3fa3da12662fc96ed95b8246)), closes [#190](https://github.com/nipscernlab/aurora/issues/190)
+* **yanc:** o desenvolvimento passa para o yanc v8.0 ([ec7ca80](https://github.com/nipscernlab/aurora/commit/ec7ca8049d12aef3b7e574c34392844abe30929b))
+* **yanc:** o desenvolvimento passa para o yanc v9.0 ([d875e5d](https://github.com/nipscernlab/aurora/commit/d875e5d10b42d50b1150a86cfa67f559decb69cd))
+* **yanc:** o desenvolvimento passa para o yanc v9.1 ([b468797](https://github.com/nipscernlab/aurora/commit/b468797e48a6fe53b1633257874db036a45f71b5))
+
+
+### Bug Fixes
+
+* **ci:** a catraca de cores e o eslint voltam a passar na main ([4837480](https://github.com/nipscernlab/aurora/commit/4837480bcb4face7a6aff69491c4bf6ced938e71))
+* **ci:** os comandos do .sdc do Quartus nao contam como ferramenta da IA ([6b9313d](https://github.com/nipscernlab/aurora/commit/6b9313d9dd519ae1cb34743b7df85ae4d0aa5fb0))
+* **componentes:** a atualizacao do yanc apaga o que a versao nova nao traz ([ed2398a](https://github.com/nipscernlab/aurora/commit/ed2398aa0eb2cf7dd236755c689d6b6a38b99bc4))
+* **componentes:** a atualizacao do yanc apaga o que a versao nova nao traz ([0b0ee52](https://github.com/nipscernlab/aurora/commit/0b0ee52296ccf4ae6d6ae959df7ed94f1e92cb5e)), closes [#213](https://github.com/nipscernlab/aurora/issues/213)
+* **editor:** o botao de dividir o editor some com o Surfer na frente ([5e90ab9](https://github.com/nipscernlab/aurora/commit/5e90ab96878fd64b696950fcd873fe27cd625c6f)), closes [#189](https://github.com/nipscernlab/aurora/issues/189)
+* **hub:** a escolha entre C+- e C++ ganha o desenho do controle segmentado ([7e872d5](https://github.com/nipscernlab/aurora/commit/7e872d5e3184f775554e55fbf6de56aeb2e314a1)), closes [#188](https://github.com/nipscernlab/aurora/issues/188)
+* **ia:** "All actions completed" so quando nao houve texto e tudo terminou ([5d133bc](https://github.com/nipscernlab/aurora/commit/5d133bc8d0464893f2cbe7e32221721b8ad4d11b)), closes [#184](https://github.com/nipscernlab/aurora/issues/184)
+* **ia:** a palavra de pensando fica ate o fim da resposta ([75e5bc2](https://github.com/nipscernlab/aurora/commit/75e5bc2b5426e29078b769b2913c1db5522939e4)), closes [#183](https://github.com/nipscernlab/aurora/issues/183)
+* **ia:** o botao de voltar o codigo mora na linha do rotulo da mensagem ([1675ccf](https://github.com/nipscernlab/aurora/commit/1675ccfe896519a5cb930d5a54816ed2fd5ada27)), closes [#182](https://github.com/nipscernlab/aurora/issues/182)
+* **ia:** o login do Claude Code e procurado no CLAUDE_CONFIG_DIR ([4bbe162](https://github.com/nipscernlab/aurora/commit/4bbe1627694a3b084e9f2350ffa9ae35567543f6)), closes [#181](https://github.com/nipscernlab/aurora/issues/181)
+* **nomes:** projeto e processador com a mesma regra de nome e o mesmo aviso ([992569b](https://github.com/nipscernlab/aurora/commit/992569b9719deaae549f3f258723c03903a6c4ab)), closes [#187](https://github.com/nipscernlab/aurora/issues/187)
+* **onda:** a IA cria layout do Surfer em .surf.ron, e nao mais em .sucl ([a6de3f4](https://github.com/nipscernlab/aurora/commit/a6de3f4ac1e1e7a1727526cf52a319cee09e8d03)), closes [#185](https://github.com/nipscernlab/aurora/issues/185)
+* **onda:** o aviso de $fopen resolve o caminho de onde a simulacao roda ([0af07b9](https://github.com/nipscernlab/aurora/commit/0af07b9cc9ff3691be16deac69b3cfd1bd8a6e96)), closes [#212](https://github.com/nipscernlab/aurora/issues/212)
+* **projeto:** a conversao manda o que o yanc antigo gerou para a Lixeira ([1bdfc62](https://github.com/nipscernlab/aurora/commit/1bdfc62ef3cc06f3089a93a22b7e508b39afd5d7)), closes [#211](https://github.com/nipscernlab/aurora/issues/211)
+* **projeto:** a pergunta da conversao nao fecha por clique fora ([853f181](https://github.com/nipscernlab/aurora/commit/853f181c78a0a4545c40b7491ed4ab3bf581929a)), closes [#209](https://github.com/nipscernlab/aurora/issues/209)
+* **projeto:** abrir projeto ja convertido nao deixa ENOENT no terminal ([22f1a0c](https://github.com/nipscernlab/aurora/commit/22f1a0cadeb0d0d44be7afb94415725c853229df)), closes [#218](https://github.com/nipscernlab/aurora/issues/218)
+* **projeto:** nome de projeto com espaco volta a ser recusado ([5b9f97d](https://github.com/nipscernlab/aurora/commit/5b9f97de55436a44d4af5c0d6e469ba4bdc598d1)), closes [#186](https://github.com/nipscernlab/aurora/issues/186)
+* **projeto:** o .spf convertido diz que versao da AURORA o converteu ([990bcee](https://github.com/nipscernlab/aurora/commit/990bceefa2872a29ca9e9060a7592c82ae715a5e)), closes [#210](https://github.com/nipscernlab/aurora/issues/210)
+
+
+### Refactor
+
+* **componentes:** o download do yanc vira .cts ([04edb14](https://github.com/nipscernlab/aurora/commit/04edb1441b7eff5095476dcd3609a522e2bc4db1))
+* **componentes:** os downloads do verible e do slang viram .cts, e o portao do release .mts ([707a1a9](https://github.com/nipscernlab/aurora/commit/707a1a94d32ddfd9981569d095ae4287a64ca1cc))
+* **ia:** claude_code vira .ts, com teste de caracterizacao ([7ae9bee](https://github.com/nipscernlab/aurora/commit/7ae9bee19c2809e7b10c4049ebe6924e600e4e7f))
+* **projeto:** new_project_modal vira .ts, com teste de caracterizacao ([e5f83d0](https://github.com/nipscernlab/aurora/commit/e5f83d0e355fadd5180ccc6ed85497baa21f714b))
+* **projeto:** path_rules vira .ts ([b63385e](https://github.com/nipscernlab/aurora/commit/b63385e7d58e0607c42b5b0f5a73160f0d944008))
+
+
+### Documentation
+
+* add AGENTS.md and CLAUDE.md ([26239e5](https://github.com/nipscernlab/aurora/commit/26239e5b3d9471c0a36fffbdc1fe2ed87b03d349))
+* add AGENTS.md and CLAUDE.md ([5d25260](https://github.com/nipscernlab/aurora/commit/5d252608475dffd409acec7d8d50b2f1284c8c3c))
+* add the one-field idea issue form ([#232](https://github.com/nipscernlab/aurora/issues/232)) ([9f4cc8c](https://github.com/nipscernlab/aurora/commit/9f4cc8c8c970ede01cb9d31e1d1aff4f655f639a))
+* **agents:** regra de merge por agente, copiada do modelo do .github[#5](https://github.com/nipscernlab/aurora/issues/5) ([#233](https://github.com/nipscernlab/aurora/issues/233)) ([f9f2ad5](https://github.com/nipscernlab/aurora/commit/f9f2ad5c6405ac8b6ada98449e3bfb2ce312d4e2))
+* **contributing:** quem e do laboratorio cria um ramo; fork e para quem e de fora ([c7630bf](https://github.com/nipscernlab/aurora/commit/c7630bff2e6160c8a5278abee114de3d05febd9c)), closes [#215](https://github.com/nipscernlab/aurora/issues/215)
+* **todo:** sai a implantacao no LABEL e a passagem da manutencao ([f65692b](https://github.com/nipscernlab/aurora/commit/f65692bc7b4df4efb35050626568ea5bbac5fad0))
+
 ## [7.0.0](https://github.com/nipscernlab/aurora/compare/v6.21.0...v7.0.0) (2026-10-14)
 
 

@@ -202,6 +202,19 @@ function mesmaPasta(gravada: unknown, raiz: string): boolean {
 }
 
 /**
+ * O JSON no formato do arquivo que ja esta no disco: fim de linha CRLF se ele
+ * usa CRLF, e quebra de linha no fim se ele tem. O hits (25/10/2026) versiona
+ * o .spf com CRLF e quebra final, e abrir o projeto na AURORA tirava a quebra,
+ * o que aparecia como mudanca no git. Arquivo novo termina com quebra de linha.
+ */
+function noFormatoDe(json: string, anterior: string | null): string {
+  if (anterior === null) return `${json}\n`;
+  const eol = anterior.includes('\r\n') ? '\r\n' : '\n';
+  const corpo = eol === '\r\n' ? json.replace(/\n/g, '\r\n') : json;
+  return /\r?\n$/.test(anterior) ? corpo + eol : corpo;
+}
+
+/**
  * Grava o .spf inteiro de forma atomica: escreve num .tmp ao lado e renomeia
  * por cima. Uma queda no meio do writeFile deixava JSON truncado, que o
  * parseSpfTolerant nao recupera, e o projeto nao reabria. O rename e atomico
@@ -242,7 +255,12 @@ async function escreverSpf(spfPath: string, dados: any) {
     }
   }
 
-  const json = JSON.stringify(dados, null, 2);
+  let anterior: string | null = null;
+  try { anterior = await fse.readFile(spfPath, 'utf8'); } catch { /* arquivo novo */ }
+  const json = noFormatoDe(JSON.stringify(dados, null, 2), anterior);
+  // Conteudo igual nao se grava: abrir o projeto regravava o .spf identico,
+  // e a regravacao era o que sujava o git do repositorio do projeto.
+  if (json === anterior) return;
   const tmp = `${spfPath}.tmp`;
   try {
     await fse.writeFile(tmp, json, 'utf8');

@@ -31,7 +31,8 @@
 
 /** A single declared signal/port pulled from a module body. */
 import {
-    extractNamedGenerates, declaredParams, overriddenParams, evaluateCondition, resolveParamValue,
+    extractNamedGenerates, stripNamedGenerates, declaredParams, overriddenParams, evaluateCondition,
+    resolveParamValue,
 } from './generate_blocks.js';
 
 export interface VerilogSignal {
@@ -436,7 +437,9 @@ export function parseVerilogModules(files: VerilogFile[]): ParseResult {
             //    "podem nao existir" e descartados aqui, melhor que
             //    iverilog falhar com "Unable to bind".
             const semDiretivas = stripDirectives(block.body);
-            const cleanBody = stripConditionalGenerates(semDiretivas);
+            //  - ramos nomeados de generate, com ou sem a palavra
+            //    `generate` → espacos (o que declaram e do escopo do ramo)
+            const cleanBody = stripConditionalGenerates(stripNamedGenerates(semDiretivas));
             // Os ramos nomeados saem do corpo ANTES do strip: eles continuam
             // fora de `signals`/`instances` (o strip garante isso), e entram
             // na hierarquia só quando a condição resolver verdadeira.

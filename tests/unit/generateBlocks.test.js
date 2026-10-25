@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest';
 
 import {
-    extractNamedGenerates, parseIntLiteral, declaredParams, overriddenParams,
+    extractNamedGenerates, stripNamedGenerates, parseIntLiteral, declaredParams, overriddenParams,
     resolveParamValue, evaluateCondition,
 } from '../../js/wave/generate_blocks.js';
 
@@ -60,6 +60,49 @@ describe('extractNamedGenerates', () => {
         const [r] = extractNamedGenerates(aninhado);
         expect(r.label).toBe('blk');
         expect(r.body).toContain('outro inst(a)');
+    });
+
+    // O testbench do hits (25/10/2026): o Verilog-2005 dispensa a palavra
+    // `generate`, e o bloco ficava fora da árvore e ligado no .vlt.
+    it('lê o generate implícito, sem a palavra generate, no corpo do módulo', () => {
+        const tb = `reg clk = 0;
+    if (1) begin : stim
+        reg rst_next = 1'b1;
+        always @(posedge clk) begin
+            if (clk) rst_next <= 1'b0;
+        end
+    end else begin : stim
+        reg outro;
+    end
+    hits dut(.clk(clk));`;
+        const ramos = extractNamedGenerates(tb);
+        expect(ramos.map((r) => [r.label, r.condition, r.negated])).toEqual([['stim', '1', false], ['stim', '1', true]]);
+        expect(ramos[0].body).toContain('rst_next');
+        expect(tb.slice(ramos[0].start, ramos[0].end)).toMatch(/^if \(1\) begin : stim[\s\S]*end$/);
+        expect(tb.slice(ramos[1].start, ramos[1].end)).toMatch(/^else begin : stim[\s\S]*end$/);
+    });
+
+    it('if de comando não é generate: dentro de bloco, de always, de initial, de função e de else if', () => {
+        const casos = [
+            'always @(posedge clk) begin if (P) begin : a x = 1; end end',
+            'always @(posedge clk) if (P) begin : a x = 1; end',
+            'initial if (1) begin : a x = 1; end',
+            'always @* case (s) 0: if (1) begin : a x = 1; end endcase',
+            'function f; input i; if (1) begin : a f = i; end endfunction',
+            'task t; if (1) begin : a x = 1; end endtask',
+            'always @* fork if (1) begin : a x = 1; end join',
+        ];
+        for (const c of casos) expect(extractNamedGenerates(c), c).toEqual([]);
+        expect(extractNamedGenerates('if (A) begin : a end else if (B) begin : b end').map((r) => r.label))
+            .toEqual(['a']);
+    });
+
+    it('stripNamedGenerates troca os ramos por espaços do mesmo tamanho', () => {
+        const tb = 'reg a; if (1) begin : stim reg b; end else begin : stim reg c; end wire d;';
+        const limpo = stripNamedGenerates(tb);
+        expect(limpo).toHaveLength(tb.length);
+        expect(limpo.replace(/\s+/g, ' ')).toBe('reg a; wire d;');
+        expect(stripNamedGenerates('')).toBe('');
     });
 
     it('ignora ramo sem rótulo, porque sem nome ele não é escopo', () => {

@@ -326,6 +326,46 @@ describe('project:write-spf', () => {
     expect(lerSpf(p.spf)).toEqual({ outro: 1 });
   });
 
+  // O hits (25/10/2026) versiona o .spf com CRLF e quebra final, e abrir o
+  // projeto tirava a quebra, sujando o git do repositorio do projeto.
+  it('mantem o CRLF e a quebra final do arquivo que estava no disco', async () => {
+    const p = projeto();
+    const doc = lerSpf(p.spf);
+    const original = `${JSON.stringify(doc, null, 2).replace(/\n/g, '\r\n')}\r\n`;
+    fs.writeFileSync(p.spf, original);
+    const ev = evento();
+    registrar(ev, p.spf);
+
+    await chamar('project:write-spf', ev, p.spf, { ...doc, extra: 1 });
+    const texto = fs.readFileSync(p.spf, 'utf8');
+    expect(texto.endsWith('}\r\n')).toBe(true);
+    expect(texto.replace(/\r\n/g, '')).not.toContain('\n');
+    expect(JSON.parse(texto).extra).toBe(1);
+  });
+
+  it('arquivo sem quebra final continua sem, e documento igual nao se regrava', async () => {
+    const p = projeto();
+    const doc = lerSpf(p.spf);
+    const ev = evento();
+    registrar(ev, p.spf);
+    const escrever = vi.spyOn(fse, 'writeFile');
+
+    await chamar('project:write-spf', ev, p.spf, doc);
+    expect(escrever).not.toHaveBeenCalled();
+
+    await chamar('project:write-spf', ev, p.spf, { ...doc, extra: 1 });
+    expect(fs.readFileSync(p.spf, 'utf8').endsWith('}')).toBe(true);
+  });
+
+  it('arquivo novo termina com quebra de linha', async () => {
+    const p = projeto();
+    fs.rmSync(p.spf);
+    const ev = evento();
+    registrar(ev, p.spf);
+    await chamar('project:write-spf', ev, p.spf, { outro: 1 });
+    expect(fs.readFileSync(p.spf, 'utf8')).toBe('{\n  "outro": 1\n}\n');
+  });
+
   it('o rename atomico falhando cai para a escrita direta e recolhe o .tmp', async () => {
     const p = projeto();
     const ev = evento();

@@ -28,6 +28,7 @@ import { problemStore } from '../terminal/problem_store.js';
 import { marcarPonto } from '../ai/rewind.js';
 import { getPrismMode } from '../prism/prism_mode.js';
 import { resolveOverride } from './command_overrides.js';
+import { recusaDosCaminhos, explicarRecusa } from './caminho_da_ferramenta.js';
 import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
@@ -565,6 +566,10 @@ async function handlePrismStep() {
         // vive em main/ipc/prism.js, entao consultamos o store aqui e
         // anexamos ao payload. main aplica antes de spawn.
         const paths = await buildPrismCompilationPaths(projectPath);
+        // O script do Yosys nomeia os .v pelo caminho absoluto, e o Yosys nao
+        // abre caminho com acento (caminho_da_ferramenta.ts).
+        const recusa = recusaDosCaminhos([paths.projectPath, paths.componentsPath], 'acento', 'PRISM (Yosys)');
+        if (recusa) throw new Error(explicarRecusa(recusa, tr));
         try {
             const resolved = await resolveOverride('prism-yosys', null);
             if (resolved && resolved.override) {

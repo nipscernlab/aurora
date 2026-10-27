@@ -126,6 +126,15 @@ describe('cada botao compila no projeto aberto, nas fases certas', () => {
     expect(linhas.some((l) => l.texto.startsWith('Erro Fatal'))).toBe(true);
   });
 
+  // O Yosys nao abre caminho com acento (caminho_da_ferramenta.ts): a recusa
+  // vem antes do yosys, com o caminho culpado.
+  it('PRISM em pasta com acento e recusado antes do yosys', async () => {
+    ProjectStore.setProject('C:/Área/p.spf', 'C:/Área');
+    await fm.runSingleStep('prism');
+    expect(electronAPI.prismCompileWithPaths).not.toHaveBeenCalled();
+    expect(linhas.map((l) => l.texto)).toContain('Erro Fatal: error.compilation.pathRefusedAccent');
+  });
+
   it('PRISM que o main recusa e erro fatal com a mensagem dele', async () => {
     electronAPI.prismCompileWithPaths.mockResolvedValueOnce({ success: false, message: 'yosys caiu' });
     await fm.runSingleStep('prism');

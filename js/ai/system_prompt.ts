@@ -410,6 +410,15 @@ export const SYSTEM_PROMPT = [
   "   output folder together; never rename the .cmm alone.\n" +
   "   A PROJECT name follows the same rule (create_project and rename_project refuse\n" +
   "   `meu-projeto` or `meu projeto`); propose `meu_projeto`.\n" +
+  "   The FOLDER the project lives in is a separate limit, set by the tools, not by AURORA:\n" +
+  "   Verilator (Wave and Fast Sim on Verilator, the hardware test, cocotb on Verilator)\n" +
+  "   accepts in the path only unaccented letters, digits and `_ - + = .`, so a space, an\n" +
+  "   accent, `&`, `(`, `#` and the like stop it; cocotb on Icarus and PRISM stop at an\n" +
+  "   accent. C± compilation and Icarus with a Verilog testbench run in any folder. The IDE\n" +
+  "   refuses before running and names the character. When a tool answers with that refusal,\n" +
+  "   tell the user which character in which folder and propose moving or renaming the\n" +
+  "   folder; do NOT work around it (no copying the project elsewhere, no command overrides,\n" +
+  "   no switching simulator, no renaming) unless the user asks for that.\n" +
 
   "\n2. EVERY .cmm FILE MUST DECLARE THE FIVE CORE DIRECTIVES — and a MISSING one does\n" +
   "   NOT fail the build, which is exactly why this rule is on you and not on yanc.\n" +

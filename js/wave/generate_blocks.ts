@@ -53,6 +53,9 @@ export interface GenerateBranch {
     negated: boolean;
     /** O corpo do ramo, para o chamador extrair sinais e instâncias. */
     body: string;
+    /** Onde o ramo está no texto, do `if` (ou do `else`) ao fim do `end`. */
+    start: number;
+    end: number;
 }
 
 /** Valor de parâmetro que conseguimos entender: só inteiro. */
@@ -101,8 +104,41 @@ function fimDoBegin(texto: string, inicio: number): number {
     return -1;
 }
 
+/** Palavras que abrem e fecham um bloco onde um `if` é comando, não generate. */
+const ABRE_FECHA = /\b(begin|end|case[xz]?|endcase|function|endfunction|task|endtask|fork|join(?:_any|_none)?)\b/g;
+const FECHA = new Set(['end', 'endcase', 'endfunction', 'endtask', 'join', 'join_any', 'join_none']);
+
 /**
- * Os ramos NOMEADOS de todo `generate if` do corpo de um módulo.
+ * True quando o `if` em `pos` é um item do módulo, e por isso um generate
+ * implícito: o Verilog-2005 dispensa a palavra `generate`, e
+ * `if (1) begin : stim ... end` no corpo do módulo já é um escopo. O
+ * testbench do hits (25/10/2026) usa essa forma.
+ *
+ * Item do módulo quer dizer fora de todo bloco (begin, case, function, task,
+ * fork) e não sendo o comando de um `always`/`initial` sem begin, nem o `if`
+ * de um `else if`.
+ */
+function ehItemDoModulo(src: string, pos: number): boolean {
+    const re = new RegExp(ABRE_FECHA.source, 'g');
+    let nivel = 0;
+    let ultimoFim = -1;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src)) !== null && m.index < pos) {
+        if (FECHA.has(m[1])) {
+            nivel--;
+            ultimoFim = m.index + m[1].length;
+        } else {
+            nivel++;
+        }
+    }
+    if (nivel !== 0) return false;
+    const cabeca = src.slice(Math.max(src.lastIndexOf(';', pos), ultimoFim, 0), pos);
+    return !/\b(?:always\w*|initial|final|else)\b/.test(cabeca);
+}
+
+/**
+ * Os ramos NOMEADOS de todo `generate if` do corpo de um módulo, com ou sem a
+ * palavra `generate` antes.
  *
  * Ramo sem rótulo fica de fora de propósito: sem nome ele não é um escopo na
  * hierarquia, e o que está dentro dele mistura-se ao módulo pai de um jeito que
@@ -114,15 +150,15 @@ function fimDoBegin(texto: string, inicio: number): number {
 export function extractNamedGenerates(body: string): GenerateBranch[] {
     const out: GenerateBranch[] = [];
     const src = String(body || '');
-    const re = /\bgenerate\b/g;
+    // O `if` pode vir na mesma linha do `generate` ou na seguinte.
+    const re = /\b(generate\s+)?if\s*\(/g;
     let g: RegExpExecArray | null;
 
     while ((g = re.exec(src)) !== null) {
-        // O `if` pode vir na mesma linha ou na seguinte.
-        const resto = src.slice(g.index + 'generate'.length);
-        const mIf = /^\s*if\s*\(/.exec(resto);
-        if (!mIf) continue;
-        const abre = g.index + 'generate'.length + mIf[0].length - 1;
+        // Sem `generate` antes, só conta o `if` que é item do módulo.
+        if (!g[1] && !ehItemDoModulo(src, g.index)) continue;
+        const inicioIf = g.index + (g[1] ? g[1].length : 0);
+        const abre = g.index + g[0].length - 1;
         const depoisDaCond = fimDoParen(src, abre);
         if (depoisDaCond < 0) continue;
         const condition = src.slice(abre + 1, depoisDaCond - 1).trim();
@@ -139,12 +175,15 @@ export function extractNamedGenerates(body: string): GenerateBranch[] {
             condition,
             negated: false,
             body: src.slice(inicioBegin + 'begin'.length, fim),
+            start: inicioIf,
+            end: fim + 'end'.length,
         });
 
         // Ramo `else`, se houver e se for nomeado.
         cursor = fim + 'end'.length;
         const mElse = /^\s*else\b/.exec(src.slice(cursor));
         if (!mElse) continue;
+        const inicioElse = cursor + mElse[0].indexOf('else');
         cursor += mElse[0].length;
         const mBegin2 = BEGIN_LABEL.exec(src.slice(cursor));
         if (!mBegin2) continue;
@@ -156,9 +195,25 @@ export function extractNamedGenerates(body: string): GenerateBranch[] {
             condition,
             negated: true,
             body: src.slice(inicioBegin2 + 'begin'.length, fim2),
+            start: inicioElse,
+            end: fim2 + 'end'.length,
         });
     }
 
+    return out;
+}
+
+/**
+ * O corpo do módulo com cada ramo nomeado trocado por espaços do mesmo
+ * tamanho. O que é declarado dentro de um ramo pertence ao escopo dele, e só
+ * existe se a condição valer; deixá-lo no corpo punha `tb.rst_next` na
+ * hierarquia, no lugar de `tb.stim.rst_next`.
+ */
+export function stripNamedGenerates(body: string): string {
+    let out = String(body || '');
+    for (const r of extractNamedGenerates(out)) {
+        out = out.slice(0, r.start) + ' '.repeat(r.end - r.start) + out.slice(r.end);
+    }
     return out;
 }
 

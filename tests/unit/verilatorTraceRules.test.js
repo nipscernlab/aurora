@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
     verilatorTraceRules, defaultScopeRules, parseDumpvarsCalls, rulesFromDumpvars, contarEscopos,
 } from '../../js/wave/verilator_trace_rules.js';
+import { parseVerilogModules, buildHierarchyTree } from '../../js/wave/signal_parser.js';
 
 const no = (scopePath, children = [], signals = []) => ({ scopePath, children, signals: signals.map((name) => ({ name })) });
 
@@ -78,6 +79,37 @@ describe('defaultScopeRules: o padrao $dumpvars(1, tb)', () => {
     it('desliga cada filho da raiz e nada mais', () => {
         expect(defaultScopeRules(arvore)).toEqual(['tracing_off -scope "tb.proc"']);
         expect(defaultScopeRules(null)).toEqual([]);
+    });
+
+    // O hits (25/10/2026): o Icarus nao grava o bloco nomeado com
+    // $dumpvars(1, hits_tb), e o Verilator gravava, com dois sinais a mais.
+    it('desliga tambem o generate implicito nomeado do testbench', () => {
+        const { modules } = parseVerilogModules([{
+            path: 'hits_tb.v',
+            content: `
+                module hits (input clk); endmodule
+                module hits_tb;
+                    reg clk = 0;
+                    if (1) begin : stim
+                        reg rst_next = 1'b1;
+                        reg [6:0] occupancy_next = 7'd3;
+                        always @(posedge clk) begin
+                            rst_next <= 1'b0;
+                        end
+                    end
+                    hits dut(.clk(clk));
+                    initial begin $dumpvars(1, hits_tb); end
+                endmodule
+            `,
+        }]);
+        const tree = buildHierarchyTree(modules, 'hits_tb');
+        expect(tree.signals.map((s) => s.name)).toEqual(['clk']);
+        const stim = tree.children.find((c) => c.scopePath === 'hits_tb.stim');
+        expect(stim.signals.map((s) => s.name)).toEqual(['rst_next', 'occupancy_next']);
+        expect(defaultScopeRules(tree)).toEqual([
+            'tracing_off -scope "hits_tb.dut"',
+            'tracing_off -scope "hits_tb.stim"',
+        ]);
     });
 });
 

@@ -895,6 +895,7 @@
       "verilatorJsonMissing": "Verilator JSON AST was not generated: {{path}}",
       "verilatorTbBuildFailed": "Verilator harness build failed with exit code {{code}}.",
       "verilatorTbRunFailed": "Verilator harness run failed with exit code {{code}}.",
+      "procWiringUnknown": "Could not read the processor I/O wiring in this line of the .v, so the simulation would read no input and write no output: {{line}}",
       "noProcessor": "No processor in the project. The Verilator (processor) button needs a processor with a .cmm.",
       "noActiveProcessor": "No active processor. Open a processor's .cmm in the editor (the name shows in the status bar) and click Verilator again.",
       "procVMissing": "Processor top-level not found: {{path}}. Run C± first to generate the .v.",

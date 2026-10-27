@@ -153,6 +153,7 @@ export function parseVerilatorPorts(tree: unknown): VerilatorPort[] {
 // declara a fiacao dispositivo<->valor:
 //   req_in_sim_<K> = req_in == <V>;   // input_<K>.txt  alimenta `in` quando req_in==V
 //   out_en_sim_<K> = out_en == <V>;   // output_<K>.txt recebe `out` quando out_en==V
+// (ou, desde o yanc 7.1, `req_in_sim_<K> = req_in[<B>];`, com V = 1 << B)
 // parseProcessorIO le ESSAS linhas direto do <proc>.v (fonte canonica):
 // NADA de testbench. O harness C++ replica a fiacao reusando os MESMOS
 // input_<K>.txt / output_<K>.txt (compat com o sim iverilog).
@@ -171,24 +172,41 @@ export function parseVerilatorPorts(tree: unknown): VerilatorPort[] {
  *   req_in_sim_<K> = req_in == <V>   ->  le input_<K>.txt quando req_in==V
  *   out_en_sim_<K> = out_en == <V>   ->  escreve output_<K>.txt quando out_en==V
  *
+ * O yanc 7.1 escreve o barramento bit a bit, `req_in_sim_<K> = req_in[<B>]`,
+ * e o bit B vira o valor one-hot 1 << B. Antes so a forma `==` era lida, e
+ * com o yanc 7.1 a fiacao saia vazia: o harness rodava sem ler nem gravar
+ * arquivo nenhum (issue #237). Uma atribuicao do barramento que nao casa com
+ * nenhuma das duas formas vai para `naoLidas`, para quem chama recusar em vez
+ * de simular em silencio.
+ *
  * @param src  conteudo do <proc>.v
  */
-export function parseProcessorIO(src: string): { inputs: ProcInput[]; outputs: ProcOutput[] } {
+export function parseProcessorIO(src: string): { inputs: ProcInput[]; outputs: ProcOutput[]; naoLidas: string[] } {
   const s = String(src || '');
-
   const inputs: ProcInput[] = [];
-  for (const m of s.matchAll(/req_in_sim_(\d+)\s*=\s*req_in\s*==\s*(\d+)/g)) {
-    inputs.push({ port: m[1], reqValue: parseInt(m[2], 10), file: `input_${m[1]}.txt` });
+  const outputs: ProcOutput[] = [];
+  const naoLidas: string[] = [];
+
+  for (const m of s.matchAll(/\b(req_in|out_en)_sim_(\d+)\s*=\s*([^;]*);/g)) {
+    const [linha, bus, port, rhs] = m;
+    const lado = rhs.trim();
+    // `reg req_in_sim_0 = 0;` e a declaracao, nao a fiacao.
+    if (!new RegExp(`^${bus}\\b`).test(lado)) continue;
+    const igual = new RegExp(`^${bus}\\s*==\\s*(\\d+)$`).exec(lado);
+    const bit = new RegExp(`^${bus}\\s*\\[\\s*(\\d+)\\s*\\]$`).exec(lado);
+    const valor = igual ? parseInt(igual[1], 10) : bit ? 2 ** parseInt(bit[1], 10) : null;
+    if (valor === null) {
+      naoLidas.push(linha.trim());
+    } else if (bus === 'req_in') {
+      inputs.push({ port, reqValue: valor, file: `input_${port}.txt` });
+    } else {
+      outputs.push({ port, enValue: valor, file: `output_${port}.txt` });
+    }
   }
   inputs.sort((a, b) => a.reqValue - b.reqValue);
-
-  const outputs: ProcOutput[] = [];
-  for (const m of s.matchAll(/out_en_sim_(\d+)\s*=\s*out_en\s*==\s*(\d+)/g)) {
-    outputs.push({ port: m[1], enValue: parseInt(m[2], 10), file: `output_${m[1]}.txt` });
-  }
   outputs.sort((a, b) => a.enValue - b.enValue);
 
-  return { inputs, outputs };
+  return { inputs, outputs, naoLidas };
 }
 
 /** Acha uma porta por nome (case-insensitive) no array de parseVerilatorPorts. */

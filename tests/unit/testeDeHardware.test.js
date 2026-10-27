@@ -360,5 +360,16 @@ describe('verilatorProcessorRun', () => {
             await expect(mod.verilatorProcessorRun()).rejects.toThrow('morto');
             expect(api._ouvintes).toHaveLength(0);
         });
+
+        // Issue #237: fiacao que o parser nao le rodava a simulacao inteira
+        // sem ler nem gravar arquivo, e terminava com sucesso.
+        it('fiacao de I/O que nao se le recusa antes do harness, com a linha', async () => {
+            const passos = ligarToolchain();
+            parseProcessorIO.mockReturnValue({ inputs: [], outputs: [], naoLidas: ['out_en_sim_0 = algo;'] });
+            const mod = await novoModulo(CONFIG);
+            await expect(mod.verilatorProcessorRun()).rejects.toThrow('error.compilation.procWiringUnknown out_en_sim_0 = algo;');
+            expect(passos).toHaveLength(1);
+            expect(generateVerilatorProcTb).not.toHaveBeenCalled();
+        });
     });
 });

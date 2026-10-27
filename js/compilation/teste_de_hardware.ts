@@ -149,6 +149,11 @@ export async function rodarTesteDeHardware(ctx: ContextoDoTeste): Promise<void> 
 
     // ---- Passo 2: fiacao de I/O lida do proprio <proc>.v (bloco YANC_SIM_VIS) ----
     const wiring = parseProcessorIO(await electronAPI.readFile(procV, { encoding: 'utf8' }));
+    // Uma fiacao que o parser nao entende faria o harness rodar sem ler nem
+    // gravar arquivo, e terminar com sucesso (issue #237): recusa com a linha.
+    if (wiring.naoLidas?.length) {
+        throw new Error(tr('error.compilation.procWiringUnknown', { line: wiring.naoLidas[0] }));
+    }
     if (wiring.inputs.length === 0 && wiring.outputs.length === 0) {
         terminal.appendToTerminal(T, tr('terminal.wave.procNoPorts'), 'warning');
     }

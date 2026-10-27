@@ -21,6 +21,7 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { applyResolved } from './command_overrides.js';
+import { recusaDoSpec, explicarRecusa } from './caminho_da_ferramenta.js';
 import * as CommandSpec from './command_spec.js';
 import type { CommandSpec as CommandSpecType, CommandOverride } from './command_spec.js';
 import type { OverrideSource } from './command_overrides.js';
@@ -36,6 +37,18 @@ export interface AuditInfo {
 
 type AuditHook = (info: AuditInfo) => void;
 type TerminalHook = (channel: string, message: string, level: string) => void;
+
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
+
+/**
+ * Recusa, antes de rodar, o passo cujo caminho a ferramenta nao aceita
+ * (caminho_da_ferramenta.ts). Depois dos overrides, porque e o comando que
+ * vai rodar de fato.
+ */
+function exigirCaminhoAceito(spec: CommandSpecType): void {
+  const recusa = recusaDoSpec(spec);
+  if (recusa) throw new Error(explicarRecusa(recusa, tr));
+}
 
 /** Optional callback fired once per run with the resolved spec details. */
 let auditHook: AuditHook | null = null;
@@ -162,6 +175,7 @@ export async function runSpec(baseSpec: CommandSpecType, options: { consumeEphem
     await applyResolved(baseSpec, { consumeEphemeral: !!options.consumeEphemeral });
 
   logOverride(appliedSpec, baseSpec, override, sources, terminalForStep(baseSpec.step));
+  exigirCaminhoAceito(appliedSpec);
 
   const inicio = performance.now();
   return observar(appliedSpec, await electronAPI.execSpec({
@@ -184,6 +198,7 @@ export async function runSpecStreamed(baseSpec: CommandSpecType, options: { cons
     await applyResolved(baseSpec, { consumeEphemeral: !!options.consumeEphemeral });
 
   logOverride(appliedSpec, baseSpec, override, sources, terminalForStep(baseSpec.step));
+  exigirCaminhoAceito(appliedSpec);
 
   const inicio = performance.now();
   return observar(appliedSpec, await electronAPI.execSpecStreamed({

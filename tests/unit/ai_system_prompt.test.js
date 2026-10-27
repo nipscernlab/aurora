@@ -381,6 +381,14 @@ describe('o yanc v7.1', () => {
         expect(SYSTEM_PROMPT).toContain('propose `meu_projeto`');
     });
 
+    // A IA via o erro do Verilator numa pasta com espaco e tentava contornar
+    // em vez de dizer que a pasta nao serve (auditoria de 27/10/2026).
+    it('a pasta do projeto tem o limite das ferramentas, e a IA nao contorna', () => {
+        expect(SYSTEM_PROMPT).toContain('accepts in the path only unaccented letters, digits and `_ - + = .`');
+        expect(SYSTEM_PROMPT).toContain('cocotb on Icarus and PRISM stop at an\n   accent');
+        expect(SYSTEM_PROMPT).toContain('do NOT work around it');
+    });
+
     it('a AURORA chama so o driver, e o cpppp e o appcomp sairam', () => {
         expect(SYSTEM_PROMPT).toContain('the ONLY binary Aurora calls');
         expect(SYSTEM_PROMPT).toContain('There is no cpppp any more');

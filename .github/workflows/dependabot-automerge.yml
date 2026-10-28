@@ -6,9 +6,8 @@ name: Dependabot auto-merge
 # Why the trigger is `workflow_run` and not `pull_request_target`:
 # the previous version armed `gh pr merge --auto` as soon as the PR
 # opened. GitHub's auto-merge only waits when the branch has *required*
-# status checks, and `main` here is unprotected on purpose, the repo
-# owner pushes to it directly. So "--auto" meant "merge right now", and
-# fs-extra 11.4.0 landed on main without a single check having run.
+# status checks, and `main` had none then. So "--auto" meant "merge right
+# now", and fs-extra 11.4.0 landed on main without a single check having run.
 # Worse, the merge commit itself never ran CI either: pushes made with
 # GITHUB_TOKEN don't trigger new workflow runs, by design, to avoid
 # recursion. The bump was invisible to CI from both sides.
@@ -16,6 +15,14 @@ name: Dependabot auto-merge
 # Reacting to CI completion instead makes the green run the precondition
 # rather than a race. The `pull_request` event builds the PR merged into
 # main, so a success here means main-with-this-bump is what passed.
+#
+# Who and what gets merged. A branch name and a commit message are both
+# chosen by whoever opens the PR, so neither says the PR came from
+# Dependabot: a fork can name its branch `dependabot/x` and write
+# `version-update:semver-patch` in its message. The PR is therefore found
+# by the commit CI tested, and merged only when Dependabot opened it from
+# this repository. The merge is pinned to that commit, so a push after the
+# green run is not merged along with it.
 
 on:
   workflow_run:
@@ -31,6 +38,8 @@ jobs:
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
       startsWith(github.event.workflow_run.head_branch, 'dependabot/')
     runs-on: ubuntu-latest
     steps:
@@ -44,10 +53,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          pr=$(gh pr list --repo "$REPO" --state open --head "$HEAD_BRANCH" \
-                 --json number --jq '.[0].number // empty')
+          # The open PR whose head is the commit CI tested, opened by
+          # Dependabot from this repository. Anything else is left alone.
+          pr=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" --jq "
+                 [.[] | select(.state == \"open\"
+                               and .user.login == \"dependabot[bot]\"
+                               and .head.repo.full_name == \"$REPO\"
+                               and .head.sha == \"$HEAD_SHA\")]
+                 | .[0].number // empty")
           if [ -z "$pr" ]; then
-            echo "No open PR for $HEAD_BRANCH — nothing to merge."
+            echo "No open Dependabot PR at $HEAD_SHA on $HEAD_BRANCH — nothing to merge."
             echo "merge=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -81,4 +96,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR: ${{ steps.meta.outputs.pr }}
-        run: gh pr merge --repo "$REPO" --squash --delete-branch "$PR"
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: gh pr merge --repo "$REPO" --squash --delete-branch --match-head-commit "$HEAD_SHA" "$PR"

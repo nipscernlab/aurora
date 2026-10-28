@@ -32,6 +32,8 @@ const vigia = { startWatching: vi.fn() };
 vi.mock('../../js/tree/file_tree_manager.js', () => ({ fileTreeManager: { watcher: vigia } }));
 const showDialog = vi.fn(async () => {});
 vi.mock('../../js/ui/dialog_manager.js', () => ({ showDialog }));
+const perguntarSobreOverrides = vi.fn(async () => null);
+vi.mock('../../js/project/overrides_na_abertura.js', () => ({ perguntarSobreOverrides }));
 const barra = { cmm: vi.fn(), toolbar: vi.fn(async () => {}) };
 vi.mock('../../js/compilation/botoes_da_barra.js', () => ({
   syncCmmcompEnabled: () => barra.cmm(),
@@ -90,6 +92,9 @@ describe('loadProject', () => {
     expect(arvore.activateTree).toHaveBeenCalled();
     expect(vigia.startWatching).toHaveBeenCalledWith('C:\\p');
     expect(window.recentProjectsManager.addProject).toHaveBeenCalledWith('C:\\p\\p.spf');
+    // Os overrides do .spf sao perguntados antes de a barra habilitar a compilacao.
+    expect(perguntarSobreOverrides).toHaveBeenCalledWith('C:\\p\\p.spf', 'C:\\p');
+    expect(perguntarSobreOverrides.mock.invocationCallOrder[0]).toBeLessThan(barra.cmm.mock.invocationCallOrder[0]);
     expect(window.appInitializer.saveCurrentProject).toHaveBeenCalledWith('C:\\p\\p.spf');
     expect(window.SplitEditorManager.refreshLayout).toHaveBeenCalled();
     expect(window.gtkwPickerManager.refresh).toHaveBeenCalled();

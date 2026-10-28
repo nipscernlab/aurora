@@ -7,6 +7,7 @@ import { showDialog } from '../ui/dialog_manager.js';
 import { ProjectStore } from './project_store.js';
 import { setAvailableProcessors } from './processor_list.js';
 import { oferecerConversao } from './conversao_na_abertura.js';
+import { perguntarSobreOverrides } from './overrides_na_abertura.js';
 import { abrirRelatorioDeFaltantes, apagarRelatorioDeFaltantes } from './arquivos_faltando.js';
 import {
     habilitarBotoesDoProjeto, ligarIndicadorDeProjeto, mostrarInformacaoDoProjeto, mostrarNomeDoProjeto,
@@ -114,6 +115,10 @@ async function loadProject(spfPath: string | null | undefined): Promise<void> {
         if (window.recentProjectsManager) {
             window.recentProjectsManager.addProject?.(spfPath as string);
         }
+
+        // Overrides do .spf que esta maquina ainda nao aceitou: pergunta antes
+        // de habilitar a compilacao, que ate la roda sem eles.
+        await perguntarSobreOverrides(spfPath as string, basePath);
 
         // Enable buttons and update status
         habilitarBotoesDoProjeto();

@@ -138,6 +138,8 @@ js/compilation/spec_factory.js
 js/compilation/spec_runner.js
 js/compilation/verilator_tb.js
 js/compilation/caminho_da_ferramenta.js
+js/compilation/overrides_aprovados.js
+js/project/overrides_na_abertura.js
 js/compilation/builders/asm.js
 js/compilation/builders/cmm.js
 js/compilation/builders/cpp.js

@@ -12,7 +12,9 @@
  *   - Persisted (.spf structure.commandOverrides): set by
  *     `setOverride(..., persist:true)`. Survives across sessions, ships
  *     with the project, and stacks under ephemeral when both exist
- *     (ephemeral wins for that single run).
+ *     (ephemeral wins for that single run). Only the entries accepted on
+ *     this machine apply (overrides_aprovados.ts), because a .spf from
+ *     someone else carries the commands that person chose.
  *
  * Override keys are `<step>` for global, `<step>:<processorName>` for
  * per-processor. Per-processor wins over global when both apply.
@@ -29,6 +31,7 @@
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import * as CommandSpec from './command_spec.js';
+import { aceitos, decidir } from './overrides_aprovados.js';
 import type { CommandSpec as CommandSpecType, CommandOverride } from './command_spec.js';
 
 /** A layer that contributed to a resolved override (for audit + UX). */
@@ -79,7 +82,10 @@ async function readPersisted(): Promise<Record<string, CommandOverride>> {
   if (!spfPath) return {};
   try {
     const structure = await SpfStore.read(spfPath);
-    return (structure.commandOverrides as Record<string, CommandOverride> | undefined) || {};
+    const gravados = (structure.commandOverrides as Record<string, CommandOverride> | undefined) || {};
+    // So o que foi aceito nesta maquina (overrides_aprovados.ts): o .spf pode
+    // ter vindo de outra pessoa.
+    return aceitos(gravados, ProjectStore.getProjectPath());
   } catch (_) {
     return {};
   }
@@ -192,6 +198,8 @@ export async function setOverride({ step, processorName = null, override, persis
   const key = makeKey(step, processorName);
   if (persist) {
     await writePersisted((map) => { map[key] = cleaned; });
+    // Gravado aqui, aceito aqui: quem pediu foi a pessoa ou a IA desta maquina.
+    decidir([[key, cleaned]], 'aplicar', ProjectStore.getProjectPath());
   } else {
     ephemeral.set(key, cleaned);
   }

@@ -527,7 +527,15 @@ sem nunca trocar o binário. Há duas camadas com dois tempos de vida:
     para \enquote{tente esta flag no próximo compile}.
   \item[Persistida (\path{.spf} \code{structure.commandOverrides}).] Sobrevive
     entre sessões, viaja com o projeto e fica sob a efêmera quando ambas
-    existem (a efêmera vence naquela execução).
+    existem (a efêmera vence naquela execução). Só vale a entrada aceita nesta
+    máquina (\path{overrides_aprovados.ts}): o \path{.spf} pode ter vindo de
+    outra pessoa, com os comandos que ela escolheu. Ao abrir o projeto,
+    \path{overrides_na_abertura.ts} mostra as entradas ainda não decididas e
+    pergunta se aplica; Aplicar e Ignorar ficam gravados no
+    \code{localStorage}, e uma entrada nova ou alterada pergunta de novo. O
+    que a própria máquina grava, pela API ou pela IA, entra aceito. A raiz do
+    projeto sai da comparação, para que mover a pasta não faça perguntar de
+    novo.
 \end{description}
 
 \noindent As chaves são \code{<step>} (global) ou \code{<step>:<processorName>}

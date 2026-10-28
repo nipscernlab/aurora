@@ -494,6 +494,13 @@
       "renomearBotao": "Rename",
       "manterNomes": "Keep the names"
     },
+    "overridesDoSpf": {
+      "title": "The project changes build commands",
+      "message": "This project's .spf carries overrides that add, remove or replace tool arguments and environment variables. They have not been accepted on this machine. If the project came from someone else, apply them only if you recognise each one: an argument can make the tool run another program. Until you apply them, the build runs without them.",
+      "aplicar": "Apply",
+      "ignorar": "Ignore",
+      "adiada": "The .spf overrides were left out. The question comes back when the project opens again."
+    },
     "newProject": {
       "missingInfoTitle": "Missing Information",
       "missingInfoMessage": "Please enter both the Project Name and Project Location.",

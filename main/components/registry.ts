@@ -191,7 +191,7 @@ export const COMPONENTES: Componente[] = [
     tamanhoMB: 88,
     downloadMB: 30,
     essencial: false,
-    script: 'download-gtkwave-nipscern.js',
+    script: 'download-gtkwave-nipscern.cts',
     versao: 'v0.1.2-nipscern',
     carimbo: 'Packages/gtkwave-nipscern/.aurora-version',
   },

@@ -93,7 +93,7 @@ injetar('download-yanc.cts', modulo('yanc', {
   binariesPresent: () => mundo.presente.yanc,
   installedTag: () => mundo.yancInstalado,
 }));
-injetar('download-gtkwave-nipscern.js', modulo('gtkwave', {
+injetar('download-gtkwave-nipscern.cts', modulo('gtkwave', {
   GTKWAVE_TAG: 'g1', SENTINEL_FILE: sentinela('gtkwave'), alreadyInstalled: () => mundo.presente.gtkwave,
 }));
 injetar('download-surfer.js', modulo('surfer', {
@@ -128,7 +128,7 @@ beforeEach(() => {
   spawnFalso.mockReset().mockImplementation((exe, args) => {
     if (mundo.spawnLanca) throw new Error('spawn quebrou');
     const chave = Object.entries({
-      'download-toolchain.cts': 'toolchain', 'download-yanc.cts': 'yanc', 'download-gtkwave-nipscern.js': 'gtkwave',
+      'download-toolchain.cts': 'toolchain', 'download-yanc.cts': 'yanc', 'download-gtkwave-nipscern.cts': 'gtkwave',
       'download-surfer.js': 'surfer', 'download-verible.cts': 'verible', 'download-slang-server.cts': 'slang',
       'download-clang-format.js': 'clang-format',
     }).find(([f]) => args[0].endsWith(f))[1];
@@ -273,11 +273,11 @@ describe('--report', () => {
     log = [];
     mundo.presente.gtkwave = false;
     mundo.manifesto = '{}';
-    req.cache[path.join(SCRIPTS, 'download-gtkwave-nipscern.js')].exports.GTKWAVE_TAG = '';
+    req.cache[path.join(SCRIPTS, 'download-gtkwave-nipscern.cts')].exports.GTKWAVE_TAG = '';
     try {
       await rodar(['--report', '--only', 'gtkwave']);
     } finally {
-      req.cache[path.join(SCRIPTS, 'download-gtkwave-nipscern.js')].exports.GTKWAVE_TAG = 'g1';
+      req.cache[path.join(SCRIPTS, 'download-gtkwave-nipscern.cts')].exports.GTKWAVE_TAG = 'g1';
     }
     expect(saida()).toMatch(/\[FALTA\]\s+gtkwave\s+n\/d\n/);
   });

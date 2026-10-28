@@ -32,7 +32,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const COMPONENTS: Array<[string, string, string]> = [
   ['toolchain (msys)', 'download-toolchain.cts', 'MSYS_SENTINEL'],
   ['yanc', 'download-yanc.cts', 'SENTINEL_FILE'],
-  ['gtkwave', 'download-gtkwave-nipscern.js', 'SENTINEL_FILE'],
+  ['gtkwave', 'download-gtkwave-nipscern.cts', 'SENTINEL_FILE'],
   ['surfer', 'download-surfer.js', 'SENTINEL_FILE'],
   ['verible', 'download-verible.cts', 'SENTINEL_FILE'],
   ['clang-format', 'download-clang-format.js', 'SENTINEL_FILE'],

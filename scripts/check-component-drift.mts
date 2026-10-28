@@ -143,7 +143,7 @@ const COMPONENTS: Array<{ key: string; label: string; ours: boolean; script: str
     key: 'gtkwave',
     label: 'GTKWave (fork NIPS-CERN)',
     ours: true,
-    script: 'download-gtkwave-nipscern.js',
+    script: 'download-gtkwave-nipscern.cts',
     tagOf: (m) => m.GTKWAVE_TAG,
     family: /-nipscern$/,
     upstream: { kind: 'github-releases', repo: 'nipscernlab/gtkwave-nipscern' },

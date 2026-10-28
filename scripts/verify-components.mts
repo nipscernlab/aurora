@@ -136,7 +136,7 @@ const COMPONENTS: Array<{ key: string; label: string; script: string; build: (m:
   {
     key: 'gtkwave',
     label: 'GTKWave (NIPS-CERN) — visualizador de waveforms',
-    script: 'download-gtkwave-nipscern.js',
+    script: 'download-gtkwave-nipscern.cts',
     build: (m) => ({
       pinnedTag: m.GTKWAVE_TAG,
       sentinel: m.SENTINEL_FILE,

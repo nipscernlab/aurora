@@ -791,6 +791,15 @@ pode mudar — a AURORA o regenera a cada run); para tokens isolados
 \code{describe(step)} expõe a tabela para a ferramenta de introspecção
 \code{list_allowed_flags} da IA.
 
+Além da tabela, vale em toda etapa, inclusive no Yosys do PRISM, a lista
+\code{ENV_QUE_CARREGA_CODIGO}: as variáveis de ambiente que escolhem qual código
+a ferramenta carrega (\code{PATH}, \code{COMSPEC}, \code{PYTHON*},
+\code{PERL5*}, \code{NODE_OPTIONS}, \code{LD_PRELOAD}, \code{GPI_EXTRA},
+\code{CXX}, \code{OBJCACHE}, \code{MAKEFILES} e afins). Nenhum override cria,
+troca ou apaga uma delas, venha da IA ou do \code{.spf}; as que a própria spec
+define, como o \code{PYTHONHOME} do cocotb, ficam como a AURORA as pôs. O
+\code{describe(step)} devolve a lista em \code{codeLoadingEnv}.
+
 \section{Localização do Python}
 \label{sec:08-python}
 

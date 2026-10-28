@@ -149,7 +149,7 @@ export const COMPONENTES: Componente[] = [
     // quem só edita e lê código não precisa de 955 MB parados no disco.
     essencial: false,
     requerParaCompilar: true,
-    script: 'download-toolchain.js',
+    script: 'download-toolchain.cts',
     versao: 'msys-v1',
     carimbo: 'Packages/msys/.aurora-version',
   },

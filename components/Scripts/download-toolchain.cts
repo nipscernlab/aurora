@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * Aurora IDE - Toolchain bootstrap
  *
@@ -21,24 +20,24 @@
  * netlistsvg runs in-process from node_modules (@silimate/netlistsvg);
  * gtkwave-nipscern and the YANC compilers are separate downloads.
  *
- * Usage:  node components/scripts/download-toolchain.js [--force]
+ * Usage:  node components/Scripts/download-toolchain.cts [--force]
  *   --force   re-download even if the bundle is already present
  */
 
-const https = require('https');
-const fs    = require('fs');
-const path  = require('path');
+const https = require('https') as typeof import('https');
+const fs    = require('fs') as typeof import('fs');
+const path  = require('path') as typeof import('path');
 // extract.js precisa vir antes de qualquer I/O: e ele que dimensiona o pool
 // de threads do Node pelo numero de nucleos, e o pool nasce no primeiro uso.
-const { extractZip: extrairZip } = require('./lib/extract');
-const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
-const { verifyChecksum } = require('./lib/checksum');
+const { extractZip: extrairZip } = require('./lib/extract') as typeof import('./lib/extract.js');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp') as typeof import('./lib/version_stamp.js');
+const { verifyChecksum } = require('./lib/checksum') as typeof import('./lib/checksum.js');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
 // Pin the artifact's SHA-256 to enforce integrity (publish a SHA256SUMS per
 // release). null = compute + log only (no enforcement yet).
-const EXPECTED_SHA256 = null;
+const EXPECTED_SHA256: string | null = null;
 
 const MSYS_TAG      = 'msys-v1';
 const MSYS_FILENAME = 'aurora-msys-v1.zip';
@@ -62,10 +61,10 @@ const VERSION_STAMP = path.join(PACKAGES_DIR, 'msys', NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function log(/** @type {string} */ msg) { console.log(`[toolchain] ${msg}`); }
-function err(/** @type {string} */ msg) { console.error(`[toolchain] ERROR: ${msg}`); }
+function log(msg: string): void { console.log(`[toolchain] ${msg}`); }
+function err(msg: string): void { console.error(`[toolchain] ERROR: ${msg}`); }
 
-function bundleInstalled(sentinelPath = MSYS_SENTINEL) {
+function bundleInstalled(sentinelPath = MSYS_SENTINEL): boolean {
     return fs.existsSync(sentinelPath);
 }
 
@@ -73,9 +72,9 @@ function bundleInstalled(sentinelPath = MSYS_SENTINEL) {
 // Lives under msys/mingw64/lib/python3.<minor>/site-packages, scan for any
 // python3.* so this survives a future Python minor bump. A bundle missing it
 // (e.g. an older snapshot) triggers a re-download to upgrade in place.
-function cocotbInstalled() {
+function cocotbInstalled(): boolean {
     const libBase = path.join(PACKAGES_DIR, 'msys', 'mingw64', 'lib');
-    let entries;
+    let entries: string[];
     try {
         entries = fs.readdirSync(libBase);
     } catch (_e) {
@@ -89,18 +88,18 @@ function cocotbInstalled() {
     );
 }
 
-function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
-    return new Promise((resolve, reject) => {
+function downloadFile(url: string, dest: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
         log(`Downloading ${url}`);
 
         const file = fs.createWriteStream(dest);
         let total = 0;
         let received = 0;
 
-        function doRequest(/** @type {any} */ requestUrl, redirectCount = 0) {
+        function doRequest(requestUrl: string | undefined, redirectCount = 0): void {
             if (redirectCount > 5) { reject(new Error('Too many redirects')); return; }
 
-            const parsedUrl = new URL(requestUrl);
+            const parsedUrl = new URL(String(requestUrl));
             const opts = {
                 hostname: parsedUrl.hostname,
                 path:     parsedUrl.pathname + parsedUrl.search,
@@ -138,13 +137,13 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
         // PowerShell's Expand-Archive races us and hits the zip while it's
         // still locked by this writer (silent corruption: the zip vanishes,
         // Packages/ ends up empty).
-        file.on('finish', () => file.close(resolve));
+        file.on('finish', () => file.close(() => resolve()));
         file.on('error', reject);
         doRequest(url);
     });
 }
 
-async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+async function extractZip(zipPath: string, destDir: string): Promise<void> {
     // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
     // Expand-Archive de antes como reserva se algo sair do esperado. Levava
     // mais de dois minutos nos dezessete mil arquivos do bundle; agora sao
@@ -154,7 +153,7 @@ async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ d
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<void> {
     const force = process.argv.includes('--force');
 
     const haveBundle = bundleInstalled();
@@ -202,7 +201,7 @@ async function main() {
     }
 }
 
-// Only run main when invoked directly (`node download-toolchain.js`).
+// Only run main when invoked directly (`node download-toolchain.cts`).
 // When imported by tests via require(), this is skipped.
 if (require.main === module) {
     main();

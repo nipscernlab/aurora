@@ -61,7 +61,7 @@
  * Roda no prestart, depois do download do toolchain principal e antes
  * do copy-components.
  *
- * Padrao seguido do download-toolchain.js, mesma logica de download
+ * Padrao seguido do download-toolchain.cts, mesma logica de download
  * com retry de redirect, extracao via PowerShell, e exit 0 em
  * falha pra nao bloquear `npm start` (devs offline ainda conseguem
  * iniciar a IDE).

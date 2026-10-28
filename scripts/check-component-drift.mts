@@ -123,7 +123,7 @@ const COMPONENTS: Array<{ key: string; label: string; ours: boolean; script: str
     key: 'toolchain',
     label: 'Toolchain MSYS/mingw64',
     ours: true,
-    script: 'download-toolchain.js',
+    script: 'download-toolchain.cts',
     tagOf: (m) => m.MSYS_TAG,
     // O repositorio publica duas linhagens: `msys-*` (o bundle) e `pins-*`
     // (a lista de pacotes MSYS2 fixados). Sao artefatos diferentes.

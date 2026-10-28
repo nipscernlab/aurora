@@ -14,15 +14,18 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
+// O script e TypeScript em CommonJS (.cts), que o Node executa direto e o
+// Vite nao transforma; carrega pelo require do Node, como o do yanc.
+const {
   bundleInstalled,
   extractZip,
   MSYS_DOWNLOAD_URL,
   MSYS_TAG,
   MSYS_FILENAME,
-} from '../../components/Scripts/download-toolchain.js';
+} = createRequire(import.meta.url)('../../components/Scripts/download-toolchain.cts');
 
 // Per-test scratch dir under the OS tmp; cleaned up after each test so
 // nothing leaks between cases or onto the dev's disk.

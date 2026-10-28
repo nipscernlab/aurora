@@ -112,7 +112,7 @@ const COMPONENTS: Array<{ key: string; label: string; script: string; build: (m:
   {
     key: 'toolchain',
     label: 'Toolchain MSYS/mingw64 (verilator, iverilog, yosys, g++, python, cocotb)',
-    script: 'download-toolchain.js',
+    script: 'download-toolchain.cts',
     build: (m) => ({
       pinnedTag: m.MSYS_TAG,
       sentinel: m.MSYS_SENTINEL,

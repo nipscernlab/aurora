@@ -30,7 +30,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 // purpose: neither installs an executable, and neither declares a single file
 // that proves the install.
 const COMPONENTS: Array<[string, string, string]> = [
-  ['toolchain (msys)', 'download-toolchain.js', 'MSYS_SENTINEL'],
+  ['toolchain (msys)', 'download-toolchain.cts', 'MSYS_SENTINEL'],
   ['yanc', 'download-yanc.cts', 'SENTINEL_FILE'],
   ['gtkwave', 'download-gtkwave-nipscern.js', 'SENTINEL_FILE'],
   ['surfer', 'download-surfer.js', 'SENTINEL_FILE'],

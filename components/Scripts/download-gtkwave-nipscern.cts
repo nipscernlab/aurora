@@ -15,7 +15,8 @@
  * copy-components.
  *
  * Pinning: tag em GTKWAVE_TAG abaixo. Pra subir uma versao nova,
- * atualizar a tag e publicar o release em nipscernlab/gtkwave-nipscern.
+ * atualizar a tag e o EXPECTED_SHA256 e publicar o release em
+ * nipscernlab/gtkwave-nipscern.
  *
  * Usage:  node components/Scripts/download-gtkwave-nipscern.cts [--force]
  */
@@ -29,9 +30,12 @@ const { verifyChecksum } = require('./lib/checksum') as typeof import('./lib/che
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-// Pin the artifact's SHA-256 to enforce integrity (publish a SHA256SUMS per
-// release). null = compute + log only (no enforcement yet).
-const EXPECTED_SHA256: string | null = null;
+// O SHA-256 do zip da release fixada em GTKWAVE_TAG. Sem ele, quem trocasse o
+// arquivo da release (a tag e mutavel) entregaria outro binario a todo mundo
+// que instalasse depois; com ele, lib/checksum.js recusa extrair. Muda junto
+// com a tag: o sha256 vem do campo `digest` do asset na API do GitHub e se
+// confere baixando o zip.
+const EXPECTED_SHA256: string | null = '781e45f3af6d3bf68671496852c9ad56981ebc1cf0613da0b1e784bb3fcb7e60';
 
 const GTKWAVE_TAG      = 'v0.1.2-nipscern';
 const GTKWAVE_FILENAME = `gtkwave-nipscern-v0.1.2-win-x64.zip`;

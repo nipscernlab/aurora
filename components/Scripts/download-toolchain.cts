@@ -35,9 +35,12 @@ const { verifyChecksum } = require('./lib/checksum') as typeof import('./lib/che
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-// Pin the artifact's SHA-256 to enforce integrity (publish a SHA256SUMS per
-// release). null = compute + log only (no enforcement yet).
-const EXPECTED_SHA256: string | null = null;
+// O SHA-256 do zip da release fixada em MSYS_TAG. Sem ele, quem trocasse o
+// arquivo da release (a tag e mutavel) entregaria outro binario a todo mundo
+// que instalasse depois; com ele, lib/checksum.js recusa extrair. Muda junto
+// com a tag: o sha256 vem do campo `digest` do asset na API do GitHub e se
+// confere baixando o zip.
+const EXPECTED_SHA256: string | null = '7b196c6be7d35e6158e9103f64bba12a6df4be106eedf0475deb2e99a5d3de6b';
 
 const MSYS_TAG      = 'msys-v1';
 const MSYS_FILENAME = 'aurora-msys-v1.zip';

@@ -469,8 +469,17 @@ describe('fechar', () => {
   it('fechar todas', async () => {
     await abrir(A);
     await abrir(B);
-    await TabManager.closeAllTabs();
+    expect(await TabManager.closeAllTabs()).toBe(true);
     expect(nomes()).toEqual([]);
+  });
+
+  it('fechar todas para na primeira aba que fica aberta, e diz que nao fechou', async () => {
+    await abrir(A);
+    await abrir(B);
+    const fechar = vi.spyOn(TabManager, 'closeTab').mockResolvedValueOnce(false);
+    expect(await TabManager.closeAllTabs()).toBe(false);
+    expect(fechar).toHaveBeenCalledTimes(1);
+    expect(nomes()).toEqual([A, B]);
   });
 });
 
@@ -492,23 +501,30 @@ describe('fechar com a pergunta', () => {
     responder('cancel');
     let p = TabManager.closeTab(A);
     await vi.advanceTimersByTimeAsync(400);
-    await p;
+    expect(await p).toBe(false);
     expect(nomes()).toEqual([A]);
 
     const salvar = vi.spyOn(TabManager, 'saveFile').mockResolvedValueOnce(false);
     responder('save');
     p = TabManager.closeTab(A);
     await vi.advanceTimersByTimeAsync(400);
-    await p;
+    expect(await p).toBe(false);
     expect(nomes()).toEqual([A]);
 
+    // #242: o Salvar que falha nao leva a edicao junto. A aba fica, suja, e a
+    // pessoa le o motivo.
     salvar.mockRejectedValueOnce(new Error('disco'));
     responder('save');
     p = TabManager.closeTab(A);
     await vi.advanceTimersByTimeAsync(400);
-    await p;
-    expect(nomes()).toEqual([]);
+    expect(await p).toBe(false);
+    expect(nomes()).toEqual([A]);
+    expect(TabManager.unsavedChanges.has(A)).toBe(true);
     expect(console.error).toHaveBeenCalledWith('Failed to save file:', expect.any(Error));
+    expect(m.dialogo.pedidos.at(-1)).toMatchObject({ title: 'dialog.saveFailed.title' });
+    TabManager.unsavedChanges.delete(A);
+    expect(await TabManager.closeTab(A)).toBe(true);
+    expect(nomes()).toEqual([]);
 
     TabManager.tabs.set(B, 'x');
     TabManager.unsavedChanges.add(B);

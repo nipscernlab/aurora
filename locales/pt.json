@@ -517,6 +517,10 @@
       "unexpectedTitle": "Erro Inesperado",
       "unexpectedMessage": "Ocorreu um erro inesperado. Verifique o console para detalhes."
     },
+    "saveFailed": {
+      "title": "Não foi possível salvar",
+      "message": "\"{{name}}\" não foi salvo, e a aba continua aberta com a edição. Motivo: {{reason}}"
+    },
     "session": {
       "initErrorTitle": "Erro de Inicialização",
       "initErrorMessage": "Falha ao inicializar a aplicação: {{error}}",

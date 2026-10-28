@@ -49,6 +49,26 @@ beforeEach(() => {
 });
 
 describe('fecharProjetoAberto', () => {
+  // #242: o Salvar de uma aba suja grava na pasta do projeto, que deixa de ser
+  // gravavel quando o main esquece o .spf. As abas fecham antes.
+  it('fecha as abas antes de o main esquecer o projeto', async () => {
+    montar();
+    const ordem = [];
+    TabManager.closeTab.mockImplementation(async (p) => { ordem.push(`aba:${p}`); TabManager.tabs.delete(p); });
+    electronAPI.closeProject.mockImplementation(async () => { ordem.push('main'); return { success: true }; });
+    await m.fecharProjetoAberto();
+    expect(ordem).toEqual(['aba:C:\\p\\a.v', 'aba:C:\\p\\b.v', 'main']);
+  });
+
+  it('uma aba que fica aberta (Cancelar, ou Salvar que falhou) deixa o projeto aberto', async () => {
+    montar();
+    TabManager.closeTab.mockResolvedValueOnce(false);
+    expect(await m.fecharProjetoAberto()).toBe(false);
+    expect(TabManager.closeTab).toHaveBeenCalledTimes(1);
+    expect(electronAPI.closeProject).not.toHaveBeenCalled();
+    expect(ProjectStore.hasProject()).toBe(true);
+  });
+
   it('fecha: abas, interface, projeto, ultimo aberto, arvore e layout', async () => {
     montar();
     expect(await m.fecharProjetoAberto()).toBe(true);

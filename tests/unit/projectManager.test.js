@@ -76,6 +76,28 @@ beforeEach(() => {
 });
 
 describe('loadProject', () => {
+  // #242: as abas do projeto anterior fecham antes de o main trocar o .spf da
+  // janela, enquanto a pasta dele ainda e gravavel.
+  it('fecha as abas do projeto anterior antes de pedir o novo ao main', async () => {
+    const ordem = [];
+    TabManager.closeAllTabs.mockImplementationOnce(async () => { ordem.push('abas'); return true; });
+    electronAPI.openProject.mockImplementationOnce(async () => {
+      ordem.push('main');
+      return { success: true, projectData: { structure: { processors: ['P'] } } };
+    });
+    await pm.loadProject('C:\\q\\q.spf');
+    expect(ordem).toEqual(['abas', 'main']);
+    expect(TabManager.closeAllTabs).toHaveBeenCalledTimes(1);
+  });
+
+  it('uma aba que fica aberta cancela a troca: o projeto aberto continua o mesmo', async () => {
+    ProjectStore.setProject('C:\\p\\p.spf', 'C:\\p');
+    TabManager.closeAllTabs.mockResolvedValueOnce(false);
+    await pm.loadProject('C:\\q\\q.spf');
+    expect(electronAPI.openProject).not.toHaveBeenCalled();
+    expect(ProjectStore.getSpfPath()).toBe('C:\\p\\p.spf');
+  });
+
   it('abre: a raiz e a pasta do .spf, e a arvore, a barra, os recentes e o layout sao avisados', async () => {
     const avisos = vi.fn();
     window.addEventListener('aurora:spf-changed', avisos);

@@ -31,6 +31,12 @@ const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? windo
  */
 async function loadProject(spfPath: string | null | undefined): Promise<void> {
     try {
+        // As abas do projeto anterior fecham ANTES de o main trocar o .spf da
+        // janela, pela mesma razao de fecharProjetoAberto: o Salvar delas grava
+        // na pasta do projeto anterior, que deixa de ser gravavel (#242). Uma
+        // aba que fica aberta cancela a troca.
+        if (await TabManager.closeAllTabs() === false) return;
+
         const result = await electronAPI.openProject(spfPath as string);
 
         if (!result || result.success === false) {
@@ -99,7 +105,6 @@ async function loadProject(spfPath: string | null | undefined): Promise<void> {
         await oferecerConversao(spfPath as string, basePath, projectData?.structure?.processors);
 
         mostrarNomeDoProjeto(projectData, spfPath);
-        await TabManager.closeAllTabs();
 
         // Tree e sempre populada do .spf via
         // projectTreeManager. A coalescencia interna em

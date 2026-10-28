@@ -80,16 +80,20 @@ document.addEventListener('DOMContentLoaded', () => {
 export async function fecharProjetoAberto(): Promise<boolean> {
     let fechou = false;
     try {
+        // As abas fecham ANTES de o main esquecer o projeto: o "Salvar" do
+        // dialogo de uma aba suja grava dentro da pasta do projeto, que deixa
+        // de ser gravavel quando o .spf sai da janela, e a edicao se perdia
+        // (#242). Cancelar uma aba, ou o Salvar que falhou, deixa o projeto
+        // aberto.
+        const openFiles = Array.from(TabManager.tabs?.keys() ?? []);
+        for (const file of openFiles) {
+            if (await TabManager.closeTab(file) === false) return false;
+        }
+
         const result = await electronAPI.closeProject();
 
         if (result.success) {
             fechou = true;
-            // Close all open tabs properly using TabManager
-            // This ensures watchers are stopped and UI state is cleared
-            const openFiles = Array.from(TabManager.tabs?.keys() ?? []);
-            for (const file of openFiles) {
-                await TabManager.closeTab(file);
-            }
 
             limparInterfaceDoProjeto();
 

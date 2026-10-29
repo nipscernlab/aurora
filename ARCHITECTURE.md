@@ -175,7 +175,7 @@ registra e devolve indefinido, e o `addTab` fecha a aba.
 
 O sinal `app:renderer-ready`, que libera o splash, sai depois de
 `EditorManager.ready` e não antes: é ele que diz que o editor é usável. O
-`windows.js` mantém uma reserva de `RENDERER_READY_GRACE_MS` depois do
+`windows.ts` mantém uma reserva de `RENDERER_READY_GRACE_MS` depois do
 `ready-to-show` para um renderer que nunca sinaliza, e ela precisa ser maior
 que um arranque frio do Monaco, senão a janela aparece com o editor ainda
 subindo.

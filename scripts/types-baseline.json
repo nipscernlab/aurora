@@ -11,9 +11,5 @@
   },
   "main/ipc/surfer_tab.js": {
     "TS2339": 1
-  },
-  "main/windows.js": {
-    "TS2339": 1,
-    "TS2345": 1
   }
 }

@@ -354,6 +354,7 @@ main/ai/native_tools.js
 main/ai/claude_agent.js
 main/ai/codex_agent.js
 main/ai/codex_cli.js
+main/windows.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

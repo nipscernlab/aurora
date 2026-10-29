@@ -23,7 +23,7 @@ a outro capítulo, ele é apenas mencionado de passagem.
 \begin{nota}
 Toda afirmação deste capítulo foi verificada lendo o código-fonte em
 \path{C:/Users/chrys/Documents/GitHub/aurora}. Os arquivos centrais são
-\file{main.js} (ponto de entrada), \file{main/windows.js} (fábricas de janelas),
+\file{main.js} (ponto de entrada), \file{main/windows.ts} (fábricas de janelas),
 \file{main/lifecycle.js} (ciclo de vida), os módulos \file{main/ipc/*.js}
 (handlers IPC) e os preloads em \path{js/app/preload*.js}.
 \end{nota}
@@ -139,14 +139,18 @@ só permite a origem própria mais a detecção local do \tool{Ollama}
 (\lstinline|localhost:11434|) --- os provedores de IA em nuvem e o \tool{MCP}
 rodam no \emph{main}, não no renderer.
 
-\section{Janelas: \texttt{main/windows.js}}
+\section{Janelas: \texttt{main/windows.ts}}
 \label{sec:05-janelas}
 
-As fábricas de janela vivem em \file{main/windows.js}, com exceção da janela do
+As fábricas de janela vivem em \file{main/windows.ts}, com exceção da janela do
 \tool{PRISM}, que mora em \file{main/ipc/prism.js} por carregar muita lógica de
 compilação. Ao todo a \tool{AURORA} cria \textbf{cinco} tipos de
 \lstinline|BrowserWindow|: principal, splash, atualização, \tool{PRISM} e o
-\emph{Design Lab}. A tabela abaixo resume cada uma e suas opções de segurança ---
+\emph{Design Lab}. Quando a última janela principal fecha, ela para a
+toolchain e fecha o \tool{PRISM} no evento \code{closed}, e não no
+\code{close}: o \code{close} dispara antes de a guarda de arquivos não salvos
+perguntar, e um Cancelar nesse diálogo deixava a janela aberta com a
+compilação já morta (\#245). A tabela abaixo resume cada uma e suas opções de segurança ---
 em todas elas \lstinline|contextIsolation| está ligado, \lstinline|sandbox| está
 ligado e \lstinline|nodeIntegration| está desligado.
 
@@ -539,7 +543,7 @@ Além de \file{main/ipc/*}, registram canais: \file{main/compile/executor.js}
 \file{main/format/clang_format.js} (2, \lstinline|format:*|),
 \file{main/treesitter/grammars.js} (2, \lstinline|treesitter:*| --- serve bytes
 WASM ao realce semântico), \file{main/updater.js} (8, \lstinline|update*|) e
-\file{main/windows.js} (10 --- os oito controles de janela/zoom mais os dois
+\file{main/windows.ts} (10 --- os oito controles de janela/zoom mais os dois
 sinais da splash \lstinline|splash:filled| e \lstinline|app:renderer-ready|,
 registrados via \lstinline|ipcMain.once| dentro de \lstinline|createSplashScreen|).
 Os LSP, \emph{clang-format} e \emph{tree-sitter} são todos

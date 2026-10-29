@@ -27,9 +27,22 @@ import state from './state.js';
 import { componentsPath } from './paths.js';
 import {
   killProcessSilently,
-  killProcessesByName,
   killProcessesByPathPrefix,
 } from './utils.js';
+import { RAW_ALLOWLIST } from './compile/binary_allowlist.js';
+
+/**
+ * O vvp e o GTKWave que a varredura de rede de seguranca procura. Eram mortos
+ * por nome (`taskkill /IM`), e isso levava junto o GTKWave ou o vvp de outra
+ * instalacao, de outro projeto ou de um terminal (#243). Agora so morre o
+ * executavel que a AURORA traz, pelo caminho inteiro, tirado da mesma lista
+ * que autoriza os binarios (compile/binary_allowlist.ts).
+ */
+export const VARRIDOS_PELO_CAMINHO: readonly string[] = ['vvp.exe', 'gtkwave.exe'].map((nome) => {
+  const entrada = RAW_ALLOWLIST.find(([b]) => b === nome);
+  const pasta = entrada ? entrada[1][0] : '';
+  return path.join(componentsPath, ...pasta.split('/'), nome);
+});
 
 // Os modulos que o fechamento avisa (CLIs de IA, chat, git, autenticacoes) sao
 // carregados so na hora, e dentro de try: eles puxam dependencia pesada e podem
@@ -235,14 +248,13 @@ export async function stopToolchainRun(): Promise<{ hadActive: boolean; killed: 
   const killed = seen.size;
 
   // 3) Backstops for grandchildren that outlived their parent's tree-kill:
-  //    bundled tools by name, and Verilator's per-testbench V<top>.exe (whose
-  //    name varies, so only a path-prefix match is safe) under components/Temp.
+  //    the bundled vvp and GTKWave by their full path (never by name, #243),
+  //    and Verilator's per-testbench V<top>.exe under components/Temp.
   //    Only worth their cost, the path sweep enumerates every process on the
   //    box, when something was actually running; a Cancel on an idle IDE stays
   //    instant.
   if (killed > 0) {
-    tasks.push(killProcessesByName('vvp.exe'));
-    tasks.push(killProcessesByName('gtkwave.exe'));
+    for (const exe of VARRIDOS_PELO_CAMINHO) tasks.push(killProcessesByPathPrefix(exe));
     tasks.push(killProcessesByPathPrefix(path.join(componentsPath, 'Temp') + path.sep));
     // E as Temps dos projetos em que algo rodou nesta sessao (executor anota).
     for (const dir of state.projectTempDirs) tasks.push(killProcessesByPathPrefix(dir + path.sep));
@@ -275,14 +287,14 @@ async function runStopAllToolchain(): Promise<void> {
 
   // 3+4) Expensive external-process sweeps, ONLY if a toolchain child actually
   //   ran this session. These are backstops for detached/re-spawned bundled
-  //   tools (3, by name) and Verilator's per-testbench V<top>.exe under
+  //   tools (3, by their full path, never by name, #243) and Verilator's
+  //   per-testbench V<top>.exe under
   //   components/Temp/ (4, by path prefix). Each one cold-starts a process and
   //   (for 4) makes PowerShell enumerate EVERY process via WMI, the dominant
   //   cost of closing the IDE. If nothing ever spawned, there are provably no
   //   orphans, so we skip them and the close is instant.
   if (toolchainEverRan) {
-    tasks.push(killProcessesByName('vvp.exe'));
-    tasks.push(killProcessesByName('gtkwave.exe'));
+    for (const exe of VARRIDOS_PELO_CAMINHO) tasks.push(killProcessesByPathPrefix(exe));
     tasks.push(killProcessesByPathPrefix(path.join(componentsPath, 'Temp') + path.sep));
     // E as Temps dos projetos em que algo rodou nesta sessao (executor anota).
     for (const dir of state.projectTempDirs) tasks.push(killProcessesByPathPrefix(dir + path.sep));

@@ -305,7 +305,7 @@ function register() {
 
   // Targeted stop: kill ONLY the currently parked streamed child (state.
   // currentVvpProcess) and nothing else. Unlike cancel-vvp-process this does
-  // NOT sweep-and-kill vvp.exe/gtkwave.exe by name, that broad sweep would
+  // NOT sweep-and-kill the bundled vvp.exe/gtkwave.exe, that broad sweep would
   // race with, and kill, a GTKWave that the wave flow launches moments later.
   // Used by cabecalho_do_dump.ts to stop fst2vcd once the header is captured.
   ipcMain.handle('kill-current-spec-process', async () => {

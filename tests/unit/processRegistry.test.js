@@ -173,10 +173,12 @@ describe('stopToolchainRun (o Cancelar)', () => {
     expect(r).toEqual({ hadActive: true, killed: 3 });
     const p = pedidos();
     expect(p.porPid).toEqual([111, 112, 333]);
-    expect(p.porNome).toEqual(['vvp.exe', 'gtkwave.exe']);
-    expect(p.porCaminho).toHaveLength(2);
-    expect(p.porCaminho[0].endsWith(`${path.sep}Temp${path.sep}`)).toBe(true);
-    expect(p.porCaminho[1]).toBe(path.join('C:', 'proj', '.aurora', 'Temp') + path.sep);
+    // Nunca por nome: um GTKWave ou vvp de fora da AURORA nao morre (#243).
+    expect(p.porNome).toEqual([]);
+    expect(p.porCaminho).toHaveLength(4);
+    expect(p.porCaminho.slice(0, 2)).toEqual([...registry.VARRIDOS_PELO_CAMINHO]);
+    expect(p.porCaminho[2].endsWith(`${path.sep}Temp${path.sep}`)).toBe(true);
+    expect(p.porCaminho[3]).toBe(path.join('C:', 'proj', '.aurora', 'Temp') + path.sep);
 
     expect(state.childProcesses.has(run)).toBe(false);
     expect(state.childProcesses.has(viewer)).toBe(false);
@@ -218,7 +220,8 @@ describe('stopAllToolchain (ao fechar)', () => {
     expect(state.currentVvpProcess).toBeNull();
     // Algum filho rodou nesta sessao (o proprio teste registrou), entao as
     // varreduras de rede de seguranca rodam.
-    expect(p.porNome).toEqual(['vvp.exe', 'gtkwave.exe']);
+    expect(p.porNome).toEqual([]);
+    expect(p.porCaminho.slice(0, 2)).toEqual([...registry.VARRIDOS_PELO_CAMINHO]);
     expect(p.porCaminho.at(-1)).toBe(`D:\\p\\.aurora\\Temp${path.sep}`);
   });
 
@@ -250,5 +253,15 @@ describe('reapOrphans', () => {
   it('uma falha na faxina nunca derruba o arranque', async () => {
     respostaExec = 'erro';
     await expect(registry.reapOrphans()).resolves.toBeUndefined();
+  });
+});
+
+describe('os executaveis varridos pelo caminho (#243)', () => {
+  it('sao o vvp do bundle msys e o GTKWave do fork, dentro de components/', async () => {
+    const { componentsPath } = await import('../../main/paths.js');
+    expect(registry.VARRIDOS_PELO_CAMINHO).toEqual([
+      path.join(componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'vvp.exe'),
+      path.join(componentsPath, 'Packages', 'gtkwave-nipscern', 'gtkwave.exe'),
+    ]);
   });
 });

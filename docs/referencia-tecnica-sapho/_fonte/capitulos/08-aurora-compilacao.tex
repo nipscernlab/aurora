@@ -995,9 +995,10 @@ Os handlers presentes:
     via o canônico \tool{comp2gtkw.exe} (também passado pela allowlist),
     alimentando os valores por stdin.
   \item[\code{cancel-vvp-process}] cancelamento amplo: mata o filho estacionado
-    \emph{e} varre \path{vvp.exe}/\path{gtkwave.exe} por nome.
+    \emph{e} varre o \path{vvp.exe} e o \path{gtkwave.exe} da AURORA pelo
+    caminho inteiro (por nome, levava junto os de fora, \#243).
   \item[\code{kill-current-spec-process}] parada cirúrgica: mata \emph{apenas} o
-    filho com streaming estacionado (sem a varredura por nome). Usado por
+    filho com streaming estacionado (sem a varredura). Usado por
     \code{_extractFstHeaderVcd} para parar o \tool{fst2vcd} assim que o cabeçalho
     é capturado.
 \end{description}

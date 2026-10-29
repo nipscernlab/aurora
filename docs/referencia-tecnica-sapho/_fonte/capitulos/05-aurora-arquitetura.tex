@@ -374,9 +374,11 @@ Cobre, em ordem:
   \item o processo de simulação \emph{legacy} de slot único, caso não estivesse
     rastreado;
   \item \textbf{apenas se algum filho realmente rodou nesta sessão}
-    (\lstinline|toolchainEverRan|): varreduras de \emph{backstop} por nome
-    (\lstinline|vvp.exe|, \lstinline|gtkwave.exe|) e por prefixo de caminho
-    (os \lstinline|V<top>.exe| do Verilator sob \path{components/Temp});
+    (\lstinline|toolchainEverRan|): varreduras de \emph{backstop} pelo
+    caminho inteiro do \lstinline|vvp.exe| e do \lstinline|gtkwave.exe| que a
+    AURORA traz, nunca pelo nome, para não matar os de outra instalação
+    (\#243), e por prefixo de caminho (os \lstinline|V<top>.exe| do Verilator
+    sob \path{components/Temp});
   \item os CLIs de IA (Claude Code / Codex) via \lstinline|killAll()|;
   \item as gerações de chat de IA em curso, via \lstinline|abortAll()| (aborta os
     \emph{streams} HTTP).

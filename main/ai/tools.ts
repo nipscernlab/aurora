@@ -407,7 +407,8 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'compile_all',
-    description: 'Run the full SAPHO compilation pipeline (CMM, ASM, Verilog, wave, PRISM).',
+    description: 'Run the full SAPHO compilation pipeline (CMM, ASM, Verilog, wave, PRISM). ' +
+      'Returns an error, with the failing step\'s message, when the compilation fails or is cancelled.',
     access: 'write',
     api: ['compile', 'compileAll'],
     argStyle: 'none',
@@ -451,7 +452,8 @@ const TOOL_MANIFEST: ToolDef[] = [
       '"verilator-proc" runs the ACTIVE processor\'s generated top-level under Verilator as a ' +
       'hardware test; "verilator-fast" runs the testbench headless under Verilator (no waveform, ' +
       'fastest). For the two Verilator simulations the dedicated run_verilator_proc / run_fast_sim ' +
-      'tools are equivalent and clearer.',
+      'tools are equivalent and clearer. Returns an error, with the step\'s message, when the ' +
+      'compilation fails (a compiler error, a missing component, failed cocotb tests) or is cancelled.',
     access: 'write',
     api: ['compile', 'compileStep'],
     argStyle: 'positional',

@@ -331,6 +331,16 @@ describe('a execucao do cocotb', () => {
         expect(statusUpdater.compilationError).toHaveBeenCalledWith('verilog', 'cocotb tests failed');
     });
 
+    it('teste que falha conta como falha da execucao, para o registro e a IA (#244)', async () => {
+        const reg = await import('../../js/compilation/registro_de_execucao.js');
+        const reportar = vi.spyOn(reg, 'reportarFalhaNaExecucao');
+        const mod = await novoModulo();
+        ligarRunner({ code: 2 });
+        await chamar.rodar(mod, CTX, TOOLS, CONFIG);
+        expect(reportar).toHaveBeenCalledWith({ cancelada: false, mensagem: 'terminal.wave.cocotbTestsFailed' }, null);
+        reportar.mockRestore();
+    });
+
     it('falha de infraestrutura para, com o codigo', async () => {
         window.t = (k, p) => (p ? `${k} ${p.code}` : k);
         try {

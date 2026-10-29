@@ -32,7 +32,7 @@ import { recusaDosCaminhos, explicarRecusa } from './caminho_da_ferramenta.js';
 import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
-import { comRegistro, reportarFalhaNaExecucao } from './registro_de_execucao.js';
+import { comRegistro, reportarFalhaNaExecucao, desfechoDaUltimaExecucao } from './registro_de_execucao.js';
 import { syncCmmcompEnabled, syncToolbarEnabledState } from './botoes_da_barra.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
@@ -225,17 +225,16 @@ export async function exigirComponentesDeCompilacao(terminalId: string): Promise
     if (!faltando.length) return true;
 
     const tm = getTM();
-    for (const c of faltando) {
+    const linhas = faltando.map((c: ComponenteListado) => {
         const mb = c.downloadMB >= 1000
             ? `${(c.downloadMB / 1024).toFixed(1)} GB`
             : `${c.downloadMB} MB`;
-        tm?.appendToTerminal?.(
-            terminalId,
-            tr('terminal.compile.componentMissing', { nome: c.nome, mb }),
-            'error',
-        );
-    }
+        return tr('terminal.compile.componentMissing', { nome: c.nome, mb });
+    });
+    for (const linha of linhas) tm?.appendToTerminal?.(terminalId, linha, 'error');
     tm?.appendToTerminal?.(terminalId, tr('terminal.compile.componentWhere'), 'tips');
+    // O passo para sem lancar; sem isto a execucao fechava como sucesso (#244).
+    reportarFalhaNaExecucao({ cancelada: false, mensagem: linhas.join(' ') }, activeRunStep);
     return false;
 }
 
@@ -793,6 +792,12 @@ class CompilationFlowManager {
      * quando um resultado nao chegou.
      */
     wasCancelled() { return foiCancelada(); }
+
+    /**
+     * Como terminou a ultima execucao: ok, falhou (com a mensagem) ou
+     * cancelada. E o que a API da IA devolve depois de compilar (#244).
+     */
+    ultimoDesfecho() { return desfechoDaUltimaExecucao(); }
 
     cancelAll() {
         const tm = getTM();

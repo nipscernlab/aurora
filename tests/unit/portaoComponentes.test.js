@@ -73,6 +73,15 @@ describe('portão de componentes antes de compilar', () => {
     expect(linhas[1].texto).toContain('Componentes');   // e onde resolver
   });
 
+  it('a execução barrada fecha como falha, com o texto do terminal (#244)', async () => {
+    const reg = await import('../../js/compilation/registro_de_execucao.js');
+    electronAPI.componentesListar.mockResolvedValue({ componentes: [comp()] });
+    await reg.comRegistro('cmm', async () => { await exigir('tcmm'); });
+    const d = reg.desfechoDaUltimaExecucao();
+    expect(d.ok).toBe(false);
+    expect(d.erro).toBe(linhas[0].texto);
+  });
+
   it('deixa passar quando está tudo instalado', async () => {
     electronAPI.componentesListar.mockResolvedValue({
       componentes: [comp({ instalado: true }), comp({ nome: 'GTKWave', requerParaCompilar: false })],

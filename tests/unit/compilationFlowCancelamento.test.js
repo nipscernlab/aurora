@@ -126,6 +126,8 @@ describe('cancelar', () => {
     expect(projeto).toBe('C:/p');
     expect(exec.cancelada).toBe(true);
     expect(execucoesAbertas()).toEqual([]);
+    // O mesmo desfecho que a API da IA le depois de compilar (#244).
+    expect(fm.ultimoDesfecho()).toEqual({ ok: false, erro: null, cancelada: true });
   });
 
   it('falha ao pedir ao main que mate o processo so avisa no console', async () => {

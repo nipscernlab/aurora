@@ -168,6 +168,13 @@ it and the required check blocks the merge. Close and reopen it from a
 maintainer account: that runs CI on it, and the merge then goes through without
 bypassing branch protection.
 
+CI on the release pull request also checks that the published manual documents
+the version being released (`scripts/check-manual-version.mts`): the first three
+segments of `version` in the `docs_aurora` manifest must equal the new
+`package.json` version. Until they do, the required check fails and the release
+cannot be merged. Publish the manual for that version from `docs_aurora`, then
+re-run the failed job; nothing in the pull request has to change.
+
 Aurora Intelligence only knows what `js/ai/system_prompt.ts`,
 `resources/sapho_rules.json` and the tool descriptions tell it. When a release
 moves `YANC_TAG`, update `EXPECTED_SHA256` beside it (the `digest` of the release

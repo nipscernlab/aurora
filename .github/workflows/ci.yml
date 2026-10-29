@@ -31,6 +31,16 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      # A trava de publicacao: na PR de release, o manual publicado tem de
+      # documentar a versao que sai. Em qualquer outra PR o passo nao faz nada.
+      # Fica antes de tudo para reprovar em segundos, e nao depois do build.
+      # Publicado o manual, basta rodar o job de novo: o manifesto e lido na
+      # hora.
+      - name: Manual documents the release (release PR only)
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: node scripts/check-manual-version.mts
+
       - name: Install dependencies
         run: npm ci
 

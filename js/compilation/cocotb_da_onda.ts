@@ -23,6 +23,7 @@ import { exigirDumpGravavel } from './arquivos_da_simulacao.js';
 import { consumirProgresso, avisarSeNaBateria, vigiarTamanhoDoDump, type TerminalDaSimulacao } from './durante_a_simulacao.js';
 import { stageProcessorMemoryFiles, type TerminalManager } from './processor_compiler.js';
 import { runSpecStreamed } from './spec_runner.js';
+import { reportarFalhaNaExecucao } from './registro_de_execucao.js';
 import { buildHierarchyFromFiles, resolveCocotbWaveSelection } from './wave_signal_validator.js';
 import { findWaveCandidateInDir, resolveVerilatorTools } from './wave_toolchain.js';
 import { getSimulator } from '../wave/simulator_preference.js';
@@ -385,6 +386,9 @@ export async function rodarCocotb(
     if (code === COCOTB_TESTS_FAILED) {
         terminal.appendToTerminal('twave', tr('terminal.wave.cocotbTestsFailed'), 'error');
         statusUpdater.compilationError('verilog', 'cocotb tests failed');
+        // A onda ainda sai, entao nada lanca; mas a execucao reprovou, e e
+        // isso que o registro e a IA tem de ver (#244).
+        reportarFalhaNaExecucao({ cancelada: false, mensagem: tr('terminal.wave.cocotbTestsFailed') }, null);
     }
     return wave ? adotarOnda(ctx, cocotbCtx, tools, buildDir) : null;
 }

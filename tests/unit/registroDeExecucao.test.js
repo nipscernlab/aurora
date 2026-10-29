@@ -99,6 +99,18 @@ describe('comRegistro', () => {
     expect(exec.erro).toBe('quebrou');
   });
 
+  it('o desfecho da ultima execucao fica para quem pediu ler (a IA, #244)', async () => {
+    expect(reg.desfechoDaUltimaExecucao()).toBeNull();
+    await reg.comRegistro('cmm', async () => {});
+    expect(reg.desfechoDaUltimaExecucao()).toEqual({ ok: true, erro: null, cancelada: false });
+    await reg.comRegistro('cmm', async () => {
+      reg.reportarFalhaNaExecucao({ cancelada: false, mensagem: 'cmmcomp code 1' }, 'cmm');
+    });
+    expect(reg.desfechoDaUltimaExecucao()).toEqual({ ok: false, erro: 'cmmcomp code 1', cancelada: false });
+    await expect(reg.comRegistro('all', async () => { throw new Error('quebrou'); })).rejects.toThrow();
+    expect(reg.desfechoDaUltimaExecucao()).toEqual({ ok: false, erro: 'quebrou', cancelada: false });
+  });
+
   it('corpo que lanca depois de o usuario cancelar grava cancelada', async () => {
     cancelamento.pedirCancelamento();
     await expect(reg.comRegistro('all', async () => { throw new Error('morto'); })).rejects.toThrow();

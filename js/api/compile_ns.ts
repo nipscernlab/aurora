@@ -34,6 +34,19 @@ async function fluxoDeCompilacao() {
   return (await import('../compilation/compilation_flow.js')).compilationFlowManager;
 }
 
+/**
+ * O resultado de uma execucao que o fluxo aceitou, pelo desfecho que ele
+ * registrou (#244). O runAll e o runSingleStep resolvem igual com sucesso e
+ * com falha, porque o handler mostra o erro no terminal e o engole; sem isto a
+ * IA recebia ok de uma compilacao que falhou e seguia em frente.
+ */
+function resultadoDaExecucao(cf: { ultimoDesfecho?: () => { ok: boolean; erro: string | null; cancelada: boolean } | null }, extra?: Record<string, unknown>) {
+  const d = cf.ultimoDesfecho?.() ?? null;
+  if (!d || d.ok) return ok(extra);
+  if (d.cancelada) return err('the compilation was cancelled by the user');
+  return err(`the compilation failed: ${d.erro || 'see the step terminal for the error'}`);
+}
+
 /** A mensagem de uma excecao qualquer, ou a de reserva. */
 const motivo = (e: unknown, reserva: string): string => (e as Error | null)?.message || reserva;
 
@@ -55,7 +68,7 @@ export const compileNs = {
     // botao da toolbar tambem passa.
     try {
       if (await cf.runAll() === false) return err(ERRO_JA_RODANDO);
-      return ok();
+      return resultadoDaExecucao(cf);
     }
     catch (e) { return err(motivo(e, 'compileAll failed')); }
   },
@@ -78,7 +91,7 @@ export const compileNs = {
     emit('compile:started', { scope: step });
     try {
       if (await cf.runSingleStep(step) === false) return err(ERRO_JA_RODANDO);
-      return ok({ step });
+      return resultadoDaExecucao(cf, { step });
     }
     catch (e) { return err(motivo(e, 'compileStep failed')); }
   },

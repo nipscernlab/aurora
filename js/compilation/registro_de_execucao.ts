@@ -63,6 +63,29 @@ const execAbertas = new Set<Execucao>();
  */
 const falhaReportadaDe = new WeakMap<Execucao, FalhaReportada>();
 
+/** O desfecho de uma execucao: deu certo, falhou com que mensagem, ou foi cancelada. */
+export interface Desfecho {
+  ok: boolean;
+  erro: string | null;
+  cancelada: boolean;
+}
+
+/**
+ * O desfecho da ultima execucao que fechou.
+ *
+ * A IA chama o compilar e precisa saber se deu certo (#244): o runAll e o
+ * runSingleStep resolvem do mesmo jeito com sucesso ou com falha, porque o
+ * handler mostra o erro e o engole. O que diz o resultado e o mesmo desfecho
+ * que vai para o registro, e a API o le daqui logo depois. Uma execucao de
+ * cada vez (o fluxo recusa a segunda), entao "a ultima" e a que a IA pediu.
+ */
+let ultimoDesfecho: Desfecho | null = null;
+
+/** O desfecho da ultima execucao fechada, ou null se nenhuma fechou ainda. */
+export function desfechoDaUltimaExecucao(): Desfecho | null {
+  return ultimoDesfecho;
+}
+
 /**
  * Marca a(s) execucao(oes) aberta(s) a que uma falha fatal pertence.
  *
@@ -155,12 +178,13 @@ export async function comRegistro<T>(pedido: string, corpo: () => Promise<T>): P
     // handler engole o erro depois de mostra-lo. O que vale e se alguem
     // passou pelo funil de erro fatal durante esta execucao.
     const falha = falhaReportadaDe.get(exec) || null;
+    ultimoDesfecho = desfechoDaExecucao({
+      resolveu: true,
+      falha: falha && !falha.cancelada ? falha : null,
+      cancelada: foiCancelada() || !!(falha && falha.cancelada),
+    });
     fecharExecucao(exec, {
-      ...desfechoDaExecucao({
-        resolveu: true,
-        falha: falha && !falha.cancelada ? falha : null,
-        cancelada: foiCancelada() || !!(falha && falha.cancelada),
-      }),
+      ...ultimoDesfecho,
       // O que o COMPILADOR disse, lido da saida pelo mesmo reconhecedor
       // que pinta os marcadores. O deposito e zerado no inicio de cada
       // rodada, entao aqui ele tem exatamente os desta.
@@ -168,8 +192,9 @@ export async function comRegistro<T>(pedido: string, corpo: () => Promise<T>): P
     });
     return r;
   } catch (erro) {
+    ultimoDesfecho = desfechoDaExecucao({ resolveu: false, erro, cancelada: foiCancelada() });
     fecharExecucao(exec, {
-      ...desfechoDaExecucao({ resolveu: false, erro, cancelada: foiCancelada() }),
+      ...ultimoDesfecho,
       problemas: problemasParaRegistro(problemStore.listar()),
     });
     throw erro;

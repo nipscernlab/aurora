@@ -87,6 +87,24 @@ describe('compile: rodar', () => {
     expect((await API.compile.compileStep('wave')).error.message).toBe('x');
   });
 
+  it('a compilacao que falha ou e cancelada volta como erro, com a mensagem da etapa (#244)', async () => {
+    const desfecho = { atual: { ok: false, erro: 'CMM compilation failed with code 1', cancelada: false } };
+    fluxo({ ultimoDesfecho: () => desfecho.atual });
+    expect((await API.compile.compileStep('cmm')).error.message)
+      .toBe('the compilation failed: CMM compilation failed with code 1');
+    expect((await API.compile.compileAll()).error.message)
+      .toBe('the compilation failed: CMM compilation failed with code 1');
+    desfecho.atual = { ok: false, erro: null, cancelada: false };
+    expect((await API.compile.compileStep('wave')).error.message)
+      .toBe('the compilation failed: see the step terminal for the error');
+    desfecho.atual = { ok: false, erro: null, cancelada: true };
+    expect((await API.compile.compileStep('wave')).error.message).toBe('the compilation was cancelled by the user');
+    desfecho.atual = { ok: true, erro: null, cancelada: false };
+    expect(await API.compile.compileStep('asm')).toEqual({ ok: true, data: { step: 'asm' } });
+    desfecho.atual = null;
+    expect(await API.compile.compileAll()).toEqual({ ok: true, data: null });
+  });
+
   it('runVerilatorProc e runFastSim sao o compileStep do botao, chamados soltos como a IA faz', async () => {
     const cf = fluxo();
     const { runVerilatorProc, runFastSim } = API.compile;

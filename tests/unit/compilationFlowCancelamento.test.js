@@ -62,6 +62,14 @@ const { execucoesAbertas } = await import('../../js/compilation/registro_de_exec
 const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 const textos = () => linhas.map((l) => l.texto);
 
+/** Uma execucao do passo Verilog parada no meio; a funcao devolvida a solta. */
+async function emAndamento() {
+  const r = fm.runSingleStep('verilog');
+  await flush();
+  linhas.length = 0;
+  return async () => { passo.soltar(); await r; };
+}
+
 beforeEach(async () => {
   vi.clearAllMocks();
   linhas.length = 0;
@@ -83,32 +91,51 @@ beforeEach(async () => {
 });
 
 describe('cancelar', () => {
-  it('sem nada rodando, diz que nao ha o que cancelar e desliga a bandeira', async () => {
+  it('sem execucao em andamento, diz que nao ha o que cancelar e nao mata nada (#246)', async () => {
+    const emit = vi.fn();
+    window.AuroraAPI = { events: { emit } };
+    fm.cancelAll();
+    await flush();
+    expect(textos()).toEqual(['compilation.nothingToCancel']);
+    expect(linhas.every((l) => l.terminal === 'tveri')).toBe(true);
+    // Antes o main era chamado, e o GTKWave de uma rodada ja terminada fechava.
+    expect(electronAPI.cancelVvpProcess).not.toHaveBeenCalled();
+    expect(fm.wasCancelled()).toBe(false);
+    expect(emit).not.toHaveBeenCalled();
+    delete window.AuroraAPI;
+  });
+
+  it('cancelar entre dois passos, sem processo vivo, ainda para a execucao (#246)', async () => {
+    const soltar = await emAndamento();
     electronAPI.cancelVvpProcess.mockResolvedValue({ success: false });
     fm.cancelAll();
+    await flush();
+    expect(textos()).toEqual(['compilation.cancelRequested']);
     expect(fm.wasCancelled()).toBe(true);
     expect(window.isCompilationCanceled()).toBe(true);
-    await flush();
-    expect(textos()).toEqual(['compilation.cancelRequested', 'compilation.nothingToCancel']);
-    expect(linhas.every((l) => l.terminal === 'tveri')).toBe(true);
-    expect(fm.wasCancelled()).toBe(false);
+    await soltar();
+    expect(electronAPI.runLogGravar.mock.calls.at(-1)[1].cancelada).toBe(true);
   });
 
   it('segundo clique enquanto cancela so confirma que ja esta cancelando', async () => {
+    const soltar = await emAndamento();
     fm.cancelAll();
     fm.cancelAll();
     await flush();
     expect(textos()).toEqual(['compilation.cancelRequested', 'compilation.cancelInProgress']);
     expect(electronAPI.cancelVvpProcess).toHaveBeenCalledTimes(1);
     expect(tm.clearHardwareProgress).toHaveBeenCalledTimes(1);
+    await soltar();
   });
 
   it('avisa a IA que o usuario cancelou', async () => {
+    const soltar = await emAndamento();
     const emit = vi.fn();
     window.AuroraAPI = { events: { emit } };
     fm.cancelAll();
     expect(emit).toHaveBeenCalledWith('compile:cancelled', { by: 'user' });
     delete window.AuroraAPI;
+    await soltar();
   });
 
   it('cancelar no meio de um passo escreve um cartao so, e o registro sai cancelado', async () => {
@@ -131,10 +158,12 @@ describe('cancelar', () => {
   });
 
   it('falha ao pedir ao main que mate o processo so avisa no console', async () => {
+    const soltar = await emAndamento();
     const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
     electronAPI.cancelVvpProcess.mockRejectedValue(new Error('ipc caiu'));
     fm.cancelAll();
     await flush();
+    await soltar();
     expect(aviso).toHaveBeenCalledWith('cancelVvpProcess failed:', 'ipc caiu');
     aviso.mockRestore();
   });

@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * Window factories: main, splash, progress.
  *
@@ -6,14 +5,18 @@
  * lot of compilation logic.
  */
 
-const path = require('path');
-const { execFileSync } = require('child_process');
-const { app, BrowserWindow, ipcMain } = require('electron');
-const log = require('electron-log');
-const state = require('./state');
-const recents = require('./recents');
-const { stopAllToolchain } = require('./process_registry');
-const { loadPage, pageUrl } = require('./render_loader');
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { app, BrowserWindow, ipcMain } from 'electron';
+import log from 'electron-log';
+import state from './state.js';
+import recents from './recents.js';
+import { stopAllToolchain } from './process_registry.js';
+import { loadPage, pageUrl } from './render_loader.js';
+import { createRequire } from 'node:module';
+
+const requireTarde = createRequire(__filename);
+
 
 /**
  * How long after ready-to-show the splash waits for the renderer's own
@@ -43,7 +46,7 @@ const SPLASH_HOLD_MS = 650;
  * `null` = not probed yet; cached for the rest of the process.
  * @type {boolean|null}
  */
-let customCategoryAllowed = null;
+let customCategoryAllowed: boolean|null = null;
 let loggedCustomCategoryDenied = false;
 /** Assinatura do último resultado registrado, para não repetir log idêntico. */
 let ultimoJumplist = '';
@@ -74,11 +77,10 @@ let ultimoJumplist = '';
  * Fails *open*: any error reading the registry returns true and we let
  * setJumpList decide, which is the pre-existing behaviour.
  *
- * @returns {boolean}
  */
-function probeRecentDocsTracking() {
-  /** @param {string} key @param {string} value */
-  const readDword = (key, value) => {
+function probeRecentDocsTracking(): boolean {
+  /** @param key @param {string} value */
+  const readDword = (key: string, value: string) => {
     const out = execFileSync('reg', ['query', key, '/v', value], {
       encoding: 'utf8',
       windowsHide: true,
@@ -143,14 +145,14 @@ function rebuildJumpList() {
     const appPath = app.getAppPath();
     // Quoted so spaces in the app path survive Windows arg parsing.
     const baseArgs = isPackaged ? '' : `"${appPath}"`;
-    const joinArgs = (/** @type {string[]} */ ...extra) => [baseArgs, ...extra].filter(Boolean).join(' ');
+    const joinArgs = (...extra: string[]) => [baseArgs, ...extra].filter(Boolean).join(' ');
 
     // Recent projects, pruned to entries that still exist on disk. Max
     // 5 so the jumplist stays scannable on a single glance, Windows
     // would happily render 10 but it pushes "New SAPHO Window" off the
     // visible area.
     const recentSpfs = recents.prune().slice(0, 5);
-    const recentItems = recentSpfs.map((spf) => ({
+    const recentItems = recentSpfs.map((spf): Electron.JumpListItem => ({
       type: 'task',
       title: path.basename(spf, '.spf'),
       description: spf,
@@ -160,7 +162,7 @@ function rebuildJumpList() {
       iconIndex: 0,
     }));
 
-    const tasksCategory = {
+    const tasksCategory: Electron.JumpListCategory = {
       type: 'tasks',
       items: [
         {
@@ -177,7 +179,7 @@ function rebuildJumpList() {
 
     if (customCategoryAllowed === null) customCategoryAllowed = probeRecentDocsTracking();
 
-    const categories = [];
+    const categories: Electron.JumpListCategory[] = [];
     if (recentItems.length > 0 && customCategoryAllowed) {
       categories.push({
         type: 'custom',
@@ -203,7 +205,7 @@ function rebuildJumpList() {
     // rejected. Surface that in the log so a future "my jumplist is
     // empty" debugging session lands on the actual reason instead of
     // a silent miss.
-    let status = app.setJumpList(/** @type {Electron.JumpListCategory[]} */ (categories));
+    let status = app.setJumpList(categories);
 
     // Second net: the probe can be wrong (setting flipped mid-session, or
     // a policy path we don't read). Windows rejects the *whole* call in
@@ -211,7 +213,7 @@ function rebuildJumpList() {
     // be left empty, and remember, so no later rebuild tries again.
     if (status === 'customCategoryAccessDeniedError') {
       customCategoryAllowed = false;
-      status = app.setJumpList(/** @type {Electron.JumpListCategory[]} */ ([tasksCategory]));
+      status = app.setJumpList([tasksCategory]);
       log.info('jumplist: custom category denied by Windows; re-applied with Tasks only.');
     }
 
@@ -240,12 +242,12 @@ function rebuildJumpList() {
 }
 
 /**
- * @param {{ deferShow?: boolean }} [opts] When `deferShow` is true the
+ * @param [opts] When `deferShow` is true the
  *   window stays hidden after `ready-to-show`, the splash coordinator
  *   owns the maximize/show handoff. Second-instance windows (no splash)
  *   pass nothing and show themselves.
  */
-function createMainWindow(opts = {}) {
+function createMainWindow(opts: { deferShow?: boolean; } = {}) {
   const { deferShow = false } = opts;
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -294,7 +296,7 @@ function createMainWindow(opts = {}) {
   // Abrir a AURORA de novo cria outra janela neste mesmo processo, e por anos
   // tudo o que o main mandava para a interface foi para a ultima criada.
   state.mainWindow = mainWindow;
-  require('./main_windows').registrar(mainWindow);
+  requireTarde('./main_windows').registrar(mainWindow);
 
   // So a pagina do PRISM, so com o preload do PRISM, e sempre isolada. Qualquer
   // outro <webview> que apareca no renderer e barrado aqui, antes de existir.
@@ -420,10 +422,10 @@ function createMainWindow(opts = {}) {
   // keeps running untouched as long as its panel is alive.
   // So as sessoes DESTA janela: o killAll sem filtro derrubava a IA de todas
   // as janelas quando qualquer uma recarregava.
-  const reapAbandonedAi = (/** @type {string} */ why) => {
+  const reapAbandonedAi = (why: string) => {
     const dono = mainWindow.webContents.id;
-    try { require('./ai/claude_code').killAll(dono); } catch (_) { /* not loaded */ }
-    try { require('./ai/codex_cli').killAll(dono); } catch (_) { /* not loaded */ }
+    try { requireTarde('./ai/claude_code').killAll(dono); } catch (_) { /* not loaded */ }
+    try { requireTarde('./ai/codex_cli').killAll(dono); } catch (_) { /* not loaded */ }
     log.info(`[windows] reaped abandoned AI turns of window ${dono} (${why})`);
   };
   mainWindow.webContents.on('did-start-navigation', (_e, _url, isInPlace, isMainFrame) => {
@@ -479,7 +481,7 @@ function createMainWindow(opts = {}) {
       mainWindow.show();
     }
     setTimeout(() => {
-      const updater = require('./updater');
+      const updater = requireTarde('./updater');
       updater.initializeUpdateSystem();
     }, 2000);
   });
@@ -524,12 +526,11 @@ function createSplashScreen() {
   });
   state.splashWindow = splashWindow;
 
-  /** @type {BrowserWindow | null} */
-  let mainWindow = null;
+  let mainWindow: BrowserWindow|null = null;
   let handedOff = false;
 
-  /** @param {number} percent @param {string} phase */
-  const progress = (percent, phase) => {
+  /** @param percent @param {string} phase */
+  const progress = (percent: number, phase: string) => {
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.webContents.send('splash:progress', { percent, phase });
     }
@@ -663,7 +664,7 @@ function createUpdateWindow() {
     state.updateWindow = null;
     // Sem janela nao ha o que minimizar: as notificacoes do sistema e a
     // barra de progresso da barra de tarefas se desligam junto.
-    require('./update_notify').desativar();
+    requireTarde('./update_notify').desativar();
   });
 
   // While a download is running the window must not be dismissed:
@@ -692,8 +693,7 @@ function createUpdateWindow() {
 // from the command palette ("Open Design Lab"). A normal framed window (OS
 // controls) and a singleton so it never clutters. No preload: the gallery is a
 // static page that talks to nothing.
-/** @type {import('electron').BrowserWindow|null} */
-let designLabWindow = null;
+let designLabWindow: import('electron').BrowserWindow|null = null;
 function createDesignLabWindow() {
   if (designLabWindow && !designLabWindow.isDestroyed()) {
     designLabWindow.focus();
@@ -714,7 +714,7 @@ function createDesignLabWindow() {
 }
 
 function registerWindowControls() {
-  const senderWin = (/** @type {any} */ event) => {
+  const senderWin = (event: any) => {
     try {
       return BrowserWindow.fromWebContents(event.sender);
     } catch (_) {
@@ -755,7 +755,7 @@ function registerWindowControls() {
     return { isMaximized: w.isMaximized(), isFullScreen: w.isFullScreen() };
   });
 
-  const handleZoom = (/** @type {any} */ event, /** @type {number} */ factorChange) => {
+  const handleZoom = (event: any, factorChange: number) => {
     const w = senderWin(event) || state.mainWindow;
     if (!w) return;
     const webContents = w.webContents;
@@ -774,10 +774,4 @@ function registerWindowControls() {
   ipcMain.handle('open-design-lab', () => { createDesignLabWindow(); });
 }
 
-module.exports = {
-  createMainWindow,
-  createSplashScreen,
-  createUpdateWindow,
-  registerWindowControls,
-  rebuildJumpList,
-};
+export { createMainWindow, createSplashScreen, createUpdateWindow, registerWindowControls, rebuildJumpList };

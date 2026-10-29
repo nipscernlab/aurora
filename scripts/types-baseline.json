@@ -1,8 +1,4 @@
 {
-  "main/ai/codex_cli.js": {
-    "TS2339": 3,
-    "TS2353": 1
-  },
   "main/ipc/files.js": {
     "TS2740": 1
   },

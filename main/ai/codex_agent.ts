@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * codex_agent.js: Codex SDK engine for the ChatGPT/Codex bridge.
+ * codex_agent.ts: Codex SDK engine for the ChatGPT/Codex bridge.
  *
  * Modernization step 3 of the AI-system roadmap (ESTUDO §18.5): instead of
  * shelling out to `codex exec --json` and re-parsing JSONL, this engine
@@ -13,9 +12,8 @@
  *     agent messages (the engine diffs and streams real deltas; whole-message
  *     turns degrade to exactly the legacy behaviour).
  *   - `resumeThread(id)` instead of hand-rolled `exec resume` argv juggling.
- *   - Typed thread options (sandboxMode/approvalPolicy) instead of the
- *     monolithic --dangerously-bypass-approvals-and-sandbox flag, same
- *     effective posture (see below), but explicit.
+ *   - Typed thread options (sandboxMode/approvalPolicy), the same posture
+ *     as the legacy `-c` overrides (see below).
  *
  * The engine keeps FULL event parity with the legacy spawn path in
  * codex_cli.js: same `ai:chat-event` packets, same convThreads / usage
@@ -24,36 +22,33 @@
  * spawn when the SDK is unavailable (import failure, shim-only binary) or
  * when AURORA_CODEX_LEGACY_CLI=1 is set.
  *
- * Sandbox/approvals posture, unchanged from the legacy path on purpose:
- * `approvalPolicy:'never'` + `sandboxMode:'danger-full-access'` is what the
- * legacy `--dangerously-bypass-approvals-and-sandbox` flag expands to, and
- * it remains the ONLY combination where mcp__aurora__* calls run at all in
- * non-interactive mode (anything else auto-declines them). Aurora's real
- * guard-rails live in the renderer's permission gate for MCP tools.
+ * Sandbox/approvals posture, the same as the legacy path (codex_cli.ts
+ * header): `sandboxMode:'read-only'`, so the shell reads but neither writes
+ * nor reaches the network; the Windows sandbox set explicitly; and
+ * `default_tools_approval_mode="approve"` on the aurora MCP server, which is
+ * what lets its calls run in non-interactive mode. Until 29/10/2026 it was
+ * `danger-full-access`, the only combination that ran MCP in older CLIs.
  *
  * NOTE (kept in sync with codex_cli.js): MCP_TOOL_RULES and the
  * model-not-supported rewrite below mirror the legacy constants verbatim.
  */
 
-'use strict';
+import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
+import log from 'electron-log';
 
-const os = require('os');
-const fs = require('fs');
-const path = require('path');
-const log = require('electron-log');
-
-const auroraMcp = require('./aurora_mcp_server');
-const attachments = require('./attachments');
-const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } = require('./timeouts');
-const { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } = require('./retry');
-const { REGRAS_CODEX } = require('./mcp_tool_rules');
+import auroraMcp from './aurora_mcp_server.js';
+import attachments from './attachments.js';
+import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } from './timeouts.js';
+import { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } from './retry.js';
+import { REGRAS_CODEX } from './mcp_tool_rules.js';
 
 // ---------------------------------------------------------------------------
 //  SDK loading (ESM-only package, dynamic import from CJS, memoized)
 // ---------------------------------------------------------------------------
 
-/** @type {Promise<any>|null} */
-let _sdkPromise = null;
+let _sdkPromise: Promise<any>|null = null;
 function loadSdk() {
   if (!_sdkPromise) {
     _sdkPromise = import('@openai/codex-sdk').catch((e) => {
@@ -81,7 +76,7 @@ function agentScratchDir() {
 }
 
 /** Friendly rewrite for plan-model mismatches (kept in sync with codex_cli.js). */
-function rewriteModelError(/** @type {string} */ msg) {
+function rewriteModelError(msg: string) {
   if (/model is not supported when using Codex with a ChatGPT account/i.test(msg)) {
     return msg.replace(/\s*$/, '') +
       "\n\nFix: open the model menu next to the composer and pick " +
@@ -99,24 +94,11 @@ function rewriteModelError(/** @type {string} */ msg) {
 /**
  * Try to run one chat turn through the Codex SDK.
  *
- * @param {object} p
- * @param {string} p.sessionId
- * @param {string} [p.conversationId]
- * @param {{role:string,content:string,attachments?:any[]}[]} p.messages
- * @param {string} [p.system]
- * @param {string} [p.modelId]
- * @param {string} [p.effort]
- * @param {{exe:string, rgDir:string|null, viaShim:boolean}} p.bin
- * @param {Electron.WebContents} webContents
- * @param {object} host  shared bookkeeping owned by codex_cli.js
- * @param {(wc:any, sid:string, type:string, data:any)=>void} host.sendEvent
- * @param {Map<string,string>} host.convThreads
- * @param {Map<string,any>} host.sessions
- * @param {(tokens:number)=>void} host.addTokens
- * @returns {Promise<boolean>} true when the turn was handled here (success
+ * @param host  shared bookkeeping owned by codex_cli.js
+ * @returns true when the turn was handled here (success
  *   OR failure-with-error-event); false → caller falls back to legacy spawn.
  */
-async function tryStart(p, webContents, host) {
+async function tryStart(p: { sessionId: string; conversationId?: string; messages: { role: string; content: string; attachments?: any[]; }[]; system?: string; modelId?: string; effort?: string; bin: { exe: string; rgDir: string|null; viaShim: boolean; }; }, webContents: Electron.WebContents, host: { sendEvent: (wc: any,sid: string,type: string,data: any) => void; convThreads: Map<string,string>; sessions: Map<string,any>; addTokens: (tokens: number) => void; }): Promise<boolean> {
   const { sessionId, conversationId, messages, system, modelId, effort, bin } = p;
   const { sendEvent, convThreads, sessions, addTokens } = host;
 
@@ -148,14 +130,16 @@ async function tryStart(p, webContents, host) {
   }
 
   // ---- MCP bridge -------------------------------------------------------------
-  /** @type {Record<string, any>} */
-  const config = {};
+  // The Windows sandbox, set here and not left to ~/.codex/config.toml.
+  const config: Record<string,any> = { windows: { sandbox: 'unelevated' } };
   let mcpReady = false;
   try {
     const url = await auroraMcp.ensureStarted(webContents);
     // Same values as the legacy `-c` overrides; the SDK flattens this
     // object into --config key=value TOML literals.
-    config.mcp_servers = { aurora: { url, tool_timeout_sec: MCP_TOOL_CALL_MS / 1000 } };
+    config.mcp_servers = {
+      aurora: { url, tool_timeout_sec: MCP_TOOL_CALL_MS / 1000, default_tools_approval_mode: 'approve' },
+    };
     mcpReady = true;
   } catch (e) {
     log.warn('[ai.codex-agent] Aurora MCP bridge unavailable:',
@@ -182,8 +166,7 @@ async function tryStart(p, webContents, host) {
   // inheritance), so hand it the full sanitized clone: no OPENAI_API_KEY
   // (forces ChatGPT OAuth) + the bundled ripgrep on PATH (file search when
   // launching the native binary directly).
-  /** @type {Record<string, string>} */
-  const env = {};
+  const env: Record<string,string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (typeof v === 'string') env[k] = v;
   }
@@ -204,8 +187,7 @@ async function tryStart(p, webContents, host) {
   /** Per-item text already streamed, so item.updated diffs into real deltas. */
   const emittedText = new Map();
 
-  /** @type {ReturnType<typeof setTimeout>|null} */
-  let inactivityTimer = null;
+  let inactivityTimer: ReturnType<typeof setTimeout>|null = null;
   const armInactivity = () => {
     if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
     if (finished || aborted || pendingTools.size > 0) return;
@@ -225,7 +207,7 @@ async function tryStart(p, webContents, host) {
   // ---- event translation (mirrors legacy handleObject) -----------------------------
 
   /** Stream the not-yet-emitted tail of an agent message. */
-  const emitAgentText = (/** @type {any} */ item, /** @type {boolean} */ isFinal) => {
+  const emitAgentText = (item: any, isFinal: boolean) => {
     const text = String(item.text || '');
     const already = emittedText.get(item.id) || '';
     let delta = '';
@@ -246,7 +228,7 @@ async function tryStart(p, webContents, host) {
     sendEvent(webContents, sessionId, 'text-delta', { delta });
   };
 
-  const handleEvent = (/** @type {any} */ obj) => {
+  const handleEvent = (obj: any) => {
     if (!obj || typeof obj !== 'object') return;
     anyEvent = true;
     switch (obj.type) {
@@ -306,7 +288,7 @@ async function tryStart(p, webContents, host) {
           const blocks = item.result && Array.isArray(item.result.content)
             ? item.result.content : [];
           const content = blocks
-            .map((/** @type {any} */ b) => (b && b.type === 'text' ? b.text : ''))
+            .map((b: any) => (b && b.type === 'text' ? b.text : ''))
             .filter(Boolean).join('\n');
           sendEvent(webContents, sessionId, 'tool-result', {
             toolUseId: item.id,
@@ -362,8 +344,8 @@ async function tryStart(p, webContents, host) {
 
   // ---- run --------------------------------------------------------------------------
   const threadOptions = {
-    // See the module header: identical posture to the legacy bypass flag.
-    sandboxMode: 'danger-full-access',
+    // See the module header: the same posture as the legacy `-c` overrides.
+    sandboxMode: 'read-only',
     approvalPolicy: 'never',
     workingDirectory: agentScratchDir(),
     skipGitRepoCheck: true,
@@ -447,4 +429,4 @@ async function tryStart(p, webContents, host) {
   return true;
 }
 
-module.exports = { tryStart };
+export { tryStart };

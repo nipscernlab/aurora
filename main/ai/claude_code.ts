@@ -39,12 +39,12 @@ import attachments from './attachments.js';
 import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } from './timeouts.js';
 // Agent SDK engine (ESTUDO §18.5 step 2), preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
-import claudeAgent from './claude_agent.js';
+import * as claudeAgent from './claude_agent.js';
 import { REGRAS_CLAUDE } from './mcp_tool_rules.js';
 // Shared with the Agent SDK engine (claude_agent.js), one list, two consumers.
 // Two hand-kept copies is exactly how AskUserQuestion drifted back on over
 // there and silently stopped rendering its card. See native_tools.js.
-import { NATIVE_TOOLS, DISALLOWED_TOOLS } from './native_tools.js';
+import { NATIVE_TOOLS, DISALLOWED_TOOLS, PRE_APROVADAS, PERMISSION_MODE } from './native_tools.js';
 
 /*
  * Compilado por `tsc` (npm run build:ts, tsconfig.main.json) num
@@ -241,12 +241,15 @@ function sendEvent(webContents: Janela, sessionId: string, type: string, data?: 
  * (create_file, set_top_level, …) would be silently dropped and the
  * user's inline card would never appear. That's the bug we're fixing.
  *
- * Resolution: always pass `bypassPermissions` to the CLI. The CLI's
- * own permission UI doesn't fit in our headless flow anyway, let the
- * renderer's inline card be the single source of truth.
+ * Resolution: `dontAsk` (native_tools.ts). It never prompts either, and it
+ * lets through only what is pre-approved: the whole mcp__aurora server, so the
+ * renderer's inline card stays the single gate for Aurora's tools, plus the web
+ * tools. It replaced `bypassPermissions` on 29/10/2026: bypass approved
+ * everything, and the native Read reached any file on the machine. Under
+ * `dontAsk` Read, Glob and Grep stay inside the turn's folders.
  */
 function permissionFlag(_mode?: string): string {
-  return 'bypassPermissions';
+  return PERMISSION_MODE;
 }
 
 /**
@@ -303,7 +306,7 @@ const MCP_TOOL_RULES = REGRAS_CLAUDE;
  *    mcp__aurora__create_file, which IS gated. (Read stays enabled, the image
  *    attachment flow writes a temp file in main and the model reads it.)
  *  - AskUserQuestion → the CLI's NATIVE question tool cannot reach a human
- *    here: we run `-p` + bypassPermissions with no TTY and no canUseTool
+ *    here: we run `-p` with no TTY and no canUseTool
  *    callback, so a native AskUserQuestion self-resolves CLI-side and Aurora
  *    only ever saw an inert chip, the "no question card in bypass mode"
  *    bug. Disallowing it forces the model onto mcp__aurora__ask_user_question
@@ -405,9 +408,7 @@ export async function start(payload: PedidoDoTurno | null | undefined, webConten
 
   // ---- Agent SDK engine (preferred) ----------------------------------------
   // Drives the SAME native binary through @anthropic-ai/claude-agent-sdk:
-  // clean aborts, no argv limits, and canUseTool, which is what lets the
-  // native AskUserQuestion render Aurora's interactive card even under
-  // bypassPermissions. Returns false (→ fall through to the legacy spawn)
+  // clean aborts and no argv limits. Returns false (→ fall through to the legacy spawn)
   // when the SDK can't run: import failure, .cmd-shim-only binary, or the
   // AURORA_CLAUDE_LEGACY_CLI=1 escape hatch.
   try {
@@ -491,6 +492,23 @@ export async function start(payload: PedidoDoTurno | null | undefined, webConten
     '--verbose',
     '--include-partial-messages',
     '--permission-mode', permissionFlag(permission),
+    // Pre-approved under `dontAsk`; anything else is denied (native_tools.ts).
+    '--allowedTools', PRE_APROVADAS.join(','),
+    // No settings from disk: an `allow` rule in the user's ~/.claude would
+    // reopen what `dontAsk` closes. An empty list is the documented form.
+    '--setting-sources', '',
+    // --tools is the allowlist: the built-in surface is exactly this, and the
+    // CLI's future additions stay off until someone adds them deliberately.
+    // Comma-separated is the form `--help` documents for this flag.
+    '--tools', NATIVE_TOOLS.join(','),
+    // Redundant with --tools, kept anyway: disallowed-tools wins over every
+    // permission mode, so no turn can PowerShell its way around Aurora's
+    // compile pipeline. Space-separated, which is what this flag has always
+    // been given here.
+    '--disallowed-tools', DISALLOWED_TOOLS.join(' '),
+    // Only Aurora's bridge, never a user/project .mcp.json, so behaviour is
+    // deterministic across machines; without the bridge, no MCP at all.
+    '--strict-mcp-config',
   ];
   if (modelId && modelId !== 'default') args.push('--model', modelId);
   if (effort) args.push('--effort', effort);
@@ -501,29 +519,19 @@ export async function start(payload: PedidoDoTurno | null | undefined, webConten
   // Hand the CLI Aurora's own tool surface (compile_all, set_top_level,
   // select_wave_signals, get_terminal_output, …) as an MCP server, so
   // the model drives Aurora's pipeline instead of shelling out to
-  // cmmcomp / iverilog / gtkwave. `--strict-mcp-config` makes the CLI
-  // ignore any user/project .mcp.json, only Aurora's bridge is in
-  // scope, so behaviour is deterministic across machines.
+  // cmmcomp / iverilog / gtkwave.
   //
-  // If the MCP server fails to come up we deliberately DON'T disable
-  // Bash: that would leave the CLI unable to do anything useful. The
-  // turn just degrades to the old (shell-based) behaviour.
+  // If the MCP server fails to come up, the turn runs WITHOUT it, and with the
+  // same native surface as always: read and search inside the project, and the
+  // web. Until 29/10/2026 that failure also dropped --tools and
+  // --disallowed-tools, and the turn got Bash, Write and Edit with no card.
   let mcpReady = false;
   try {
     const cfgPath = await ensureMcpConfig(webContents);
-    args.push('--mcp-config', cfgPath, '--strict-mcp-config');
-    // --tools is the allowlist: the built-in surface is exactly this, and the
-    // CLI's future additions stay off until someone adds them deliberately.
-    // Comma-separated is the form `--help` documents for this flag.
-    args.push('--tools', NATIVE_TOOLS.join(','));
-    // Redundant with --tools, kept anyway: disallowed-tools wins over every
-    // permission mode, including `bypassPermissions`, so even "allow" turns
-    // cannot PowerShell their way around Aurora's compile pipeline. Space-
-    // separated, which is what this flag has always been given here.
-    args.push('--disallowed-tools', DISALLOWED_TOOLS.join(' '));
+    args.push('--mcp-config', cfgPath);
     mcpReady = true;
   } catch (e) {
-    log.warn('[ai.claude-code] Aurora MCP bridge unavailable — falling back to shell tools:', e instanceof Error ? e.message : e);
+    log.warn('[ai.claude-code] Aurora MCP bridge unavailable — turn runs without Aurora tools:', e instanceof Error ? e.message : e);
   }
 
   // System prompt routing

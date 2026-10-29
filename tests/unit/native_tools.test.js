@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import pkg from '../../main/ai/native_tools.js';
-
-const { NATIVE_TOOLS, DISALLOWED_TOOLS } = pkg;
+import {
+    NATIVE_TOOLS, DISALLOWED_TOOLS, PRE_APROVADAS, PERMISSION_MODE,
+} from '../../main/ai/native_tools.ts';
 
 // The native surface the Claude Code engines hand the model. This list is the
 // ONLY thing standing between the assistant and the CLI's full built-in set:
@@ -72,5 +72,23 @@ describe('DISALLOWED_TOOLS (hard deny)', () => {
         for (const t of ['Bash', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'AskUserQuestion']) {
             expect(DISALLOWED_TOOLS).toContain(t);
         }
+    });
+});
+
+// O modo dos dois motores e `dontAsk`: so o pre-aprovado passa. Read, Glob e
+// Grep nao podem estar aqui: a CLI ja os libera dentro das pastas do turno, e
+// pre-aprovados eles leriam qualquer arquivo da maquina (prova de 29/10/2026).
+describe('PRE_APROVADAS e PERMISSION_MODE', () => {
+    it('o modo nega o que nao foi pre-aprovado, e nao e mais o bypass', () => {
+        expect(PERMISSION_MODE).toBe('dontAsk');
+    });
+
+    it('pre-aprova a ponte da AURORA e a web, e nunca as ferramentas de arquivo', () => {
+        expect(PRE_APROVADAS).toEqual(['WebFetch', 'WebSearch', 'TodoWrite', 'ToolSearch', 'mcp__aurora']);
+        for (const t of ['Read', 'Glob', 'Grep', ...DISALLOWED_TOOLS]) expect(PRE_APROVADAS).not.toContain(t);
+    });
+
+    it('toda nativa pre-aprovada esta na lista de ferramentas', () => {
+        for (const t of PRE_APROVADAS.filter((n) => !n.startsWith('mcp__'))) expect(NATIVE_TOOLS).toContain(t);
     });
 });

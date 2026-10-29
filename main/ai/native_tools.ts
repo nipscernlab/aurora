@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * native_tools.js: which of the CLI's BUILT-IN tools Aurora's assistant may use.
+ * native_tools.ts: which of the CLI's BUILT-IN tools Aurora's assistant may use.
  *
  * Single source of truth for both Claude Code engines: claude_agent.js (Agent
  * SDK, `tools` option) and claude_code.js (legacy spawn, `--tools`). They used
@@ -43,8 +42,6 @@
  * tool stays available and keeps going through the renderer's permission card.
  */
 
-'use strict';
-
 /**
  * The built-ins the assistant gets. Each one is here for a stated reason;
  * anything not listed does not exist for the model.
@@ -76,8 +73,8 @@ const NATIVE_TOOLS = [
  * harness-internal invocation, not just model `tool_use` blocks. Cheap, and it
  * fails safe if `tools` semantics ever shift under us.
  *
- * AskUserQuestion is on the list because it cannot reach a human here: under
- * bypassPermissions the CLI self-resolves it with no card. Asking goes through
+ * AskUserQuestion is on the list because it cannot reach a human here: in a
+ * headless turn the CLI resolves it on its own, with no card. Asking goes through
  * mcp__aurora__ask_user_question. See claude_agent.js's header.
  */
 const DISALLOWED_TOOLS = [
@@ -86,4 +83,28 @@ const DISALLOWED_TOOLS = [
   'AskUserQuestion',
 ];
 
-module.exports = { NATIVE_TOOLS, DISALLOWED_TOOLS };
+/**
+ * O modo de permissao dos dois motores e `dontAsk`: o que nao estiver aqui e
+ * negado, sem card. Read, Glob e Grep ficam DE FORA de proposito: no `dontAsk`
+ * a CLI ja os libera dentro das pastas do turno (o projeto, os anexos, a pasta
+ * de trabalho) e nega fora delas. Pre-aprovar `Read` liberaria a leitura de
+ * qualquer arquivo da maquina, como mostrou a prova de 29/10/2026 com uma isca
+ * fora do projeto. A web e o TodoWrite nao tem pasta, entao entram por nome.
+ * `mcp__aurora` aprova o servidor inteiro da AURORA: cada ferramenta dele ja
+ * passa pelo card de Permitir/Negar do painel.
+ */
+const PRE_APROVADAS = [
+  'WebFetch',
+  'WebSearch',
+  'TodoWrite',
+  'ToolSearch',
+  'mcp__aurora',
+];
+
+/**
+ * O modo de permissao dos dois motores. Era `bypassPermissions`, que aprova
+ * tudo; com ele o Read lia qualquer arquivo da maquina.
+ */
+const PERMISSION_MODE = 'dontAsk';
+
+export { NATIVE_TOOLS, DISALLOWED_TOOLS, PRE_APROVADAS, PERMISSION_MODE };

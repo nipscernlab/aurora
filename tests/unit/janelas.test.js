@@ -113,6 +113,7 @@ const principais = injetar('main_windows.js', { registrar: vi.fn() });
 const claude = injetar('ai/claude_code.js', { killAll: vi.fn() });
 const codex = injetar('ai/codex_cli.js', { killAll: vi.fn() });
 const aviso = injetar('update_notify.js', { desativar: vi.fn() });
+const atualizador = injetar('updater.js', { initializeUpdateSystem: vi.fn() });
 
 const state = (await import('../../main/state.js')).default;
 const janelas = await import('../../main/windows.ts');
@@ -195,13 +196,21 @@ describe('a janela principal', () => {
     expect(codex.killAll).toHaveBeenCalledWith(j.webContents.id);
   });
 
-  it('so mostra e maximiza sozinha fora do fluxo da abertura', () => {
-    const solta = janelas.createMainWindow();
-    solta.emitir('ready-to-show');
-    expect(solta.chamadas).toEqual(expect.arrayContaining(['maximize', 'show']));
-    const adiada = janelas.createMainWindow({ deferShow: true });
-    adiada.emitir('ready-to-show');
-    expect(adiada.chamadas).not.toContain('show');
+  it('so mostra e maximiza sozinha fora do fluxo da abertura, e liga o atualizador depois', () => {
+    vi.useFakeTimers();
+    try {
+      const solta = janelas.createMainWindow();
+      solta.emitir('ready-to-show');
+      expect(solta.chamadas).toEqual(expect.arrayContaining(['maximize', 'show']));
+      const adiada = janelas.createMainWindow({ deferShow: true });
+      adiada.emitir('ready-to-show');
+      expect(adiada.chamadas).not.toContain('show');
+      expect(atualizador.initializeUpdateSystem).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(2000);
+      expect(atualizador.initializeUpdateSystem).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

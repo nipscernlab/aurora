@@ -455,7 +455,13 @@ function createMainWindow(opts: { deferShow?: boolean; } = {}) {
   // the awaited, authoritative cleanup. Without this, PRISM (or a running
   // yosys/compile) keeps the process, and itself, alive after the user
   // closed the IDE.
-  mainWindow.on('close', () => {
+  //
+  // `closed`, e nao `close` (#245). O `close` dispara ANTES do beforeunload da
+  // pagina, e e no beforeunload que a guarda de arquivos nao salvos
+  // (js/tabs/guarda_de_fechamento.ts) pergunta. No `close`, um X seguido de
+  // Cancelar no dialogo deixava a janela aberta com a compilacao, a simulacao
+  // e o GTKWave ja mortos. O `closed` so dispara quando a janela fechou mesmo.
+  mainWindow.on('closed', () => {
     if (state.isQuitting) return;
     const aux = new Set([state.prismWindow, state.splashWindow, state.updateWindow]);
     const anotherInterfaceOpen = BrowserWindow.getAllWindows().some(

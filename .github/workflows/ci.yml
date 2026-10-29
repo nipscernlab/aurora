@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# O token do GitHub so le, aqui e em todo job que nao declarar o seu. O padrao
+# da organizacao ja e leitura; escrito no arquivo, o minimo nao depende dele
+# continuar assim (diretrizes, secao 9; #276).
+permissions:
+  contents: read
+
 jobs:
   lint-and-build:
     name: Lint + smoke build (windows-latest)

@@ -12,9 +12,8 @@
  *     agent messages (the engine diffs and streams real deltas; whole-message
  *     turns degrade to exactly the legacy behaviour).
  *   - `resumeThread(id)` instead of hand-rolled `exec resume` argv juggling.
- *   - Typed thread options (sandboxMode/approvalPolicy) instead of the
- *     monolithic --dangerously-bypass-approvals-and-sandbox flag, same
- *     effective posture (see below), but explicit.
+ *   - Typed thread options (sandboxMode/approvalPolicy), the same posture
+ *     as the legacy `-c` overrides (see below).
  *
  * The engine keeps FULL event parity with the legacy spawn path in
  * codex_cli.js: same `ai:chat-event` packets, same convThreads / usage
@@ -23,12 +22,12 @@
  * spawn when the SDK is unavailable (import failure, shim-only binary) or
  * when AURORA_CODEX_LEGACY_CLI=1 is set.
  *
- * Sandbox/approvals posture, unchanged from the legacy path on purpose:
- * `approvalPolicy:'never'` + `sandboxMode:'danger-full-access'` is what the
- * legacy `--dangerously-bypass-approvals-and-sandbox` flag expands to, and
- * it remains the ONLY combination where mcp__aurora__* calls run at all in
- * non-interactive mode (anything else auto-declines them). Aurora's real
- * guard-rails live in the renderer's permission gate for MCP tools.
+ * Sandbox/approvals posture, the same as the legacy path (codex_cli.ts
+ * header): `sandboxMode:'read-only'`, so the shell reads but neither writes
+ * nor reaches the network; the Windows sandbox set explicitly; and
+ * `default_tools_approval_mode="approve"` on the aurora MCP server, which is
+ * what lets its calls run in non-interactive mode. Until 29/10/2026 it was
+ * `danger-full-access`, the only combination that ran MCP in older CLIs.
  *
  * NOTE (kept in sync with codex_cli.js): MCP_TOOL_RULES and the
  * model-not-supported rewrite below mirror the legacy constants verbatim.
@@ -131,13 +130,16 @@ async function tryStart(p: { sessionId: string; conversationId?: string; message
   }
 
   // ---- MCP bridge -------------------------------------------------------------
-  const config: Record<string,any> = {};
+  // The Windows sandbox, set here and not left to ~/.codex/config.toml.
+  const config: Record<string,any> = { windows: { sandbox: 'unelevated' } };
   let mcpReady = false;
   try {
     const url = await auroraMcp.ensureStarted(webContents);
     // Same values as the legacy `-c` overrides; the SDK flattens this
     // object into --config key=value TOML literals.
-    config.mcp_servers = { aurora: { url, tool_timeout_sec: MCP_TOOL_CALL_MS / 1000 } };
+    config.mcp_servers = {
+      aurora: { url, tool_timeout_sec: MCP_TOOL_CALL_MS / 1000, default_tools_approval_mode: 'approve' },
+    };
     mcpReady = true;
   } catch (e) {
     log.warn('[ai.codex-agent] Aurora MCP bridge unavailable:',
@@ -342,8 +344,8 @@ async function tryStart(p: { sessionId: string; conversationId?: string; message
 
   // ---- run --------------------------------------------------------------------------
   const threadOptions = {
-    // See the module header: identical posture to the legacy bypass flag.
-    sandboxMode: 'danger-full-access',
+    // See the module header: the same posture as the legacy `-c` overrides.
+    sandboxMode: 'read-only',
     approvalPolicy: 'never',
     workingDirectory: agentScratchDir(),
     skipGitRepoCheck: true,

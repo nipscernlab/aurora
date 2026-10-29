@@ -188,7 +188,7 @@ que a CLI nao caia silenciosamente em cobranca metrada por API.
 
 \begin{description}[leftmargin=0pt, style=nextline]
   \item[Claude Code] e iniciada em modo \emph{print}: \lstinline|claude -p --output-format stream-json --verbose --include-partial-messages ...|. Os eventos \code{stream-json} (do tipo \code{system}, \code{stream\_event}, \code{assistant}, \code{user}, \code{result}, \code{rate\_limit\_event}) sao traduzidos para eventos de chat. O \emph{system prompt} grande viaja no corpo do \emph{prompt} (lido por \code{stdin}) quando ultrapassa um limiar conservador, contornando o limite de tamanho de linha de comando do Windows.
-  \item[Codex] e iniciada como \lstinline|codex exec --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox ...|. Seus eventos (modelo de \emph{thread}/\emph{turn}/\emph{item}: \code{thread.started}, \code{item.started}, \code{item.completed}, \code{turn.completed}, \code{turn.failed}) sao traduzidos da mesma forma.
+  \item[Codex] e iniciada como \lstinline|codex exec --json --skip-git-repo-check -c sandbox_mode="read-only" ...|. Seus eventos (modelo de \emph{thread}/\emph{turn}/\emph{item}: \code{thread.started}, \code{item.started}, \code{item.completed}, \code{turn.completed}, \code{turn.failed}) sao traduzidos da mesma forma.
 \end{description}
 
 Para nao perder contexto, cada ponte mantem um mapa de
@@ -282,10 +282,24 @@ ferramentas equivalentes da AURORA. Alem disso:
         (\code{Bash}, \code{Edit}, \code{Write}, \code{MultiEdit},
         \code{NotebookEdit} \dots) sao \textbf{desabilitadas} via
         \lstinline|--disallowed-tools|, de modo que toda escrita passe pelas
-        ferramentas da AURORA, que sao protegidas pelo cartao Permitir/Negar;
+        ferramentas da AURORA, que sao protegidas pelo cartao Permitir/Negar.
+        Isso vale tambem quando o servidor MCP nao sobe;
+  \item os dois motores do Claude Code rodam no modo de permissao
+        \code{dontAsk}, que nega o que nao foi pre-aprovado
+        (\file{main/ai/native\_tools.ts}): so o servidor \code{mcp\_\_aurora}, a
+        web e o \code{TodoWrite}. \code{Read}, \code{Glob} e \code{Grep} ficam
+        presos as pastas do turno (o projeto, os anexos, a pasta de trabalho), e
+        as configuracoes do usuario em \path{~/.claude} nao sao lidas, para que
+        uma regra \code{allow} pessoal nao reabra o que o modo fecha. Ate
+        29/10/2026 o modo era \code{bypassPermissions}, e o \code{Read} alcancava
+        qualquer arquivo da maquina;
   \item na CLI do Codex, cuja ferramenta de \emph{shell} nao pode ser removida,
-        a contencao e feita pelas regras do \emph{system prompt} (uma garantia
-        mais suave, declaradamente uma limitacao aceita dessa integracao);
+        o \emph{shell} roda no \emph{sandbox} \code{read-only} do Codex, com o
+        \emph{sandbox} do Windows ligado pela propria AURORA: le, mas nao
+        escreve e nao alcanca a rede. O servidor MCP da AURORA e aprovado com
+        \code{default\_tools\_approval\_mode="approve"}, o que deixa suas
+        chamadas rodarem no modo nao interativo. Ate 29/10/2026 o Codex rodava
+        com \lstinline|--dangerously-bypass-approvals-and-sandbox|;
   \item o tempo limite de leitura de chamadas MCP nas CLIs e elevado (10 min) para
         ficar acima do teto da ponte de ferramentas, evitando que a CLI declare
         falha enquanto uma operacao lenta (como renomear projeto) ainda esta sendo

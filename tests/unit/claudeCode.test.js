@@ -351,7 +351,11 @@ describe('start: a CLI direto (sem o SDK)', () => {
     const { s } = await rodar({ modelId: 'sonnet', effort: 'low', system: 'curto' });
     delete process.env.ANTHROPIC_API_KEY;
     expect(s.cmd).toBe(binario.exe);
-    expect(s.args.slice(0, 7)).toEqual(['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--permission-mode', 'bypassPermissions']);
+    expect(s.args.slice(0, 7)).toEqual(['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--permission-mode', 'dontAsk']);
+    // So o pre-aprovado passa, e nenhuma configuracao do disco entra.
+    expect(s.args[s.args.indexOf('--allowedTools') + 1]).toBe('WebFetch,WebSearch,TodoWrite,ToolSearch,mcp__aurora');
+    expect(s.args[s.args.indexOf('--setting-sources') + 1]).toBe('');
+    expect(s.args).not.toContain('bypassPermissions');
     expect(s.args).toEqual(expect.arrayContaining(['--model', 'sonnet', '--effort', 'low', '--append-system-prompt', 'curto', '--strict-mcp-config', '--tools', '--disallowed-tools']));
     expect(s.opcoes.env.ANTHROPIC_API_KEY).toBeUndefined();
     expect(s.opcoes.env.MCP_TOOL_TIMEOUT).toBeTruthy();
@@ -382,11 +386,16 @@ describe('start: a CLI direto (sem o SDK)', () => {
     expect((await rodar()).s.args).toEqual(expect.arrayContaining(['--add-dir', casa]));
   });
 
-  it('sem a ponte MCP, o turno segue sem as flags dela', async () => {
+  it('sem a ponte MCP, o turno segue sem ela e com as mesmas ferramentas nativas', async () => {
     mcp.ensureStarted.mockRejectedValue(new Error('porta ocupada'));
     const { s } = await rodar();
     expect(s.args).not.toContain('--mcp-config');
     expect(s.filho.entrada).toBe('oi');
+    // Antes, a falha da ponte tirava --tools e --disallowed-tools, e o turno
+    // ganhava Bash, Write e Edit sem card.
+    expect(s.args[s.args.indexOf('--tools') + 1]).toBe('Read,Glob,Grep,WebFetch,WebSearch,TodoWrite,ToolSearch');
+    expect(s.args[s.args.indexOf('--disallowed-tools') + 1].split(' ')).toEqual(expect.arrayContaining(['Bash', 'Edit', 'Write']));
+    expect(s.args).toEqual(expect.arrayContaining(['--strict-mcp-config', '--permission-mode', 'dontAsk']));
   });
 
   it('um .cmd roda pelo cmd.exe, e o spawn que lanca vira erro', async () => {

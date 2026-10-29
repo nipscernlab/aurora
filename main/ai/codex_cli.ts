@@ -7,30 +7,38 @@
  * limited free tier) by shelling out to the locally-bundled `codex` CLI in
  * its non-interactive mode:
  *
- *     codex exec --json --skip-git-repo-check \
- *       --dangerously-bypass-approvals-and-sandbox -C <project> \
- *       -c mcp_servers.aurora.url="http://127.0.0.1:PORT/mcp" ...
+ *     codex exec --json --skip-git-repo-check -C <scratch> \
+ *       -c sandbox_mode="read-only" -c approval_policy="never" \
+ *       -c mcp_servers.aurora.url="http://127.0.0.1:PORT/mcp" \
+ *       -c mcp_servers.aurora.default_tools_approval_mode="approve" ...
  *
  * Auth is the CLI's own "Sign in with ChatGPT" OAuth (`codex login`);
  * Aurora never sees a token. We strip `OPENAI_API_KEY` from the child
  * environment so the CLI authenticates with the subscription and never
  * silently falls back to metered API billing.
  *
- * MCP / why `--dangerously-bypass-approvals-and-sandbox`
- * ------------------------------------------------------
+ * MCP and the sandbox
+ * -------------------
  * Aurora's tools reach Codex through the same local MCP server the Claude
  * Code bridge uses (`aurora_mcp_server.js`); Codex sees them as
- * `mcp__aurora__<tool>`. Unlike the Claude Code CLI, Codex has no
- * `--disallowed-tools` switch, its shell tool is intrinsic. Worse: in
- * non-interactive `exec` mode every MCP tool call is auto-DECLINED ("user
- * cancelled MCP tool call") unless approvals are fully bypassed. Empirically
- * (`approval_policy=never`, `mcp_servers.*.auto_approved`, persistent
- * registration, all tried) the ONLY thing that lets MCP tools run is the
- * bypass flag, which also disables Codex's sandbox. So a hard read-only
- * sandbox is not achievable alongside MCP here; instead the system-prompt
- * rules below steer Codex firmly onto `mcp__aurora__*` and away from the
- * shell. This is a softer guarantee than the Claude Code bridge's hard
- * Bash block, a known, accepted limitation of the Codex integration.
+ * `mcp__aurora__<tool>`. Codex has no `--disallowed-tools` switch, its shell
+ * tool is intrinsic, so the containment is the sandbox:
+ *
+ *   - `sandbox_mode="read-only"`: the shell reads, writes nothing and reaches
+ *     no network. Files change only through mcp__aurora__* tools, which pass
+ *     the renderer's Allow/Deny card.
+ *   - `windows.sandbox="unelevated"`: the Windows sandbox, set here and not
+ *     left to the user's ~/.codex/config.toml.
+ *   - `mcp_servers.aurora.default_tools_approval_mode="approve"`: the MCP
+ *     calls run in non-interactive `exec` without an approval prompt.
+ *
+ * Until 29/10/2026 this ran with `--dangerously-bypass-approvals-and-sandbox`,
+ * because in older CLIs nothing else let an MCP call run in `exec`; the shell
+ * then ran anything, with no card. The posture above was measured against
+ * codex-cli 0.163.0: the MCP call ran, a write inside and outside the project
+ * was denied, and so was an HTTP request from the shell. It all goes as `-c`,
+ * which `exec resume` also accepts, so a resumed thread cannot keep the
+ * posture it was created with.
  *
  * The stream-json events Codex emits (thread/turn/item model) are
  * translated into the SAME `ai:chat-event` packets `chat.js` and
@@ -54,6 +62,16 @@ import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } from './timeouts.js';
 // spawn path below remains as the automatic fallback (and the shim-binary path).
 import * as codexAgent from './codex_agent.js';
 import { REGRAS_CODEX } from './mcp_tool_rules.js';
+
+/**
+ * The containment of every Codex turn, as `-c` overrides (module header).
+ * Exported for the test, which pins the posture.
+ */
+export const CONFIG_DE_CONTENCAO = [
+  'sandbox_mode="read-only"',
+  'approval_policy="never"',
+  'windows.sandbox="unelevated"',
+];
 
 /** sessionId → { proc | stop(), markAborted } for in-flight turns. */
 const sessions = new Map();
@@ -323,9 +341,9 @@ async function start(payload: { sessionId: string; conversationId?: string; mess
   args.push(
     '--json',
     '--skip-git-repo-check',
-    // See the module header: required for mcp__aurora__* calls to run at
-    // all in non-interactive exec mode.
-    '--dangerously-bypass-approvals-and-sandbox',
+    // See the module header: the shell reads but neither writes nor reaches
+    // the network; Aurora's tools come through MCP.
+    ...CONFIG_DE_CONTENCAO.flatMap((c) => ['-c', c]),
   );
   if (!resumeId) args.push('-C', cwd);
   const model = modelFlag(modelId);
@@ -348,6 +366,8 @@ async function start(payload: { sessionId: string; conversationId?: string; mess
   try {
     const url = await auroraMcp.ensureStarted(webContents);
     args.push('-c', `mcp_servers.aurora.url="${url}"`);
+    // Without it, non-interactive `exec` declines every MCP call.
+    args.push('-c', 'mcp_servers.aurora.default_tools_approval_mode="approve"');
     // MCP tool-call read timeout (Codex's counterpart of Claude Code's
     // MCP_TOOL_TIMEOUT). Codex defaults `tool_timeout_sec` to 120, then
     // reports `tool call failed … Caused by: timed out awaiting tools/call

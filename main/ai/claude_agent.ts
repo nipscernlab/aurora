@@ -34,9 +34,15 @@
  * bypass mode" bug the legacy path had already diagnosed and fixed by
  * disallowing it (see claude_code.js). This engine now does the same, and
  * asking is routed through mcp__aurora__ask_user_question, which reaches the
- * renderer and renders a real card. bypassPermissions stays: Aurora gates its
- * own MCP tools in the renderer and deliberately does not want the CLI's
- * permission system on top of that.
+ * renderer and renders a real card.
+ *
+ * Desde 29/10/2026 o modo e `dontAsk`, e nao mais `bypassPermissions`: o bypass
+ * aprovava tudo, e o Read lia qualquer arquivo da maquina, de modo que uma
+ * instrucao escondida num arquivo do projeto ou numa pagina lida podia ler um
+ * segredo e manda-lo pelo WebFetch. No `dontAsk` so passa o pre-aprovado
+ * (native_tools.ts), e Read, Glob e Grep ficam presos as pastas do turno. As
+ * configuracoes do usuario (~/.claude) nao sao lidas: uma regra `allow` pessoal
+ * reabria o que este modo fecha.
  */
 
 import os from 'node:os';
@@ -70,7 +76,7 @@ function loadSdk() {
 
 // Both lists now live in native_tools.js, one source of truth shared with the
 // legacy engine, which is what stops the two from drifting apart again.
-import { NATIVE_TOOLS, DISALLOWED_TOOLS } from './native_tools.js';
+import { NATIVE_TOOLS, DISALLOWED_TOOLS, PRE_APROVADAS, PERMISSION_MODE } from './native_tools.js';
 import { REGRAS_CLAUDE } from './mcp_tool_rules.js';
 
 const MCP_TOOL_RULES = REGRAS_CLAUDE;
@@ -407,13 +413,14 @@ async function tryStart(p: { sessionId: string; conversationId?: string; message
     // (tool_runner → the Allow/Deny card) and native destructive tools are
     // disallowed above, so the CLI's own permission system is redundant here.
     //
-    // No canUseTool: bypassPermissions auto-approves every call BEFORE the
-    // callback is consulted, so one would be dead code that reads as a gate:
-    // which is exactly how AskUserQuestion ended up silently broken. The SDK
-    // warns about this (CLAUDE_SDK_CAN_USE_TOOL_SHADOWED). If a native tool
-    // ever needs a human, disallow it here and expose an mcp__aurora__ tool.
-    permissionMode: 'bypassPermissions',
-    allowDangerouslySkipPermissions: true,
+    // No canUseTool: o `dontAsk` nega o que nao esta pre-aprovado sem consultar
+    // ninguem. Se uma ferramenta nativa precisar de uma pessoa, ela fica
+    // proibida aqui e vira uma ferramenta mcp__aurora__, que tem o card.
+    permissionMode: PERMISSION_MODE,
+    allowedTools: PRE_APROVADAS,
+    // Nenhuma configuracao do disco (usuario, projeto, local): um `allow` em
+    // ~/.claude/settings.json reabriria o que o `dontAsk` fecha.
+    settingSources: [],
     includePartialMessages: true,
     abortController,
     ...(modelId && modelId !== 'default' ? { model: modelId } : {}),

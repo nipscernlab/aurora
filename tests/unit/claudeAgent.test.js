@@ -9,11 +9,12 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const sdk = vi.hoisted(() => ({ chamadas: [] }));
+const sdk = vi.hoisted(() => ({ chamadas: [], antes: [] }));
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: vi.fn(({ options }) => {
     sdk.chamadas.push(options);
     return (async function* () {
+      yield* sdk.antes;
       yield { type: 'result', subtype: 'success', result: 'pronto', usage: {}, total_cost_usd: 0, session_id: 'sess-1' };
     })();
   }),
@@ -43,7 +44,22 @@ const turno = () => ({
   bin: { exe: 'C:\\fake\\claude.exe', viaShim: false },
 });
 
-beforeEach(() => { sdk.chamadas.length = 0; ponte.falha = null; });
+beforeEach(() => { sdk.chamadas.length = 0; sdk.antes = []; ponte.falha = null; });
+
+describe('claude_agent: resultado de ferramenta', () => {
+  it('o envelope MCP vira o texto do chip, so com os blocos de texto', async () => {
+    sdk.antes = [
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'mcp__aurora__compile_all', input: {} }] } },
+      { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't1', content: [
+        { type: 'text', text: 'compilou' }, { type: 'image' }, null, { type: 'text', text: 'sem erro' },
+      ] }] } },
+    ];
+    const h = host();
+    await tryStart(turno(), janela, h);
+    const resultado = h.sendEvent.mock.calls.find((c) => c[2] === 'tool-result');
+    expect(resultado[3].result).toEqual({ ok: true, content: 'compilou\nsem erro' });
+  });
+});
 
 describe('claude_agent: contencao do turno', () => {
   it('dontAsk, so o pre-aprovado, sem configuracao do disco e sem bypass', async () => {

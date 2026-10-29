@@ -16,7 +16,7 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const sdk = vi.hoisted(() => ({ construidos: [], threads: [] }));
+const sdk = vi.hoisted(() => ({ construidos: [], threads: [], eventos: [] }));
 vi.mock('@openai/codex-sdk', () => ({
   Codex: class {
     constructor(opcoes) { sdk.construidos.push(opcoes); }
@@ -28,6 +28,7 @@ vi.mock('@openai/codex-sdk', () => ({
         id: 'th-1',
         runStreamed: async () => ({
           events: (async function* () {
+            yield* sdk.eventos;
             yield { type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } };
           })(),
         }),
@@ -87,6 +88,7 @@ const turno = (extra = {}) => ({ sessionId: `s-${Math.random()}`, messages: [{ r
 beforeEach(() => {
   sdk.construidos.length = 0;
   sdk.threads.length = 0;
+  sdk.eventos = [];
   filhos.length = 0;
   ponte.falha = null;
   motor.usarSdk = false;
@@ -157,6 +159,34 @@ describe('codex_agent: o SDK', () => {
     await cli.start(turno(), janela);
     expect(sdk.threads[0].opcoes.sandboxMode).toBe('read-only');
     expect(sdk.construidos[0].config).toEqual({ windows: { sandbox: 'unelevated' } });
+  });
+});
+
+/** Uma chamada MCP terminada, com o envelope de resultado de sempre. */
+const chamadaMcp = {
+  type: 'item.completed',
+  item: { id: 'm1', type: 'mcp_tool_call', tool: 'compile_all', status: 'completed', result: { content: [
+    { type: 'text', text: 'compilou' }, { type: 'image' }, null, { type: 'text', text: 'sem erro' },
+  ] } },
+};
+const resultados = (espia) => espia.mock.calls.map((c) => c[1]).filter((e) => e && e.type === 'tool-result');
+
+describe('resultado de ferramenta MCP nos dois motores', () => {
+  it('o SDK desembrulha o envelope para o chip', async () => {
+    motor.usarSdk = true;
+    sdk.eventos = [chamadaMcp];
+    const espia = vi.fn();
+    await cli.start(turno(), { ...janela, send: espia });
+    expect(resultados(espia)[0].result).toEqual(expect.objectContaining({ ok: true, content: 'compilou\nsem erro' }));
+  });
+
+  it('a CLI faz o mesmo com a linha do stream', async () => {
+    const espia = vi.fn();
+    await cli.start(turno(), { ...janela, send: espia });
+    const s = filhos.findLast((f) => f.cmd !== 'taskkill');
+    s.p.stdout.emit('data', Buffer.from(`${JSON.stringify(chamadaMcp)}\n`));
+    s.p.emit('close', 0);
+    expect(resultados(espia)[0].result).toEqual(expect.objectContaining({ ok: true, content: 'compilou\nsem erro' }));
   });
 });
 

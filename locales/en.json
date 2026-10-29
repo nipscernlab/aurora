@@ -517,6 +517,10 @@
       "unexpectedTitle": "Unexpected Error",
       "unexpectedMessage": "An unexpected error occurred. Please check the console for details."
     },
+    "saveFailed": {
+      "title": "Could not save",
+      "message": "\"{{name}}\" was not saved, and the tab stays open with your changes. Reason: {{reason}}"
+    },
     "session": {
       "initErrorTitle": "Initialization Error",
       "initErrorMessage": "Failed to initialize the application: {{error}}",

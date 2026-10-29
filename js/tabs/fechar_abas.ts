@@ -10,7 +10,22 @@
 import { electronAPI } from '../app/electron_api.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showUnsavedChangesDialog } from './dialogo_nao_salvo.js';
+import { showDialog } from '../ui/dialog_manager.js';
 import type * as Monaco from 'monaco-editor';
+
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
+
+/** O Salvar do dialogo falhou: a aba fica aberta, e a pessoa sabe por que. */
+async function avisarQueNaoSalvou(fileName: string, error: unknown): Promise<void> {
+    await showDialog({
+        title: tr('dialog.saveFailed.title'),
+        message: tr('dialog.saveFailed.message', {
+            name: fileName,
+            reason: (error as Error | null)?.message || String(error),
+        }),
+        buttons: [{ label: tr('dialog.common.ok'), action: 'ok', type: 'cancel' }],
+    });
+}
 
 /** Uma aba fechada, para o Ctrl+Shift+T. */
 type AbaFechada = { filePath: string, content: string, timestamp: number };
@@ -45,23 +60,30 @@ export interface AnfitriaoDoFechar {
 
 /** Os metodos deste mixin. */
 export interface FecharAbas {
-    closeAllTabs(): Promise<void>;
+    closeAllTabs(): Promise<boolean>;
     getInstanceCount(filePath: string | null | undefined): number;
     _closePreviewSilently(filePath: string): void;
-    closeTab(filePath: string): Promise<void>;
+    closeTab(filePath: string): Promise<boolean>;
     reopenLastClosedTab(): Promise<void>;
 }
 
 export const fecharAbas: FecharAbas & ThisType<AnfitriaoDoFechar & FecharAbas> = {
     // Add this method to close all tabs
+    /**
+     * Fecha todas as abas, uma a uma. Para na primeira que fica aberta
+     * (Cancelar no dialogo, ou o Salvar que falhou), para quem chamou nao
+     * seguir como se tudo tivesse fechado.
+     *
+     * @returns false se alguma aba ficou aberta
+     */
     async closeAllTabs() {
         // Create a copy of the tabs keys to avoid modification during iteration
         const openTabs = Array.from(this.tabs.keys());
 
-        // Close each tab
         for (const filePath of openTabs) {
-            await this.closeTab(filePath);
+            if (await this.closeTab(filePath) === false) return false;
         }
+        return true;
     },
 
     /**
@@ -118,11 +140,15 @@ export const fecharAbas: FecharAbas & ThisType<AnfitriaoDoFechar & FecharAbas> =
         }
     },
 
-    // Enhanced closeTab method
-    // Enhanced closeTab with viewer cleanup
+    /**
+     * Fecha a aba, perguntando antes se ela tem mudanca nao salva.
+     *
+     * @returns false se a aba ficou aberta: Cancelar, ou o Salvar que falhou
+     *          (a gravacao recusada fechava a aba e levava a edicao, #242)
+     */
     async closeTab(filePath) {
         // Prevent multiple simultaneous closes
-        if (this.isClosingTab) return;
+        if (this.isClosingTab) return false;
         this.isClosingTab = true;
 
         try {
@@ -147,16 +173,18 @@ export const fecharAbas: FecharAbas & ThisType<AnfitriaoDoFechar & FecharAbas> =
                 case 'save':
                     try {
                         const saved = await this.saveFile(filePath);
-                        if (saved === false) return;
+                        if (saved === false) return false;
                     } catch (error) {
                         console.error('Failed to save file:', error);
+                        await avisarQueNaoSalvou(fileName, error);
+                        return false;
                     }
                     break;
                 case 'dont-save':
                     break;
                 case 'cancel':
                 default:
-                    return;
+                    return false;
                 }
             }
 
@@ -258,7 +286,7 @@ export const fecharAbas: FecharAbas & ThisType<AnfitriaoDoFechar & FecharAbas> =
                     }
                 }
             }
-
+            return true;
         } finally {
             this.isClosingTab = false;
         }

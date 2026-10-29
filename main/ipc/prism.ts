@@ -475,6 +475,13 @@ async function runYosysCompilationWithPaths(
   // ambiente so recebe chave valida com valor string.
   const guarda = protectedFlags.check('prism-yosys', { args: overrideArgs }, { args: finalArgs });
   if (!guarda.ok) throw new Error(guarda.error);
+  // Aqui o override mexe direto no ambiente do processo (o envUnset apaga ate
+  // o PATH), entao a lista do protected_flags vale para toda chave tocada.
+  const tocadas = [...Object.keys(ov?.envSet || {}), ...(Array.isArray(ov?.envUnset) ? ov.envUnset : [])];
+  const queCarrega = tocadas.find((k) => protectedFlags.carregaCodigo(k));
+  if (queCarrega) {
+    throw new Error(`cannot set, change or unset env var ${String(queCarrega).toUpperCase()} on step prism-yosys — it decides which code the tool loads`);
+  }
   finalArgs = finalArgs.map((a) => String(a));
   const childEnv = { ...process.env, ...envSeguro(ov?.envSet) };
   if (Array.isArray(ov?.envUnset)) for (const k of ov.envUnset) delete childEnv[k];

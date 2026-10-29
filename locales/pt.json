@@ -494,6 +494,13 @@
       "renomearBotao": "Renomear",
       "manterNomes": "Manter os nomes"
     },
+    "overridesDoSpf": {
+      "title": "O projeto muda comandos da compilação",
+      "message": "O .spf deste projeto traz overrides que acrescentam, tiram ou trocam argumentos e variáveis de ambiente das ferramentas. Eles não foram aceitos nesta máquina. Se o projeto veio de outra pessoa, aplique só se reconhecer cada um: um argumento pode fazer a ferramenta rodar outro programa. Até você aplicar, a compilação roda sem eles.",
+      "aplicar": "Aplicar",
+      "ignorar": "Ignorar",
+      "adiada": "Os overrides do .spf ficaram de fora. A pergunta volta quando o projeto abrir de novo."
+    },
     "newProject": {
       "missingInfoTitle": "Informação Faltando",
       "missingInfoMessage": "Por favor, informe o Nome do Projeto e o Local do Projeto.",

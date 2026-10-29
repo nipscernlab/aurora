@@ -114,6 +114,42 @@ export const RULES: Record<string, ProtectedFlagRule> = {
 };
 
 /**
+ * Variaveis de ambiente que escolhem QUAL codigo a ferramenta carrega: o
+ * executavel que um nome resolve (PATH, COMSPEC), os modulos de um interpretador
+ * (PYTHON*, PERL5*, NODE_OPTIONS), as bibliotecas injetadas no processo
+ * (LD_PRELOAD, GPI_EXTRA) e o compilador ou o makefile que o make do Verilator
+ * chama (CXX, OBJCACHE, MAKEFILES). Um override grava as mesmas chaves que a
+ * IA ou o .spf pedirem, e um .spf baixado de fora traz os overrides dele; com
+ * uma destas, abrir o projeto e compilar rodaria o programa de quem escreveu o
+ * .spf. Nenhum override pode criar, trocar ou apagar uma delas, em passo
+ * nenhum; a spec da AURORA continua definindo as suas (o PYTHONHOME do cocotb).
+ * `*` no fim casa o prefixo. A comparacao ignora a caixa, como o Windows.
+ */
+export const ENV_QUE_CARREGA_CODIGO: readonly string[] = [
+  'PATH', 'PATHEXT', 'COMSPEC', 'SHELL', 'BASH_ENV', 'ENV',
+  'PYTHON*', 'PERL5*', 'PERLLIB', 'NODE_OPTIONS', 'NODE_PATH',
+  'LD_PRELOAD', 'LD_LIBRARY_PATH',
+  'MAKEFLAGS', 'MFLAGS', 'GNUMAKEFLAGS', 'MAKEFILES', 'OBJCACHE',
+  'CC', 'CXX', 'CPP', 'LD', 'AR', 'LINK',
+  'IVERILOG_VPI_MODULE_PATH', 'VERILATOR_ROOT', 'VERILATOR_BIN',
+  'GPI_EXTRA', 'PYGPI_*', 'TCL_LIBRARY', 'TCLLIBPATH',
+  'AURORA_COCOTB_*',
+];
+
+/** Se a chave de ambiente esta em {@link ENV_QUE_CARREGA_CODIGO}. */
+export function carregaCodigo(chave: string): boolean {
+  const k = String(chave).toUpperCase();
+  return ENV_QUE_CARREGA_CODIGO.some((p) => (p.endsWith('*') ? k.startsWith(p.slice(0, -1)) : k === p));
+}
+
+/** O ambiente com as chaves em maiusculas, para comparar como o Windows. */
+function emMaiusculas(env: Record<string, string> | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(env || {})) out[k.toUpperCase()] = v;
+  return out;
+}
+
+/**
  * Validate that the override-applied spec preserves the protected
  * shape of the base spec.
  */
@@ -122,6 +158,17 @@ export function check(
   baseSpec: SpecShape | null | undefined,
   appliedSpec: SpecShape | null | undefined,
 ): { ok: true } | { ok: false, error: string } {
+  const baseUpper = emMaiusculas(baseSpec?.env);
+  const appliedUpper = emMaiusculas(appliedSpec?.env);
+  for (const key of new Set([...Object.keys(baseUpper), ...Object.keys(appliedUpper)])) {
+    if (carregaCodigo(key) && baseUpper[key] !== appliedUpper[key]) {
+      return {
+        ok: false,
+        error: `cannot set, change or unset env var ${key} on step ${step} — it decides which code the tool loads`,
+      };
+    }
+  }
+
   const rule = RULES[step];
   if (!rule) return { ok: true };
 
@@ -179,13 +226,16 @@ export function check(
 /** Snapshot for the AI's `list_allowed_flags` introspection tool. */
 export function describe(step: string): {
   step: string, protectedLiteralArgs: string[], protectedFlagWithValue: string[], protectedEnv: string[],
+  codeLoadingEnv: string[],
 } {
   const rule = RULES[step];
-  if (!rule) return { step, protectedLiteralArgs: [], protectedFlagWithValue: [], protectedEnv: [] };
+  const codeLoadingEnv = [...ENV_QUE_CARREGA_CODIGO];
+  if (!rule) return { step, protectedLiteralArgs: [], protectedFlagWithValue: [], protectedEnv: [], codeLoadingEnv };
   return {
     step,
     protectedLiteralArgs: rule.literalArgs || [],
     protectedFlagWithValue: rule.flagWithValue || [],
     protectedEnv: rule.envKeys || [],
+    codeLoadingEnv,
   };
 }

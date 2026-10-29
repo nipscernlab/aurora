@@ -9,7 +9,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { RULES, check, describe as descrever } from '../../main/compile/protected_flags.ts';
+import {
+    ENV_QUE_CARREGA_CODIGO, RULES, carregaCodigo, check, describe as descrever,
+} from '../../main/compile/protected_flags.ts';
 
 const spec = (args, env) => ({ args, ...(env ? { env } : {}) });
 
@@ -56,8 +58,44 @@ describe('check: literalArgs e envKeys', () => {
     });
 
     it('passo sem regra passa, e specs ausentes nao lancam', () => {
+        expect(check('inexistente', spec([], { OUTRA: '1' }), spec([], { OUTRA: '2' }))).toEqual({ ok: true });
         expect(check('inexistente', spec(['-x']), spec([]))).toEqual({ ok: true });
         expect(check('cmm', null, undefined)).toEqual({ ok: true });
+    });
+});
+
+describe('check: ambiente que escolhe o codigo carregado', () => {
+    it('reconhece as chaves exatas e os prefixos, sem diferenca de caixa', () => {
+        for (const k of ['PATH', 'Path', 'ComSpec', 'PYTHONPATH', 'pythonstartup', 'PERL5OPT', 'NODE_OPTIONS',
+            'CXX', 'OBJCACHE', 'MAKEFILES', 'GPI_EXTRA', 'PYGPI_PYTHON_BIN', 'AURORA_COCOTB_TOP']) {
+            expect(carregaCodigo(k)).toBe(true);
+        }
+        for (const k of ['LC_ALL', 'OMP_NUM_THREADS', 'COCOTB_LOG_LEVEL', 'PATHS', 'CXXFLAGSX', 'XPATH']) {
+            expect(carregaCodigo(k)).toBe(false);
+        }
+        expect(ENV_QUE_CARREGA_CODIGO).toContain('PYTHON*');
+    });
+
+    it('em qualquer passo, mesmo sem regra, recusa criar uma delas', () => {
+        const r = check('iverilog-build', spec(['a.v']), spec(['a.v'], { PERL5OPT: '-Mevil' }));
+        expect(r).toEqual({
+            ok: false,
+            error: 'cannot set, change or unset env var PERL5OPT on step iverilog-build — it decides which code the tool loads',
+        });
+        expect(check('inexistente', spec([]), spec([], { Path: 'C:/de/fora' })).ok).toBe(false);
+    });
+
+    it('recusa trocar ou apagar a que a propria AURORA definiu, e deixa as outras', () => {
+        const base = spec([], { PYTHONHOME: 'C:/bundle/mingw64', PYTHONIOENCODING: 'utf-8', COCOTB_LOG_LEVEL: 'INFO' });
+        expect(check('cocotb-run', base, base)).toEqual({ ok: true });
+        expect(check('cocotb-run', base, spec([], { ...base.env, COCOTB_LOG_LEVEL: 'DEBUG' }))).toEqual({ ok: true });
+        expect(check('cocotb-run', base, spec([], { ...base.env, PYTHONHOME: 'C:/outro' })).ok).toBe(false);
+        const { PYTHONHOME: _sai, ...semHome } = base.env;
+        expect(check('cocotb-run', base, spec([], semHome)).ok).toBe(false);
+    });
+
+    it('a mesma chave com outra caixa e a mesma chave', () => {
+        expect(check('cocotb-run', spec([], { PYTHONHOME: 'h' }), spec([], { PythonHome: 'h' }))).toEqual({ ok: true });
     });
 });
 
@@ -84,10 +122,13 @@ describe('os passos do processador, pelo driver yanc', () => {
 });
 
 describe('describe: o retrato para list_allowed_flags', () => {
-    it('devolve as tres listas, vazias quando a regra nao tem', () => {
+    it('devolve as tres listas, vazias quando a regra nao tem, e o ambiente vetado em todo passo', () => {
+        const codeLoadingEnv = [...ENV_QUE_CARREGA_CODIGO];
         expect(descrever('asm')).toEqual({
-            step: 'asm', protectedLiteralArgs: [], protectedFlagWithValue: ['-f', '-c'], protectedEnv: [],
+            step: 'asm', protectedLiteralArgs: [], protectedFlagWithValue: ['-f', '-c'], protectedEnv: [], codeLoadingEnv,
         });
-        expect(descrever('nada')).toEqual({ step: 'nada', protectedLiteralArgs: [], protectedFlagWithValue: [], protectedEnv: [] });
+        expect(descrever('nada')).toEqual({
+            step: 'nada', protectedLiteralArgs: [], protectedFlagWithValue: [], protectedEnv: [], codeLoadingEnv,
+        });
     });
 });

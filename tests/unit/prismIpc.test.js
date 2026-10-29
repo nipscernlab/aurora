@@ -297,12 +297,13 @@ describe('get-prism-compilation-paths (caminhosConfiaveis)', () => {
 describe('prism-compile-with-paths (o esquematico)', () => {
     it('sintetiza, divide a hierarquia, desenha o topo e abre a janela', async () => {
         falsos.yosys = yosysDoEsquematico();
+        process.env.AURORA_TESTE_APAGAR = '1';
         const r = await chamar('prism-compile-with-paths', DA_JANELA, {
             // O que vira caminho no pedido e ignorado; so prismMode e yosysOverride contam.
             yosysPath: 'C:/malicioso.exe',
             tempPath: 'C:/qualquer',
-            yosysOverride: { envSet: { BOA: '1', 'RUIM-CHAVE': 'x', NULO: 'a\0b', NUM: 3 }, envUnset: ['PATH'] },
-        });
+            yosysOverride: { envSet: { BOA: '1', 'RUIM-CHAVE': 'x', NULO: 'a\0b', NUM: 3 }, envUnset: ['AURORA_TESTE_APAGAR'] },
+        }).finally(() => { delete process.env.AURORA_TESTE_APAGAR; });
 
         expect(r).toEqual({
             success: true,
@@ -320,7 +321,7 @@ describe('prism-compile-with-paths (o esquematico)', () => {
         expect(opcoes.env).not.toHaveProperty('RUIM-CHAVE');
         expect(opcoes.env).not.toHaveProperty('NULO');
         expect(opcoes.env).not.toHaveProperty('NUM');
-        expect(opcoes.env).not.toHaveProperty('PATH');
+        expect(opcoes.env).not.toHaveProperty('AURORA_TESTE_APAGAR');
 
         // Os .v coletados: HDL sem testbench nem teste, o .spf (relativo e
         // absoluto), TopLevel/ e a pasta de saida de cada processador.
@@ -419,6 +420,16 @@ describe('prism-compile-with-paths (o esquematico)', () => {
     it('o -s do script e protegido: um override que o remove e recusado', async () => {
         const r = await chamar('prism-compile-with-paths', DA_JANELA, { yosysOverride: { removeArgs: ['-s'] } });
         expect(r.success).toBe(false);
+        expect(falsos.filhos).toHaveLength(0);
+    });
+
+    it.each([
+        ['criar', { envSet: { PYTHONPATH: 'C:/de/fora' } }],
+        ['apagar', { envUnset: ['Path'] }],
+    ])('override que tenta %s variavel que carrega codigo e recusado sem rodar', async (_acao, yosysOverride) => {
+        const r = await chamar('prism-compile-with-paths', DA_JANELA, { yosysOverride });
+        expect(r.success).toBe(false);
+        expect(r.message).toMatch(/cannot set, change or unset env var (PYTHONPATH|PATH) on step prism-yosys/);
         expect(falsos.filhos).toHaveLength(0);
     });
 

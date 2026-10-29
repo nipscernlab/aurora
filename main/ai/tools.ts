@@ -1923,7 +1923,9 @@ const TOOL_MANIFEST: ToolDef[] = [
     name: 'list_command_overrides',
     description:
       'List every registered command override across the ephemeral (in-memory, ' +
-      'consumed on next run) and persisted (.spf, survives sessions) layers.',
+      'consumed on next run) and persisted (.spf, survives sessions) layers. ' +
+      'A persisted override that came in a .spf from elsewhere is listed, and ' +
+      'applied, only after the user accepts it on this machine when the project opens.',
     access: 'read',
     api: ['compile', 'listOverrides'],
     argStyle: 'none',
@@ -1966,7 +1968,10 @@ const TOOL_MANIFEST: ToolDef[] = [
       'preview_compile_command first to verify the resulting command line. ' +
       'The main-process executor re-checks protected flags before spawn — if the ' +
       'override would strip a pipeline-critical flag (iverilog -o, gtkwave ' +
-      '--script, etc.), the step run fails with a clear error.',
+      '--script, etc.), the step run fails with a clear error. No override may ' +
+      'set, change or unset an env var that decides which code the tool loads ' +
+      '(PATH, COMSPEC, PYTHON*, PERL5*, NODE_OPTIONS, CXX, OBJCACHE, GPI_EXTRA ' +
+      'and the like; list_protected_compile_flags gives the full list): the run is refused.',
     access: 'write',
     api: ['compile', 'setOverride'],
     argStyle: 'object',

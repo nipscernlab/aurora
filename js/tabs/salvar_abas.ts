@@ -34,6 +34,8 @@ export interface SalvarAbas {
     saveFile(filePath?: string | null): Promise<boolean>;
 }
 
+const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
+
 /** O modelo do arquivo: o compartilhado, ou o do editor que o mostra. */
 function modeloDe(filePath: string) {
     return window.SharedModelRegistry?.getModel?.(filePath)
@@ -92,6 +94,13 @@ export const salvarAbas: SalvarAbas & ThisType<AnfitriaoDoSalvar & SalvarAbas> =
     // Enhanced saveAllFiles method with undo history preservation. Walks
     // every file the registry knows about (main + split-only), so a file
     // opened only in a split pane still saves on Ctrl+K S.
+    //
+    // Um arquivo que nao grava (travado pelo antivirus, disco cheio, gravacao
+    // recusada) faz o metodo LANCAR, depois de tentar todos os outros (#248).
+    // Antes so ia ao console, e a compilacao que chamou seguia com a versao
+    // antiga do disco: a pessoa depurava um codigo que nao era o da tela. As
+    // etapas de compilacao chamam isto dentro do try que escreve o erro no
+    // terminal delas e para.
     async saveAllFiles() {
         const registry = window.SharedModelRegistry;
         if (!registry) return;
@@ -106,6 +115,7 @@ export const salvarAbas: SalvarAbas & ThisType<AnfitriaoDoSalvar & SalvarAbas> =
             }
         }
 
+        const falhas: string[] = [];
         for (const filePath of paths) {
             if (this.isBinaryFile(filePath)) continue;
             if (this.isUntitledPath(filePath)) {
@@ -132,8 +142,11 @@ export const salvarAbas: SalvarAbas & ThisType<AnfitriaoDoSalvar & SalvarAbas> =
                 } catch (_) { /* stats errors are non-fatal */ }
             } catch (error) {
                 console.error(`Error saving file ${filePath}:`, error);
+                const nome = filePath.split(/[\\/]/).pop() || filePath;
+                falhas.push(`${nome} (${(error as Error | null)?.message || error})`);
             }
         }
+        if (falhas.length) throw new Error(tr('error.save.naoGravou', { lista: falhas.join(', ') }));
     },
 
     // Enhanced saveFile method with undo history preservation

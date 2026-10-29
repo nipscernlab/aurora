@@ -73,7 +73,7 @@ interface CaminhosDoPrism {
 /** Um passo que o fluxo sabe despachar, ou o Full Build. */
 type Pedido = string;
 import {
-    checkCancellation, desfazerCancelamento, eCancelamento, foiCancelada,
+    checkCancellation, eCancelamento, foiCancelada,
     iniciarRodada, pedirCancelamento, primeiroCartao,
 } from './cancelamento.js';
 
@@ -803,6 +803,14 @@ class CompilationFlowManager {
         // sumia, que era o motivo de clicar em Cancelar nao dar sinal nenhum.
         const activeTerminalId = activeId || 'tcmm';
 
+        // Sem execucao em andamento, nao ha o que cancelar, e nada se mata.
+        // Antes o main era chamado mesmo assim, e o tree-kill dos visualizadores
+        // fechava o GTKWave de uma rodada que ja tinha terminado (#246).
+        if (activeRunStep === null) {
+            tm?.appendToTerminal?.(activeTerminalId, tr('compilation.nothingToCancel'), 'tips');
+            return;
+        }
+
         // Already cancelling, surface the same "ack" message instead of
         // silently doing nothing on a second click. Without this, the user
         // clicks Cancel, nothing visible happens (the cancellation hasn't
@@ -841,21 +849,13 @@ class CompilationFlowManager {
             window.AuroraAPI?.events?.emit?.('compile:cancelled', { by: 'user' });
         } catch (_) { /* a API pode nao ter subido ainda */ }
 
+        // O main mata o que estiver vivo. Pode nao haver nada naquele instante:
+        // o clique caiu entre dois passos (entre o yanc de um processador e o
+        // do seguinte, durante o salvar, entre o build do Verilator e a
+        // execucao). A bandeira fica ligada mesmo assim, e o proximo ponto de
+        // verificacao do pipeline para a execucao. Antes, a resposta "nada
+        // rodando" do main desfazia o cancelamento, e o pipeline seguia (#246).
         electronAPI.cancelVvpProcess()
-            .then((result: { success?: boolean } | null) => {
-                // Main reports "no compilation process running" when the
-                // user clicked Cancel while idle. Surface that as an info
-                // card and reset the flag so a subsequent build doesn't
-                // self-cancel immediately. (startCompilation also resets
-                // the flag, but a stray `checkCancellation()` between
-                // cancelAll and the next build would otherwise still throw.)
-                if (result && result.success === false) {
-                    desfazerCancelamento();
-                    tm?.appendToTerminal?.(
-                        activeTerminalId, tr('compilation.nothingToCancel'), 'tips',
-                    );
-                }
-            })
             .catch((err: unknown) => console.warn('cancelVvpProcess failed:', (err as Error | null)?.message ?? err));
     }
 }

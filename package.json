@@ -302,7 +302,7 @@
     "diff2html": "^3.4.56",
     "digitaljs": "^0.14.2",
     "electron-log": "^5.4.4",
-    "electron-updater": "^6.8.9",
+    "electron-updater": "^6.8.11",
     "fs-extra": "^11.4.1",
     "jquery": "^3.7.1",
     "jquery-ui": "^1.14.2",

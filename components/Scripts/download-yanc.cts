@@ -61,14 +61,15 @@
  * Roda no prestart, depois do download do toolchain principal e antes
  * do copy-components.
  *
- * Padrao seguido do download-toolchain.js, mesma logica de download
+ * Padrao seguido do download-toolchain.cts, mesma logica de download
  * com retry de redirect, extracao via PowerShell, e exit 0 em
  * falha pra nao bloquear `npm start` (devs offline ainda conseguem
  * iniciar a IDE).
  *
  * Pinning: a tag esperada vive em YANC_TAG abaixo. Pra subir uma
- * versao nova, atualizar a tag aqui e tambem gerar/publicar o release
- * correspondente em nipscernlab/yanc (workflow `release.yml`).
+ * versao nova, atualizar a tag e o EXPECTED_SHA256 aqui, e tambem
+ * gerar/publicar o release correspondente em nipscernlab/yanc (workflow
+ * `release.yml`).
  *
  * Sentinel: usamos cppcomp.exe porque foi adicionado no v4, devs com
  * instalacao v3 antiga (so 4 binarios) tem o sentinel falhando e o
@@ -90,9 +91,12 @@ const { verifyChecksum } = require('./lib/checksum') as typeof import('./lib/che
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-// Pin the artifact's SHA-256 to enforce integrity (publish a SHA256SUMS per
-// release). null = compute + log only (no enforcement yet).
-const EXPECTED_SHA256 = null;
+// O SHA-256 do zip da release fixada em YANC_TAG. Sem ele, quem trocasse o
+// arquivo da release (a tag e mutavel) entregaria outro binario a todo mundo
+// que instalasse depois; com ele, lib/checksum.js recusa extrair. Muda junto
+// com a tag: o sha256 vem do campo `digest` do asset na API do GitHub e se
+// confere baixando o zip.
+const EXPECTED_SHA256: string | null = 'c5a3e09ca5d2d8812603f00ee493ec7e4956d96515d69443827f68ffe9430bc6';
 
 const YANC_TAG      = 'v9.1';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;

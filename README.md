@@ -186,7 +186,7 @@ grammars; and the SAPHO manual. Any of them can be re-fetched with `--force`, fo
 example:
 
 ```powershell
-node components/Scripts/download-toolchain.js --force
+node components/Scripts/download-toolchain.cts --force
 ```
 
 If a download fails behind a corporate proxy, the script prints the URL it tried,

@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * Aurora IDE - GTKWave (nipscern fork) bootstrap
  *
@@ -16,23 +15,27 @@
  * copy-components.
  *
  * Pinning: tag em GTKWAVE_TAG abaixo. Pra subir uma versao nova,
- * atualizar a tag e publicar o release em nipscernlab/gtkwave-nipscern.
+ * atualizar a tag e o EXPECTED_SHA256 e publicar o release em
+ * nipscernlab/gtkwave-nipscern.
  *
- * Usage:  node components/Scripts/download-gtkwave-nipscern.js [--force]
+ * Usage:  node components/Scripts/download-gtkwave-nipscern.cts [--force]
  */
 
-const https = require('https');
-const fs    = require('fs');
-const path  = require('path');
-const { extractZip: extrairZip } = require('./lib/extract');
-const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
-const { verifyChecksum } = require('./lib/checksum');
+const https = require('https') as typeof import('https');
+const fs    = require('fs') as typeof import('fs');
+const path  = require('path') as typeof import('path');
+const { extractZip: extrairZip } = require('./lib/extract') as typeof import('./lib/extract.js');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp') as typeof import('./lib/version_stamp.js');
+const { verifyChecksum } = require('./lib/checksum') as typeof import('./lib/checksum.js');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-// Pin the artifact's SHA-256 to enforce integrity (publish a SHA256SUMS per
-// release). null = compute + log only (no enforcement yet).
-const EXPECTED_SHA256 = null;
+// O SHA-256 do zip da release fixada em GTKWAVE_TAG. Sem ele, quem trocasse o
+// arquivo da release (a tag e mutavel) entregaria outro binario a todo mundo
+// que instalasse depois; com ele, lib/checksum.js recusa extrair. Muda junto
+// com a tag: o sha256 vem do campo `digest` do asset na API do GitHub e se
+// confere baixando o zip.
+const EXPECTED_SHA256: string | null = '781e45f3af6d3bf68671496852c9ad56981ebc1cf0613da0b1e784bb3fcb7e60';
 
 const GTKWAVE_TAG      = 'v0.1.2-nipscern';
 const GTKWAVE_FILENAME = `gtkwave-nipscern-v0.1.2-win-x64.zip`;
@@ -50,25 +53,25 @@ const VERSION_STAMP = path.join(INSTALL_DIR, NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function log(/** @type {string} */ msg) { console.log(`[gtkwave-nipscern] ${msg}`); }
-function err(/** @type {string} */ msg) { console.error(`[gtkwave-nipscern] ERROR: ${msg}`); }
+function log(msg: string): void { console.log(`[gtkwave-nipscern] ${msg}`); }
+function err(msg: string): void { console.error(`[gtkwave-nipscern] ERROR: ${msg}`); }
 
-function alreadyInstalled() {
+function alreadyInstalled(): boolean {
     return fs.existsSync(SENTINEL_FILE);
 }
 
-function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
-    return new Promise((resolve, reject) => {
+function downloadFile(url: string, dest: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
         log(`Downloading ${url}`);
 
         const file = fs.createWriteStream(dest);
         let total = 0;
         let received = 0;
 
-        function doRequest(/** @type {any} */ requestUrl, redirectCount = 0) {
+        function doRequest(requestUrl: string | undefined, redirectCount = 0): void {
             if (redirectCount > 5) { reject(new Error('Too many redirects')); return; }
 
-            const parsedUrl = new URL(requestUrl);
+            const parsedUrl = new URL(String(requestUrl));
             const opts = {
                 hostname: parsedUrl.hostname,
                 path:     parsedUrl.pathname + parsedUrl.search,
@@ -104,13 +107,13 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
 
         // Resolve apenas depois que o stream e fechado, caso contrario
         // o extract roda em cima de um arquivo ainda em escrita.
-        file.on('finish', () => file.close(resolve));
+        file.on('finish', () => file.close(() => resolve()));
         file.on('error', reject);
         doRequest(url);
     });
 }
 
-async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+async function extractZip(zipPath: string, destDir: string): Promise<void> {
     // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
     // Expand-Archive de antes como reserva se algo sair do esperado.
     await extrairZip(zipPath, destDir, { log, tag: 'gtkwave-nipscern' });
@@ -118,7 +121,7 @@ async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ d
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<void> {
     const force = process.argv.includes('--force');
 
     const carimbo = decidir({ instalado: alreadyInstalled(), carimbo: VERSION_STAMP, tag: GTKWAVE_TAG });

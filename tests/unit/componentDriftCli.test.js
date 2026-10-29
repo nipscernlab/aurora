@@ -34,9 +34,9 @@ const chamar = {
 };
 
 const TAGS = {
-  toolchain: ['download-toolchain.js', 'MSYS_TAG'],
+  toolchain: ['download-toolchain.cts', 'MSYS_TAG'],
   yanc: ['download-yanc.cts', 'YANC_TAG'],
-  gtkwave: ['download-gtkwave-nipscern.js', 'GTKWAVE_TAG'],
+  gtkwave: ['download-gtkwave-nipscern.cts', 'GTKWAVE_TAG'],
   surfer: ['download-surfer.js', null],
   verible: ['download-verible.cts', 'VERIBLE_TAG'],
   slang: ['download-slang-server.cts', 'SLANG_SERVER_TAG'],

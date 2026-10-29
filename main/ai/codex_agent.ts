@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * codex_agent.js: Codex SDK engine for the ChatGPT/Codex bridge.
+ * codex_agent.ts: Codex SDK engine for the ChatGPT/Codex bridge.
  *
  * Modernization step 3 of the AI-system roadmap (ESTUDO §18.5): instead of
  * shelling out to `codex exec --json` and re-parsing JSONL, this engine
@@ -35,25 +34,22 @@
  * model-not-supported rewrite below mirror the legacy constants verbatim.
  */
 
-'use strict';
+import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
+import log from 'electron-log';
 
-const os = require('os');
-const fs = require('fs');
-const path = require('path');
-const log = require('electron-log');
-
-const auroraMcp = require('./aurora_mcp_server');
-const attachments = require('./attachments');
-const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } = require('./timeouts');
-const { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } = require('./retry');
-const { REGRAS_CODEX } = require('./mcp_tool_rules');
+import auroraMcp from './aurora_mcp_server.js';
+import attachments from './attachments.js';
+import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } from './timeouts.js';
+import { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } from './retry.js';
+import { REGRAS_CODEX } from './mcp_tool_rules.js';
 
 // ---------------------------------------------------------------------------
 //  SDK loading (ESM-only package, dynamic import from CJS, memoized)
 // ---------------------------------------------------------------------------
 
-/** @type {Promise<any>|null} */
-let _sdkPromise = null;
+let _sdkPromise: Promise<any>|null = null;
 function loadSdk() {
   if (!_sdkPromise) {
     _sdkPromise = import('@openai/codex-sdk').catch((e) => {
@@ -81,7 +77,7 @@ function agentScratchDir() {
 }
 
 /** Friendly rewrite for plan-model mismatches (kept in sync with codex_cli.js). */
-function rewriteModelError(/** @type {string} */ msg) {
+function rewriteModelError(msg: string) {
   if (/model is not supported when using Codex with a ChatGPT account/i.test(msg)) {
     return msg.replace(/\s*$/, '') +
       "\n\nFix: open the model menu next to the composer and pick " +
@@ -99,24 +95,11 @@ function rewriteModelError(/** @type {string} */ msg) {
 /**
  * Try to run one chat turn through the Codex SDK.
  *
- * @param {object} p
- * @param {string} p.sessionId
- * @param {string} [p.conversationId]
- * @param {{role:string,content:string,attachments?:any[]}[]} p.messages
- * @param {string} [p.system]
- * @param {string} [p.modelId]
- * @param {string} [p.effort]
- * @param {{exe:string, rgDir:string|null, viaShim:boolean}} p.bin
- * @param {Electron.WebContents} webContents
- * @param {object} host  shared bookkeeping owned by codex_cli.js
- * @param {(wc:any, sid:string, type:string, data:any)=>void} host.sendEvent
- * @param {Map<string,string>} host.convThreads
- * @param {Map<string,any>} host.sessions
- * @param {(tokens:number)=>void} host.addTokens
- * @returns {Promise<boolean>} true when the turn was handled here (success
+ * @param host  shared bookkeeping owned by codex_cli.js
+ * @returns true when the turn was handled here (success
  *   OR failure-with-error-event); false → caller falls back to legacy spawn.
  */
-async function tryStart(p, webContents, host) {
+async function tryStart(p: { sessionId: string; conversationId?: string; messages: { role: string; content: string; attachments?: any[]; }[]; system?: string; modelId?: string; effort?: string; bin: { exe: string; rgDir: string|null; viaShim: boolean; }; }, webContents: Electron.WebContents, host: { sendEvent: (wc: any,sid: string,type: string,data: any) => void; convThreads: Map<string,string>; sessions: Map<string,any>; addTokens: (tokens: number) => void; }): Promise<boolean> {
   const { sessionId, conversationId, messages, system, modelId, effort, bin } = p;
   const { sendEvent, convThreads, sessions, addTokens } = host;
 
@@ -148,8 +131,7 @@ async function tryStart(p, webContents, host) {
   }
 
   // ---- MCP bridge -------------------------------------------------------------
-  /** @type {Record<string, any>} */
-  const config = {};
+  const config: Record<string,any> = {};
   let mcpReady = false;
   try {
     const url = await auroraMcp.ensureStarted(webContents);
@@ -182,8 +164,7 @@ async function tryStart(p, webContents, host) {
   // inheritance), so hand it the full sanitized clone: no OPENAI_API_KEY
   // (forces ChatGPT OAuth) + the bundled ripgrep on PATH (file search when
   // launching the native binary directly).
-  /** @type {Record<string, string>} */
-  const env = {};
+  const env: Record<string,string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (typeof v === 'string') env[k] = v;
   }
@@ -204,8 +185,7 @@ async function tryStart(p, webContents, host) {
   /** Per-item text already streamed, so item.updated diffs into real deltas. */
   const emittedText = new Map();
 
-  /** @type {ReturnType<typeof setTimeout>|null} */
-  let inactivityTimer = null;
+  let inactivityTimer: ReturnType<typeof setTimeout>|null = null;
   const armInactivity = () => {
     if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
     if (finished || aborted || pendingTools.size > 0) return;
@@ -225,7 +205,7 @@ async function tryStart(p, webContents, host) {
   // ---- event translation (mirrors legacy handleObject) -----------------------------
 
   /** Stream the not-yet-emitted tail of an agent message. */
-  const emitAgentText = (/** @type {any} */ item, /** @type {boolean} */ isFinal) => {
+  const emitAgentText = (item: any, isFinal: boolean) => {
     const text = String(item.text || '');
     const already = emittedText.get(item.id) || '';
     let delta = '';
@@ -246,7 +226,7 @@ async function tryStart(p, webContents, host) {
     sendEvent(webContents, sessionId, 'text-delta', { delta });
   };
 
-  const handleEvent = (/** @type {any} */ obj) => {
+  const handleEvent = (obj: any) => {
     if (!obj || typeof obj !== 'object') return;
     anyEvent = true;
     switch (obj.type) {
@@ -306,7 +286,7 @@ async function tryStart(p, webContents, host) {
           const blocks = item.result && Array.isArray(item.result.content)
             ? item.result.content : [];
           const content = blocks
-            .map((/** @type {any} */ b) => (b && b.type === 'text' ? b.text : ''))
+            .map((b: any) => (b && b.type === 'text' ? b.text : ''))
             .filter(Boolean).join('\n');
           sendEvent(webContents, sessionId, 'tool-result', {
             toolUseId: item.id,
@@ -447,4 +427,4 @@ async function tryStart(p, webContents, host) {
   return true;
 }
 
-module.exports = { tryStart };
+export { tryStart };

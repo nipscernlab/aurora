@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * codex_cli.js: OpenAI Codex CLI bridge for Aurora Intelligence.
+ * codex_cli.ts: OpenAI Codex CLI bridge for Aurora Intelligence.
  *
  * The "ChatGPT" provider in the AI panel. It is the OpenAI counterpart of
  * `claude_code.js`: instead of a metered API key it drives the user's
@@ -39,24 +38,22 @@
  * transport-agnostic.
  */
 
-'use strict';
+import { spawn, execFile } from 'node:child_process';
+import path from 'node:path';
+import os from 'node:os';
+import fs from 'node:fs';
+import log from 'electron-log';
 
-const { spawn, execFile } = require('child_process');
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
-const log = require('electron-log');
-
-const auroraMcp = require('./aurora_mcp_server');
-const cliLocator = require('./cli_locator');
+import auroraMcp from './aurora_mcp_server.js';
+import cliLocator from './cli_locator.js';
 const { locateCodex } = cliLocator;
-const cliDownloader = require('./cli_downloader');
-const attachments = require('./attachments');
-const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } = require('./timeouts');
+import cliDownloader from './cli_downloader.js';
+import attachments from './attachments.js';
+import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } from './timeouts.js';
 // Codex SDK engine (ESTUDO §18.5 step 3), preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
-const codexAgent = require('./codex_agent');
-const { REGRAS_CODEX } = require('./mcp_tool_rules');
+import * as codexAgent from './codex_agent.js';
+import { REGRAS_CODEX } from './mcp_tool_rules.js';
 
 /** sessionId → { proc | stop(), markAborted } for in-flight turns. */
 const sessions = new Map();
@@ -66,8 +63,7 @@ const convThreads = new Map();
 /** Tokens tallied across every Codex turn this app run. */
 let sessionTokens = 0;
 
-/** @type {{exe:string, rgDir:string|null, viaShim:boolean}|null|undefined} */
-let cachedBin;
+let cachedBin: { exe: string; rgDir: string|null; viaShim: boolean; }|null|undefined;
 
 // ---------------------------------------------------------------------------
 //  Binary + credential discovery
@@ -94,7 +90,7 @@ function readCredentials() {
  * "free", …). Decoding is read-only base64, no verification, purely to
  * label the panel's status row. Any failure just yields null.
  */
-function planFromIdToken(/** @type {any} */ creds) {
+function planFromIdToken(creds: any) {
   try {
     const idToken = creds && creds.tokens && creds.tokens.id_token;
     if (!idToken || typeof idToken !== 'string') return null;
@@ -109,8 +105,8 @@ function planFromIdToken(/** @type {any} */ creds) {
   }
 }
 
-function execFileText(/** @type {string} */ bin, /** @type {string[]} */ args, timeoutMs = 6000) {
-  return new Promise((resolve, reject) => {
+function execFileText(bin: string, args: string[], timeoutMs = 6000): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
     execFile(bin, args, { timeout: timeoutMs, windowsHide: true }, (err, stdout) => {
       if (err) reject(err);
       else resolve(String(stdout || ''));
@@ -125,7 +121,10 @@ function execFileText(/** @type {string} */ bin, /** @type {string[]} */ args, t
  * @returns {Promise<{installed:boolean, path?:string, version?:string,
  *   authed?:boolean, plan?:string|null, authMode?:string|null}>}
  */
-async function detect() {
+async function detect(): Promise<{
+installed: boolean; path?: string; version?: string;
+authed?: boolean; plan?: string|null; authMode?: string|null; downloadable?: boolean;
+}> {
   const bin = resolveBinary();
   if (!bin) {
     // Not on disk yet, report whether it can be fetched on demand (B12) and
@@ -178,7 +177,7 @@ const MCP_TOOL_RULES = REGRAS_CODEX;
 //  Chat
 // ---------------------------------------------------------------------------
 
-function sendEvent(/** @type {any} */ webContents, /** @type {string} */ sessionId, /** @type {string} */ type, /** @type {any} */ data) {
+function sendEvent(webContents: any, sessionId: string, type: string, data: any) {
   if (!webContents || webContents.isDestroyed()) return;
   try {
     webContents.send('ai:chat-event', { sessionId, type, ...(data || {}) });
@@ -199,7 +198,7 @@ function agentScratchDir() {
 }
 
 /** Map a Codex model alias to a `-m` value, or null to use the CLI default. */
-function modelFlag(/** @type {string | undefined} */ modelId) {
+function modelFlag(modelId: string|undefined) {
   if (!modelId || modelId === 'default') return null;
   return modelId;
 }
@@ -207,16 +206,9 @@ function modelFlag(/** @type {string | undefined} */ modelId) {
 /**
  * Run one chat turn through the Codex CLI.
  *
- * @param {object} payload
- * @param {string} payload.sessionId
- * @param {string} [payload.conversationId]
- * @param {{role:string,content:string}[]} payload.messages
- * @param {string} [payload.system]
- * @param {string} [payload.modelId]
- * @param {string} [payload.effort]  reasoning effort (low|medium|high|xhigh|max; '' = CLI default)
- * @param {Electron.WebContents} webContents
+ * @param [payload.effort]  reasoning effort (low|medium|high|xhigh|max; '' = CLI default)
  */
-async function start(payload, webContents) {
+async function start(payload: { sessionId: string; conversationId?: string; messages: { role: string; content: string; attachments?: any[]; }[]; system?: string; systemFixo?: string; systemContext?: string; modelId?: string; effort?: string; }, webContents: Electron.WebContents) {
   const { sessionId, conversationId, messages, modelId, effort } = payload || {};
   // A CLI recebe o system prompt INTEIRO. A separacao entre a parte estavel e a
   // que muda a cada turno existe para o cache da API da Anthropic; aqui ela so
@@ -426,8 +418,7 @@ async function start(payload, webContents) {
   const INACTIVITY_MS = CLI_INACTIVITY_MS;
   const pendingTools = new Set();
   let stalled = false;
-  /** @type {ReturnType<typeof setTimeout>|null} */
-  let inactivityTimer = null;
+  let inactivityTimer: ReturnType<typeof setTimeout>|null = null;
   const armInactivity = () => {
     if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
     if (finished || aborted || pendingTools.size > 0) return;
@@ -451,7 +442,7 @@ async function start(payload, webContents) {
 
   // --- event translation ----------------------------------------------------
 
-  const handleObject = (/** @type {any} */ obj) => {
+  const handleObject = (obj: any) => {
     if (!obj || typeof obj !== 'object') return;
     switch (obj.type) {
       case 'thread.started':
@@ -514,7 +505,7 @@ async function start(payload, webContents) {
           let content = '';
           const blocks = item.result && Array.isArray(item.result.content)
             ? item.result.content : [];
-          content = blocks.map((/** @type {any} */ b) => (b && b.type === 'text' ? b.text : '')).filter(Boolean).join('\n');
+          content = blocks.map((b: any) => (b && b.type === 'text' ? b.text : '')).filter(Boolean).join('\n');
           sendEvent(webContents, sessionId, 'tool-result', {
             toolUseId: item.id,
             toolName: name,
@@ -625,7 +616,7 @@ async function start(payload, webContents) {
 
 /** Stop one session handle, SDK turns expose stop() (AbortController);
  *  legacy spawns expose proc (tree-killed via taskkill on Windows). */
-function stopSession(/** @type {any} */ s) {
+function stopSession(s: any) {
   if (!s) return false;
   if (s.markAborted) s.markAborted();
   if (typeof s.stop === 'function') {
@@ -644,7 +635,7 @@ function stopSession(/** @type {any} */ s) {
 }
 
 /** Abort an in-flight turn. Returns true if a session was stopped. */
-function abort(/** @type {string} */ sessionId) {
+function abort(sessionId: string) {
   return stopSession(sessions.get(sessionId));
 }
 
@@ -654,9 +645,8 @@ function abort(/** @type {string} */ sessionId) {
  * `ownerId` (id do webContents), so as daquela janela: o reaper de reload em
  * windows.js chamava sem filtro, e um Ctrl+R em qualquer janela matava as
  * CLIs de IA de todas.
- * @param {number} [ownerId]
  */
-function killAll(ownerId) {
+function killAll(ownerId?: number) {
   for (const [id, s] of sessions) {
     if (ownerId != null && s.owner !== ownerId) continue;
     stopSession(s);
@@ -665,8 +655,8 @@ function killAll(ownerId) {
 }
 
 /** Drop the cached CLI-side thread for a conversation (e.g. on "new chat"). */
-function forgetConversation(/** @type {string} */ conversationId) {
+function forgetConversation(conversationId: string) {
   if (conversationId) convThreads.delete(conversationId);
 }
 
-module.exports = { detect, getUsage, start, abort, killAll, forgetConversation };
+export { detect, getUsage, start, abort, killAll, forgetConversation };

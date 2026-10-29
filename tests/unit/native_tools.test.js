@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import pkg from '../../main/ai/native_tools.js';
-
-const { NATIVE_TOOLS, DISALLOWED_TOOLS } = pkg;
+import { NATIVE_TOOLS, DISALLOWED_TOOLS } from '../../main/ai/native_tools.ts';
 
 // The native surface the Claude Code engines hand the model. This list is the
 // ONLY thing standing between the assistant and the CLI's full built-in set:

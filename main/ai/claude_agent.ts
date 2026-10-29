@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * claude_agent.js: Claude Agent SDK engine for the Claude Code bridge.
+ * claude_agent.ts: Claude Agent SDK engine for the Claude Code bridge.
  *
  * Modernization step 2 of the AI-system roadmap (ESTUDO §18.5): instead of
  * shelling out to `claude -p --output-format stream-json` and re-parsing
@@ -40,24 +39,21 @@
  * permission system on top of that.
  */
 
-'use strict';
+import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
+import log from 'electron-log';
 
-const os = require('os');
-const fs = require('fs');
-const path = require('path');
-const log = require('electron-log');
-
-const auroraMcp = require('./aurora_mcp_server');
-const attachments = require('./attachments');
-const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } = require('./timeouts');
-const { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } = require('./retry');
+import auroraMcp from './aurora_mcp_server.js';
+import attachments from './attachments.js';
+import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } from './timeouts.js';
+import { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } from './retry.js';
 
 // ---------------------------------------------------------------------------
 //  SDK loading (ESM-only package, dynamic import from CJS, memoized)
 // ---------------------------------------------------------------------------
 
-/** @type {Promise<any>|null} */
-let _sdkPromise = null;
+let _sdkPromise: Promise<any>|null = null;
 function loadSdk() {
   if (!_sdkPromise) {
     _sdkPromise = import('@anthropic-ai/claude-agent-sdk').catch((e) => {
@@ -74,8 +70,8 @@ function loadSdk() {
 
 // Both lists now live in native_tools.js, one source of truth shared with the
 // legacy engine, which is what stops the two from drifting apart again.
-const { NATIVE_TOOLS, DISALLOWED_TOOLS } = require('./native_tools');
-const { REGRAS_CLAUDE } = require('./mcp_tool_rules');
+import { NATIVE_TOOLS, DISALLOWED_TOOLS } from './native_tools.js';
+import { REGRAS_CLAUDE } from './mcp_tool_rules.js';
 
 const MCP_TOOL_RULES = REGRAS_CLAUDE;
 
@@ -95,27 +91,13 @@ function agentScratchDir() {
 /**
  * Try to run one chat turn through the Agent SDK.
  *
- * @param {object} p
- * @param {string} p.sessionId
- * @param {string} [p.conversationId]
- * @param {{role:string,content:string,attachments?:any[]}[]} p.messages
- * @param {string} [p.system]
- * @param {string} [p.modelId]
- * @param {string} [p.effort]
- * @param {{exe:string, viaShim:boolean}} p.bin  resolved native CLI binary
- * @param {Electron.WebContents} webContents
- * @param {object} host  shared bookkeeping owned by claude_code.js
- * @param {(wc:any, sid:string, type:string, data:any)=>void} host.sendEvent
- * @param {Map<string,string>} host.convSessions
- * @param {Map<string,any>} host.sessions
- * @param {(tokens:number, costUsd:number)=>void} host.addUsage
- * @param {(info:any)=>void} host.setRateLimit
- * @param {(webContents?: any)=>string} host.workspaceDir
- * @returns {Promise<boolean>} true when the turn was handled here (success
+ * @param p.bin  resolved native CLI binary
+ * @param host  shared bookkeeping owned by claude_code.js
+ * @returns true when the turn was handled here (success
  *   OR failure-with-error-event); false when the SDK is unavailable and the
  *   caller should fall back to the legacy spawn path.
  */
-async function tryStart(p, webContents, host) {
+async function tryStart(p: { sessionId: string; conversationId?: string; messages: { role: string; content: string; attachments?: any[]; }[]; system?: string; modelId?: string; effort?: string; bin: { exe: string; viaShim: boolean; }; }, webContents: Electron.WebContents, host: { sendEvent: (wc: any,sid: string,type: string,data: any) => void; convSessions: Map<string,string>; sessions: Map<string,any>; addUsage: (tokens: number,costUsd: number) => void; setRateLimit: (info: any) => void; workspaceDir: (webContents?: any) => string; }): Promise<boolean> {
   const { sessionId, conversationId, messages, system, modelId, effort, bin } = p;
   const { sendEvent, convSessions, sessions, addUsage, setRateLimit, workspaceDir } = host;
 
@@ -147,8 +129,7 @@ async function tryStart(p, webContents, host) {
   }
 
   // ---- MCP bridge -----------------------------------------------------------
-  /** @type {Record<string, any>} */
-  let mcpServers = {};
+  let mcpServers: Record<string,any> = {};
   let mcpReady = false;
   try {
     const url = await auroraMcp.ensureStarted(webContents);
@@ -197,8 +178,7 @@ async function tryStart(p, webContents, host) {
   const toolUseNames = new Map();
   const pendingTools = new Set();
 
-  /** @type {ReturnType<typeof setTimeout>|null} */
-  let inactivityTimer = null;
+  let inactivityTimer: ReturnType<typeof setTimeout>|null = null;
   const armInactivity = () => {
     if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
     if (finished || aborted || pendingTools.size > 0) return;
@@ -216,10 +196,8 @@ async function tryStart(p, webContents, host) {
   // in the renderer until the turn ends, push it into the LIVE session: it is
   // already in the CLI's transcript, so it runs with no re-dispatch and no
   // context rebuild. Measured against the real CLI (see promptStream below).
-  /** @type {string[]} */
-  const followUps = [];
-  /** @type {((value?: unknown) => void)|null} */
-  let wakeInput = null;
+  const followUps: string[] = [];
+  let wakeInput: ((value?: unknown) => void)|null = null;
   let inputClosed = false;
   // True while a user message is in flight (yielded, `result` not back yet).
   // Exactly ONE may be in flight, see promptStream for why that is load-bearing
@@ -237,9 +215,8 @@ async function tryStart(p, webContents, host) {
      * Feed a follow-up into this live turn. Returns false once the turn is
      * winding down, so the renderer falls back to its own queue instead of
      * dropping the message.
-     * @param {string} content
      */
-    pushUserMessage: (content) => {
+    pushUserMessage: (content: string) => {
       if (inputClosed || finished || aborted || stalled) return false;
       if (typeof content !== 'string' || !content.trim()) return false;
       followUps.push(content);
@@ -249,7 +226,7 @@ async function tryStart(p, webContents, host) {
   });
 
   // ---- message translation (mirrors legacy handleObject) ----------------------
-  const handleMessage = (/** @type {any} */ obj) => {
+  const handleMessage = (obj: any) => {
     if (!obj || typeof obj !== 'object') return;
     anyEvent = true;
     switch (obj.type) {
@@ -301,7 +278,7 @@ async function tryStart(p, webContents, host) {
             if (typeof b.content === 'string') resultText = b.content;
             else if (Array.isArray(b.content)) {
               resultText = b.content
-                .map((/** @type {any} */ c) => (c && c.type === 'text' ? c.text : ''))
+                .map((c: any) => (c && c.type === 'text' ? c.text : ''))
                 .filter(Boolean).join('\n');
             }
             sendEvent(webContents, sessionId, 'tool-result', {
@@ -413,8 +390,7 @@ async function tryStart(p, webContents, host) {
     }
   }
 
-  /** @type {Record<string, unknown>} */
-  const options = {
+  const options: Record<string,unknown> = {
     pathToClaudeCodeExecutable: bin.exe,
     cwd,
     env,
@@ -447,7 +423,7 @@ async function tryStart(p, webContents, host) {
     // has no argv limit, so unlike the legacy path there is no need to fold
     // large ones into the prompt body.
     ...(system ? { systemPrompt: { type: 'preset', preset: 'claude_code', append: system } } : {}),
-    stderr: (/** @type {string} */ data) => {
+    stderr: (data: string) => {
       // Surfaced only on failure paths; kept short.
       if (data) log.debug('[ai.claude-agent] stderr:', String(data).slice(0, 400));
     },
@@ -530,4 +506,4 @@ async function tryStart(p, webContents, host) {
   return true;
 }
 
-module.exports = { tryStart };
+export { tryStart };

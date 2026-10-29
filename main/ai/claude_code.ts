@@ -39,7 +39,7 @@ import attachments from './attachments.js';
 import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } from './timeouts.js';
 // Agent SDK engine (ESTUDO §18.5 step 2), preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
-import claudeAgent from './claude_agent.js';
+import * as claudeAgent from './claude_agent.js';
 import { REGRAS_CLAUDE } from './mcp_tool_rules.js';
 // Shared with the Agent SDK engine (claude_agent.js), one list, two consumers.
 // Two hand-kept copies is exactly how AskUserQuestion drifted back on over

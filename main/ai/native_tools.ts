@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * native_tools.js: which of the CLI's BUILT-IN tools Aurora's assistant may use.
+ * native_tools.ts: which of the CLI's BUILT-IN tools Aurora's assistant may use.
  *
  * Single source of truth for both Claude Code engines: claude_agent.js (Agent
  * SDK, `tools` option) and claude_code.js (legacy spawn, `--tools`). They used
@@ -43,8 +42,6 @@
  * tool stays available and keeps going through the renderer's permission card.
  */
 
-'use strict';
-
 /**
  * The built-ins the assistant gets. Each one is here for a stated reason;
  * anything not listed does not exist for the model.
@@ -86,4 +83,4 @@ const DISALLOWED_TOOLS = [
   'AskUserQuestion',
 ];
 
-module.exports = { NATIVE_TOOLS, DISALLOWED_TOOLS };
+export { NATIVE_TOOLS, DISALLOWED_TOOLS };

@@ -14,6 +14,7 @@ vi.mock('../../js/ui/status_updater.js', () => ({
 }));
 
 import { runSpec } from '../../js/compilation/spec_runner.js';
+import { TabManager } from '../../js/tabs/tab_manager.js';
 import {
     getSelectedSourceFile, getTestbenchInfo,
     cmmCompilation, cppCompilation, asmCompilation, stageProcessorMemoryFiles,
@@ -155,6 +156,14 @@ describe('cmmCompilation (yanc -S; seam lastCompiledCmmPath; o .cmm nunca e toca
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 2 });
         await expect(cmmCompilation(d, proc, vi.fn())).rejects.toThrow('error.compilation.cmmFailed');
+        expect(logged('error')).toBe(true);
+    });
+
+    it('o fonte que nao grava para a compilacao antes do yanc, com o erro no terminal (#248)', async () => {
+        const d = makeDeps();
+        TabManager.saveAllFiles.mockRejectedValueOnce(new Error('Could not save ProcX.cmm (EBUSY)'));
+        await expect(cmmCompilation(d, proc, vi.fn())).rejects.toThrow('Could not save ProcX.cmm (EBUSY)');
+        expect(runSpec).not.toHaveBeenCalled();
         expect(logged('error')).toBe(true);
     });
 });

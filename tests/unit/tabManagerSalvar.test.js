@@ -530,7 +530,11 @@ describe('salvar o aberto', () => {
     m.ponte.getFileStats = async (p) => { if (p === B) throw new Error('x'); return { mtime: 3 }; };
     falhar = true;
 
-    await TabManager.saveAllFiles();
+    // O que nao grava faz lancar, com o nome e o motivo, depois de tentar os
+    // outros: a compilacao que chamou para em vez de rodar a versao antiga (#248).
+    window.t = (k, p) => `${k}: ${p.lista}`;
+    await expect(TabManager.saveAllFiles()).rejects.toThrow('error.save.naoGravou: c.v (disco)');
+    delete window.t;
 
     expect(escritas().map((e) => e[0]).sort()).toEqual([A, B]);
     expect(semNome.mock.calls.map((c) => c[0]).sort()).toEqual(['Untitled-1', 'Untitled-2']);

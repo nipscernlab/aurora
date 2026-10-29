@@ -863,6 +863,9 @@
     "exportAllTitle": "Exportar o log do terminal (todos)"
   },
   "error": {
+    "save": {
+      "naoGravou": "Não foi possível gravar {{lista}}. O arquivo no disco continua na versão anterior, e nada roda com ele."
+    },
     "config": {
       "noCmm": "Nenhum arquivo C± selecionado. Selecione um para compilar.",
       "noSynth": "Nenhum arquivo sintetizável encontrado. Adicione arquivos Verilog em Configurações do Projeto.",

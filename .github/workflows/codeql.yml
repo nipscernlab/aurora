@@ -9,6 +9,12 @@ on:
     # Weekly, Monday 06:00 UTC.
     - cron: '0 6 * * 1'
 
+# O token do GitHub so le, aqui e em todo job que nao declarar o seu. O padrao
+# da organizacao ja e leitura; escrito no arquivo, o minimo nao depende dele
+# continuar assim (diretrizes, secao 9; #276).
+permissions:
+  contents: read
+
 jobs:
   analyze:
     name: Analyze (javascript-typescript)

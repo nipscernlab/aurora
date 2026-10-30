@@ -31,6 +31,9 @@ import path from 'node:path';
 /** Quantos caracteres de cada página o `ler` devolve por padrão. */
 const LIMITE_LEITURA = 12000;
 
+/** As entidades que o textoDe desfaz, além das numéricas. */
+const ENTIDADES: Record<string, string> = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"' };
+
 /** Tamanho do trecho que acompanha cada resultado de busca. */
 const TRECHO = 320;
 
@@ -52,20 +55,18 @@ function normalizar(texto: unknown) {
  *
  * A ordem importa: script e style saem INTEIROS antes de qualquer coisa, senão
  * o corpo deles viraria texto e a busca acharia palavra dentro de código de
- * navegação. Depois caem as tags, e por último as entidades mais comuns.
+ * navegação. Depois caem as tags, e por último as entidades mais comuns, numa
+ * passada só: em passadas seguidas, o `&amp;lt;` escrito no manual virava `&lt;`
+ * e logo `<`, um nível de escape a menos do que a página mostra (#276).
  */
 function textoDe(html: string) {
   return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, ' ')
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#(\d+);/g, (_: string, n: string) => String.fromCharCode(Number(n)))
+    .replace(/&(nbsp|amp|lt|gt|quot|#\d+);/g, (_: string, e: string) =>
+      (e[0] === '#' ? String.fromCharCode(Number(e.slice(1))) : ENTIDADES[e]))
     .replace(/\s+/g, ' ')
     .trim();
 }

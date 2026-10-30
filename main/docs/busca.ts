@@ -1,6 +1,5 @@
-// @ts-check
 /**
- * busca.js: procurar dentro do manual do SAPHO, sem rede e sem inchar prompt.
+ * busca.ts: procurar dentro do manual do SAPHO, sem rede e sem inchar prompt.
  *
  * POR QUE EXISTE
  * --------------
@@ -26,10 +25,8 @@
  * texto são comparados sem acento e sem maiúscula.
  */
 
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 /** Quantos caracteres de cada página o `ler` devolve por padrão. */
 const LIMITE_LEITURA = 12000;
@@ -42,9 +39,8 @@ const cache = new Map();
 
 /**
  * Sem acento, sem maiúscula, para comparar consulta com texto.
- * @param {unknown} texto
  */
-function normalizar(texto) {
+function normalizar(texto: unknown) {
   return String(texto || '')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
@@ -57,9 +53,8 @@ function normalizar(texto) {
  * A ordem importa: script e style saem INTEIROS antes de qualquer coisa, senão
  * o corpo deles viraria texto e a busca acharia palavra dentro de código de
  * navegação. Depois caem as tags, e por último as entidades mais comuns.
- * @param {string} html
  */
-function textoDe(html) {
+function textoDe(html: string) {
   return html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
@@ -70,16 +65,15 @@ function textoDe(html) {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#(\d+);/g, (/** @type {string} */ _, /** @type {string} */ n) => String.fromCharCode(Number(n)))
+    .replace(/&#(\d+);/g, (_: string, n: string) => String.fromCharCode(Number(n)))
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 /**
  * O título da página: o `<title>` sem o sufixo do tema, ou o primeiro `<h1>`.
- * @param {string} html
  */
-function tituloDe(html) {
+function tituloDe(html: string) {
   const t = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
   if (t) {
     // O tema separa o titulo do sufixo com hifen simples ("Dirac - SAPHO &
@@ -94,13 +88,10 @@ function tituloDe(html) {
 
 /**
  * Todos os .html do manual, em caminho relativo, com barra normal.
- * @param {string} dir
- * @returns {string[]}
  */
-function listarPaginas(dir) {
-  /** @type {string[]} */
-  const achados = [];
-  const andar = (/** @type {string} */ atual, /** @type {string} */ prefixo) => {
+function listarPaginas(dir: string): string[] {
+  const achados: string[] = [];
+  const andar = (atual: string, prefixo: string) => {
     let entradas = [];
     try { entradas = fs.readdirSync(atual, { withFileTypes: true }); }
     catch (_) { return; }
@@ -123,9 +114,8 @@ function listarPaginas(dir) {
  * A validade é o `mtime` do `index.html`, que a atualização do manual reescreve.
  * Assim o índice se refaz sozinho quando a documentação é atualizada com o
  * aplicativo aberto, que é exatamente quando um cache velho enganaria.
- * @param {string} dir
  */
-function indexar(dir) {
+function indexar(dir: string) {
   let carimbo = 0;
   try { carimbo = fs.statSync(path.join(dir, 'index.html')).mtimeMs; }
   catch (_) { return []; }
@@ -154,11 +144,8 @@ function indexar(dir) {
 
 /**
  * Um trecho em volta da primeira ocorrência, para o resultado ter contexto.
- * @param {string} texto
- * @param {string} textoNorm
- * @param {string} alvo
  */
-function trechoEmVolta(texto, textoNorm, alvo) {
+function trechoEmVolta(texto: string, textoNorm: string, alvo: string) {
   const i = textoNorm.indexOf(alvo);
   if (i < 0) return texto.slice(0, TRECHO).trim();
   const inicio = Math.max(0, i - Math.floor(TRECHO / 3));
@@ -174,11 +161,9 @@ function trechoEmVolta(texto, textoNorm, alvo) {
  * teto, para uma página longa não vencer só por ser longa. Nada de relevância
  * estatística: com 37 páginas isso seria complexidade sem ganho.
  *
- * @param {string} dir pasta do manual
- * @param {string} consulta
- * @param {{ limite?: number }} [opcoes]
+ * @param dir pasta do manual
  */
-function buscar(dir, consulta, opcoes = {}) {
+function buscar(dir: string, consulta: string, opcoes: { limite?: number; } = {}) {
   const limite = Number.isFinite(opcoes.limite) ? Math.max(1, Number(opcoes.limite)) : 5;
   const termos = normalizar(consulta).split(/\s+/).filter((t) => t.length >= 2);
   if (!termos.length) return [];
@@ -217,12 +202,8 @@ function buscar(dir, consulta, opcoes = {}) {
  * manual. Sem isso, um `../../` transformaria a ferramenta de leitura do manual
  * numa ferramenta de leitura do disco.
  *
- * @param {string} dir
- * @param {string} caminhoRelativo
- * @param {{ limite?: number }} [opcoes]
- * @returns {{ ok: true, caminho: string, titulo: string, texto: string, truncado: boolean } | { ok: false, erro: string }}
  */
-function ler(dir, caminhoRelativo, opcoes = {}) {
+function ler(dir: string, caminhoRelativo: string, opcoes: { limite?: number; } = {}): { ok: true; caminho: string; titulo: string; texto: string; truncado: boolean; }|{ ok: false; erro: string; } {
   const pedido = String(caminhoRelativo || '').replace(/\\/g, '/').replace(/^\/+/, '');
   if (!pedido || !pedido.toLowerCase().endsWith('.html')) {
     return { ok: false, erro: 'o caminho precisa ser uma página .html do manual' };
@@ -250,9 +231,8 @@ function ler(dir, caminhoRelativo, opcoes = {}) {
 
 /**
  * Quantas páginas o manual tem, para o diagnóstico do painel.
- * @param {string} dir
  */
-function contar(dir) {
+function contar(dir: string) {
   return indexar(dir).length;
 }
 
@@ -261,4 +241,4 @@ function limparCache() {
   cache.clear();
 }
 
-module.exports = { buscar, ler, contar, indexar, limparCache, normalizar };
+export { buscar, ler, contar, indexar, limparCache, normalizar };

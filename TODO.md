@@ -2436,7 +2436,7 @@ formalmente, não consertado.
   estar versionado). Em 23/08/2026 os dois estavam vermelhos em `main` sem
   ninguém saber: cores de reserva entraram no `var()` de um recurso novo, e o
   `generate_blocks.js`, gerado do `.ts`, tinha sido commitado. O CI também
-  roda `npm run deadcode`, `node scripts/gen-ai-tools-doc.js --check` e
+  roda `npm run deadcode`, `node scripts/gen-ai-tools-doc.mts --check` e
   `node scripts/check-pinned-versions.js`, que são baratos e valem no fim.
 - GIF de interface não se codifica como vídeo: dithering, que existe para
   disfarçar banda em fotografia, gasta bytes espalhando ruído sobre cor chapada

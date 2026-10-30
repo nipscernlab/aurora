@@ -95,7 +95,7 @@ jobs:
       # inteiras. Este check falha quando alguem acrescenta ou muda uma
       # ferramenta sem regerar.
       - name: AI tools reference is up to date
-        run: node scripts/gen-ai-tools-doc.js --check
+        run: node scripts/gen-ai-tools-doc.mts --check
 
       # O que a Aurora Intelligence sabe de C+- (resources/sapho_rules.json)
       # sai dos fontes do yanc. Este check clona o yanc na tag que o

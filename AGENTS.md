@@ -76,6 +76,6 @@ If any of these fails, the agent does not merge and says why.
 2. **A file you edit leaves in TypeScript.** If it is still `.js`, convert it whole, in strict mode, in a commit of its own (`npm run converter:ts -- <file.js>`), and make the change in a second commit. Generated `.js` is never committed. [`CONTRIBUTING.md`](CONTRIBUTING.md) has the detail.
 3. **Every changed line is exercised by a test.** `npm run coverage:diff` lists the ones that are not. Code no unit test can reach gets an end-to-end test and v8's `ignore start` and `ignore stop` comments with the reason beside them; that is the only way past the check.
 4. **The interface is bilingual.** Every string a user sees exists in English and in Portuguese, and `node scripts/check-i18n.js` keeps the two in step.
-5. **Generated references stay generated.** The Aurora Intelligence tools reference is checked by `node scripts/gen-ai-tools-doc.js --check`; regenerate it, never edit it by hand.
+5. **Generated references stay generated.** The Aurora Intelligence tools reference is checked by `node scripts/gen-ai-tools-doc.mts --check`; regenerate it, never edit it by hand.
 6. **Aurora Intelligence learns C± from the YANC it ships with.** When the bundled YANC changes, `resources/sapho_rules.json` is regenerated with `npm run rules:sync` against that YANC, and every version the prompt in `js/ai/system_prompt.ts` cites is checked against it, in the same pull request.
 7. **No new hard-coded colours, durations or cross-file globals.** CI checks both; use the design tokens and explicit imports.

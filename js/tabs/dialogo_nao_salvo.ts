@@ -7,6 +7,8 @@
  * tab_manager a reexporta, e quem a importava de la continua importando.
  */
 
+import { escaparHtml } from '../ui/escapar_html.js';
+
 /** O que a pessoa escolheu: `save`, `dont-save` ou `cancel` (tambem o Esc). */
 export type RespostaNaoSalvo = 'save' | 'dont-save' | 'cancel';
 
@@ -27,7 +29,7 @@ export function showUnsavedChangesDialog(fileName: string): Promise<RespostaNaoS
                         <h3 class="confirm-modal-title">Unsaved Changes</h3>
                     </div>
                     <div class="confirm-modal-message">
-                        Do you want to save the changes you made to "<strong>${fileName}</strong>"?<br>
+                        Do you want to save the changes you made to "<strong>${escaparHtml(fileName)}</strong>"?<br>
                         Your changes will be lost if you don't save them.
                     </div>
                     <div class="confirm-modal-actions">

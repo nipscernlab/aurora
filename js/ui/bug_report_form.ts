@@ -32,6 +32,9 @@ import { electronAPI } from '../app/electron_api.js';
 import { showCardNotification } from './notification.js';
 import { recorteEmTexto } from '../terminal/terminal_excerpt.js';
 import { motivoDe } from '../app/api_reply.js';
+// O escape tambem cobre as aspas: o mesmo texto entra em aria-label e em
+// placeholder, entre aspas duplas (#276).
+import { escaparHtml as escapar } from './escapar_html.js';
 
 const CHAVE_RASCUNHO = 'aurora-bugreport-rascunho';
 
@@ -110,10 +113,6 @@ function limparRascunho() {
   try { localStorage.removeItem(CHAVE_RASCUNHO); } catch (_) { /* ignore */ }
 }
 
-function escapar(s: unknown): string {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
 
 /**
  * Segundos viram um prazo que se lê.

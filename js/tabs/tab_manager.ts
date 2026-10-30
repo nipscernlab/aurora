@@ -33,6 +33,7 @@ import { fecharAbas, type FecharAbas } from './fechar_abas.js';
 import { isImageFile, isPdfFile, isBinaryFile, getFileIcon } from './tab_utils.js';
 import { isUntitled, untitledDisplayName, type UntitledDocument } from './untitled_docs.js';
 import { showUnsavedChangesDialog } from './dialogo_nao_salvo.js';
+import { escaparHtml } from '../ui/escapar_html.js';
 import type { AnfitriaoDosVisualizadores } from './tab_viewers.js';
 import type { AnfitriaoDoArraste } from './tab_drag.js';
 import type { AnfitriaoDoVigia } from './tab_watchers.js';
@@ -243,7 +244,7 @@ export class TabManager {
 
         if (segments.length > 0) {
             html += segments.map(segment =>
-                    `<span class="context-path-segment">${segment}</span>`
+                    `<span class="context-path-segment">${escaparHtml(segment)}</span>`
                 )
                 .join('<span class="context-path-separator">/</span>');
 
@@ -252,7 +253,7 @@ export class TabManager {
 
         const fileIcon = TabManager.getFileIcon(fileName);
         html += `<i class="${fileIcon}" style="color: var(--text)"></i>`;
-        html += `<span class="context-path-filename">${fileName}</span>`;
+        html += `<span class="context-path-filename">${escaparHtml(fileName)}</span>`;
 
         // Add file type indicator for binary files
         if (this.isBinaryFile(filePath) || this.isEmbeddedView(filePath)) {
@@ -396,7 +397,7 @@ export class TabManager {
             : `<i class="${this.getFileIcon(displayName)}"></i>`;
         tab.innerHTML = `
       ${icone}
-      <span class="tab-name">${displayName}</span>
+      <span class="tab-name">${escaparHtml(displayName)}</span>
       <button class="close-tab" title="${closeTitle}" data-i18n-title="tabs.close">×</button>
     `;
         if (this.isPrismView(filePath)) tab.setAttribute('title', 'PRISM');

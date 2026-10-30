@@ -155,6 +155,7 @@ js/editor/editor_language.js
 js/editor/empty_placeholder.js
 js/processors/processor_hub.js
 js/ui/dialog_manager.js
+js/ui/escapar_html.js
 js/ui/help_link.js
 js/ui/language_glyph.js
 js/ui/status_updater.js
@@ -318,6 +319,7 @@ js/project/path_rules.js
 js/ui/aviso_do_campo.js
 js/wave/surfer_custom.js
 js/ui/new_project_modal.js
+js/ui/bug_report_form.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 
@@ -355,6 +357,7 @@ main/ai/claude_agent.js
 main/ai/codex_agent.js
 main/ai/codex_cli.js
 main/windows.js
+main/docs/busca.js
 
 # --- LaTeX build artefacts (docs/) ---
 # The .tex sources AND the built main.pdf are tracked on purpose — the PDF is

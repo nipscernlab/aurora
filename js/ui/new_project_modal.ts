@@ -1,6 +1,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { projectManager } from '../project/project_manager.js';
 import { showDialog } from './dialog_manager.js';
+import { escaparHtml } from './escapar_html.js';
 import { analisarNome, analisarCaminhoDeProjeto, explicar, type Analise } from '../project/path_rules.js';
 import { marcarCampo, limparCampo } from './aviso_do_campo.js';
 
@@ -120,7 +121,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 ].filter(Boolean).join('\n\n');
                 await showDialog({
                     title: tr('dialog.newProject.invalidInputTitle'),
-                    message: problemas,
+                    // A mensagem do dialogo e HTML, e o detalhe repete o que a
+                    // pessoa digitou no nome e na pasta.
+                    message: escaparHtml(problemas),
                     buttons: [{ label: tr('dialog.common.understood'), action: 'ok', type: 'save' }]
                 });
                 return;

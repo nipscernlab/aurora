@@ -754,3 +754,39 @@ describe('o que e cada aba', () => {
     expect(TabManager.previewTab).toBeNull();
   });
 });
+
+describe('nome de arquivo entra como texto, nunca como HTML (#276)', () => {
+  // O Windows aceita & e ' em nome de arquivo, e um caminho que vem de outro
+  // sistema nao passa pela regra dele. O que o nome diz e o que a tela mostra.
+  const ESTRANHO = 'C:/p&amp;q/<i>x&lt;.v';
+
+  it('a aba mostra o nome tal como e', async () => {
+    await abrir(ESTRANHO, 'x');
+    const aba = abaDe(ESTRANHO);
+    expect(aba.querySelector('.tab-name').textContent).toBe('<i>x&lt;.v');
+    expect(aba.querySelector('.tab-name i')).toBeNull();
+  });
+
+  it('o caminho no topo do editor tambem', () => {
+    const barraCaminho = document.createElement('div');
+    barraCaminho.id = 'context-path';
+    document.body.appendChild(barraCaminho);
+    TabManager.updateContextPath(ESTRANHO);
+    expect(Array.from(barraCaminho.querySelectorAll('.context-path-segment')).map((s) => s.textContent))
+      .toEqual(['C:', 'p&amp;q']);
+    expect(barraCaminho.querySelector('.context-path-filename').textContent).toBe('<i>x&lt;.v');
+    expect(barraCaminho.querySelector('.context-path-filename i')).toBeNull();
+  });
+
+  it('e o dialogo de alteracao nao salva', async () => {
+    vi.useFakeTimers();
+    const p = showUnsavedChangesDialog('<i>a</i>&amp;.v');
+    await vi.advanceTimersByTimeAsync(10);
+    const modal = document.getElementById('unsaved-changes-modal');
+    expect(modal.querySelector('strong').textContent).toBe('<i>a</i>&amp;.v');
+    expect(modal.querySelector('strong i')).toBeNull();
+    document.dispatchEvent(Object.assign(new Event('keydown'), { key: 'Escape' }));
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await p).toBe('cancel');
+  });
+});

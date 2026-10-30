@@ -140,8 +140,11 @@ export async function despacharTurno(p: PainelDoTurno, operacao?: string): Promi
     p.unsubChatEvent = (window.aiAPI as NonNullable<Window['aiAPI']>).onChatEvent((ev) => p.handleChatEvent(ev));
   }
 
-  p.currentSessionId = (crypto.randomUUID && crypto.randomUUID()) ||
-    `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  // O renderer carrega de file:// (empacotado) ou do Vite em localhost (em
+  // desenvolvimento, main/render_loader.js), e o Chromium conta os dois como
+  // contexto seguro, entao randomUUID sempre existe. A reserva com Math.random que havia aqui
+  // nunca rodava, e o CodeQL a lia como identificador previsivel (#276).
+  p.currentSessionId = crypto.randomUUID();
   p.setStreaming(true);
 
   // Tool-type entries are display-only records; filter them before sending to

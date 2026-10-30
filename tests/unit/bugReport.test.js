@@ -121,7 +121,7 @@ describe('o consentimento e uma promessa so', () => {
     // e um problema juridico.
     const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
     const locales = JSON.parse(fs.readFileSync(path.join(raiz, 'locales', 'pt.json'), 'utf8'));
-    const fonte = fs.readFileSync(path.join(raiz, 'js', 'ui', 'bug_report_form.js'), 'utf8');
+    const fonte = fs.readFileSync(path.join(raiz, 'js', 'ui', 'bug_report_form.ts'), 'utf8');
     // A reserva esta partida em varias linhas concatenadas; remonta por eval
     // do trecho literal seria fragil, entao comparamos por fragmentos que so
     // aparecem no consentimento.

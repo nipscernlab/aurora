@@ -118,6 +118,8 @@ describe('Novo projeto: o envio', () => {
         $('generateProjectBtn').click();
         await esperar();
         expect(showDialog.mock.calls[0][0].message).toContain('Nome do projeto:');
+        // A mensagem do dialogo e HTML: o & digitado chega escapado (#276).
+        expect(showDialog.mock.calls[0][0].message).toContain('Tire: &amp;.');
         expect(electronAPI.createProjectStructure).not.toHaveBeenCalled();
     });
 

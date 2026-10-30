@@ -106,6 +106,13 @@ describe('parseMessages', () => {
     ]);
   });
 
+  it('cada escape do C desfaz um nivel so: \\\\n e barra e n, nao quebra de linha (#276)', () => {
+    const fonte = '#define MSG_ERR_Y M("c:\\\\new \\"x\\"\\t.", "tab\\tend\\n")';
+    const [m] = parseMessages(fonte);
+    expect(m.pt).toBe('c:\\new "x"\t.');
+    expect(m.en).toBe('tab\tend\n');
+  });
+
   it('sem fonte, sem mensagens', () => {
     expect(parseMessages(null)).toEqual([]);
   });

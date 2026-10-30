@@ -126,6 +126,18 @@ describe('procurar', () => {
 });
 
 describe('ler uma página', () => {
+  it('o script fechado com espaço sai inteiro, e cada entidade desfaz um nível só (#276)', () => {
+    fs.writeFileSync(path.join(dir, 'esc.html'),
+      '<html><head><title>Escape</title></head><body>'
+      + '<script>var segredo = 1;</script >'
+      + '<style>.y{}</style\n>'
+      + '<p>Escreva &amp;lt;b&amp;gt; para ver &lt;b&gt;; &quot;a&quot;&nbsp;&#65;.</p></body></html>', 'utf8');
+    const r = busca.ler(dir, 'esc.html');
+    expect(r.texto).not.toContain('segredo');
+    expect(r.texto).not.toContain('.y{}');
+    expect(r.texto).toContain('Escreva &lt;b&gt; para ver <b>; "a" A.');
+  });
+
   it('devolve título e texto sem marcação', () => {
     const r = busca.ler(dir, 'avancado/dirac.html');
     expect(r.ok).toBe(true);

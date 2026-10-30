@@ -17,6 +17,22 @@ interface PythonStatus {
   pythonPath: string;
 }
 
+/** O diagnostico do relato de problema, como o main o coleta. */
+interface DiagnosticoDoRelato {
+  versao?: string;
+  sistema?: string;
+  memoriaGB?: number;
+  nucleos?: number;
+  discoLivreGB?: number | null;
+  componentes?: string;
+  electron?: string;
+  chrome?: string;
+  node?: string;
+  empacotado?: boolean;
+  log?: string;
+  [k: string]: unknown;
+}
+
 /** Subset of the preload's electronAPI used by already-migrated .ts modules. */
 interface AuroraElectronAPI {
   joinPath(...parts: string[]): Promise<string>;
@@ -163,6 +179,9 @@ interface AuroraElectronAPI {
   selectDirectory(opts?: { defaultPath?: string }): Promise<string | null>;
   listRecentProjects?(): Promise<string[] | null>;
   createBackup?(folderPath: string): Promise<{ success?: boolean; message?: string } | null>;
+  /** O que acompanha um relato de problema (main/ipc/bug_report.ts). */
+  bugReportDiagnostico?(): Promise<DiagnosticoDoRelato | null>;
+  bugReportEnviar?(texto: Record<string, unknown>): Promise<{ ok: boolean; erro?: string; esperar?: number; [k: string]: unknown }>;
   renameProject?(newName: string): Promise<{ success?: boolean; message?: string; failedStep?: string; steps?: Array<Record<string, unknown>>; newSpfPath?: string; newName?: string; oldName?: string; [k: string]: unknown } | null>;
   watchDirectory(path: string | null): Promise<unknown>;
   stopWatchingDirectory(path: string): Promise<unknown>;

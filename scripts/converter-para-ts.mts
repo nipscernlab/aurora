@@ -285,7 +285,10 @@ export function converterTexto(abs: string, original: string): { texto: string; 
   texto = limparTypeAvulso(texto);
   texto = limparParamVazio(texto);
   const base = path.basename(abs);
-  texto = texto.replace(new RegExp(`(\\* )${base.replace('.', '\\.')}:`), `$1${base.replace(/\.js$/, '.ts')}:`);
+  // Todo metacaractere do nome escapado, e nao so o primeiro ponto: um nome
+  // como a.b.js ou x+y.js casaria outra coisa (#276).
+  const nomeNaRegex = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  texto = texto.replace(new RegExp(`(\\* )${nomeNaRegex}:`), `$1${base.replace(/\.js$/, '.ts')}:`);
   return { texto, avisos };
 }
 

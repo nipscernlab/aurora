@@ -47,12 +47,18 @@ const arvoreDoProjeto = (): ArvoreDoProjeto | undefined =>
 // (The project-open-but-zero-processors hint is handled by the verilog
 // view's own empty state in project_tree_render.js.)
 
+// O cartao nasce no boot, e sem projeto para restaurar ele nasce antes de as
+// traducoes carregarem: o t() devolvia a propria chave, e a pessoa via
+// "fileTree.empty.noProjectTitle" na tela. Por isso o texto tem reserva, e
+// cada span leva o data-i18n que o applyDOM repinta quando o idioma chega.
+const TITULO = 'fileTree.empty.noProjectTitle';
+const CHAMADA = 'fileTree.empty.noProjectCta';
+
 function buildEmptyStateCard() {
-    const tr = (k: string): string => (window.t ? window.t(k) : k);
     const config = {
         icon: 'ph ph-folder-plus',
-        title: tr('fileTree.empty.noProjectTitle'),
-        cta:   tr('fileTree.empty.noProjectCta'),
+        title: tt(TITULO, 'No project open'),
+        cta:   tt(CHAMADA, 'Click here to create a new project'),
         onClick: () => {
             // The new-project modal is wired in index.html's inline
             // script via the trigger→modal map (newProjectBtn →
@@ -68,10 +74,11 @@ function buildEmptyStateCard() {
     card.type = 'button';
     card.className = 'tree-empty-state tree-empty-no-project';
     card.setAttribute('aria-label', config.title);
+    card.setAttribute('data-i18n-aria-label', TITULO);
     card.innerHTML = `
         <span class="tree-empty-state-icon"><i class="${config.icon}" aria-hidden="true"></i></span>
-        <span class="tree-empty-state-title">${escapeHtml(config.title)}</span>
-        <span class="tree-empty-state-cta">${escapeHtml(config.cta)}</span>
+        <span class="tree-empty-state-title" data-i18n="${TITULO}">${escapeHtml(config.title)}</span>
+        <span class="tree-empty-state-cta" data-i18n="${CHAMADA}">${escapeHtml(config.cta)}</span>
     `;
     card.addEventListener('click', config.onClick);
     return card;

@@ -75,6 +75,27 @@ describe('cartao de nenhum projeto', () => {
     expect(cartao().querySelector('.tree-empty-state-title').innerHTML).toBe('&lt;b&gt;Sem&lt;/b&gt; projeto');
   });
 
+  it('antes de o idioma carregar, o cartao mostra a reserva, e o i18n o repinta quando ele chega', async () => {
+    // O que o Cadu viu na 7.0.0: o cartao nascia antes do catalogo, o t()
+    // devolvia a chave, e sem data-i18n ninguem o repintava.
+    globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
+    const i18n = await import('../../js/i18n/i18n.js');
+    i18n._setTranslations('pt', {});
+    i18n._setLocaleSync('pt');
+    window.t = i18n.t;
+    window.renderTreeEmptyState();
+    const titulo = () => cartao().querySelector('.tree-empty-state-title');
+    const chamada = () => cartao().querySelector('.tree-empty-state-cta');
+    expect(titulo().textContent).toBe('No project open');
+    expect(chamada().textContent).toBe('Click here to create a new project');
+
+    i18n._setTranslations('pt', { fileTree: { empty: { noProjectTitle: 'Nenhum projeto aberto', noProjectCta: 'Clique aqui' } } });
+    i18n.applyDOM();
+    expect(titulo().textContent).toBe('Nenhum projeto aberto');
+    expect(chamada().textContent).toBe('Clique aqui');
+    expect(cartao().getAttribute('aria-label')).toBe('Nenhum projeto aberto');
+  });
+
   it('restaurando um projeto, espera o fim da restauracao; se nao abriu nada, mostra o cartao', async () => {
     await carregar({ restaurando: true });
     expect(cartao()).toBeNull();

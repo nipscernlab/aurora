@@ -130,8 +130,11 @@ export function applyOverride(spec: CommandSpec, ov: CommandOverride | null | un
 
 /**
  * Render a spec to a printable command line (display only, never fed
- * to a shell). Tokens with whitespace are double-quoted; backslashes
- * are escaped so the displayed string is parser-safe to read.
+ * to a shell). Tokens with whitespace or a quote are double-quoted with the
+ * Windows rule (CommandLineToArgvW): a quote inside becomes \", the
+ * backslashes right before it double, and so do the ones closing the token.
+ * Any other backslash stays single, so a path reads as a path, and a line
+ * copied from the terminal parses back to the same arguments (#276).
  */
 export function formatSpec(spec: CommandSpec | null | undefined): string {
   if (!spec) return '';
@@ -141,7 +144,7 @@ export function formatSpec(spec: CommandSpec | null | undefined): string {
     if (!s) return '""';
     // Quote if it contains whitespace, quote, equals, or windows path delim.
     if (/[\s"]/.test(s)) {
-      return '"' + s.replace(/"/g, '\\"') + '"';
+      return '"' + s.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1') + '"';
     }
     return s;
   }).join(' ');

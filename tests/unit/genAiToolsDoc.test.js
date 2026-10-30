@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { gerarDocumento } from '../../scripts/gen-ai-tools-doc.mts';
+import { celula, gerarDocumento } from '../../scripts/gen-ai-tools-doc.mts';
 import { TOOL_MANIFEST } from '../../main/ai/tools.js';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -39,5 +39,11 @@ describe('gen-ai-tools-doc', () => {
   it('a barra vertical da descricao nao quebra a tabela', () => {
     const doc = gerarDocumento([{ name: 'x', api: ['git'], description: 'a | b' }]);
     expect(doc).toContain('| `x` | - | nenhum | a \\| b |');
+  });
+
+  it('a barra invertida escapa antes, para nao desfazer o escape da vertical (#276)', () => {
+    expect(celula('a\\|b')).toBe('a\\\\\\|b');
+    expect(celula('C:\\p')).toBe('C:\\\\p');
+    expect(celula(undefined)).toBe('');
   });
 });

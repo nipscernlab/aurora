@@ -62,6 +62,15 @@ function params(tool: Ferramenta): string {
     .join(', ');
 }
 
+/**
+ * A descricao pronta para uma celula da tabela. A barra vertical fecharia a
+ * celula, e a barra invertida antes dela desfaria o escape: as duas escapam,
+ * a invertida primeiro (#276).
+ */
+export function celula(texto: unknown): string {
+  return String(texto || '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\s+/g, ' ').trim();
+}
+
 /** O documento inteiro, como texto, para o manifesto dado. */
 export function gerarDocumento(manifesto: readonly Ferramenta[]): string {
   const porGrupo = new Map<string, Ferramenta[]>();
@@ -74,9 +83,9 @@ export function gerarDocumento(manifesto: readonly Ferramenta[]): string {
   const linhas: string[] = [];
   linhas.push('# Ferramentas da Aurora Intelligence');
   linhas.push('');
-  linhas.push('<!-- GERADO por scripts/gen-ai-tools-doc.js. Nao edite a mao: a proxima');
+  linhas.push('<!-- GERADO por scripts/gen-ai-tools-doc.mts. Nao edite a mao: a proxima');
   linhas.push('     execucao sobrescreve. Para mudar o texto de uma ferramenta, edite a');
-  linhas.push('     `description` dela em main/ai/tools.js, que e o mesmo texto que o');
+  linhas.push('     `description` dela em main/ai/tools.ts, que e o mesmo texto que o');
   linhas.push('     modelo le ao decidir se a chama. -->');
   linhas.push('');
   linhas.push(`A AURORA expoe ${manifesto.length} ferramentas ao modelo. Elas chegam ate ele por dois`);
@@ -102,7 +111,7 @@ export function gerarDocumento(manifesto: readonly Ferramenta[]): string {
     linhas.push('| Ferramenta | Acesso | Parametros | O que faz |');
     linhas.push('|---|---|---|---|');
     for (const t of tools.slice().sort((a, b) => a.name.localeCompare(b.name))) {
-      const desc = String(t.description || '').replace(/\|/g, '\\|').replace(/\s+/g, ' ').trim();
+      const desc = celula(t.description);
       linhas.push(`| \`${t.name}\` | ${t.access || '-'} | ${params(t)} | ${desc} |`);
     }
     linhas.push('');
@@ -121,7 +130,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     const atual = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
     if (atual !== novo) {
       console.error('  FALHA: docs/aurora-intelligence-tools.md esta desatualizado.');
-      console.error('  Rode: node scripts/gen-ai-tools-doc.js');
+      console.error('  Rode: node scripts/gen-ai-tools-doc.mts');
       process.exit(1);
     }
     console.log(`  OK  documento em dia com as ${TOOL_MANIFEST.length} ferramentas`);

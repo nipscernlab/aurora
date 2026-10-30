@@ -198,6 +198,11 @@ describe('o acabamento', () => {
 });
 
 describe('converterTexto', () => {
+  it('o nome do cabecalho troca mesmo com metacaractere de regex no nome (#276)', () => {
+    const { texto } = converterTexto(`${barra(tmp)}/a+b.js`, '/**\n * a+b.js: soma.\n */\nexport const x = 1;\n');
+    expect(texto.startsWith('/**\n * a+b.ts: soma.')).toBe(true);
+  });
+
   it('o caminho inteiro: sem @ts-check, cabecalho com o nome novo, tipos na assinatura', () => {
     const { texto, avisos } = converterTexto(`${barra(tmp)}/util.js`, [
       '// @ts-check',

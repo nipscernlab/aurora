@@ -284,15 +284,17 @@ function inferSeverity(code: string): string {
 // pins the closing dash run.
 const SECTION_RE = /^\s*\/\/\s+(.+?)\s+-{3,}\s*$/gm;
 
+const ESCAPES_C: Record<string, string> = { '\\': '\\', '"': '"', n: '\n', t: '\t' };
+
 function decodeC(s: string): string {
   // Convert C-escape sequences relevant to message strings. We don't
   // need a full C unescape, printf format specifiers (%d, %s, …)
   // stay verbatim because the AI surfaces them as patterns.
-  return s
-    .replace(/\\\\/g, '\\')
-    .replace(/\\"/g, '"')
-    .replace(/\\n/g, '\n')
-    .replace(/\\t/g, '\t');
+  //
+  // Uma passada so. Em quatro replace seguidos, o \\ que o primeiro
+  // desfazia virava barra solta, e o seguinte lia `\\n` (barra e n) como
+  // quebra de linha (#276).
+  return s.replace(/\\([\\"nt])/g, (_, c: string) => ESCAPES_C[c]);
 }
 
 // Skip a quoted C string literal starting at index i (i points at the

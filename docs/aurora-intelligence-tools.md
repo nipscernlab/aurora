@@ -1,8 +1,8 @@
 # Ferramentas da Aurora Intelligence
 
-<!-- GERADO por scripts/gen-ai-tools-doc.js. Nao edite a mao: a proxima
+<!-- GERADO por scripts/gen-ai-tools-doc.mts. Nao edite a mao: a proxima
      execucao sobrescreve. Para mudar o texto de uma ferramenta, edite a
-     `description` dela em main/ai/tools.js, que e o mesmo texto que o
+     `description` dela em main/ai/tools.ts, que e o mesmo texto que o
      modelo le ao decidir se a chama. -->
 
 A AURORA expoe 126 ferramentas ao modelo. Elas chegam ate ele por dois

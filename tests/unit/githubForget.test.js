@@ -62,7 +62,7 @@ describe('alvoEhDeForja', () => {
     });
 
     it('a lista de hosts e restrita, e nao um curinga', () => {
-        expect(HOSTS.every((h) => h.endsWith('github.com'))).toBe(true);
+        expect(HOSTS).toEqual(['github.com', 'gist.github.com', 'ssh.github.com']);
         expect(HOSTS_GITLAB).toEqual(['gitlab.com']);
     });
 });

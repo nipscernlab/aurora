@@ -59,7 +59,7 @@ describe('verify-toolchain-sentinels', () => {
         const saida = `${r.stdout}\n${r.stderr}`;
         const nomes = ['toolchain (msys)', 'yanc', 'gtkwave', 'surfer', 'verible', 'clang-format', 'slang-server'];
         for (const n of nomes) {
-            expect(saida).toMatch(new RegExp(`^\\s+(ok|MISSING)\\s+${n.replace(/[()]/g, '\\$&')}\\s`, 'm'));
+            expect(saida).toMatch(new RegExp(`^\\s+(ok|MISSING)\\s+${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s`, 'm'));
         }
         // Nenhum downloader deixou de carregar ou de exportar a sentinela.
         expect(saida).not.toMatch(/cannot load|no longer exports/);

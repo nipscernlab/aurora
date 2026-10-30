@@ -1,5 +1,5 @@
 /**
- * bug_report_form.js: o painel onde a pessoa escreve o relato.
+ * bug_report_form.ts: o painel onde a pessoa escreve o relato.
  *
  * POR QUE UM PAINEL, E NAO UM ENVIO DIRETO
  * ----------------------------------------
@@ -35,8 +35,20 @@ import { motivoDe } from '../app/api_reply.js';
 
 const CHAVE_RASCUNHO = 'aurora-bugreport-rascunho';
 
+/** O que a pessoa escreveu, e o recorte do terminal que vai junto. */
+export interface Texto {
+  oQueAconteceu: string;
+  oQueEsperava: string;
+  comoReproduzir: string;
+  email: string;
+  terminal?: string;
+  [k: string]: unknown;
+}
+
+type Diagnostico = NonNullable<Awaited<ReturnType<NonNullable<Window['electronAPI']['bugReportDiagnostico']>>>>;
+
 /** Reservas em português para antes de as locales carregarem. */
-const RESERVA = {
+const RESERVA: Record<string, string> = {
   'bugReport.title': 'Relatar um problema',
   'bugReport.close': 'Fechar',
   'bugReport.whatHappened': 'O que aconteceu',
@@ -75,7 +87,7 @@ const RESERVA = {
 };
 
 /** t() com reserva e {placeholders}. */
-function tr(chave, valores) {
+function tr(chave: string, valores?: Record<string, unknown>): string {
   const cru = window.t ? window.t(chave) : null;
   let texto = cru && cru !== chave ? cru : (RESERVA[chave] || chave);
   for (const [k, v] of Object.entries(valores || {})) {
@@ -89,7 +101,7 @@ function rascunhoSalvo() {
   catch (_) { return {}; }
 }
 
-function salvarRascunho(d) {
+function salvarRascunho(d: Texto) {
   try { localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(d)); }
   catch (_) { /* modo privado */ }
 }
@@ -98,7 +110,7 @@ function limparRascunho() {
   try { localStorage.removeItem(CHAVE_RASCUNHO); } catch (_) { /* ignore */ }
 }
 
-function escapar(s) {
+function escapar(s: unknown): string {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -109,7 +121,7 @@ function escapar(s) {
  * Arredonda para cima: dizer "1 minuto" e a pessoa voltar aos 61 segundos e
  * ser barrada de novo é pior do que ter pedido 2 desde o começo.
  */
-export function emMinutos(segundos) {
+export function emMinutos(segundos: unknown): string {
   const s = Math.max(1, Math.ceil(Number(segundos) || 0));
   if (s === 1) return tr('bugReport.waitOneSecond');
   if (s < 60) return tr('bugReport.waitSeconds', { n: s });
@@ -118,12 +130,12 @@ export function emMinutos(segundos) {
 }
 
 /** Placeholder multilinha vira &#10; para sobreviver dentro do atributo. */
-function escaparAtributo(s) {
+function escaparAtributo(s: unknown): string {
   return escapar(s).replace(/\n/g, '&#10;');
 }
 
 /** O diagnóstico como texto, na mesma ordem em que é mostrado e enviado. */
-export function diagnosticoEmTexto(d, terminal) {
+export function diagnosticoEmTexto(d: Diagnostico | null | undefined, terminal?: string): string {
   if (!d) return tr('bugReport.diagUnavailable');
   const linhasDeLog = String(d.log || '').split('\n').length;
   const disco = d.discoLivreGB == null ? '?' : `${d.discoLivreGB} GB livres`;
@@ -143,7 +155,7 @@ export function diagnosticoEmTexto(d, terminal) {
   return partes.join('\n');
 }
 
-function montar(diag, terminal) {
+function montar(diag: Diagnostico | null, terminal: string) {
   const rascunho = rascunhoSalvo();
   const overlay = document.createElement('div');
   overlay.className = 'bug-report-overlay';
@@ -186,20 +198,20 @@ function montar(diag, terminal) {
   ].join('\n');
   overlay.appendChild(corpo);
 
-  const campo = (id) => overlay.querySelector('#' + id);
+  const campo = (id: string) => overlay.querySelector('#' + id) as HTMLInputElement;
   campo('bug-o-que').value = rascunho.oQueAconteceu || '';
   campo('bug-esperava').value = rascunho.oQueEsperava || '';
   campo('bug-reproduzir').value = rascunho.comoReproduzir || '';
   campo('bug-email').value = rascunho.email || '';
 
-  const ler = () => ({
+  const ler = (): Texto => ({
     oQueAconteceu: campo('bug-o-que').value,
     oQueEsperava: campo('bug-esperava').value,
     comoReproduzir: campo('bug-reproduzir').value,
     email: campo('bug-email').value,
   });
 
-  const btEnviar = overlay.querySelector('[data-acao="enviar"]');
+  const btEnviar = overlay.querySelector('[data-acao="enviar"]') as HTMLButtonElement;
   const sincronizar = () => {
     const d = ler();
     // Sem descrição não há relato, e uma issue vazia custa mais a quem recebe
@@ -214,26 +226,26 @@ function montar(diag, terminal) {
 }
 
 /** Abre o painel e resolve com a ação escolhida e o texto escrito. */
-function perguntar(diag, terminal) {
+function perguntar(diag: Diagnostico | null, terminal: string): Promise<{ acao: string; texto: Texto }> {
   return new Promise((resolve) => {
     const { overlay, ler } = montar(diag, terminal);
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visivel'));
-    overlay.querySelector('#bug-o-que')?.focus();
+    (overlay.querySelector('#bug-o-que') as HTMLElement | null)?.focus();
 
-    const fechar = (acao) => {
+    const fechar = (acao: string) => {
       document.removeEventListener('keydown', aoTeclar);
       overlay.classList.remove('visivel');
       setTimeout(() => overlay.remove(), 180);
       resolve({ acao, texto: ler() });
     };
-    const aoTeclar = (e) => { if (e.key === 'Escape') fechar('cancelar'); };
+    const aoTeclar = (e: KeyboardEvent) => { if (e.key === 'Escape') fechar('cancelar'); };
     document.addEventListener('keydown', aoTeclar);
 
-    overlay.querySelector('.bug-report-x').addEventListener('click', () => fechar('cancelar'));
+    overlay.querySelector('.bug-report-x')!.addEventListener('click', () => fechar('cancelar'));
     overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar('cancelar'); });
-    overlay.querySelectorAll('[data-acao]').forEach((b) => {
-      b.addEventListener('click', () => fechar(b.dataset.acao));
+    overlay.querySelectorAll<HTMLElement>('[data-acao]').forEach((b) => {
+      b.addEventListener('click', () => fechar(b.dataset.acao || ''));
     });
   });
 }
@@ -241,12 +253,12 @@ function perguntar(diag, terminal) {
 /**
  * Fluxo completo: reúne, pergunta, envia.
  *
- * @param {(texto: object, diag: object) => Promise<void>} porEmail caminho de
+ * @param porEmail caminho de
  *   reserva, que abre o webmail já preenchido com o mesmo texto.
  */
-export async function abrirFormulario(porEmail) {
-  let diag = null;
-  try { diag = await electronAPI.bugReportDiagnostico?.(); } catch (_) { /* segue sem */ }
+export async function abrirFormulario(porEmail: (texto: Texto, diag: Diagnostico | null) => Promise<void>) {
+  let diag: Diagnostico | null = null;
+  try { diag = (await electronAPI.bugReportDiagnostico?.()) ?? null; } catch (_) { /* segue sem */ }
 
   // Colhido do DOM AGORA, antes de a pessoa começar a escrever: o terminal
   // continua recebendo linhas enquanto o painel está aberto, e o que interessa
@@ -269,7 +281,7 @@ export async function abrirFormulario(porEmail) {
   }
 
   const r = await electronAPI.bugReportEnviar?.(texto)
-    .catch((e) => ({ ok: false, erro: e?.message }));
+    .catch((e: unknown) => ({ ok: false, erro: (e as Error | null)?.message, esperar: undefined }));
 
   // O UNICO ponto que apaga o que a pessoa escreveu, e so com o envio
   // confirmado pelo servidor. Cancelar, fechar clicando fora, bater no limite

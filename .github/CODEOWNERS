@@ -4,17 +4,17 @@
 # @Chrysthofer stays to step in on an emergency.
 
 # Default owner for everything.
-*                       @ART3121 @lucianomaf @Chrysthofer
+*                       @lucianomaf @Chrysthofer
 
 # Aurora Intelligence / AI backend.
-/main/ai/               @ART3121 @lucianomaf @Chrysthofer
-/js/ui/ai_assistant_manager.js  @ART3121 @lucianomaf @Chrysthofer
+/main/ai/               @lucianomaf @Chrysthofer
+/js/ui/ai_assistant_manager.ts  @lucianomaf @Chrysthofer
 
 # Simulation / waveform / cocotb flow.
-/js/wave/               @ART3121 @lucianomaf @Chrysthofer
-/js/compilation/        @ART3121 @lucianomaf @Chrysthofer
+/js/wave/               @lucianomaf @Chrysthofer
+/js/compilation/        @lucianomaf @Chrysthofer
 
 # Build, packaging and release plumbing.
-/.github/               @ART3121 @lucianomaf @Chrysthofer
-/scripts/               @ART3121 @lucianomaf @Chrysthofer
-/components/Scripts/    @ART3121 @lucianomaf @Chrysthofer
+/.github/               @lucianomaf @Chrysthofer
+/scripts/               @lucianomaf @Chrysthofer
+/components/Scripts/    @lucianomaf @Chrysthofer

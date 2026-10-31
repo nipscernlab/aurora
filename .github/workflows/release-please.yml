@@ -18,8 +18,8 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
-    # Somente as contas dos mantenedores criam releases: ART3121 (Arthur Araujo
-    # Martins) e lucianomaf (Prof. Luciano), desde 23/09/2026. O job faz duas
+    # Somente as contas dos mantenedores criam releases: lucianomaf (Prof.
+    # Luciano), desde 23/09/2026; o ART3121 saiu da lista em 31/10/2026. O job faz duas
     # coisas: atualiza a PR de release a cada push e, quando o push e o merge
     # dela, cria a tag e publica a Release. Travar pelo ator cobre as duas: um
     # push de outro colaborador nao atualiza a PR (o proximo push de um
@@ -28,7 +28,7 @@ jobs:
     # so libera admin); esta aqui e a do codigo. Mudou o mantenedor, muda aqui
     # e no preflight do release.yml, os dois juntos. O Chrysthofer fica no gate
     # para socorrer se algo quebrar.
-    if: github.actor == 'ART3121' || github.actor == 'lucianomaf' || github.actor == 'Chrysthofer'
+    if: github.actor == 'lucianomaf' || github.actor == 'Chrysthofer'
     # Consumido pelo job `build` abaixo.
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}

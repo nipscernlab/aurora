@@ -86,13 +86,13 @@ jobs:
     name: Preflight — publish access
     runs-on: ubuntu-latest
     # Somente as contas dos mantenedores publicam, as mesmas do gate do
-    # release-please.yml: ART3121 (Arthur) e lucianomaf (Luciano). O bot cobre
+    # release-please.yml: lucianomaf (Luciano). O bot cobre
     # o caminho normal, em que a release e criada pelo release-please, ja gated
     # pelo mesmo ator no outro workflow. Uma release criada a mao por outra
     # conta para aqui, antes de gastar os ~20 min de build. O job `release`
     # herda via needs: preflight pulado pula os dependentes. O Chrysthofer fica
-    # so durante a transicao de 09/2026, como no release-please.yml.
-    if: github.actor == 'ART3121' || github.actor == 'lucianomaf' || github.actor == 'Chrysthofer' || github.actor == 'github-actions[bot]'
+    # para socorrer se algo quebrar, como no release-please.yml.
+    if: github.actor == 'lucianomaf' || github.actor == 'Chrysthofer' || github.actor == 'github-actions[bot]'
     permissions: {}
 
     steps:

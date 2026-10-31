@@ -21,7 +21,8 @@ pnpm-debug.log*
 !.vscode/tasks.json
 !.vscode/launch.json
 .idea/
-.claude/
+.claude/*
+!.claude/settings.json
 *.iml
 .DS_Store
 Thumbs.db

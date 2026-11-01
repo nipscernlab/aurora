@@ -43,7 +43,7 @@ A change that touches compilation, simulation or any command line the IDE builds
 These come from the [nipscernlab guidelines](https://github.com/nipscernlab/.github/blob/main/GUIDELINES.md) and the [writing style](https://github.com/nipscernlab/.github/blob/main/STYLE.md). They apply to people and agents alike.
 
 1. Work on a branch of this repository named `<login>/<topic>`, and reach `main` through a pull request. Nobody pushes to `main` directly.
-2. A pull request is merged only when the required CI checks pass. A pull request from anyone other than an organization owner also needs the approval of the maintainer named in `CODEOWNERS`. If you need a merge, ask the maintainer.
+2. A pull request is merged only when the required CI checks pass; the ruleset of `main` enforces that. A pull request from anyone other than an organization owner also needs the approval of a maintainer named in `CODEOWNERS`. The ruleset does not enforce this approval, because GitHub does not let authors approve their own pull requests and the maintainers' would then merge only through an administrator override, which an agent never uses; it is enforced by who has write access. If you need a merge, ask the maintainer.
 3. Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/). The body says why.
 4. Code and documentation move together. If a change makes a sentence in the README, the manual or any document untrue, the same pull request fixes it. An outdated document is a defect, like a failing test.
 5. Every change comes with the tests that show it works.

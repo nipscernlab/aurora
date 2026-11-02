@@ -326,6 +326,7 @@ html/prism/prism.js
 
 # main/ (CommonJS, emitido por tsconfig.main.json via scripts/build-ts.js)
 main/ai/cli_manifest.js
+main/ai/linha_do_cmd.js
 main/ai/mcp_tool_rules.js
 main/compile/binary_allowlist.js
 main/ipc/processor_rename.js

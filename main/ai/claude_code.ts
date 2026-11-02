@@ -36,6 +36,7 @@ import auroraMcp from './aurora_mcp_server.js';
 import cliLocator from './cli_locator.js';
 import cliDownloader from './cli_downloader.js';
 import attachments from './attachments.js';
+import { viaCmd } from './linha_do_cmd.js';
 import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } from './timeouts.js';
 // Agent SDK engine (ESTUDO §18.5 step 2), preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
@@ -149,13 +150,12 @@ function execFileText(binPath: string, args: string[], timeoutMs = 6000): Promis
   // invocation on Node >= 20.12. Without this, `claude --version` would
   // throw EINVAL even when the binary path exists. The bundled native
   // `.exe` is unaffected and runs directly.
-  let cmd = binPath, finalArgs = args;
+  let cmd = binPath, finalArgs = args, windowsVerbatimArguments = false;
   if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(binPath)) {
-    cmd = 'cmd.exe';
-    finalArgs = ['/d', '/s', '/c', binPath, ...args];
+    ({ cmd, args: finalArgs, windowsVerbatimArguments } = viaCmd(binPath, args));
   }
   return new Promise<string>((resolve, reject) => {
-    execFile(cmd, finalArgs, { timeout: timeoutMs, windowsHide: true }, (err, stdout) => {
+    execFile(cmd, finalArgs, { timeout: timeoutMs, windowsHide: true, windowsVerbatimArguments }, (err, stdout) => {
       if (err) reject(err);
       else resolve(String(stdout || ''));
     });
@@ -545,10 +545,13 @@ export async function start(payload: PedidoDoTurno | null | undefined, webConten
   // touches it. Small system prompts still take the CLI flag (which is
   // slightly preferred because it stays out of the user-message
   // transcript on resume).
+  // Pelo .cmd tudo vai no corpo: o cmd.exe nao carrega quebra de linha num
+  // argumento (main/ai/linha_do_cmd.ts).
   const SYS_INLINE_THRESHOLD = 2048;
+  const peloCmd = bin.viaShim && process.platform === 'win32';
   let inlineSystem = '';
   if (system) {
-    if (system.length > SYS_INLINE_THRESHOLD) {
+    if (system.length > SYS_INLINE_THRESHOLD || peloCmd) {
       inlineSystem = system;
     } else {
       args.push('--append-system-prompt', system);
@@ -606,16 +609,13 @@ export async function start(payload: PedidoDoTurno | null | undefined, webConten
   try {
     // On Windows, npm installs the CLI as `claude.cmd` (a batch shim).
     // Since Node v20.12 (CVE-2024-27980) `.bat`/`.cmd` files cannot be
-    // launched directly via `spawn(bin, args)`, they need `shell:true`
-    // OR you have to invoke cmd.exe explicitly. We pick the explicit
-    // route because it sidesteps the per-arg shell-quoting hazard:
-    // arguments stay as a real array (not concatenated into a single
-    // shell command), so values containing spaces / special chars
-    // (e.g. `system` prompt text, `cwd` paths with spaces) reach the
-    // CLI verbatim.
-    if (bin.viaShim && process.platform === 'win32') {
-      proc = spawn('cmd.exe', ['/d', '/s', '/c', bin.exe, ...args], {
-        cwd, env, windowsHide: true, windowsVerbatimArguments: false,
+    // launched directly via `spawn(bin, args)`, they need cmd.exe. Each
+    // argument is escaped for it (linha_do_cmd.ts): a project path with `&`
+    // used to end the command there and run the rest.
+    if (peloCmd) {
+      const c = viaCmd(bin.exe, args);
+      proc = spawn(c.cmd, c.args, {
+        cwd, env, windowsHide: true, windowsVerbatimArguments: c.windowsVerbatimArguments,
       });
     } else {
       proc = spawn(bin.exe, args, { cwd, env, windowsHide: true });

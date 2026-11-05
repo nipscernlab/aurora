@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "source": {
-    "yancTag": "v9.1",
-    "yancCommit": "bf3d0da1a8a6"
+    "yancTag": "v9.2",
+    "yancCommit": "a6d61ffa26c1"
   },
   "language": {
     "keywords": [
@@ -157,7 +157,9 @@
   "directives": {
     "NUBITS": {
       "symbol": "#NUBITS",
-      "token": "NUBITS"
+      "token": "NUBITS",
+      "description": "word width (bits): an int literal in hex, octal or binary is a bit pattern of this word",
+      "default": 32
     },
     "NBMANT": {
       "symbol": "#NBMANT",
@@ -197,7 +199,9 @@
     },
     "FFTSIZ": {
       "symbol": "#FFTSIZ",
-      "token": "FFTSIZ"
+      "token": "FFTSIZ",
+      "description": "low bits of an index v[k) reverses (#FFTSIZ; asmcomp's default too)",
+      "default": 3
     },
     "FROUND": {
       "symbol": "#FROUND",
@@ -208,6 +212,10 @@
     "TOAQUI": {
       "symbol": "#TOAQUI",
       "token": "TOAQUI"
+    },
+    "WAVE": {
+      "symbol": "#WAVE",
+      "token": "WAVE"
     }
   },
   "grammar": {
@@ -227,8 +235,10 @@
       "COPY",
       "COS",
       "COSH",
+      "DBAR",
       "DEFAULT",
       "DIF",
+      "DIMIN",
       "DO",
       "ELSE",
       "EQU",
@@ -252,6 +262,7 @@
       "INUM",
       "ITRADD",
       "KET",
+      "KETIN",
       "LAN",
       "LESEQ",
       "LOG",
@@ -260,6 +271,8 @@
       "NBEXPO",
       "NBMANT",
       "NDSTAC",
+      "NIMIN",
+      "NINUM",
       "NRM",
       "NUBITS",
       "NUGAIN",
@@ -291,17 +304,21 @@
       "TOMAS",
       "TYPE",
       "VZERO",
+      "WAVE",
       "WHILE"
     ],
     "productions": [
+      "asize",
       "assignment",
       "break",
       "case_label",
       "continue",
+      "dchain",
       "declar",
       "default_label",
-      "dire_inter",
+      "dirac",
       "direct",
+      "directive_inter",
       "do_intro",
       "do_while",
       "else_intro",
@@ -318,6 +335,10 @@
       "id_list",
       "if_else_stmt",
       "if_exp",
+      "ini_item",
+      "ini_list",
+      "ini_num",
+      "ini_nums",
       "par_items",
       "par_list",
       "prog",
@@ -355,14 +376,15 @@
       "std_tan",
       "std_tanh",
       "std_toma",
-      "std_vout",
       "stmt_full",
       "stmt_list",
       "sw_body",
       "switch_case",
       "switch_intro",
       "terminal",
+      "unum",
       "void_call",
+      "wave_list",
       "while_exp",
       "while_intro",
       "while_stmt"
@@ -375,13 +397,6 @@
       "category": "general errors (parser/main/limits)",
       "pt": "Erro de sintaxe na linha %d. Você é uma pessoa confusa!\n",
       "en": "Syntax error on line %d. You're a confused soul!\n"
-    },
-    {
-      "code": "MSG_ERR_OUT_OF_MEMORY",
-      "severity": "error",
-      "category": "general errors (parser/main/limits)",
-      "pt": "Erro: memória insuficiente pra alocar a tabela de símbolos!\n",
-      "en": "Error: out of memory while growing the symbol table!\n"
     },
     {
       "code": "MSG_ERR_NO_MAIN",
@@ -405,11 +420,11 @@
       "en": "Error on line %d: the symbol 'i' is reserved for the imaginary part of a complex constant. Hands off!\n"
     },
     {
-      "code": "MSG_ERR_NUGAIN_POW2",
+      "code": "MSG_ERR_NAME_TOO_LONG",
       "severity": "error",
       "category": "variable / number errors",
-      "pt": "Erro na linha %d: #NUGAIN %d não é potência de dois. norm(x) é x / NUGAIN em hardware: potência de dois vira um deslocamento; qualquer outro valor vira um divisor, o caminho crítico da ALU inteira.\n",
-      "en": "Error on line %d: #NUGAIN %d is not a power of two. norm(x) is x / NUGAIN in hardware: a power of two becomes a shift; anything else becomes a divider, the critical path of the whole ALU.\n"
+      "pt": "Erro na linha %d: esse nome é comprido demais, o máximo é %d caracteres.\n",
+      "en": "Error on line %d: that name is way too long, %d characters tops.\n"
     },
     {
       "code": "MSG_ERR_NUGAIN_POW2",
@@ -417,13 +432,27 @@
       "category": "variable / number errors",
       "pt": "Erro na linha %d: #NUGAIN %d não é potência de dois. norm(x) é x / NUGAIN em hardware: potência de dois vira um deslocamento; qualquer outro valor vira um divisor, o caminho crítico da ALU inteira.\n",
       "en": "Error on line %d: #NUGAIN %d is not a power of two. norm(x) is x / NUGAIN in hardware: a power of two becomes a shift; anything else becomes a divider, the critical path of the whole ALU.\n"
+    },
+    {
+      "code": "MSG_ERR_NUBITS_RANGE",
+      "severity": "error",
+      "category": "variable / number errors",
+      "pt": "Erro na linha %d: #NUBITS %d está fora da faixa. A palavra do SAPHO tem de 2 a 32 bits.\n",
+      "en": "Error on line %d: #NUBITS %d is out of range. A SAPHO word has 2 to 32 bits.\n"
+    },
+    {
+      "code": "MSG_ERR_FFTSIZ_RANGE",
+      "severity": "error",
+      "category": "variable / number errors",
+      "pt": "Erro na linha %d: #FFTSIZ %d está fora da faixa. v[k) inverte de 1 a 30 bits baixos do índice.\n",
+      "en": "Error on line %d: #FFTSIZ %d is out of range. v[k) reverses 1 to 30 low bits of the index.\n"
     },
     {
       "code": "MSG_ERR_FROUND_RANGE",
       "severity": "error",
       "category": "variable / number errors",
-      "pt": "Erro na linha %d: #FROUND só aceita 0 (legado), 1 (truncamento exato + saturação) ou 2 (arredondamento ao par).\n",
-      "en": "Error on line %d: #FROUND only takes 0 (legacy), 1 (exact truncation + saturation) or 2 (round to nearest even).\n"
+      "pt": "Erro na linha %d: #FROUND só aceita 0 (legado), 1 (truncamento + saturação) ou 2 (arredondamento ao par).\n",
+      "en": "Error on line %d: #FROUND only takes 0 (legacy), 1 (truncation + saturation) or 2 (round to nearest even).\n"
     },
     {
       "code": "MSG_ERR_INT_MAX_OVERFLOW",
@@ -433,18 +462,32 @@
       "en": "Error on line %d: the biggest integer this thing can hold is %d!\n"
     },
     {
+      "code": "MSG_WARN_ARR_SIZE_WORD",
+      "severity": "warning",
+      "category": "variable / number errors",
+      "pt": "Atenção na linha %d: o array tem %d posições, mas um índice int de %d bits só chega até %d.\n",
+      "en": "Heads up on line %d: the array has %d positions, but an int index of %d bits only reaches %d.\n"
+    },
+    {
+      "code": "MSG_ERR_OCTAL_DIGIT",
+      "severity": "error",
+      "category": "variable / number errors",
+      "pt": "Erro na linha %d: '%s' começa com 0, então é octal, e octal não tem 8 nem 9.\n",
+      "en": "Error on line %d: '%s' starts with 0, so it is octal, and octal has no 8 or 9.\n"
+    },
+    {
       "code": "MSG_ERR_FLOAT_MIN",
       "severity": "error",
       "category": "variable / number errors",
-      "pt": "Erro na linha %d: o menor número float que pode ser representado é %f!\n",
-      "en": "Error on line %d: the smallest float this thing can hold is %f!\n"
+      "pt": "Erro na linha %d: o menor número float que pode ser representado é %g!\n",
+      "en": "Error on line %d: the smallest float this thing can hold is %g!\n"
     },
     {
       "code": "MSG_ERR_FLOAT_MAX",
       "severity": "error",
       "category": "variable / number errors",
-      "pt": "Erro na linha %d: o maior número float que pode ser representado é %f!\n",
-      "en": "Error on line %d: the biggest float this thing can hold is %f!\n"
+      "pt": "Erro na linha %d: o maior número float que pode ser representado é %g!\n",
+      "en": "Error on line %d: the biggest float this thing can hold is %g!\n"
     },
     {
       "code": "MSG_ERR_VAR_EXISTS",
@@ -538,13 +581,6 @@
       "en": "'num_ins' is a key of the simulation log"
     },
     {
-      "code": "MSG_ERR_VAR_NOT_FOUND",
-      "severity": "error",
-      "category": "declaration / assignment / variable-use errors",
-      "pt": "Erro na linha %d: não tem essa variável '%s'!\n",
-      "en": "Error on line %d: there's no variable '%s'!\n"
-    },
-    {
       "code": "MSG_ERR_DECLARE_VAR_PLEASE",
       "severity": "error",
       "category": "declaration / assignment / variable-use errors",
@@ -592,6 +628,62 @@
       "category": "declaration / assignment / variable-use errors",
       "pt": "Erro na linha %d: '%s' não é array não, abensoado!\n",
       "en": "Error on line %d: '%s' ain't an array, mate!\n"
+    },
+    {
+      "code": "MSG_ERR_INTERNAL",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro interno do cmmcomp (%s), na linha %d. Não é culpa do seu programa: avise os mantenedores e mande o programa junto.\n",
+      "en": "Internal error of cmmcomp (%s), on line %d. Not your program's fault: tell the maintainers and send the program along.\n"
+    },
+    {
+      "code": "MSG_ERR_SCANNER",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro: o leitor do código-fonte parou: %s\n",
+      "en": "Error: the source scanner stopped: %s\n"
+    },
+    {
+      "code": "MSG_ERR_TOO_DEEP",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: expressão aninhada fundo demais para o compilador. Divida-a em variáveis intermediárias.\n",
+      "en": "Error on line %d: an expression nested too deep for the compiler. Split it with intermediate variables.\n"
+    },
+    {
+      "code": "MSG_ERR_CASE_TWICE",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: case %s aparece duas vezes neste switch.\n",
+      "en": "Error on line %d: case %s appears twice in this switch.\n"
+    },
+    {
+      "code": "MSG_ERR_DEFAULT_TWICE",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: este switch já tem um default.\n",
+      "en": "Error on line %d: this switch already has a default.\n"
+    },
+    {
+      "code": "MSG_ERR_UNKNOWN_CHAR",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: o caractere '%s' não faz parte do C±.\n",
+      "en": "Error on line %d: the character '%s' is not part of C±.\n"
+    },
+    {
+      "code": "MSG_ERR_INDEX_RANGE",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: o índice %d de '%s' está fora da faixa, de 0 a %d.\n",
+      "en": "Error on line %d: the index %d of '%s' is out of range, 0 to %d.\n"
+    },
+    {
+      "code": "MSG_ERR_ARRAY_SIZE",
+      "severity": "error",
+      "category": "declaration / assignment / variable-use errors",
+      "pt": "Erro na linha %d: o array '%s' tem %lld elementos; ele pode ter de 1 a %lld.\n",
+      "en": "Error on line %d: the array '%s' has %lld elements; it can have 1 to %lld.\n"
     },
     {
       "code": "MSG_ERR_ARRAY_2D",
@@ -776,41 +868,6 @@
       "en": "Error on line %d: arguments of complex(.,.) can't themselves be complex!\n"
     },
     {
-      "code": "MSG_ERR_INNER_NEEDS_VECTORS",
-      "severity": "error",
-      "category": "linear algebra errors (dirac notation)",
-      "pt": "Erro na linha %d: o nome tá dizendo, produto vetorial é entre vetores!\n",
-      "en": "Error on line %d: the name says it all, vector product is between vectors!\n"
-    },
-    {
-      "code": "MSG_ERR_VECTOR_SIZE_DIFF",
-      "severity": "error",
-      "category": "linear algebra errors (dirac notation)",
-      "pt": "Erro na linha %d: vetores de tamanhos diferentes? Vai estudar Álgebra Linear primeiro!\n",
-      "en": "Error on line %d: vectors with different sizes? Go study Linear Algebra first!\n"
-    },
-    {
-      "code": "MSG_ERR_VECTOR_SIZE_DIFF2",
-      "severity": "error",
-      "category": "linear algebra errors (dirac notation)",
-      "pt": "Erro na linha %d: os vetores têm tamanhos diferentes! Você é uma pessoa confusa.\n",
-      "en": "Error on line %d: vectors have different sizes! You're a confused soul.\n"
-    },
-    {
-      "code": "MSG_ERR_TYPE_DIFF",
-      "severity": "error",
-      "category": "linear algebra errors (dirac notation)",
-      "pt": "Erro na linha %d: tipos de dados diferentes. Você é uma pessoa confusa!\n",
-      "en": "Error on line %d: different data types. You're a confused soul!\n"
-    },
-    {
-      "code": "MSG_ERR_VARS_SAME_TYPE",
-      "severity": "error",
-      "category": "linear algebra errors (dirac notation)",
-      "pt": "Erro na linha %d: as variáveis têm que ser do mesmo tipo!\n",
-      "en": "Error on line %d: variables gotta be the same type!\n"
-    },
-    {
       "code": "MSG_ERR_NOT_IMPL_COMPLEX",
       "severity": "error",
       "category": "linear algebra errors (dirac notation)",
@@ -832,34 +889,6 @@
       "en": "Error on line %d: '%s' ain't even a matrix, mate!\n"
     },
     {
-      "code": "MSG_ERR_NOT_A_MATRIX2",
-      "severity": "error",
-      "category": "linear algebra errors (dirac notation)",
-      "pt": "Erro na linha %d: '%s' não é uma matriz!\n",
-      "en": "Error on line %d: '%s' isn't a matrix!\n"
-    },
-    {
-      "code": "MSG_ERR_MATRIX_ROW_MISMATCH",
-      "severity": "error",
-      "category": "linear algebra errors (dirac notation)",
-      "pt": "Erro na linha %d: o número de linhas de '%s' não bate com o tamanho de '%s'!\n",
-      "en": "Error on line %d: row count of '%s' doesn't match size of '%s'!\n"
-    },
-    {
-      "code": "MSG_ERR_MATRIX_COL_MISMATCH",
-      "severity": "error",
-      "category": "linear algebra errors (dirac notation)",
-      "pt": "Erro na linha %d: o número de colunas de '%s' não bate com o tamanho de '%s'!\n",
-      "en": "Error on line %d: column count of '%s' doesn't match size of '%s'!\n"
-    },
-    {
-      "code": "MSG_ERR_DIM_MISMATCH",
-      "severity": "error",
-      "category": "linear algebra errors (dirac notation)",
-      "pt": "Erro na linha %d: as dimensões não batem. Você é uma pessoa confusa!\n",
-      "en": "Error on line %d: dimensions don't match. You're a confused soul!\n"
-    },
-    {
       "code": "MSG_ERR_SHIFT_VEC_SELF",
       "severity": "error",
       "category": "linear algebra errors (dirac notation)",
@@ -867,32 +896,130 @@
       "en": "Error on line %d: you can only shift a vector into itself, mate!\n"
     },
     {
+      "code": "MSG_SHAPE_NUMBER",
+      "severity": "message",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "um número",
+      "en": "a number"
+    },
+    {
+      "code": "MSG_SHAPE_VECTOR",
+      "severity": "message",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "um vetor de %d",
+      "en": "a vector of %d"
+    },
+    {
+      "code": "MSG_SHAPE_ROW",
+      "severity": "message",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "uma linha de %d",
+      "en": "a row of %d"
+    },
+    {
+      "code": "MSG_SHAPE_MATRIX",
+      "severity": "message",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "uma matriz %dx%d",
+      "en": "a %dx%d matrix"
+    },
+    {
+      "code": "MSG_SHAPE_ANY_VECTOR",
+      "severity": "message",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "um vetor",
+      "en": "a vector"
+    },
+    {
+      "code": "MSG_SHAPE_ANY_MATRIX",
+      "severity": "message",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "uma matriz",
+      "en": "a matrix"
+    },
+    {
+      "code": "MSG_ERR_DIRAC_SUM_SHAPE",
+      "severity": "error",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "Erro na linha %d: somar %s com %s? Não encaixa, as formas têm que ser iguais, abensoado!\n",
+      "en": "Error on line %d: adding %s and %s? Those shapes don't fit, mate!\n"
+    },
+    {
+      "code": "MSG_ERR_DIRAC_PRODUCT_SHAPE",
+      "severity": "error",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "Erro na linha %d: %s vezes %s não rola: as colunas do primeiro têm que bater com as linhas do segundo!\n",
+      "en": "Error on line %d: %s times %s? No way: the columns of the first must match the rows of the second!\n"
+    },
+    {
+      "code": "MSG_ERR_DIRAC_TARGET_SHAPE",
+      "severity": "error",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "Erro na linha %d: '%s' é %s e a expressão dá %s. Não cabe, né?\n",
+      "en": "Error on line %d: '%s' is %s and the expression gives %s. That won't fit, pal!\n"
+    },
+    {
+      "code": "MSG_ERR_DIRAC_NOT_SCALAR",
+      "severity": "error",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "Erro na linha %d: aqui eu queria um número e você me deu %s!\n",
+      "en": "Error on line %d: I wanted a number here and you gave me %s!\n"
+    },
+    {
+      "code": "MSG_ERR_DIRAC_OUT_MATRIX",
+      "severity": "error",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "Erro na linha %d: out() manda um número ou um vetor, %s inteira não dá!\n",
+      "en": "Error on line %d: out() sends a number or a vector, not %s. Slice it up first!\n"
+    },
+    {
+      "code": "MSG_INFO_DIRAC_TEMP",
+      "severity": "info",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "Info na linha %d: '%s' é lido numa posição e escrito em outra, então o resultado passa pela área temporária (%d palavras).\n",
+      "en": "Info on line %d: '%s' is read at one spot and written at another, so the result takes a detour through the temporary area (%d words).\n"
+    },
+    {
+      "code": "MSG_INFO_DIRAC_TEMP_CHAIN",
+      "severity": "info",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "Info na linha %d: o produto do meio da cadeia vai pra área temporária (%d palavras), senão seria calculado de novo a cada elemento.\n",
+      "en": "Info on line %d: the product in the middle of the chain goes to the temporary area (%d words), or it'd be computed all over again for every element.\n"
+    },
+    {
+      "code": "MSG_INFO_DIRAC_TEMP_TOTAL",
+      "severity": "info",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "Info: a área temporária do Dirac (__dirac_tmp) ocupa %d palavras da memória de dados. Pra economizar: escreva o resultado num vetor que não aparece do lado direito, ou calcule o produto do meio num vetor seu, numa linha antes. Quem usou:\n",
+      "en": "Info: the Dirac temporary area (__dirac_tmp) takes %d words of data memory. To save them: write the result to an array that isn't on the right-hand side, or compute the middle product into an array of your own, on a line before. Who used it:\n"
+    },
+    {
+      "code": "MSG_INFO_DIRAC_TEMP_LINE",
+      "severity": "info",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "      linha %d: %d palavras\n",
+      "en": "      line %d: %d words\n"
+    },
+    {
+      "code": "MSG_ERR_DIRAC_NOT_YET",
+      "severity": "error",
+      "category": "linear algebra errors (dirac notation)",
+      "pt": "Erro na linha %d: essa combinação de Dirac ainda tá no forno. Aguenta aí!\n",
+      "en": "Error on line %d: this Dirac combo is still in the oven. Hang tight!\n"
+    },
+    {
+      "code": "MSG_ERR_CMP_COMP_ORDER",
+      "severity": "error",
+      "category": "operator errors and warnings (oper.c)",
+      "pt": "Erro na linha %d: número complexo não tem ordem, então <, >, <= e >= não valem com comp. Compara mod2(z), real(z) ou imag(z).\n",
+      "en": "Error on line %d: complex numbers have no order, so <, >, <= and >= don't work with a comp. Compare mod2(z), real(z) or imag(z) instead.\n"
+    },
+    {
       "code": "MSG_ERR_MOD_NON_INT",
       "severity": "error",
       "category": "operator errors and warnings (oper.c)",
       "pt": "Erro na linha %d: qual o sentido de calcular o resto da divisão sem ser com número inteiro? Vai se tratar!\n",
       "en": "Error on line %d: what's the point of computing a remainder with non-integer numbers? Get a grip!\n"
-    },
-    {
-      "code": "MSG_WARN_CMP_INT_COMP",
-      "severity": "warning",
-      "category": "operator errors and warnings (oper.c)",
-      "pt": "Atenção na linha %d: comparando int com comp? Vou pegar o módulo.\n",
-      "en": "Heads up on line %d: comparing int with comp? Gonna use the magnitude.\n"
-    },
-    {
-      "code": "MSG_WARN_CMP_FLOAT_COMP",
-      "severity": "warning",
-      "category": "operator errors and warnings (oper.c)",
-      "pt": "Atenção na linha %d: comparando float com comp? Vou pegar o módulo.\n",
-      "en": "Heads up on line %d: comparing float with comp? Gonna use the magnitude.\n"
-    },
-    {
-      "code": "MSG_WARN_CMP_COMPLEX",
-      "severity": "warning",
-      "category": "operator errors and warnings (oper.c)",
-      "pt": "Atenção na linha %d: comparação com número complexo? Vou usar o módulo.\n",
-      "en": "Heads up on line %d: comparing with a complex number? Gonna use the magnitude.\n"
     },
     {
       "code": "MSG_ERR_LOGIC_NON_INT",
@@ -939,210 +1066,238 @@
     {
       "code": "MSG_WARN_INT_RECV_FLOAT",
       "severity": "warning",
-      "category": "type-conversion warnings (data_assign.c / funcoes.c)",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
       "pt": "Atenção na linha %d: variável '%s' é int, mas recebe float.\n",
       "en": "Heads up on line %d: variable '%s' is int, but getting a float.\n"
     },
     {
+      "code": "MSG_WARN_ARRAY_INI_LOCAL",
+      "severity": "warning",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
+      "pt": "Atenção na linha %d: o array local '%s' recebe os valores entre chaves uma vez só, quando a memória é carregada; de uma chamada para outra ele guarda o que a função escreveu nele (como um static em C).\n",
+      "en": "Heads up on line %d: local array '%s' gets the values between braces only once, when the memory is loaded; from one call to the next it keeps what the function wrote into it (like a C static).\n"
+    },
+    {
+      "code": "MSG_ERR_ARRAY_INI_TYPE",
+      "severity": "error",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
+      "pt": "Erro na linha %d: o array '%s' é de %s e não recebe o valor %s entre chaves.\n",
+      "en": "Error on line %d: array '%s' holds %s and does not take the value %s between braces.\n"
+    },
+    {
+      "code": "MSG_ERR_ARRAY_INI_COUNT",
+      "severity": "error",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
+      "pt": "Erro na linha %d: o array '%s' tem %d posições e a lista entre chaves vai até a posição %d.\n",
+      "en": "Error on line %d: array '%s' has %d positions and the list between braces reaches position %d.\n"
+    },
+    {
+      "code": "MSG_ERR_ARRAY_INI_1D",
+      "severity": "error",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
+      "pt": "Erro na linha %d: o array '%s' tem uma dimensão; chaves dentro da lista só separam as linhas de um array 2D.\n",
+      "en": "Error on line %d: array '%s' has one dimension; braces inside the list only mark the rows of a 2D array.\n"
+    },
+    {
+      "code": "MSG_ERR_ARRAY_INI_ROWS",
+      "severity": "error",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
+      "pt": "Erro na linha %d: no array '%s', as chaves de dentro separam as linhas de um array 2D: todas as linhas entre chaves, ou nenhuma, cada uma com até %d valores.\n",
+      "en": "Error on line %d: in array '%s', inner braces mark the rows of a 2D array: every row between braces, or none, each with up to %d values.\n"
+    },
+    {
       "code": "MSG_WARN_ARRAY_FILE_LOCAL",
       "severity": "warning",
-      "category": "type-conversion warnings (data_assign.c / funcoes.c)",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
       "pt": "Atenção na linha %d: o array local '%s' é inicializado pelo arquivo %s uma vez só, quando a memória é carregada; de uma chamada para outra ele guarda o que a função escreveu nele (como um static em C).\n",
       "en": "Heads up on line %d: local array '%s' is initialized from file %s only once, when the memory is loaded; from one call to the next it keeps what the function wrote into it (like a C static).\n"
     },
     {
       "code": "MSG_WARN_FLOAT_RECV_INT",
       "severity": "warning",
-      "category": "type-conversion warnings (data_assign.c / funcoes.c)",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
       "pt": "Atenção na linha %d: variável '%s' é float, mas recebe int.\n",
       "en": "Heads up on line %d: variable '%s' is float, but getting an int.\n"
     },
     {
       "code": "MSG_WARN_COMP_RECV_INT",
       "severity": "warning",
-      "category": "type-conversion warnings (data_assign.c / funcoes.c)",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
       "pt": "Atenção na linha %d: variável '%s' é comp, mas recebe int.\n",
       "en": "Heads up on line %d: variable '%s' is comp, but getting an int.\n"
     },
     {
       "code": "MSG_WARN_COMP_RECV_FLOAT",
       "severity": "warning",
-      "category": "type-conversion warnings (data_assign.c / funcoes.c)",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
       "pt": "Atenção na linha %d: variável '%s' é comp, mas recebe float.\n",
       "en": "Heads up on line %d: variable '%s' is comp, but getting a float.\n"
     },
     {
       "code": "MSG_WARN_ROUND_REAL",
       "severity": "warning",
-      "category": "type-conversion warnings (data_assign.c / funcoes.c)",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
       "pt": "Atenção na linha %d: nessa conversão, eu vou truncar a parte real hein!\n",
       "en": "Heads up on line %d: in this conversion I'm truncating the real part, just so you know!\n"
     },
     {
       "code": "MSG_WARN_GRAB_REAL_ONLY",
       "severity": "warning",
-      "category": "type-conversion warnings (data_assign.c / funcoes.c)",
+      "category": "type-conversion warnings (data_assign.c / functions.c)",
       "pt": "Atenção na linha %d: nessa conversão, eu vou pegar só a parte real hein!\n",
       "en": "Heads up on line %d: in this conversion I'm only grabbing the real part, just so you know!\n"
     },
     {
       "code": "MSG_WARN_CONV_F2I_PARAM",
       "severity": "warning",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Atenção na linha %d: convertendo float para int no parâmetro %d da função '%s'.\n",
       "en": "Heads up on line %d: converting float to int on parameter %d of function '%s'.\n"
     },
     {
       "code": "MSG_WARN_CONV_C2I_PARAM",
       "severity": "warning",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Atenção na linha %d: convertendo comp para int no parâmetro %d da função '%s'.\n",
       "en": "Heads up on line %d: converting comp to int on parameter %d of function '%s'.\n"
     },
     {
       "code": "MSG_WARN_CONV_I2F_PARAM",
       "severity": "warning",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Atenção na linha %d: convertendo int para float no parâmetro %d da função '%s'.\n",
       "en": "Heads up on line %d: converting int to float on parameter %d of function '%s'.\n"
     },
     {
       "code": "MSG_WARN_CONV_C2F_PARAM",
       "severity": "warning",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Atenção na linha %d: convertendo comp para float no parâmetro %d da função '%s'.\n",
       "en": "Heads up on line %d: converting comp to float on parameter %d of function '%s'.\n"
     },
     {
       "code": "MSG_WARN_CONV_I2C_PARAM",
       "severity": "warning",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Atenção na linha %d: convertendo int para comp no parâmetro %d da função '%s'.\n",
       "en": "Heads up on line %d: converting int to comp on parameter %d of function '%s'.\n"
     },
     {
       "code": "MSG_WARN_CONV_F2C_PARAM",
       "severity": "warning",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Atenção na linha %d: convertendo float para comp no parâmetro %d da função '%s'.\n",
       "en": "Heads up on line %d: converting float to comp on parameter %d of function '%s'.\n"
     },
     {
       "code": "MSG_ERR_VOID_RETURN_VALUE",
       "severity": "error",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Erro na linha %d: valor de retorno em função void? viajou!\n",
       "en": "Error on line %d: a return value in a void function? You tripping!\n"
     },
     {
       "code": "MSG_WARN_CONV_F2I_RETURN",
       "severity": "warning",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Atenção na linha %d: vai converter float para int no retorno da função '%s'? Dá-lhe código!\n",
       "en": "Heads up on line %d: gonna convert float to int on the return of function '%s'? Code away then!\n"
     },
     {
       "code": "MSG_WARN_RET_FLOAT_RECV_INT",
       "severity": "warning",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Atenção na linha %d: retorno é float, mas recebe int.\n",
       "en": "Heads up on line %d: return is float, but getting an int.\n"
     },
     {
       "code": "MSG_WARN_RET_COMP_RECV_INT",
       "severity": "warning",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Atenção na linha %d: retorno da função é comp, mas recebe int.\n",
       "en": "Heads up on line %d: function return is comp, but getting an int.\n"
     },
     {
       "code": "MSG_WARN_RET_COMP_RECV_FLOAT",
       "severity": "warning",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Atenção na linha %d: retorno da função é comp, mas recebe float.\n",
       "en": "Heads up on line %d: function return is comp, but getting a float.\n"
     },
     {
       "code": "MSG_ERR_FUNC_NO_RETURN",
       "severity": "error",
-      "category": "function errors/warnings (funcoes.c)",
-      "pt": "Erro na função %s: cadê o retorno pra essa função?\n",
-      "en": "Error in function %s: where's the return for this function?\n"
+      "category": "function errors/warnings (functions.c)",
+      "pt": "Erro na função %s: tem caminho que chega no fim sem passar por um return, e aí a execução cai direto na função seguinte. Bota um return no fim.\n",
+      "en": "Error in function %s: some path gets to the end without a return, and then it'd run straight into the next function. Put a return at the end.\n"
     },
     {
       "code": "MSG_ERR_NO_RETURN_VALUE",
       "severity": "error",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Erro na linha %d: cadê o valor de retorno da função?\n",
       "en": "Error on line %d: where's the function return value?\n"
     },
     {
       "code": "MSG_ERR_FUNC_WHERE",
       "severity": "error",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Erro na linha %d: cadê essa função '%s'?\n",
       "en": "Error on line %d: where's this function '%s' supposed to be?\n"
     },
     {
       "code": "MSG_ERR_FUNC_WHERE2",
       "severity": "error",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Erro na linha %d: A função '%s' tá onde?\n",
       "en": "Error on line %d: function '%s' is where exactly?\n"
     },
     {
       "code": "MSG_ERR_PARAM_COUNT",
       "severity": "error",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Erro na linha %d: olha lá direito quantos parâmetros tem a função '%s'.\n",
       "en": "Error on line %d: check again how many parameters the function '%s' actually takes.\n"
     },
     {
-      "code": "MSG_ERR_TOO_MANY_PARAMS",
-      "severity": "error",
-      "category": "function errors/warnings (funcoes.c)",
-      "pt": "Erro na linha %d: a função '%s' passa de %d parâmetros, o máximo.\n",
-      "en": "Error on line %d: function '%s' has more than %d parameters, the most allowed.\n"
-    },
-    {
       "code": "MSG_ERR_VOID_FUNC_USE",
       "severity": "error",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Erro na linha %d: olha lá a funcao '%s', você vai ver que ela nao retorna nada.\n",
       "en": "Error on line %d: take a look at function '%s', you'll see it doesn't return anything.\n"
     },
     {
       "code": "MSG_ERR_PARAM_LIST_DIFF",
       "severity": "error",
-      "category": "function errors/warnings (funcoes.c)",
+      "category": "function errors/warnings (functions.c)",
       "pt": "Erro na linha %d: lista de parâmetros da função '%s' difere da original.\n",
       "en": "Error on line %d: parameter list of function '%s' doesn't match the original.\n"
     },
     {
       "code": "MSG_ERR_BREAK_LOST",
       "severity": "error",
-      "category": "jump errors/warnings (saltos.c)",
+      "category": "jump errors/warnings (control_flow.c)",
       "pt": "Erro na linha %d: esse brake aí tá perdido!\n",
       "en": "Error on line %d: that break is just hanging out lost!\n"
     },
     {
       "code": "MSG_ERR_CONTINUE_LOST",
       "severity": "error",
-      "category": "jump errors/warnings (saltos.c)",
+      "category": "jump errors/warnings (control_flow.c)",
       "pt": "Erro na linha %d: continue fora de um loop não vai a lugar nenhum!\n",
       "en": "Error on line %d: a continue outside a loop goes nowhere!\n"
     },
     {
       "code": "MSG_WARN_CASE_FLOAT",
       "severity": "warning",
-      "category": "jump errors/warnings (saltos.c)",
+      "category": "jump errors/warnings (control_flow.c)",
       "pt": "Atenção na linha %d: índice do case dando float! Vou truncar.\n",
       "en": "Heads up on line %d: case index came out float! Gonna truncate it.\n"
     },
     {
       "code": "MSG_WARN_CASE_COMP",
       "severity": "warning",
-      "category": "jump errors/warnings (saltos.c)",
+      "category": "jump errors/warnings (control_flow.c)",
       "pt": "Atenção na linha %d: índice do case dando comp! Vou truncar a parte real.\n",
       "en": "Heads up on line %d: case index came out comp! Gonna truncate the real part.\n"
     },
@@ -1205,28 +1360,28 @@
     {
       "code": "MSG_WARN_UNUSED_GLOBAL_VAR",
       "severity": "warning",
-      "category": "unused-variable errors/warnings (variaveis.c)",
-      "pt": "Atenção: variável global '%s' não está sendo usada. Economize memória!\n",
-      "en": "Heads up: global variable '%s' isn't being used. Save some memory, will ya!\n"
+      "category": "unused-variable errors/warnings (symbols.c)",
+      "pt": "Atenção: variável global '%s' não é lida em lugar nenhum, então saiu do programa e da forma de onda (#WAVE %s a mantém).\n",
+      "en": "Heads up: global variable '%s' is never read, so it's out of the program and the waveform (#WAVE %s keeps it).\n"
     },
     {
       "code": "MSG_WARN_UNUSED_LOCAL_VAR",
       "severity": "warning",
-      "category": "unused-variable errors/warnings (variaveis.c)",
-      "pt": "Atenção: variável '%s' na função '%s' não está sendo usada. Economize memória!\n",
-      "en": "Heads up: variable '%s' in function '%s' isn't being used. Save some memory, will ya!\n"
+      "category": "unused-variable errors/warnings (symbols.c)",
+      "pt": "Atenção: variável '%s' na função '%s' não é lida em lugar nenhum, então saiu do programa e da forma de onda (#WAVE %s, dentro da função, a mantém).\n",
+      "en": "Heads up: variable '%s' in function '%s' is never read, so it's out of the program and the waveform (#WAVE %s, in the function, keeps it).\n"
     },
     {
       "code": "MSG_WARN_UNUSED_FUNCTION",
       "severity": "warning",
-      "category": "unused-variable errors/warnings (variaveis.c)",
+      "category": "unused-variable errors/warnings (symbols.c)",
       "pt": "Atenção: função '%s' não está sendo usada. Economize memória!\n",
       "en": "Heads up: function '%s' isn't being used. Save some memory, will ya!\n"
     },
     {
       "code": "MSG_ERR_RECURSION",
       "severity": "error",
-      "category": "unused-variable errors/warnings (variaveis.c)",
+      "category": "unused-variable errors/warnings (symbols.c)",
       "pt": "Erro na linha %d: a função '%s' chama ela mesma (%s). Recursão não rola em C±. Quer recursão mesmo? Usa o compilador C++ do SAPHO.\n",
       "en": "Error on line %d: function '%s' calls itself (%s). Recursion doesn't fly in C±. Really want recursion? Use SAPHO's C++ compiler.\n"
     },
@@ -1243,6 +1398,13 @@
       "category": "interrupcao",
       "pt": "Erro na linha %d: #TOAQUI repetido (só pode um)\n",
       "en": "Error on line %d: duplicate #TOAQUI marker (only one allowed)\n"
+    },
+    {
+      "code": "MSG_ERR_WAVE_NOT_VAR",
+      "severity": "error",
+      "category": "interrupcao",
+      "pt": "Erro na linha %d: #WAVE pede uma variável, e '%s' não é uma\n",
+      "en": "Error on line %d: #WAVE takes a variable, and '%s' isn't one\n"
     },
     {
       "code": "MSG_INFO_TOAQUI",
@@ -1276,8 +1438,8 @@
       "code": "MSG_INFO_CONST_APPROX",
       "severity": "info",
       "category": "info messages",
-      "pt": "Info: constante %s na linha %d aproximada para %.14f (erro = %.14f)\n",
-      "en": "Info: constant %s on line %d approximated to %.14f (error = %.14f)\n"
+      "pt": "Info: constante %s na linha %d aproximada para %.17g (erro = %.3g)\n",
+      "en": "Info: constant %s on line %d approximated to %.17g (error = %.3g)\n"
     },
     {
       "code": "MSG_INFO_SQRT_MACRO",
@@ -1327,76 +1489,6 @@
       "category": "info messages",
       "pt": "Info: inicialização de array com arquivo %s para variável '%s' na linha %d\n",
       "en": "Info: array initialization with file %s for variable '%s' at line %d\n"
-    },
-    {
-      "code": "MSG_INFO_DIRAC_INNER",
-      "severity": "info",
-      "category": "dirac-notation info messages (stdlib.c)",
-      "pt": "Info: notação de Dirac para Produto Interno detectada na linha %d\n",
-      "en": "Info: Dirac notation for Inner Product detected at line %d\n"
-    },
-    {
-      "code": "MSG_INFO_DIRAC_MV",
-      "severity": "info",
-      "category": "dirac-notation info messages (stdlib.c)",
-      "pt": "Info: notação de Dirac para multiplicação Matriz-Vetor detectada na linha %d\n",
-      "en": "Info: Dirac notation for Matrix-Vector multiplication detected at line %d\n"
-    },
-    {
-      "code": "MSG_INFO_DIRAC_CV",
-      "severity": "info",
-      "category": "dirac-notation info messages (stdlib.c)",
-      "pt": "Info: notação de Dirac para multiplicação Constante-Vetor detectada na linha %d\n",
-      "en": "Info: Dirac notation for Constant-Vector multiplication detected at line %d\n"
-    },
-    {
-      "code": "MSG_INFO_DIRAC_VECTOR_SUM",
-      "severity": "info",
-      "category": "dirac-notation info messages (stdlib.c)",
-      "pt": "Info: notação de Dirac para Soma de Vetores detectada na linha %d\n",
-      "en": "Info: Dirac notation for Vectors Sum detected at line %d\n"
-    },
-    {
-      "code": "MSG_INFO_DIRAC_OUTER",
-      "severity": "info",
-      "category": "dirac-notation info messages (stdlib.c)",
-      "pt": "Info: notação de Dirac para Produto Externo detectada na linha %d\n",
-      "en": "Info: Dirac notation for Outer Product detected at line %d\n"
-    },
-    {
-      "code": "MSG_INFO_DIRAC_MATRIX_SUM",
-      "severity": "info",
-      "category": "dirac-notation info messages (stdlib.c)",
-      "pt": "Info: notação de Dirac para Soma de Matrizes detectada na linha %d\n",
-      "en": "Info: Dirac notation for Matrix Sum detected at line %d\n"
-    },
-    {
-      "code": "MSG_INFO_DIRAC_CM",
-      "severity": "info",
-      "category": "dirac-notation info messages (stdlib.c)",
-      "pt": "Info: notação de Dirac para multiplicação Constante-Matriz detectada na linha %d\n",
-      "en": "Info: Dirac notation for Constant-Matrix multiplication detected at line %d\n"
-    },
-    {
-      "code": "MSG_INFO_DIRAC_ZERO_VECTOR",
-      "severity": "info",
-      "category": "dirac-notation info messages (stdlib.c)",
-      "pt": "Info: notação de Dirac para zerar conteúdo de vetor detectada na linha %d\n",
-      "en": "Info: Dirac notation for zeroing vector contents detected at line %d\n"
-    },
-    {
-      "code": "MSG_INFO_DIRAC_SET_VECTOR",
-      "severity": "info",
-      "category": "dirac-notation info messages (stdlib.c)",
-      "pt": "Info: notação de Dirac para setar conteúdo de vetor detectada na linha %d\n",
-      "en": "Info: Dirac notation for setting vector contents detected at line %d\n"
-    },
-    {
-      "code": "MSG_INFO_DIRAC_FLUSH_VECTOR",
-      "severity": "info",
-      "category": "dirac-notation info messages (stdlib.c)",
-      "pt": "Info: notação de Dirac para flush de vetor detectada na linha %d\n",
-      "en": "Info: Dirac notation for flushing vector contents detected at line %d\n"
     },
     {
       "code": "MSG_INFO_DIRAC_SHIFT",
@@ -1570,6 +1662,18 @@
         "description": "LOD with indirect addressing (index in acc); a number as operand is the raw base (LDI 0 = mem[acc])"
       },
       {
+        "mnemonic": "LDI_V",
+        "opcode": 3,
+        "operandKind": "memory_offset",
+        "operandCode": 22,
+        "hdlName": "LDI",
+        "family": "memory",
+        "variants": [
+          "offset_variant"
+        ],
+        "description": "LDI with constant offset: mem[base + offset + acc]"
+      },
+      {
         "mnemonic": "ILI",
         "opcode": 4,
         "operandKind": "base_or_array",
@@ -1620,6 +1724,18 @@
         "family": "memory",
         "variants": [],
         "description": "SET with indirect addressing (index on stack); a number as operand is the raw base (STI 0 = mem[stack])"
+      },
+      {
+        "mnemonic": "STI_V",
+        "opcode": 7,
+        "operandKind": "memory_offset",
+        "operandCode": 22,
+        "hdlName": "STI",
+        "family": "memory",
+        "variants": [
+          "offset_variant"
+        ],
+        "description": "STI with constant offset: mem[base + offset + stack top]"
       },
       {
         "mnemonic": "ISI",

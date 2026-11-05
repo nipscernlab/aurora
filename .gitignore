@@ -85,6 +85,8 @@ components/README.md
 components/example/
 components/install.bat
 components/uninstall.bat
+# Desde a v9.2 o zip traz tambem install.sh, para o terminal do MSYS2.
+components/install.sh
 
 # --- Test scratch ---
 coverage/

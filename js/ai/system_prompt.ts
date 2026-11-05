@@ -42,7 +42,7 @@ export const SYSTEM_PROMPT = [
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
   "\n\nSAPHO ECOSYSTEM — Scalable-Architecture Processor for Hardware Optimization:\n" +
-  "  • YANC  — Yet Another Compiler (v9.1, cross-platform: Linux + Windows). A multi-stage\n" +
+  "  • YANC  — Yet Another Compiler (v9.2, cross-platform: Linux + Windows). A multi-stage\n" +
   "      toolchain in C + Flex + Bison — one DRIVER, three compilers, and helpers:\n" +
   "      - yanc:    the driver, the ONLY binary Aurora calls. `yanc -S <source>` compiles and\n" +
   "                 stops at the .asm; `yanc <name>.asm` assembles. It finds the compilers\n" +
@@ -83,7 +83,7 @@ export const SYSTEM_PROMPT = [
   "\n\nBUNDLED TOOLCHAIN — everything below ships INSIDE the installer; the user installs nothing.\n" +
   "Every one of these is a WINDOWS build: the packaged toolchain is why SAPHO is Windows-only today.\n" +
   "Version, and what each one CANNOT do — the limit matters more than the version:\n" +
-  "  YANC 9.1            yanc (the driver), cmmcomp, cppcomp, asmcomp, gen_gtkw, comp2gtkw.\n" +
+  "  YANC 9.2            yanc (the driver), cmmcomp, cppcomp, asmcomp, gen_gtkw, comp2gtkw.\n" +
   "                      You never invoke these directly — Aurora drives them via compile_*.\n" +
   "  Icarus Verilog 13.0 iverilog + vvp. Default simulator. Keeps EVERY internal SAPHO signal,\n" +
   "                      and is the slow one on long testbenches.\n" +
@@ -122,6 +122,21 @@ export const SYSTEM_PROMPT = [
   "  comp   — complex number (two floats: real + imaginary). Literal: 3.0+4.0i\n" +
   "  void   — no return value (functions only)\n" +
 
+  "\nLITERALS (every form C writes them, since yanc v9.2):\n" +
+  "  int:   42, 0x2A, 052, 0b101010, with u/U/l/L suffixes that change nothing. A leading 0\n" +
+  "         is OCTAL, as in C: 010 is 8 (it was 10 before v9.2). A decimal literal used as a\n" +
+  "         value must fit the #NUBITS word (at 8 bits 200 is an error; the one exception is\n" +
+  "         the most negative int, -128 at 8 bits, but a - 128 is still an error). A hex,\n" +
+  "         octal or binary literal is a bit pattern of the word: 0xFFFFFFFF is -1 at 32\n" +
+  "         bits, 0xFF is -1 at 8. An array size, a port and a directive take any literal.\n" +
+  "  float: 3.14, .5, 2., 1e-5, 2.5E+3, 1.5f (f/F/l/L change nothing), encoded exactly to\n" +
+  "         the nearest value of the format.\n" +
+  "  comp:  2i, 0.5i, 1e-8i, and a complex number is a SUM with C's precedence: y*3 + 2i is\n" +
+  "         (y*3) + 2i (before v9.2 the lexer read 3+2i as one token, giving y*(3+2i)).\n" +
+  "  Comparing comp (v9.2): == and != compare both parts, as in C (3+0i == 3); <, >, <=\n" +
+  "  and >= with a comp are a compile error, so compare abs(z), mod2(z), real(z) or imag(z).\n" +
+  "  Before v9.2 they compared |z|², so (1+0i) == (0+1i) held.\n" +
+
   "\nHEADER DIRECTIVES — a .cmm file begins with these (the stack depths and the gain are optional).\n" +
   "There is NO #PRNAME: the processor's name is the file's name (rule 1).\n" +
   "  #NUBITS <n>       total data-word width in bits\n" +
@@ -134,6 +149,11 @@ export const SYSTEM_PROMPT = [
   "  #NUGAIN <n>       gain constant used by norm() — MUST be a power of 2 (OPTIONAL, default 128)\n" +
   "  #FROUND <0|1|2>   float rounding level of the ALU (OPTIONAL, yanc v5.4+, default 0)\n" +
   "  #FFTSIZ <n>       FFT size = 2^n (optional — only for FFT processors)\n" +
+  "  #WAVE a, b        (since yanc v9.2) keeps variables the program writes and never reads,\n" +
+  "                    to see them in the waveform. Without it such a variable leaves the\n" +
+  "                    processor (its writes, its data word, its waveform signal) and cmmcomp\n" +
+  "                    warns. It names variables already declared: globals at the top, locals\n" +
+  "                    inside their function. C++ drops them too, with no warning and no #WAVE.\n" +
 
   "\nHARD CONSTRAINTS — violations cause yanc build errors:\n" +
   "  NUBITS == NBMANT + NBEXPO + 1  (sign bit is the +1; strict equality) — ONLY for a program\n" +
@@ -218,11 +238,17 @@ export const SYSTEM_PROMPT = [
   "  float mat[4][4];                — 2D float array\n" +
   "  float lut[152] \"Seno_LUT.txt\"; — array pre-loaded from file at compile time\n" +
   "  comp c = 1.0+0.0i;             — complex number\n" +
+  "  int n = 0, k, m = n + 1;        — any name of a list may have an initialiser (v9.2)\n" +
+  "  int v[5] = {3, -2, 7};          — braces, as in C (v9.2); left-out positions are 0\n" +
+  "  int m[2][3] = {{1, 2}, {4, 5, 6}};\n" +
+  "  Between braces go constants only. Like a file, the values go straight into the data\n" +
+  "  memory with no instruction: a local array keeps what its function wrote into it from one\n" +
+  "  call to the next (the compiler warns), and a reset does not bring the values back.\n" +
+  "  A constant index past the end is an error (v9.2); a computed one is not checked.\n" +
 
   "\nARRAY INDEXING:\n" +
   "  x[i]   — standard index\n" +
   "  x[i)   — BIT-REVERSED index (used in FFT butterfly): bits of i are reversed\n" +
-  "  No exponent literals: write 0.000001 instead of 1e-6.\n" +
 
   "\nSTANDARD LIBRARY:\n" +
   "  I/O:\n" +
@@ -267,7 +293,11 @@ export const SYSTEM_PROMPT = [
   "    ASCII (ç, ´, ¨ on ABNT2) give nothing yet.\n" +
   "    Parameters: LAYOUT \"ABNT2\" (default) or \"US\"; NUBITS, the width of the word cade\n" +
   "    returns (at least 8); DEPTH, the queue (4; when full, a new character is dropped);\n" +
-  "    CLK_KHZ, the clock in kHz, only for a 1 ms frame timeout.\n" +
+  "    CLK_KHZ, the clock in kHz, only for a 1 ms frame timeout; LINK_SYNC (since v9.2,\n" +
+  "    default 0: the program's bit goes through two flip-flops of the block's clock, right on\n" +
+  "    any clock; 1: the processor on the block's clock, two cycles less a key). myVGAText\n" +
+  "    has the same LINK_SYNC. Up to v9.1 both blocks took the program's bit as it came,\n" +
+  "    right only on one clock.\n" +
   "    Pins: clk, rst (the processor's); ps2_clk, ps2_dat (from the keyboard, inputs only);\n" +
   "    taqui -> the processor's taqui_k, dado -> cade_dado_k, and cade <- cade_k; and\n" +
   "    tem_tecla (since v9.1), 1 while a character waits in the queue: wire it to an in()\n" +
@@ -283,24 +313,29 @@ export const SYSTEM_PROMPT = [
   "    characters, white on black, a blinking underline cursor. The words: 32 to 126 is the\n" +
   "    character, at the cursor, which advances (past column 79 to the next row); 10 goes to\n" +
   "    column 0 of the next row; 8 goes back one column and erases (nothing at column 0); 9\n" +
-  "    goes to the next column that is a multiple of 8; 128 clears the screen (cursor at 0,0);\n" +
-  "    129 followed by two words, row and column, puts the cursor there (out of range becomes\n" +
-  "    0). Anything else is ignored. A new line from the last row scrolls (a top-row register,\n" +
+  "    goes to the next column that is a multiple of 8; -128 clears the screen (cursor at 0,0):\n" +
+  "    toma_sync(k, -128); -127 followed by two words, row and column, puts the cursor there\n" +
+  "    (out of range becomes 0). Anything else is ignored. Since yanc v9.2 the commands are\n" +
+  "    -128 and -127 at every #NUBITS; they were 128 and 129 in v9.1, and a program that\n" +
+  "    still writes 128 or 129 must change: at 8 bits cmmcomp stops on it (128 does not fit\n" +
+  "    the word), past 8 bits the block ignores it. A new line from the last row scrolls (a top-row register,\n" +
   "    nothing is copied). The block answers the toma only when it finished the word: 1 cycle\n" +
-  "    for a character, 80 for a scroll, 2,400 to clear; the program waits in toma and no\n" +
+  "    for a character, 80 for a scroll, 2,400 to clear, plus one for the register the word comes\n" +
+  "    in through (v9.2, which cut the SAPHO's longest path); the program waits in toma and no\n" +
   "    character is lost.\n" +
   "    Parameter: NUBITS (at least 8); an 8-bit processor is enough. Pins: clk (the 25 MHz\n" +
   "    pixel clock), rst (also clears the screen); toma <- the processor's toma_k, dado <-\n" +
   "    toma_dado, valeu -> valeu_k; outputs hs, vs (active low), ativo (1 in the visible\n" +
   "    window) and pixel (1 = lit). Each board wires these to its own DAC (the DE2-115 below).\n" +
-  "    Measured: 332 logic elements, 118 registers and 33,184 memory\n" +
-  "    bits; a whole 8-bit system (SAPHO in C±, keyboard, screen, PLL) is 692 logic elements,\n" +
-  "    up to 100.4 MHz for the 25 MHz asked. The font is Modern DOS 8x16 (CC0 1.0), ASCII only,\n" +
+  "    Measured at NUBITS 8: 337 logic elements, 127 registers and 33,184 memory\n" +
+  "    bits; a whole 8-bit system (SAPHO in C±, keyboard, screen) is 689 logic elements,\n" +
+  "    up to 88 to 100 MHz (three fitter seeds) for the 25 MHz asked. These were measured\n" +
+  "    before LINK_SYNC, which at its default adds two registers to each block. The font is Modern DOS 8x16 (CC0 1.0), ASCII only,\n" +
   "    inside the .v.\n" +
-  "    One code table for both: 0 to 127 ASCII; 128 to 159 screen commands (128 clear, 129\n" +
-  "    cursor; 130 to 159 reserved, ignored today), which the keyboard never sends; 160 to\n" +
-  "    255 special keys of the keyboard (arrows, F1..., not delivered yet), which the screen\n" +
-  "    always ignores. So an echo loop toma_sync(1, cade_sync(0)) stays right when the\n" +
+  "    One code table for both, an int of 8 bits (since v9.2): 0 to 127 ASCII; -128 to -97\n" +
+  "    screen commands (-128 clear, -127 cursor; -126 to -97 reserved, ignored today), which\n" +
+  "    the keyboard never sends; -96 to -1 special keys of the keyboard (arrows, F1..., not\n" +
+  "    delivered yet), which the screen always ignores. So an echo loop toma_sync(1, cade_sync(0)) stays right when the\n" +
   "    keyboard learns new keys.\n" +
   "  A WHOLE SYSTEM ON THE DE2-115 (Cyclone IV E EP4CE115F29C7), keyboard and screen:\n" +
   "    ONE clock for everything. A PLL takes CLOCK_50 to 25 MHz, and the SAPHO, myKeyPS2 and\n" +
@@ -374,10 +409,22 @@ export const SYSTEM_PROMPT = [
   "  a # c|in(p)⟩;       fills a from input port p scaled by c\n" +
   "  a # c → |a⟩;        shift register: shifts a and inserts c×(new input)\n" +
   "  Use ⟨ ⟩ Unicode characters — NOT < > ASCII angle brackets.\n" +
+  "  Since yanc v9.2 a Dirac chain is an expression: ⟨a|b⟩ and ⟨a|M|b⟩ go anywhere a number\n" +
+  "  goes; sums of any terms of one shape, y # ⟨a|M|; (a row), C # |A||B|; (matrix product),\n" +
+  "  chains |A|B|x⟩ (computed as A (B x)) and out(p, |M|a⟩) all work, and int and float mix as\n" +
+  "  in a scalar expression (not comp yet). A product binds tighter than + and looser than *,\n" +
+  "  so a coefficient that is a sum needs parentheses: v # (a+c)|b⟩. Shapes that do not fit\n" +
+  "  stop the compiler, naming both. |I| only alone or times a number. Each element is computed\n" +
+  "  in a loop, so the code no longer grows with the arrays (about 2.7 times slower per\n" +
+  "  element than the unrolled code of v9.1). When the target is also read at another element\n" +
+  "  (a # |M|a⟩), the result goes through __dirac_tmp, a data area all statements share, and\n" +
+  "  the compiler says so. RESULTS UP TO v9.1 NEED CHECKING: the outer product came out\n" +
+  "  transposed (A # |a⟩⟨b| gave b aᵀ), a # |M|a⟩ overwrote a while reading it, and an int\n" +
+  "  shift of a computed value did nothing. With P symmetric, as in an RLS filter, the\n" +
+  "  transposed outer product is the same matrix up to rounding.\n" +
 
   "\nKNOWN LANGUAGE RESTRICTIONS (document in comments when relevant):\n" +
   "  • No +=, -=, *= — use x = x + y;\n" +
-  "  • No exponent literals (1e-6) — write 0.000001\n" +
   "  • Arrays cannot be function parameters — use global arrays\n" +
   "  • No dynamic allocation — all sizes must be compile-time constants\n" +
   "  • Recursion is a COMPILE ERROR in C± (since yanc v5.7): every local variable has a\n" +
@@ -389,6 +436,14 @@ export const SYSTEM_PROMPT = [
   "    header and an array only that code touched produce no instructions, operators or\n" +
   "    memory. The compilers print \"Info: N unreachable instructions removed\"; that\n" +
   "    line, like every \"Info:\" line, is not an error.\n" +
+  "  • What yanc v9.2 changed in what compiles: a function may have an empty body; a path\n" +
+  "    that reaches the end of a non-void function without a return is an error; a repeated\n" +
+  "    case or a second default is an error; a program with functions but no main is\n" +
+  "    refused; a local y of f is no longer reachable as f_y from main. A switch on a float or\n" +
+  "    comp now matches its cases (it never did). return; in the middle of main ends the\n" +
+  "    simulation. A function takes as many parameters as it needs (the limit of 16 is gone,\n" +
+  "    and ten or more used to compile to a wrong call), a name has up to 1000 characters,\n" +
+  "    and a call that ends a function is a jump (JMP f instead of CAL f; RET).\n" +
 
   "\n\n══════════════════════════════════════════════════════════════\n" +
   "SAPHO HARD CONSTRAINTS — ABSOLUTE RULES (violations FAIL the build)\n" +
@@ -664,7 +719,7 @@ export const SYSTEM_PROMPT = [
   "  file name; it mirrors the .cmm header), #array (a plain array) /\n" +
   "  #arrays (array + init file), #ITRAD (the interrupt address, from #PRACA), #TOAQUI (the\n" +
   "  PC-watch/cheguei address). Labels are `@name`.\n" +
-  "\nThe ISA has 108 opcodes (0 to 107) and 119 mnemonics, grouped into families.\n" +
+  "\nThe ISA has 108 opcodes (0 to 107) and 121 mnemonics, grouped into families.\n" +
   "Use list_opcodes for the full table; the numbers changed in yanc v5.5 and again when\n" +
   "TOM and CAD (toma/cade, the links between processors) entered at 20 and 21, so never\n" +
   "quote an opcode number from memory. The families below are the only ones you\n" +
@@ -673,6 +728,9 @@ export const SYSTEM_PROMPT = [
   "                LDI/STI take an array name or a number as the base: LDI k reads\n" +
   "                mem[acc + k], STI k writes acc to mem[top of stack + k]. A pointer\n" +
   "                is read with LDI 0 and written with STI 0 (there is no LDA/STA).\n" +
+  "                LDI_V x n and STI_V x n (since yanc v9.2) add a constant offset to the\n" +
+  "                base, as LOD_V does (LDI_V x 4 reads mem[x + 4 + acc]): assembler forms,\n" +
+  "                no new opcode.\n" +
   "  • stack     — PSH (push acc), POP\n" +
   "  • arith_int — ADD/MLT/DIV/MOD/NEG/ABS/PST/SGN (acc OP mem); QUO/REM read a division\n" +
   "  • arith_float — F_ADD/F_MLT/F_DIV/F_NEG/F_ABS/F_PST/F_SGN, plus F_SU1/F_SU2 (subtraction);\n" +
@@ -738,8 +796,11 @@ export const SYSTEM_PROMPT = [
   "23.5 MHz in v7.1, 37.3 MHz in v8.0, with the same area. The divider stopped setting the\n" +
   "clock in v6.0 (9.43 → 21.9 MHz on the DE10-Nano). The real limit of a given program comes\n" +
   "from its own synthesis. The SAPHO/ Verilog and asmcomp must come from the same yanc\n" +
-  "release: a v8.0 .asm on an older SAPHO/ divides wrong, and vice versa. Division by zero is\n" +
-  "still undefined (the quotient comes out all ones); INT_MIN / -1 still wraps.\n" +
+  "release: a v8.0 .asm on an older SAPHO/ divides wrong, and vice versa (v9.2 changed SAPHO/\n" +
+  "again, so take SAPHO/ and asmcomp from the same release). An int division by zero is\n" +
+  "still undefined (the quotient comes out all ones); INT_MIN / -1 still wraps. A float\n" +
+  "divided by zero gives, at #FROUND 1 and 2, the largest float with the quotient's sign; at\n" +
+  "level 0 it is not defined. Before v9.2, level 2 (so every C++ program) gave 0 for x / 0.\n" +
   "\nOTHER COMMON SHRINK PATTERNS:\n" +
   "  PSH + LOD <v> + ADD <w> + SET <z>   →  LOD <v> + ADD <w> + SET <z>   (no PSH needed if acc not reused)\n" +
   "  LOD <v> + F_ADD <w>                  →  F_ADD_V is NOT an alias — F_ADD <w> already takes mem\n" +

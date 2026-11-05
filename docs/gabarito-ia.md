@@ -4,7 +4,7 @@ Perguntas para fazer à IA no painel da Aurora depois de cada versão, e o que a
 
 Como usar: abra um projeto de teste vazio, faça as perguntas em conversas novas, e marque o que falhou. Uma falha quase sempre aponta uma frase errada ou ausente no prompt, nas descrições das ferramentas (`main/ai/tools.js`) ou no `resources/sapho_rules.json`. Corrija lá e prenda a correção com um caso em `tests/unit/ai_system_prompt.test.js`.
 
-Os fatos abaixo valem para o yanc v9.1. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
+Os fatos abaixo valem para o yanc v9.2. Quando o `YANC_TAG` mudar, revise o gabarito junto com o prompt (o teste dos padrões cai sozinho e lembra).
 
 ## Perguntas
 
@@ -88,8 +88,8 @@ Certo: escreve `#NUBITS 16` e não precisa de `#NBMANT` nem `#NBEXPO`, porque de
 Errado: exigir mantissa e expoente que somem 15, ou dizer que sem eles o asmcomp recusa (era assim até o v8.0).
 
 **22. "Quero escrever texto num monitor VGA."**
-Certo: usa o bloco `SAPHO/myVGAText.v` ao lado do processador e escreve cada caractere com `toma_sync(k, c)` (ou `toma(k, c)` em outro clock). Diz que é uma tela de 80 x 30 caracteres, que 10 muda de linha, 8 apaga, 128 limpa e 129 seguido de linha e coluna põe o cursor, e que o clock do bloco é o de pixel, 25 MHz. Mostra a ligação (`toma <- toma_k`, `dado <- toma_dado`, `valeu -> valeu_k`, e `hs`, `vs`, `ativo` e `pixel` para o conversor da placa) e, na DE2-115, as duas formas do `VGA_CLK`: `~clk`, que o manual do yanc recomenda e ainda não foi visto em placa, e `clk`, que funcionou num projeto anterior na placa.
-Errado: gerar o sincronismo VGA no programa, ou dizer que não há bloco de vídeo (era assim até o v9.0).
+Certo: usa o bloco `SAPHO/myVGAText.v` ao lado do processador e escreve cada caractere com `toma_sync(k, c)` (ou `toma(k, c)` em outro clock). Diz que é uma tela de 80 x 30 caracteres, que 10 muda de linha, 8 apaga, -128 limpa e -127 seguido de linha e coluna põe o cursor, e que o clock do bloco é o de pixel, 25 MHz. Mostra a ligação (`toma <- toma_k`, `dado <- toma_dado`, `valeu -> valeu_k`, e `hs`, `vs`, `ativo` e `pixel` para o conversor da placa) e, na DE2-115, as duas formas do `VGA_CLK`: `~clk`, que o manual do yanc recomenda e ainda não foi visto em placa, e `clk`, que funcionou num projeto anterior na placa.
+Errado: gerar o sincronismo VGA no programa, dizer que não há bloco de vídeo (era assim até o v9.0), ou mandar escrever 128 e 129 para limpar e mover o cursor (era assim no v9.1; desde o v9.2, a 8 bits o compilador recusa 128).
 
 **23. "Como leio um número do teclado e escrevo na tela em C++?"**
 Certo: `#include <iostream>`, `cin >> n` e `cout << ...`, com o teclado no link 0 e a tela no link 1, no clock do processador; sem `cade_sync` nem `toma_sync` no programa. Se for ler uma linha depois de um número, lembra do `cin.ignore(100, '\n')`. Outros links vão por `#define YANC_STDIN_LINK` e `YANC_STDOUT_LINK` antes do primeiro `#include`.
@@ -99,5 +99,17 @@ Errado: `printf`, `scanf`, `std::string` ou `std::getline(cin, s)`, que ainda n�
 Certo: um relógio só, um PLL de 50 para 25 MHz, com o SAPHO, o `myKeyPS2` e o `myVGAText` nele, falando com `cade_sync` e `toma_sync`; reset `~KEY[0] | ~locked`; o `.sdc` com `create_clock` de 20 ns no `CLOCK_50`, `derive_pll_clocks` e `derive_clock_uncertainty`; `PS2_CLK` e `PS2_DAT` como entrada; a pinagem da placa (`CLOCK_50` em Y2, `PS2_CLK` em G6, `VGA_CLK` em A12, as cores, e o resto); e diz que o PLL ainda não rodou em placa.
 Errado: inventar número de pino, rodar o SAPHO a 50 MHz com o `myVGAText` sem PLL, ou declarar `PS2_CLK` e `PS2_DAT` como bidirecionais. Pedida a mesma coisa para outra placa, o certo é pedir o arquivo de pinos dela, e não inventar.
 
-**25. Forma, em qualquer resposta acima**
+**25. "Escreva `float a = 1e-6;` e `int m = 010;` em C±. O que fica em cada um?"**
+Certo: desde o v9.2 o C± lê os literais como o C: `1e-6` compila, e `010` é octal, vale 8. A 8 bits, `int x = 200;` é erro, porque o literal decimal precisa caber na palavra.
+Errado: dizer que o C± não tem literal com expoente e mandar escrever `0.000001` (era assim até o v9.1), ou que `010` vale 10.
+
+**26. "Compare dois `comp` e diga qual é maior."**
+Certo: `==` e `!=` comparam as duas partes, como no C; `<`, `>`, `<=` e `>=` com `comp` são erro de compilação desde o v9.2, então compara `abs(z)`, `mod2(z)`, `real(z)` ou `imag(z)`.
+Errado: escrever `z1 > z2`, ou dizer que `==` compara o módulo (era assim até o v9.1).
+
+**27. "Minha variável `t` sumiu da forma de onda."**
+Certo: desde o v9.2 uma variável escrita e nunca lida sai do processador (escritas, palavra de dado e sinal da onda), e o compilador avisa; `#WAVE t` a mantém. Em C++ ela sai também, sem aviso e sem `#WAVE`.
+Errado: culpar o simulador, ou mandar ler a variável num `out` só para ela aparecer.
+
+**28. Forma, em qualquer resposta acima**
 Responde em português quando a pergunta é em português; código sempre em bloco com a linguagem marcada; referências a arquivo no formato `arquivo.cmm:linha`; sem travessão, sem emoji, sem "ótima pergunta".

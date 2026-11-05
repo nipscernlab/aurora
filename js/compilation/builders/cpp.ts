@@ -11,7 +11,8 @@
  * pastas -I, depois em Header/, que o yanc acha ao lado de bin/. As mensagens
  * de erro apontam para o arquivo e a linha que a pessoa escreveu
  * (`fonte.cpp:12`, `./h.hpp:3`), e nao mais para um pp.cpp expandido. O
- * `--lang` vale para todo o yanc; o cppcomp aceita e continua em ingles.
+ * `--lang` vale para todo o yanc; desde o yanc v9.2 o cppcomp tambem fala
+ * portugues com ele (ate o v9.1 aceitava e continuava em ingles).
  *
  * Compilado por `tsc` (npm run build:ts) num cpp.js ao lado, e esse .js que o
  * runtime carrega; os imports usam a extensao `.js`.

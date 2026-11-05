@@ -62,8 +62,9 @@ vi.mock('../../main/ai/aurora_mcp_server.js', () => ({
 }));
 vi.mock('electron-log', () => ({ default: { info() {}, warn() {}, error() {}, debug() {} } }));
 const motor = vi.hoisted(() => ({ usarSdk: false }));
+const achado = vi.hoisted(() => ({ bin: { exe: 'C:\\fake\\codex.exe', rgDir: null, viaShim: false } }));
 vi.mock('../../main/ai/cli_locator.js', () => ({
-  default: { locateCodex: () => ({ exe: 'C:\\fake\\codex.exe', rgDir: null, viaShim: false }), invalidate() {} },
+  default: { locateCodex: () => achado.bin, invalidate() {} },
 }));
 vi.mock('../../main/ai/cli_downloader.js', () => ({ default: { isDownloadable: () => false, ensureCli: vi.fn() } }));
 
@@ -115,6 +116,24 @@ describe('codex_cli: a CLI direto', () => {
       'mcp_servers.aurora.url="http://127.0.0.1:5999/mcp/7"',
       'mcp_servers.aurora.default_tools_approval_mode="approve"',
     ]));
+  });
+
+  it('o codex.cmd global roda pelo cmd.exe com a linha escapada', async () => {
+    // O modulo guarda o binario achado; um modulo novo acha o .cmd.
+    achado.bin = { exe: 'C:\\npm\\codex.cmd', rgDir: null, viaShim: true };
+    vi.resetModules();
+    const novo = await import('../../main/ai/codex_cli.ts');
+    try {
+      await novo.start(turno(), janela);
+      const s = filhos.findLast((f) => f.cmd !== 'taskkill');
+      s.p.emit('close', 0);
+      expect(s.cmd).toBe('cmd.exe');
+      expect(s.opcoes.windowsVerbatimArguments).toBe(true);
+      expect(s.args).toHaveLength(4);
+      expect(s.args[3].startsWith('"C:\\npm\\codex.cmd ^^^"exec^^^" ')).toBe(true);
+    } finally {
+      achado.bin = { exe: 'C:\\fake\\codex.exe', rgDir: null, viaShim: false };
+    }
   });
 
   it('a conversa retomada recebe a mesma contencao, por -c, que o resume aceita', async () => {

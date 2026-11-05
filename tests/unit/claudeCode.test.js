@@ -67,11 +67,11 @@ cp.spawn = (cmd, args, opcoes) => {
   spawns.push({ cmd, args, opcoes, filho });
   return filho;
 };
-/** cada execFile: { cmd, args } */
+/** cada execFile: { cmd, args, verbatim } */
 const execs = [];
 let respostaDoExec = { stdout: '2.1.296 (Claude Code)\n' };
-cp.execFile = (cmd, args, _opcoes, aoTerminar) => {
-  execs.push({ cmd, args });
+cp.execFile = (cmd, args, opcoes, aoTerminar) => {
+  execs.push({ cmd, args, verbatim: opcoes.windowsVerbatimArguments });
   setImmediate(() => aoTerminar(respostaDoExec.erro ? new Error(respostaDoExec.erro) : null, respostaDoExec.stdout || ''));
   return new EventEmitter();
 };
@@ -160,7 +160,7 @@ describe('detect', () => {
       installed: true, path: binario.exe, version: '2.1.296 (Claude Code)',
       authed: true, plan: 'pro', rateLimitTier: 'r', expiresAt: 1000, expired: true,
     });
-    expect(execs[0]).toEqual({ cmd: binario.exe, args: ['--version'] });
+    expect(execs[0]).toEqual({ cmd: binario.exe, args: ['--version'], verbatim: false });
   });
 
   it('sem login, ou sem versao: o que der para dizer', async () => {
@@ -187,6 +187,7 @@ describe('detect', () => {
     try {
       process.env.CLAUDE_CONFIG_DIR = outra;
       expect((await cc.detect()).authed).toBe(true);
+      local.locateClaude.mockReturnValue(binario);
       await cc.start(turno(), janela);
       expect(eventos.some((e) => /not signed in/.test(e.message || ''))).toBe(false);
       // O ~/.claude nao vale com a variavel definida: a CLI tambem nao o le.
@@ -202,10 +203,10 @@ describe('detect', () => {
     }
   });
 
-  it('um .cmd roda pelo cmd.exe', async () => {
+  it('um .cmd roda pelo cmd.exe, com a linha escapada', async () => {
     local.locateClaude.mockReturnValue({ exe: 'C:\\npm\\claude.cmd', viaShim: true });
     await cc.detect();
-    expect(execs[0]).toEqual({ cmd: 'cmd.exe', args: ['/d', '/s', '/c', 'C:\\npm\\claude.cmd', '--version'] });
+    expect(execs[0]).toEqual({ cmd: 'cmd.exe', args: ['/d', '/s', '/c', '"C:\\npm\\claude.cmd ^^^"--version^^^""'], verbatim: true });
   });
 });
 
@@ -398,11 +399,18 @@ describe('start: a CLI direto (sem o SDK)', () => {
     expect(s.args).toEqual(expect.arrayContaining(['--strict-mcp-config', '--permission-mode', 'dontAsk']));
   });
 
-  it('um .cmd roda pelo cmd.exe, e o spawn que lanca vira erro', async () => {
+  it('um .cmd roda pelo cmd.exe com a linha escapada, o system vai no corpo, e o spawn que lanca vira erro', async () => {
     local.locateClaude.mockReturnValue({ exe: 'C:\\npm\\claude.cmd', viaShim: true });
-    const { s } = await rodar();
+    const { s, filho } = await rodar({ system: 'curto\ncom linha' });
     expect(s.cmd).toBe('cmd.exe');
-    expect(s.args.slice(0, 4)).toEqual(['/d', '/s', '/c', 'C:\\npm\\claude.cmd']);
+    expect(s.opcoes.windowsVerbatimArguments).toBe(true);
+    expect(s.args.slice(0, 3)).toEqual(['/d', '/s', '/c']);
+    expect(s.args).toHaveLength(4);
+    expect(s.args[3].startsWith('"C:\\npm\\claude.cmd ^^^"-p^^^" ')).toBe(true);
+    // O system curto iria como argumento; pelo .cmd vai na entrada padrao,
+    // porque o cmd.exe nao carrega quebra de linha.
+    expect(s.args[3]).not.toContain('append-system-prompt');
+    expect(filho.entrada).toContain('curto\ncom linha');
     spawnLanca = 'EACCES';
     await cc.start(turno(), janela);
     expect(ultimo('error').message).toBe('Failed to launch Claude Code: EACCES');

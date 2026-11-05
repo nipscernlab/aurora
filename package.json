@@ -310,7 +310,7 @@
     "jquery-ui": "^1.14.2",
     "katex": "^0.19.1",
     "lit": "^3.3.3",
-    "material-icon-theme": "^5.39.0",
+    "material-icon-theme": "^5.40.0",
     "monaco-editor": "0.52.2",
     "simple-git": "^4.0.2",
     "web-tree-sitter": "0.27.1",

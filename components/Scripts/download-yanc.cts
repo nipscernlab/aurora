@@ -46,7 +46,10 @@
  *            v9.1 traz a tela de texto VGA (myVGAText.v, escrita com
  *            toma_sync), o teclado revisado (Ctrl, tem_tecla), uma tabela de
  *            codigos comum aos dois, e no C++ os headers <iostream>,
- *            <cstdio> e um <cstring> completo sobre o teclado e a tela.)
+ *            <cstdio> e um <cstring> completo sobre o teclado e a tela.
+ *            v9.2 muda SAPHO/ de novo (LDI_V/STI_V no asmcomp, os codigos
+ *            da tela em -128/-127, LINK_SYNC nos perifericos): SAPHO/ e
+ *            asmcomp tem de vir da mesma release.)
  *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
@@ -96,9 +99,9 @@ const { verifyChecksum } = require('./lib/checksum') as typeof import('./lib/che
 // que instalasse depois; com ele, lib/checksum.js recusa extrair. Muda junto
 // com a tag: o sha256 vem do campo `digest` do asset na API do GitHub e se
 // confere baixando o zip.
-const EXPECTED_SHA256: string | null = 'c5a3e09ca5d2d8812603f00ee493ec7e4956d96515d69443827f68ffe9430bc6';
+const EXPECTED_SHA256: string | null = '2d05435efd23883658c2a58d4e7bffc814ac5219cecbef0c3077e82b949178d0';
 
-const YANC_TAG      = 'v9.1';
+const YANC_TAG      = 'v9.2';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';

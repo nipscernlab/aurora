@@ -181,9 +181,16 @@ export function parseLexer(src: string | null): LexResult | null {
  *  Pulls defaults from "int xxx = N;" and human descriptions from
  *  the trailing "// blah" comment. Tolerates `extern` and array
  *  decls so the same regex works on both .c and .h sources.
+ *
+ *  Since yanc v9.2 (steps P7 and P8 of its #93) the files are
+ *  directives.c/.h, not diretivas.c/.h, and the values are fields of
+ *  the struct `cfg`: `int nbmant; // description` in context.h, and
+ *  the default the designated initializer `.nbmant = 23,` in
+ *  directives.c.
  * ========================================================== */
 
 const DECL_RE = /^\s*(?:extern\s+)?(?:char|int)\s+(\w+)\s*(?:\[\d+\])?\s*(?:=\s*([^;]+?))?\s*;\s*(?:\/\/\s*(.+))?\s*$/gm;
+const INIT_RE = /^\s*\.(\w+)\s*=\s*(-?\d+)\s*,?\s*(?:\/\/\s*(.+?))?\s*$/gm;
 
 interface DirectiveInfo {
   default?: number;
@@ -203,6 +210,11 @@ function parseDirectiveSource(src: string | null): Record<string, DirectiveInfo>
     if (defaultRaw && /^-?\d+$/.test(defaultRaw)) next.default = parseInt(defaultRaw, 10);
     if (description) next.description = description;
     acc[name] = next;
+  }
+  while ((m = INIT_RE.exec(src))) {
+    const next: DirectiveInfo = { ...(acc[m[1].toLowerCase()] || {}), default: parseInt(m[2], 10) };
+    if (m[3]) next.description = m[3];
+    acc[m[1].toLowerCase()] = next;
   }
   return acc;
 }
@@ -237,6 +249,10 @@ export function buildDirectives(lexResult: LexResult | null, ...sources: (string
  *
  *     direct : PRNAME   ID   {fprintf(stderr, MSG_ERR_PRNAME_GONE, ...); exit(...);}
  *
+ * and since v9.2, which stops through diag.c (step P4 of yanc's #93):
+ *
+ *     direct : PRNAME   ID   {fatal(MSG_ERR_PRNAME_GONE, ...);}
+ *
  * Every `#`-token of CMMComp.l is a directive to parseLexer, so without this
  * the rules would keep offering `#PRNAME` to the AI and the editor. A token
  * whose production in CMMComp.y does nothing but print a `MSG_ERR_*_GONE` is
@@ -245,7 +261,7 @@ export function buildDirectives(lexResult: LexResult | null, ...sources: (string
 export function diretivasQueSairam(grammarSrc: string | null): Set<string> {
   const out = new Set<string>();
   if (!grammarSrc) return out;
-  const re = /\b([A-Z][A-Z0-9_]*)\b[^{}\n]*\{\s*fprintf\s*\(\s*stderr\s*,\s*MSG_ERR_[A-Z0-9_]*_GONE\b/g;
+  const re = /\b([A-Z][A-Z0-9_]*)\b[^{}\n]*\{\s*(?:fprintf\s*\(\s*stderr\s*,|fatal\s*\()\s*MSG_ERR_[A-Z0-9_]*_GONE\b/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(grammarSrc)) !== null) out.add(m[1]);
   return out;
@@ -600,8 +616,9 @@ export function gerarRegras(yancPath: string, origem: { yancTag: string | null; 
   const cmm = {
     lex:     readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Sources', 'CMMComp.l')),
     grammar: readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Sources', 'CMMComp.y')),
-    dirC:    readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Sources', 'diretivas.c')),
-    dirH:    readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Headers', 'diretivas.h')),
+    dirC:    readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Sources', 'directives.c')),
+    dirH:    readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Headers', 'directives.h')),
+    ctxH:    readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Headers', 'context.h')),
     msg:     readSafe(path.join(yancPath, 'Compilers', 'CMMComp', 'Headers', 'messages.h')),
   };
 
@@ -610,7 +627,7 @@ export function gerarRegras(yancPath: string, origem: { yancTag: string | null; 
   };
 
   const lex        = parseLexer(cmm.lex);
-  const directives = buildDirectives(lex, cmm.dirC, cmm.dirH);
+  const directives = buildDirectives(lex, cmm.dirC, cmm.dirH, cmm.ctxH);
   tirarAsQueSairam(directives, cmm.grammar);
   const messages   = parseMessages(cmm.msg);
   const grammar    = parseGrammar(cmm.grammar);

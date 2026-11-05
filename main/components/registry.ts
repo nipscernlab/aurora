@@ -177,7 +177,7 @@ export const COMPONENTES: Componente[] = [
     essencial: true,
     requerParaCompilar: true,
     script: 'download-yanc.cts',
-    versao: 'v9.1',
+    versao: 'v9.2',
     // O YANC ja tinha carimbo proprio antes dos outros; o nome fica.
     carimbo: 'bin/.yanc-version',
   },

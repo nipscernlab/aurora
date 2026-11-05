@@ -235,11 +235,15 @@ build and deploy it from the yanc checkout, which must sit next to this
 repository (`<parent>\yanc` and `<parent>\Aurora`):
 
 ```bat
-set PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%
+set PATH=C:\msys64\ucrt64\bin;C:\msys64\usr\bin;%PATH%
 ..\yanc\Scripts\aurora.bat
 ```
 
-Adjust the MSYS2 path to your install. The script builds with the same
+The script takes the cross compiler from MSYS2's UCRT64 (`ucrt64\bin`) and
+bison, flex and make from `usr\bin`, and stops with a message naming the tool
+that is missing. Adjust the MSYS2 path to your install, or leave out the
+`set PATH` line if both folders are already on your `PATH`. The folder name
+`Aurora` is the script's; Windows does not tell `aurora` from it. The script builds with the same
 `make stage` recipe as a release, replaces `components/bin`, `SAPHO`, `Macros`
 and `Header` together (a SAPHO Verilog and an asmcomp from different yanc versions do
 not work together), and writes the pinned `YANC_TAG` into

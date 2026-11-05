@@ -84,6 +84,15 @@ describe('buildDirectives', () => {
     });
   });
 
+  it('yanc v9.2: o padrao no inicializador de cfg e a descricao no campo de context.h', () => {
+    const lex = parseLexer(LEXER);
+    const c = 'target_cfg cfg = {\n    .prname = "",\n    .nubits = 32,\n    .nbmant =  23 , // opcional\n};\n';
+    const ctx = 'typedef struct {\n    int nubits;           // word width (bits)\n} target_cfg;\n';
+    expect(buildDirectives(lex, c, null, ctx)).toEqual({
+      NUBITS: { symbol: '#NUBITS', token: 'NUBITS', default: 32, description: 'word width (bits)' },
+    });
+  });
+
   it('sem lexer, sem diretivas', () => {
     expect(buildDirectives(null, 'int nubits = 16;')).toEqual({});
   });
@@ -202,6 +211,12 @@ describe('as diretivas que sairam da linguagem (yanc v7.1)', () => {
     expect([...diretivasQueSairam(GRAMATICA)]).toEqual(['PRNAME']);
     expect([...diretivasQueSairam(null)]).toEqual([]);
     expect([...diretivasQueSairam('direct : NUBITS INUM {dire_exec("#NUBITS",$2,1);}')]).toEqual([]);
+  });
+
+  it('acha tambem a forma do yanc v9.2, que para pelo fatal() de diag.c', async () => {
+    const { diretivasQueSairam } = await import('../../scripts/sync-sapho-rules.mts');
+    const v92 = 'direct : PRNAME   ID   {fatal(MSG_ERR_PRNAME_GONE, pctx.line_num+1);} // the name is the file\'s';
+    expect([...diretivasQueSairam(v92)]).toEqual(['PRNAME']);
   });
 
   it('tira a diretiva da lista pelo token, e deixa as outras', async () => {

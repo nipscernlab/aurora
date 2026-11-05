@@ -151,12 +151,12 @@ describe('as pilhas ficam com o compilador', () => {
 
     it('os padroes citados sao os do yanc que o instalador baixa', () => {
         // Numeros de Compilers/ASMComp/Sources/eval.c, iguais do v5.6 ao
-        // v9.1 (conferidos na tag v9.1: o v8.0 mexeu ali na sequencia da
+        // v9.2 (conferidos na tag v9.2: o v8.0 mexeu ali na sequencia da
         // divisao, o v9.0 em quando a regra do float vale). Quando o YANC_TAG
         // mudar, este caso cai de proposito: reconfira os padroes e o que uma
         // pilha omitida vale, e atualize o prompt, o docs/gabarito-ia.md e
         // este teste juntos.
-        expect(tagDe('download-yanc.cts', 'YANC_TAG')).toBe('v9.1');
+        expect(tagDe('download-yanc.cts', 'YANC_TAG')).toBe('v9.2');
         expect(SYSTEM_PROMPT).toContain('NUBITS 32, NBMANT 23, NBEXPO 8');
         expect(SYSTEM_PROMPT).toContain('NUGAIN 128, FFTSIZ 3');
         // v5.7: omitida, a profundidade sai do programa (pico + 1, minimo 2).
@@ -209,8 +209,10 @@ describe('o yanc v9.1', () => {
         expect(SYSTEM_PROMPT).toContain('SAPHO/myVGAText.v');
         expect(SYSTEM_PROMPT).toContain('toma_sync(k, w)');
         expect(SYSTEM_PROMPT).toContain('80 columns x 30 rows');
-        expect(SYSTEM_PROMPT).toMatch(/128 clears the screen/);
-        expect(SYSTEM_PROMPT).toMatch(/129\s+followed by two words, row and column/);
+        // Os comandos da tela eram 128 e 129 no v9.1; o v9.2 os passou para
+        // -128 e -127 (o bloco "o yanc v9.2" abaixo).
+        expect(SYSTEM_PROMPT).toMatch(/-128 clears the screen/);
+        expect(SYSTEM_PROMPT).toMatch(/-127 followed by two words, row and column/);
     });
 
     // O sistema inteiro na DE2-115 (texto do yanc de 20/10/2026, com a pinagem
@@ -238,8 +240,9 @@ describe('o yanc v9.1', () => {
     });
 
     it('a tabela de codigos comum e o teclado revisado', () => {
-        expect(SYSTEM_PROMPT).toMatch(/128 to 159 screen commands/);
-        expect(SYSTEM_PROMPT).toMatch(/160 to\s+255 special keys/);
+        expect(SYSTEM_PROMPT).toMatch(/-128 to -97\s+screen commands/);
+        expect(SYSTEM_PROMPT).toMatch(/-96 to -1 special keys/);
+        expect(SYSTEM_PROMPT).not.toMatch(/128 to 159 screen commands|160 to\s+255 special keys/);
         expect(SYSTEM_PROMPT).toContain('Ctrl+A = 1 to Ctrl+Z = 26');
         expect(SYSTEM_PROMPT).toContain('tem_tecla');
         expect(SYSTEM_PROMPT).toMatch(/294 logic elements and 99\s+registers/);
@@ -317,8 +320,9 @@ describe('o yanc v8.0', () => {
         expect(SYSTEM_PROMPT).toContain('5 palavras cada em DIV/MOD e 4 em F_DIV');
         expect(SYSTEM_PROMPT).toContain('Never drop a NOP');
         expect(SYSTEM_PROMPT).toContain('4 words and 4\ncycles per DIV/MOD, 3 per F_DIV');
-        // 117 no v6.0; 119 desde que TOM e CAD (toma/cade) entraram no yanc v7.1.
-        expect(SYSTEM_PROMPT).toContain('119 mnemonics');
+        // 117 no v6.0; 119 desde que TOM e CAD (toma/cade) entraram no yanc v7.1;
+        // 121 desde que LDI_V e STI_V entraram no v9.2, sem opcode novo.
+        expect(SYSTEM_PROMPT).toContain('121 mnemonics');
     });
 
     it('o NOP antes do JIZ/LDI/ILI depois de float e do asmcomp, e nao se economiza', () => {
@@ -443,5 +447,53 @@ describe('os links entre processadores (toma/cade)', () => {
         expect(SYSTEM_PROMPT).toContain('A.toma_i -> B.taqui_j, B.cade_j -> A.valeu_i, A.toma_dado -> B.cade_dado_j');
         expect(SYSTEM_PROMPT).toContain('cade_k.txt beside the\n    source');
         expect(SYSTEM_PROMPT).toContain('TOM k and CAD k, and #LKSYNC k');
+    });
+});
+
+// O que o yanc v9.2 mudou no que o modelo deve dizer (yanc/CHANGELOG, v9.2, e o
+// manual da tag: docs/language-cmm.md, directives.md, library.md, peripherals.md
+// e floating-point.md).
+describe('o yanc v9.2', () => {
+    it('os literais sao os do C: expoente, hexa, octal e binario', () => {
+        expect(SYSTEM_PROMPT).not.toMatch(/No exponent literals/);
+        expect(SYSTEM_PROMPT).toContain('2.5E+3');
+        expect(SYSTEM_PROMPT).toContain('A leading 0\n         is OCTAL, as in C: 010 is 8');
+        expect(SYSTEM_PROMPT).toContain('0xFFFFFFFF is -1 at 32');
+        expect(SYSTEM_PROMPT).toMatch(/at 8 bits 200 is an error/);
+    });
+
+    it('comp: == e != comparam as duas partes, e nao ha ordem', () => {
+        expect(SYSTEM_PROMPT).toContain('== and != compare both parts, as in C (3+0i == 3)');
+        expect(SYSTEM_PROMPT).toMatch(/<, >, <=\s+and >= with a comp are a compile error/);
+        expect(SYSTEM_PROMPT).toContain('y*3 + 2i is\n         (y*3) + 2i');
+    });
+
+    it('inicializador em lista, vetor entre chaves e #WAVE', () => {
+        expect(SYSTEM_PROMPT).toContain('int n = 0, k, m = n + 1;');
+        expect(SYSTEM_PROMPT).toContain('int v[5] = {3, -2, 7};');
+        expect(SYSTEM_PROMPT).toContain('#WAVE a, b');
+        expect(SYSTEM_PROMPT).toMatch(/writes and never reads/);
+    });
+
+    it('Dirac: expressoes, parenteses no coeficiente e os resultados ate o v9.1', () => {
+        expect(SYSTEM_PROMPT).toContain('v # (a+c)|b⟩');
+        expect(SYSTEM_PROMPT).toContain('__dirac_tmp');
+        expect(SYSTEM_PROMPT).toContain('RESULTS UP TO v9.1 NEED CHECKING');
+    });
+
+    it('perifericos: LINK_SYNC e a medida nova da tela', () => {
+        expect(SYSTEM_PROMPT).toContain('LINK_SYNC');
+        expect(SYSTEM_PROMPT).toMatch(/337 logic elements, 127 registers/);
+        expect(SYSTEM_PROMPT).not.toContain('332 logic elements');
+    });
+
+    it('ISA: LDI_V e STI_V sem opcode novo; float dividido por zero', () => {
+        expect(SYSTEM_PROMPT).toContain('LDI_V x n and STI_V x n');
+        expect(SYSTEM_PROMPT).toMatch(/largest float with the quotient's sign/);
+    });
+
+    it('o que passou a compilar ou deixou de compilar', () => {
+        expect(SYSTEM_PROMPT).toMatch(/limit of 16 is gone/);
+        expect(SYSTEM_PROMPT).toMatch(/repeated\s+case or a second default is an error/);
     });
 });

@@ -141,6 +141,36 @@ function cabecalhoDeToken(token: any, forja = 'github'): string[] {
 }
 
 /**
+ * O host de um endereco de remoto, em minusculas, ou '' quando nao ha host
+ * a quem confiar um token.
+ *
+ * O host sai so da autoridade: o que vem entre `esquema://` e a primeira `/`,
+ * depois do ultimo `@` (usuario) e sem a porta. Antes saia do texto depois do
+ * primeiro `@` em qualquer lugar, e `https://evil.example/x@github.com/y.git`
+ * era lido como github.com, levando o token do GitHub para evil.example.
+ *
+ * `http://` sem TLS devolve '': o cabecalho iria em claro pela rede. Sem
+ * esquema, so a forma do scp (`git@host:g/p.git`) tem host; um caminho local
+ * nao tem.
+ */
+function hostDoRemoto(url: unknown): string {
+  const cru = String(url || '').trim();
+  if (!cru) return '';
+  let autoridade: string;
+  const comEsquema = /^([a-z][a-z0-9+.-]*):\/\/([^/?#\\]*)/i.exec(cru);
+  if (comEsquema) {
+    if (comEsquema[1].toLowerCase() === 'http') return '';
+    autoridade = comEsquema[2];
+  } else {
+    const scp = /^([^/\\:]+):(?!\/\/)/.exec(cru);
+    if (!scp) return '';
+    autoridade = scp[1];
+  }
+  const semUsuario = autoridade.slice(autoridade.lastIndexOf('@') + 1);
+  return semUsuario.replace(/:\d*$/, '').toLowerCase();
+}
+
+/**
  * De qual forja e este remoto.
  *
  * Existe porque a AURORA agora guarda token de duas, e o cabecalho de uma nao
@@ -153,12 +183,7 @@ function cabecalhoDeToken(token: any, forja = 'github'): string[] {
  * @param [hostGitlab] a instancia conectada, ex: gitlab.exemplo.br
  */
 function forjaDoRemoto(url: any, hostGitlab: string = 'gitlab.com'): 'github'|'gitlab'|null {
-  const cru = String(url || '').trim();
-  if (!cru) return null;
-  // Formas reais: https://host/g/p.git, git@host:g/p.git, ssh://git@host/g/p.
-  const semEsquema = cru.replace(/^[a-z+]+:\/\//i, '');
-  const semUsuario = semEsquema.includes('@') ? semEsquema.split('@').slice(1).join('@') : semEsquema;
-  const host = semUsuario.split(/[/:]/)[0].toLowerCase();
+  const host = hostDoRemoto(url);
   if (!host) return null;
   if (host === 'github.com' || host.endsWith('.github.com')) return 'github';
   const alvo = String(hostGitlab || '').toLowerCase().split(':')[0];

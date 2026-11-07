@@ -714,8 +714,7 @@
       "starting": "Starting C± compilation for {{name}}..."
     },
     "cpp": {
-      "starting": "Starting C++ compilation for {{name}}...",
-      "englishOnly": "Note: the C++ front end reports only in English."
+      "starting": "Starting C++ compilation for {{name}}..."
     },
     "asm": {
       "starting": "Starting ASM compilation process for {{name}}...",

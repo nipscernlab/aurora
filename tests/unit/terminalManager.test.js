@@ -170,6 +170,12 @@ describe('classificar e escrever', () => {
     expect(d('top.v:3: error: x')).toBe('error');
     expect(d('a.v:1: warning: y')).toBe('warning');
     expect(d('Atenção: variavel')).toBe('warning');
+    // as marcas do cppcomp do yanc v9.2 com --lang=pt; a primeira linha e a
+    // saida real do yanc.exe embutido, as outras so variam o texto
+    expect(d("t.cpp:2: erro: 'y' não foi declarado")).toBe('error');
+    expect(d('./h.hpp:3: atenção: conversão implícita')).toBe('warning');
+    expect(d('t.cpp:5: erro: #error parou aqui')).toBe('error');
+    expect(d('o terror: nada')).toBe('plain');
     expect(d('ERROR total')).toBe('error');
     expect(d('Sucesso!')).toBe('success');
     expect(d('Tip: use')).toBe('tips');
@@ -194,6 +200,17 @@ describe('classificar e escrever', () => {
     // O fim do lote reconta pelo DOM.
     vi.advanceTimersByTime(200);
     expect(tm.messageCounts.tasm).toEqual({ error: 2, warning: 1, success: 0, tips: 0 });
+  });
+
+  it('o erro do cppcomp em portugues aparece no TCMM com o detalhado desligado', () => {
+    // yanc v9.2, --lang=pt: antes deste teste a linha virava plain e sumia.
+    falsos();
+    tm.verboseMode = false;
+    tm.processExecutableOutput('tcmm', { stdout: '', stderr: "t.cpp:2: erro: 'y' não foi declarado\n" });
+    const cards = entradas('tcmm');
+    expect(cards).toHaveLength(1);
+    expect(cards[0].classList.contains('error')).toBe(true);
+    expect(cards[0].textContent).toContain("'y' não foi declarado");
   });
 
   it('saida vazia, so espacos ou terminal que nao existe nao escreve nada', () => {

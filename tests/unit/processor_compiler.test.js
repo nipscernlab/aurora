@@ -204,16 +204,16 @@ describe('cppCompilation (yanc -S, que chama o cppcomp)', () => {
         expect(d.terminalManager.calls.some((c) => /includeWarning|preprocessing/.test(c.msg))).toBe(false);
     });
 
-    it('em portugues diz uma vez que o cppcomp so fala ingles; em ingles, nada', async () => {
+    it('o cppcomp recebe o idioma da IDE e nao ha aviso de "so ingles" (yanc v9.2)', async () => {
         const d = makeDeps();
         runSpec.mockResolvedValue({ code: 0 });
         await cppCompilation(d, proc, vi.fn());
-        expect(d.terminalManager.calls.filter((c) => c.msg === 'terminal.cpp.englishOnly')).toHaveLength(1);
+        expect(runSpec.mock.calls[0][0].args).toContain('--lang=pt');
+        expect(d.terminalManager.calls.filter((c) => c.level === 'tips')).toHaveLength(0);
 
         window.getYancLang = () => 'en';
         const d2 = makeDeps();
         await cppCompilation(d2, proc, vi.fn());
-        expect(d2.terminalManager.calls.filter((c) => c.msg === 'terminal.cpp.englishOnly')).toHaveLength(0);
         expect(runSpec.mock.calls[1][0].args).toContain('--lang=en');
     });
 

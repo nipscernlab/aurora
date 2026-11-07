@@ -85,7 +85,7 @@ function buildMemoryBlock(memories: Array<{ name: string; content: string; }>) {
     let used = 0;
     let shown = 0;
     for (const m of memories) {
-        const conteudo = String(m.content || '').trim().replace(/<\/?project_memory/gi, (t) => t.replace('<', '&lt;'));
+        const conteudo = String(m.content || '').trim().replace(/<\/?project_memory/gi, (t) => `&lt;${t.slice(1)}`);
         const entry = `\n[${String(m.name).replace(/<\/?project_memory/gi, '')}]\n${conteudo}\n`;
         if (used + entry.length > MEMORY_BUDGET) break;
         out += entry;

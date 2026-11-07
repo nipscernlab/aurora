@@ -270,6 +270,12 @@ interface AuroraAiAPI {
   saveConversation?(chat: ConversaGravada): Promise<unknown>;
   renameConversation(id: string, title: string): Promise<unknown>;
   deleteConversation(id: string): Promise<unknown>;
+  /** O manifesto das ferramentas (main/ai/tools.ts), como dados. */
+  getToolManifest?(): Promise<{ tools?: import('../ai/tool_runner.js').DefDoManifesto[] } | null | undefined>;
+  /** Assina os pedidos de ferramenta do main (tool_bridge); devolve quem desassina. */
+  onToolExec?(cb: (pedido: import('../ai/tool_runner.js').PedidoDeFerramenta) => void): () => void;
+  /** Responde um pedido de ferramenta pelo id. */
+  sendToolResult?(requestId: string, result: unknown): void;
 }
 
 /** Uma conversa como main/ai/conversations.js a grava e le. */

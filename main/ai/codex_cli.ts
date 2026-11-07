@@ -57,6 +57,7 @@ import cliLocator from './cli_locator.js';
 const { locateCodex } = cliLocator;
 import cliDownloader from './cli_downloader.js';
 import attachments from './attachments.js';
+import { viaCmd } from './linha_do_cmd.js';
 import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } from './timeouts.js';
 // Codex SDK engine (ESTUDO §18.5 step 3), preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
@@ -408,9 +409,11 @@ async function start(payload: { sessionId: string; conversationId?: string; mess
   try {
     if (bin.viaShim && process.platform === 'win32') {
       // Global-install fallback: a .cmd/.bat shim needs cmd.exe on
-      // Node >= 20.12. Native-binary path skips this entirely.
-      proc = spawn('cmd.exe', ['/d', '/s', '/c', bin.exe, ...args], {
-        cwd, env, windowsHide: true,
+      // Node >= 20.12, with every argument escaped for it (linha_do_cmd.ts).
+      // Native-binary path skips this entirely.
+      const c = viaCmd(bin.exe, args);
+      proc = spawn(c.cmd, c.args, {
+        cwd, env, windowsHide: true, windowsVerbatimArguments: c.windowsVerbatimArguments,
       });
     } else {
       proc = spawn(bin.exe, args, { cwd, env, windowsHide: true });

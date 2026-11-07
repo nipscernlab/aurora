@@ -288,14 +288,10 @@ export async function cppCompilation(
         // o fonte que falhou.
         setLastCompiledCmmPath(sourcePath);
 
-        // O cppcomp aceita o --lang como todo o yanc, mas as mensagens dele
-        // continuam em ingles. Dizer isso uma vez e melhor do que deixar a
-        // pessoa achar que o toggle de idioma quebrou; em ingles nao ha o
-        // que avisar.
+        // Desde o yanc v9.2 o cppcomp fala portugues com o --lang, como o
+        // resto do yanc; ate o v9.1 respondia sempre em ingles e aqui havia
+        // um aviso dizendo isso.
         const lang = idiomaDoYanc();
-        if (lang !== 'en') {
-            deps.terminalManager.appendToTerminal('tcmm', tr('terminal.cpp.englishOnly'), 'tips');
-        }
 
         const cppSpec = buildCppSpec({
             yancPath,

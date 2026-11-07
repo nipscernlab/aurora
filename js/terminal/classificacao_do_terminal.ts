@@ -27,8 +27,14 @@ export function tipoDaMensagem(content: Saida): TipoDeMensagem {
   // Catches lowercase iverilog / yosys / gcc-style diagnostics that
   // the older substring checks (`'ERROR'`, `'Warning'`) miss.
   // Checked first because it's the most specific (token + colon).
-  if (/\berror:/i.test(text)) return 'error';
-  if (/\bwarning:/i.test(text)) return 'warning';
+  // Since yanc v9.2 the cppcomp honours --lang=pt and writes the same
+  // gcc-style marks in Portuguese, in lowercase: `t.cpp:2: erro: ...` and
+  // `atenção: ...`. The capitalised `Erro`/`Atenção` checks below would
+  // miss them, and with verbose off the error would vanish from TCMM. The
+  // Portuguese marks are matched in lowercase only, so the capitalised
+  // messages of cmmcomp and asmcomp keep going through the checks below.
+  if (/\berror:/i.test(text) || /\berro:/.test(text)) return 'error';
+  if (/\bwarning:/i.test(text) || /\batenção:/.test(text)) return 'warning';
 
   if (text.includes('Atenção') || text.includes('Warning')) return 'warning';
   if (text.includes('Erro') || text.includes('ERROR')) return 'error';

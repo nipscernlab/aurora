@@ -450,14 +450,27 @@ A decisao de permissao e pura, em \file{js/ai/tool\_permission.js}
 \bottomrule
 \end{tabularx}
 
-Ha duas excecoes codificadas: \code{set\_command\_override} esta em
+Ha excecoes codificadas: \code{set\_command\_override} esta em
 \code{ALWAYS\_CONFIRM} (sempre mostra o cartao, mesmo no modo \lstinline|allow|,
-por reescrever uma linha de comando da \emph{toolchain}); e
-\code{rename\_project}, \code{rename\_processor} e \code{get\_rename\_status}
-estao em \code{PRE\_AUTHORIZED} (nunca passam pelo cartao bloqueante, pois rodam
-desacoplados da IA). Alem dessas, o \code{tool\_runner} pre-autoriza o
-\code{ask\_user\_question} pulando explicitamente o portao de permissao para ele
---- afinal ele \emph{e}, em si, um \emph{prompt} ao usuario.
+por reescrever uma linha de comando da \emph{toolchain}); o \code{import\_file}
+que le um arquivo de fora do projeto tambem mostra o cartao em todo modo; e
+\code{get\_rename\_status}, a consulta inofensiva depois de um renomear, esta em
+\code{PRE\_AUTHORIZED}. O \code{rename\_project} e o \code{rename\_processor}
+seguem o modo como qualquer escrita. Alem dessas, o \code{tool\_runner}
+pre-autoriza o \code{ask\_user\_question} pulando explicitamente o portao de
+permissao para ele --- afinal ele \emph{e}, em si, um \emph{prompt} ao usuario.
+
+O \code{WebFetch} e o \code{WebSearch} nativos do Claude passam pelo mesmo
+cartao, como acesso de rede: no motor do Agent SDK, um gancho
+\code{PreToolUse} (\file{main/ai/cartao\_da\_web.ts}) pergunta ao painel antes de
+cada uso, e so o modo \lstinline|allow| os libera sem perguntar; no caminho
+antigo da CLI, sem gancho, a web fica negada. As ferramentas de arquivo
+(criar, apagar, renomear) so agem dentro da pasta do projeto aberto
+(\file{js/api/caminho\_no\_projeto.ts}), e sem projeto aberto a pasta de trabalho
+do agente e uma pasta neutra, nunca a pasta pessoal. O cartao mostra inteiro o
+comando do \code{run\_in\_terminal} e o que vai para a web, sem o corte de 500
+caracteres. As memorias do projeto entram no contexto dentro de uma marcacao de
+dado nao confiavel, porque viajam com a pasta do projeto.
 
 \section{Cofre de chaves (\code{keystore})}
 

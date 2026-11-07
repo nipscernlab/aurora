@@ -17,6 +17,7 @@ import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { registrarArquivo, papelDeEntrada, type PapelDeEntrada } from '../project/papel_no_spf.js';
 import { ok, err, emit } from './api_core.js';
+import { caminhoNoProjeto } from './caminho_no_projeto.js';
 
 /** As tres listas de arquivos do .spf (TODO 13b): sintese, testbench, sem papel. */
 const LISTAS_DE_ARQUIVOS = ['synthesizableFiles', 'testbenchFiles', 'unclassifiedFiles'] as const;
@@ -64,24 +65,11 @@ export const arquivosDoProjeto = {
     if (!filePath) return err('filePath required');
     const root = ProjectStore.getProjectPath();
     if (!root) return err('No project open');
-
-    let target = String(filePath).trim();
-    if (target.includes('..')) return err('path must not contain ".."');
-
-    // A bare relative path resolves against the project root.
-    const isAbsolute = /^[a-zA-Z]:[\\/]/.test(target) || target.startsWith('\\\\');
-    if (!isAbsolute) {
-      target = `${root}\\${target.replace(/^[\\/]+/, '')}`;
-    }
-
-    // Stay inside the project folder. The trailing-separator check
-    // stops a sibling like "MyProject2" matching "MyProject".
-    const norm = (p: string) => p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
-    const r = norm(root);
-    const t = norm(target);
-    if (t !== r && !t.startsWith(r + '\\')) {
-      return err('file is outside the open project folder');
-    }
+    // A bare relative path resolves against the project root, and the path
+    // must stay inside it (caminho_no_projeto.ts, shared with the writes).
+    const dentro = caminhoNoProjeto(filePath, root, { raizConta: true });
+    if (!dentro.ok) return err(dentro.erro);
+    const target = dentro.caminho;
 
     // If the file is open in any Monaco pane, return its in-memory content
     // so the AI sees the latest unsaved edits, not the stale on-disk version.
@@ -121,8 +109,11 @@ export const arquivosDoProjeto = {
    *  ('synthesizable' or 'testbench'), or with no role yet, for the person to
    *  choose with a right-click (TODO 13b). A file already listed keeps its
    *  role and its place. */
-  async createFile(filePath: string | null | undefined, content: unknown = '', role: unknown = null) {
-    if (!filePath) return err('filePath required');
+  async createFile(pedido: string | null | undefined, content: unknown = '', role: unknown = null) {
+    if (!pedido) return err('filePath required');
+    const dentro = caminhoNoProjeto(pedido, ProjectStore.getProjectPath());
+    if (!dentro.ok) return err(dentro.erro);
+    const filePath = dentro.caminho;
     try {
       await electronAPI.writeFile(filePath, String(content ?? ''));
 
@@ -161,8 +152,11 @@ export const arquivosDoProjeto = {
     } catch (e) { return err((e as Error | null)?.message || 'createFile failed'); }
   },
 
-  async createFolder(dirPath: string | null | undefined) {
-    if (!dirPath) return err('dirPath required');
+  async createFolder(pedido: string | null | undefined) {
+    if (!pedido) return err('dirPath required');
+    const dentro = caminhoNoProjeto(pedido, ProjectStore.getProjectPath());
+    if (!dentro.ok) return err(dentro.erro);
+    const dirPath = dentro.caminho;
     try {
       await electronAPI.mkdir(dirPath);
       await atualizarArvore();
@@ -171,8 +165,11 @@ export const arquivosDoProjeto = {
   },
 
   /** Delete a file or directory, then refresh the tree. */
-  async deleteFile(filePath: string | null | undefined) {
-    if (!filePath) return err('filePath required');
+  async deleteFile(pedido: string | null | undefined) {
+    if (!pedido) return err('filePath required');
+    const dentro = caminhoNoProjeto(pedido, ProjectStore.getProjectPath());
+    if (!dentro.ok) return err(dentro.erro);
+    const filePath = dentro.caminho;
     try {
       await electronAPI.deleteFileOrDirectory(filePath);
       await atualizarArvore();
@@ -182,8 +179,15 @@ export const arquivosDoProjeto = {
   },
 
   /** Rename/move a file (copy to the new path, drop the old one). */
-  async renameFile(fromPath: string | null | undefined, toPath: string | null | undefined) {
-    if (!fromPath || !toPath) return err('fromPath and toPath required');
+  async renameFile(de: string | null | undefined, para: string | null | undefined) {
+    if (!de || !para) return err('fromPath and toPath required');
+    const root = ProjectStore.getProjectPath();
+    const origem = caminhoNoProjeto(de, root);
+    if (!origem.ok) return err(origem.erro);
+    const destino = caminhoNoProjeto(para, root);
+    if (!destino.ok) return err(destino.erro);
+    const fromPath = origem.caminho;
+    const toPath = destino.caminho;
     try {
       await electronAPI.copyFile(fromPath, toPath);
       await electronAPI.deleteFileOrDirectory(fromPath);
@@ -279,6 +283,12 @@ export const arquivosDoProjeto = {
     if (!filePath) return err('filePath required');
     const spfPath = ProjectStore.getSpfPath();
     if (!spfPath) return err('No project open');
+    // Tirar da lista vale para qualquer entrada do .spf, ate uma antiga que
+    // aponte para fora; apagar do disco, so dentro do projeto.
+    if (deleteFromDisk) {
+      const dentro = caminhoNoProjeto(filePath, ProjectStore.getProjectPath());
+      if (!dentro.ok) return err(dentro.erro);
+    }
     try {
       const norm = filePath.replace(/\\/g, '/').toLowerCase();
       let removed = false;
@@ -310,6 +320,13 @@ export const arquivosDoProjeto = {
     if (!fromPath || !toPath) return err('fromPath and toPath required');
     const spfPath = ProjectStore.getSpfPath();
     if (!spfPath) return err('No project open');
+    const root = ProjectStore.getProjectPath();
+    const origem = caminhoNoProjeto(fromPath, root);
+    if (!origem.ok) return err(origem.erro);
+    const destino = caminhoNoProjeto(toPath, root);
+    if (!destino.ok) return err(destino.erro);
+    fromPath = origem.caminho;
+    toPath = destino.caminho;
     try {
       const fromNorm = fromPath.replace(/\\/g, '/').toLowerCase();
       // Copy + delete (matches renameFile above, true rename can fail

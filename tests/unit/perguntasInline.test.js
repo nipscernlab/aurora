@@ -131,6 +131,35 @@ describe('o cartao de permissao', () => {
     expect(c.querySelector('.ai-confirm-args').textContent).toBe(JSON.stringify({ path: 'C:/proj/a.v' }, null, 2));
   });
 
+  it('importar de fora do projeto pede o cartao ate no "allow"; de dentro, nao', async () => {
+    localStorage.setItem(PERMISSION_STORE_KEY, 'allow');
+    await abrirPainel();
+    ProjectStore.setProject('C:\\proj\\proj.spf', 'C:\\proj');
+    const IMPORTAR = { name: 'import_file', access: 'write', description: 'Importa.' };
+    expect(await painel.confirmToolCall(IMPORTAR, { filePath: 'C:\\proj\\a.v' })).toBe(true);
+    expect(cartao()).toBeNull();
+    const e = estado(painel.confirmToolCall(IMPORTAR, { filePath: 'C:\\Users\\x\\.ssh\\id_rsa' }));
+    await assentar();
+    expect(cartao()).toBeTruthy();
+    expect(e.resolvido).toBe(false);
+    estado(painel.confirmToolCall(IMPORTAR, null));
+    await assentar();
+    expect(document.querySelectorAll('.ai-confirm')).toHaveLength(2);
+  });
+
+  it('a web tem o seu verbo, e o comando do terminal aparece inteiro', async () => {
+    localStorage.setItem(PERMISSION_STORE_KEY, 'ask');
+    await abrirPainel();
+    estado(painel.confirmToolCall({ name: 'WebFetch', access: 'network' }, { url: 'https://exemplo.org' }));
+    await assentar();
+    expect(txt(cartao(), '.ai-confirm-head')).toBe('Aurora Intelligence wants to reach the web');
+    const longo = 'echo ' + 'a'.repeat(700) + ' ; Remove-Item -Recurse C:\\';
+    estado(painel.confirmToolCall({ name: 'run_in_terminal', access: 'write' }, { command: longo }));
+    await assentar();
+    const ultimo = [...painel.messagesEl.querySelectorAll('.ai-confirm:not(.done)')].at(-1);
+    expect(ultimo.querySelector('.ai-confirm-args').textContent).toContain('Remove-Item -Recurse');
+  });
+
   it('sem prosa nem argumentos, as duas areas saem; sem def, "tool" e leitura', async () => {
     localStorage.setItem(PERMISSION_STORE_KEY, 'ask');
     await abrirPainel();

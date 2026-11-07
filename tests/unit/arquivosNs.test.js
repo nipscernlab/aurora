@@ -59,7 +59,7 @@ describe('readFile', () => {
   it('recusa sem caminho, sem projeto, com .. ou fora do projeto', async () => {
     expect(msg(await arq.readFile())).toBe('filePath required');
     expect(msg(await arq.readFile('..\\x'))).toMatch(/must not contain/);
-    expect(msg(await arq.readFile('C:\\p2\\top.v'))).toBe('file is outside the open project folder');
+    expect(msg(await arq.readFile('C:\\p2\\top.v'))).toBe('path is outside the open project folder');
     ProjectStore.clearProject();
     expect(msg(await arq.readFile('top.v'))).toBe('No project open');
   });
@@ -121,11 +121,17 @@ describe('createFile', () => {
     expect(cfg.unclassifiedFiles.map((f) => f.name)).toEqual(['outro.v']);
   });
 
-  it('Verilog sem projeto aberto e so escrito e repintado', async () => {
+  it('sem projeto aberto nada e escrito, Verilog ou nao', async () => {
+    // Antes escrevia em qualquer lugar; sem projeto nao ha onde confinar.
     ProjectStore.clearProject();
-    await arq.createFile('C:\\p\\alu.v', 'x');
+    expect(msg(await arq.createFile('C:\\p\\alu.v', 'x'))).toBe('No project open');
+    expect(electronAPI.writeFile).not.toHaveBeenCalled();
     expect(SpfStore.update).not.toHaveBeenCalled();
-    expect(electronAPI.triggerFileTreeRefresh).toHaveBeenCalled();
+  });
+
+  it('caminho relativo vale a partir da raiz do projeto', async () => {
+    expect((await arq.createFile('sub\\n.v', 'x')).data).toEqual({ filePath: 'C:\\p\\sub\\n.v' });
+    expect(disco.get('C:\\p\\sub\\n.v')).toBe('x');
   });
 
   it('reescrever o arquivo aberto troca o buffer e passa a varinha', async () => {
@@ -181,6 +187,71 @@ describe('pasta, apagar e renomear', () => {
     expect(msg(await arq.renameFile('a', 'b'))).toBe('disco cheio');
     electronAPI.copyFile.mockRejectedValueOnce({});
     expect(msg(await arq.renameFile('a', 'b'))).toBe('renameFile failed');
+  });
+});
+
+describe('as ferramentas de escrita ficam no projeto', () => {
+  // A trava do main aceita tambem o userData e o %TEMP%; sem esta conferencia a
+  // assistente podia reescrever as chaves cifradas, as preferencias e o log.
+  const FORA = [
+    'C:\\Users\\x\\AppData\\Roaming\\aurora\\aurora-ai-keys.json',
+    'C:\\p2\\a.v',
+    'D:\\lib\\a.v',
+    '\\\\servidor\\pasta\\a.v',
+    'C:\\p\\..\\fora.v',
+  ];
+
+  it('criar, criar pasta e apagar recusam fora do projeto, e nada toca o disco', async () => {
+    for (const alvo of FORA) {
+      expect(msg(await arq.createFile(alvo, 'x')), alvo).toMatch(/outside the open project|must not contain/);
+      expect(msg(await arq.createFolder(alvo)), alvo).toMatch(/outside the open project|must not contain/);
+      expect(msg(await arq.deleteFile(alvo)), alvo).toMatch(/outside the open project|must not contain/);
+    }
+    expect(electronAPI.writeFile).not.toHaveBeenCalled();
+    expect(electronAPI.mkdir).not.toHaveBeenCalled();
+    expect(electronAPI.deleteFileOrDirectory).not.toHaveBeenCalled();
+  });
+
+  it('a pasta do projeto em si nao pode ser apagada nem sobrescrita', async () => {
+    expect(msg(await arq.deleteFile('C:\\p'))).toBe('path is the project folder itself');
+    expect(msg(await arq.deleteFile('C:/p/'))).toBe('path is the project folder itself');
+    expect(msg(await arq.createFile('C:\\p', 'x'))).toBe('path is the project folder itself');
+    expect(electronAPI.deleteFileOrDirectory).not.toHaveBeenCalled();
+  });
+
+  it('pasta vizinha com o mesmo prefixo nao passa por dentro', async () => {
+    expect(msg(await arq.createFile('C:\\p2\\a.v', 'x'))).toBe('path is outside the open project folder');
+    expect(msg(await arq.createFile('C:\\pX', 'x'))).toBe('path is outside the open project folder');
+  });
+
+  it('renomear exige origem e destino dentro', async () => {
+    expect(msg(await arq.renameFile('C:\\p\\top.v', 'D:\\fora.v'))).toBe('path is outside the open project folder');
+    expect(msg(await arq.renameFile('D:\\fora.v', 'C:\\p\\top2.v'))).toBe('path is outside the open project folder');
+    expect(msg(await arq.renameImportedFile({ fromPath: 'C:\\p\\top.v', toPath: 'D:\\fora.v' }))).toBe('path is outside the open project folder');
+    expect(msg(await arq.renameImportedFile({ fromPath: 'D:\\fora.v', toPath: 'C:\\p\\x.v' }))).toBe('path is outside the open project folder');
+    expect(electronAPI.copyFile).not.toHaveBeenCalled();
+  });
+
+  it('tirar do .spf aceita qualquer entrada; apagar do disco, so dentro', async () => {
+    cfg = { synthesizableFiles: [{ path: 'D:\\velho\\a.v' }] };
+    expect((await arq.removeImportedFile({ filePath: 'D:\\velho\\a.v' })).data.removed).toBe(true);
+    cfg = { synthesizableFiles: [{ path: 'D:\\velho\\a.v' }] };
+    expect(msg(await arq.removeImportedFile({ filePath: 'D:\\velho\\a.v', deleteFromDisk: true }))).toBe('path is outside the open project folder');
+    expect(cfg.synthesizableFiles).toHaveLength(1);
+    expect(electronAPI.deleteFileOrDirectory).not.toHaveBeenCalled();
+  });
+
+  it('sem projeto ou sem caminho, recusam', async () => {
+    expect(msg(await arq.createFolder('   '))).toBe('path required');
+    ProjectStore.clearProject();
+    for (const r of [await arq.createFolder('d'), await arq.deleteFile('a'), await arq.renameFile('a', 'b')]) {
+      expect(msg(r)).toBe('No project open');
+    }
+  });
+
+  it('com a raiz em barras normais, o relativo usa a mesma barra', async () => {
+    ProjectStore.setProject('C:/q/q.spf', 'C:/q/');
+    expect((await arq.createFile('n.v', 'x')).data).toEqual({ filePath: 'C:/q/n.v' });
   });
 });
 

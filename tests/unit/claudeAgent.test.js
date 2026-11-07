@@ -76,6 +76,17 @@ describe('claude_agent: contencao do turno', () => {
     expect(o.mcpServers).toEqual({ aurora: { type: 'http', url: 'http://127.0.0.1:5999/mcp/7' } });
   });
 
+  it('a web pre-aprovada passa pelo gancho do cartao, que pergunta a janela do turno', async () => {
+    await tryStart(turno(), janela, host());
+    const [o] = sdk.chamadas;
+    const [m] = o.hooks.PreToolUse;
+    expect(m.matcher).toBe('WebFetch|WebSearch');
+    expect(m.timeout).toBeGreaterThan(120);
+    // Sem o painel do lado de la, o tool_bridge responde ok:false, e o gancho nega.
+    const r = await m.hooks[0]({ tool_name: 'WebFetch', tool_input: { url: 'https://x.org' } });
+    expect(r.hookSpecificOutput.permissionDecision).toBe('deny');
+  });
+
   it('sem a ponte MCP, a mesma contencao, so sem o servidor', async () => {
     ponte.falha = new Error('porta ocupada');
     expect(await tryStart(turno(), janela, host())).toBe(true);

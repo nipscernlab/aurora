@@ -120,6 +120,7 @@ js/api/processadores_ns.js
 js/api/abas_e_arvore.js
 js/api/editor_ativo.js
 js/api/arquivos_ns.js
+js/api/caminho_no_projeto.js
 js/api/ciclo_do_projeto_ns.js
 js/api/renomear_projeto_ns.js
 js/api/rules_ns.js
@@ -358,6 +359,7 @@ main/ipc/project.js
 main/ai/tools.js
 main/ai/claude_code.js
 main/ai/native_tools.js
+main/ai/cartao_da_web.js
 main/ai/claude_agent.js
 main/ai/codex_agent.js
 main/ai/codex_cli.js

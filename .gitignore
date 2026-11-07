@@ -323,6 +323,7 @@ js/ui/aviso_do_campo.js
 js/wave/surfer_custom.js
 js/ui/new_project_modal.js
 js/ui/bug_report_form.js
+js/ai/tool_runner.js
 # html/ (as paginas secundarias tem codigo proprio; o <script src> aponta para o .js)
 html/prism/prism.js
 

@@ -1,5 +1,5 @@
 /**
- * tool_runner.js: executes Aurora Intelligence tool calls in the renderer.
+ * tool_runner.ts: executes Aurora Intelligence tool calls in the renderer.
  *
  * The AI SDK runs in the main process, but the workspace the assistant
  * acts on (Monaco, the file tree, the terminals) lives here. Main ships
@@ -17,20 +17,33 @@
  */
 
 import { aiAssistantManager } from '../ui/ai_assistant_manager.js';
+import type { DefDaFerramenta } from './tool_permission.js';
+
+/** Uma ferramenta como o manifesto do main (main/ai/tools.ts) a descreve. */
+export interface DefDoManifesto extends DefDaFerramenta {
+  api?: [string, string];
+  argStyle?: 'none' | 'object' | 'positional' | string;
+  argNames?: string[];
+}
+
+/** O que o tool_bridge do main manda em `ai:tool-exec`. */
+export interface PedidoDeFerramenta { requestId: string; toolName: string; args?: Record<string, unknown> | null }
+
+type Metodo = (...a: unknown[]) => unknown;
 
 /** toolName → manifest definition */
-let manifest = new Map();
-let unsubscribe = null;
+let manifest = new Map<string, DefDoManifesto>();
+let unsubscribe: (() => void) | null = null;
 
 /** Turn the JSON args object into the positional call arguments. */
-function buildCallArgs(def, args) {
+function buildCallArgs(def: DefDoManifesto, args: Record<string, unknown> | null | undefined): unknown[] {
   if (def.argStyle === 'none') return [];
   if (def.argStyle === 'object') return [args || {}];
   return (def.argNames || []).map((name) => (args || {})[name]);
 }
 
-async function handleToolExec({ requestId, toolName, args }) {
-  const reply = (result) => window.aiAPI?.sendToolResult?.(requestId, result);
+async function handleToolExec({ requestId, toolName, args }: PedidoDeFerramenta): Promise<void> {
+  const reply = (result: unknown) => window.aiAPI?.sendToolResult?.(requestId, result);
 
   const def = manifest.get(toolName);
   if (!def) {
@@ -54,8 +67,9 @@ async function handleToolExec({ requestId, toolName, args }) {
     }
   }
 
-  const ns = window.AuroraAPI?.[def.api?.[0]];
-  const fn = ns?.[def.api?.[1]];
+  const [nome, metodo] = def.api ?? ['', ''];
+  const ns = (window.AuroraAPI as unknown as Record<string, Record<string, unknown> | undefined> | undefined)?.[nome];
+  const fn = ns?.[metodo] as Metodo | undefined;
   if (typeof fn !== 'function') {
     reply({ ok: false, error: `AuroraAPI.${(def.api || []).join('.')} is unavailable` });
     return;
@@ -65,7 +79,7 @@ async function handleToolExec({ requestId, toolName, args }) {
     const result = await fn(...buildCallArgs(def, args));
     reply(result === undefined ? { ok: true } : result);
   } catch (e) {
-    reply({ ok: false, error: e?.message || String(e) });
+    reply({ ok: false, error: (e as Error | null)?.message || String(e) });
   }
 }
 
@@ -74,14 +88,15 @@ async function handleToolExec({ requestId, toolName, args }) {
  * Safe to call once at renderer boot; a second call re-subscribes.
  */
 export async function initToolRunner() {
-  if (!window.aiAPI) return;
+  const aiAPI = window.aiAPI;
+  if (!aiAPI) return;
   try {
-    const res = await window.aiAPI.getToolManifest();
+    const res = await aiAPI.getToolManifest?.();
     manifest = new Map((res?.tools || []).map((t) => [t.name, t]));
   } catch (e) {
     console.warn('[tool-runner] manifest load failed:', e);
     manifest = new Map();
   }
   if (unsubscribe) unsubscribe();
-  unsubscribe = window.aiAPI.onToolExec((payload) => handleToolExec(payload));
+  unsubscribe = aiAPI.onToolExec?.((payload) => handleToolExec(payload)) ?? null;
 }

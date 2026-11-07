@@ -241,6 +241,36 @@ describe('forjaDoRemoto', () => {
     expect(forjaDoRemoto('')).toBe(null);
     expect(forjaDoRemoto(null)).toBe(null);
   });
+
+  it('o host sai da autoridade, nunca do caminho: o token nao vaza para outro servidor', () => {
+    // Antes, o texto depois do primeiro @ em qualquer lugar virava o host, e
+    // estes dois recebiam o token do GitHub.
+    expect(forjaDoRemoto('https://evil.example/x@github.com/y.git')).toBe(null);
+    expect(forjaDoRemoto('https://evil.example/github.com/y.git')).toBe(null);
+    // usuario que imita o host: vale o que vem depois do ultimo @
+    expect(forjaDoRemoto('https://github.com@evil.example/y.git')).toBe(null);
+    expect(forjaDoRemoto('https://a@b@evil.example/y.git')).toBe(null);
+    expect(forjaDoRemoto('https://x-access-token@github.com/n/a.git')).toBe('github');
+    expect(forjaDoRemoto('https://github.com:443/n/a.git')).toBe('github');
+    expect(forjaDoRemoto('https://GitHub.com/n/a.git')).toBe('github');
+    expect(forjaDoRemoto('https://evil.example?github.com/y')).toBe(null);
+    expect(forjaDoRemoto('https://evil.example#@github.com/y')).toBe(null);
+    expect(forjaDoRemoto('https://evil.example\\@github.com/y')).toBe(null);
+  });
+
+  it('http sem TLS nao recebe token, que iria em claro', () => {
+    expect(forjaDoRemoto('http://github.com/n/a.git')).toBe(null);
+    expect(forjaDoRemoto('HTTP://gitlab.com/n/a.git')).toBe(null);
+    expect(forjaDoRemoto('http://gitlab.ufjf.br/l/p.git', 'gitlab.ufjf.br')).toBe(null);
+  });
+
+  it('caminho local e scp sem host nao tem forja', () => {
+    expect(forjaDoRemoto('C:\\repos\\github.com\\a.git')).toBe(null);
+    expect(forjaDoRemoto('/srv/git/github.com/a.git')).toBe(null);
+    expect(forjaDoRemoto('../github.com/a.git')).toBe(null);
+    expect(forjaDoRemoto('file:///srv/github.com/a.git')).toBe(null);
+    expect(forjaDoRemoto('github.com:n/a.git')).toBe('github');
+  });
 });
 
 describe('normalizarArquivos', () => {

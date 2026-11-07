@@ -117,6 +117,33 @@ describe('leitura', () => {
   });
 });
 
+describe('projeto que nao e de confianca', () => {
+  it('o core.fsmonitor do .git/config nao executa nada no status', async () => {
+    // Um projeto recebido em zip ou pendrive traz o .git/config dele. Com
+    // core.fsmonitor apontando para um comando, todo `git status` rodava esse
+    // comando, e a arvore de arquivos chama o status ao abrir o projeto.
+    const hostil = path.join(pasta.raiz, 'hostil');
+    fs.mkdirSync(hostil, { recursive: true });
+    git(hostil, 'init', '-q');
+    fs.writeFileSync(path.join(hostil, 'a.txt'), 'a\n');
+    git(hostil, 'add', '.');
+    git(hostil, '-c', 'core.fsmonitor=false', 'commit', '-q', '-m', 'i');
+    const barra = (p) => p.split(path.sep).join('/');
+    const marcador = path.join(pasta.raiz, 'fsmonitor-rodou');
+    const gancho = path.join(pasta.raiz, 'gancho.sh');
+    fs.writeFileSync(gancho, `#!/bin/sh\necho x > "${barra(marcador)}"\n`, { mode: 0o755 });
+    git(hostil, 'config', 'core.fsmonitor', barra(gancho));
+
+    // O teste so prova algo se o gancho de fato roda sem a protecao.
+    git(hostil, 'status', '--porcelain');
+    expect(fs.existsSync(marcador)).toBe(true);
+    fs.rmSync(marcador);
+
+    expect(await chamar('git:status', { dir: hostil })).toMatchObject({ ok: true, isRepo: true });
+    expect(fs.existsSync(marcador)).toBe(false);
+  });
+});
+
 describe('stage, commit e historico', () => {
   it('stage e unstage de um arquivo, e stage de tudo', async () => {
     expect(await chamar('git:stage', ['a.v'])).toMatchObject({ ok: true });

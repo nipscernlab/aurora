@@ -62,6 +62,15 @@ let abortos = new AbortController();
  * senha que ninguem vai digitar. Sem prazo nenhum, uma operacao pendurada
  * deixava o `busy` do painel ligado e o painel de Git inteiro morto ate
  * reiniciar.
+ *
+ * Todo git sai com `core.fsmonitor=false`. O `.git/config` vem com o projeto,
+ * e um projeto recebido em zip, pendrive ou pasta de rede pode trazer
+ * `core.fsmonitor = <comando>`: o git roda esse comando a cada `status`, e a
+ * arvore roda um `status` ao abrir o projeto e a cada 10 s. Conferido com o
+ * git 2.56 do Windows: sem o `-c` o comando roda, com ele nao. O simple-git
+ * recusa qualquer `core.fsmonitor` passado pela AURORA, ate o `false`, sem o
+ * `allowUnsafeFsMonitor`; essa trava olha so o argv que montamos (nenhum
+ * handler aceita `-c` do renderer), nao o `.git/config`, que e o perigo aqui.
  */
 function opcoesGit(extra: Partial<import('simple-git').SimpleGitOptions> = {}): Partial<import('simple-git').SimpleGitOptions> {
   return {
@@ -69,7 +78,23 @@ function opcoesGit(extra: Partial<import('simple-git').SimpleGitOptions> = {}): 
     timeout: { block: GIT_IDLE_MS },
     abort: abortos.signal,
     ...extra,
+    config: ['core.fsmonitor=false', ...(extra.config ?? [])],
+    unsafe: { ...extra.unsafe, allowUnsafeFsMonitor: true },
   };
+}
+
+/**
+ * O cabecalho de token certo para um remoto: o da forja dele, ou nenhum.
+ *
+ * O mesmo para o clone e para fetch, pull e push. O clone mandava o token do
+ * GitHub para qualquer endereco, inclusive um GitLab ou um servidor qualquer.
+ */
+function configDeToken(url: string): string[] {
+  const hostGitlab = gitlabAuth && typeof gitlabAuth.getHost === 'function' ? gitlabAuth.getHost() : 'gitlab.com';
+  const forja = forjaDoRemoto(url, hostGitlab);
+  const dono = forja === 'gitlab' ? gitlabAuth : (forja === 'github' ? githubAuth : null);
+  const token = dono && typeof dono.getToken === 'function' ? dono.getToken() : null;
+  return cabecalhoDeToken(token, forja || 'github');
 }
 
 /** Aborta todo git em andamento. Chamado pelo encerramento da AURORA. */
@@ -160,12 +185,7 @@ async function remoteGit(ev: Electron.IpcMainInvokeEvent) {
     // o cabecalho do GitHub para um remoto do GitLab e levar 401 num push que
     // funcionaria sozinho pelo gerenciador de credenciais do sistema. Sem
     // remoto conhecido, nada e injetado e o caminho de sempre vale.
-    const url = await urlDoRemoto(dir);
-    const hostGitlab = gitlabAuth && typeof gitlabAuth.getHost === 'function' ? gitlabAuth.getHost() : 'gitlab.com';
-    const forja = forjaDoRemoto(url, hostGitlab);
-    const dono = forja === 'gitlab' ? gitlabAuth : (forja === 'github' ? githubAuth : null);
-    const token = dono && typeof dono.getToken === 'function' ? dono.getToken() : null;
-    config = cabecalhoDeToken(token, forja || 'github');
+    config = configDeToken(await urlDoRemoto(dir));
   } catch (_) { /* fall back to the system credential helper */ }
   return simpleGit(opcoesGit({ baseDir: dir, config }));
 }
@@ -424,21 +444,15 @@ function register() {
   }));
 
   // Clone a repo into the folder the renderer picked ({ url, dest }). Uses the
-  // stored token if present. The folder picking now happens renderer-side.
+  // stored token of the URL's forge, if any (configDeToken). The folder picking now happens renderer-side.
   // NOTE: this one isn't wrapped in safe() because it needs `event.sender` to
   // stream live progress (git --progress) back to the panel's progress bar.
   ipcMain.handle('git:clone', async (event, opts: { url: string; dest: string; }) => {
     try {
       if (!opts || typeof opts.url !== 'string' || !opts.url.trim()) throw new Error('url required');
       if (typeof opts.dest !== 'string' || !opts.dest.trim()) throw new Error('dest required');
-      const config = [];
-      try {
-        const token = githubAuth && typeof githubAuth.getToken === 'function' ? githubAuth.getToken() : null;
-        if (token) {
-          const basic = Buffer.from(`x-access-token:${token}`).toString('base64');
-          config.push(`http.extraHeader=Authorization: Basic ${basic}`);
-        }
-      } catch (_) { /* fall back to credential helper */ }
+      let config: string[] = [];
+      try { config = configDeToken(opts.url.trim()); } catch (_) { /* fall back to credential helper */ }
       // simple-git's progress plugin parses git's stderr (counting/compressing/
       // receiving/resolving + percent). We forward each tick to the renderer.
       const progress = (p: { method: string; stage: string; progress: number; }) => {

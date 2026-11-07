@@ -305,7 +305,9 @@ Em ambos os casos o \textit{token} é cifrado com
 \textit{token} é lido somente no lado \textit{main} — o \file{git.js} o injeta
 como cabeçalho \lstinline|http.extraHeader| de uso único (\lstinline|-c|, nunca
 escrito na configuração do repositório) para \textit{push}/\textit{pull}/
-\textit{clone}; o \textit{renderer} só consegue perguntar \enquote{quem está
+\textit{clone}, e só quando o remoto é \lstinline|https://| e o \textit{host}
+da autoridade do endereço é o da forja dona do \textit{token}
+(\lstinline|forjaDoRemoto| em \file{main/ipc/git\_parse.ts}); o \textit{renderer} só consegue perguntar \enquote{quem está
 conectado?} (\lstinline|github:status|), nunca obter os \textit{bytes}. Outras
 \textit{handlers}: \lstinline|github:create-repo| (cria repositório sob a conta),
 \lstinline|github:list-repos| (lista repositórios próprios, de colaboração e de

@@ -51,6 +51,8 @@ import path from 'node:path';
 import log from 'electron-log';
 
 import auroraMcp from './aurora_mcp_server.js';
+import toolBridge from './tool_bridge.js';
+import { ganchosDaWeb } from './cartao_da_web.js';
 import attachments from './attachments.js';
 import { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } from './timeouts.js';
 import { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } from './retry.js';
@@ -415,9 +417,13 @@ async function tryStart(p: { sessionId: string; conversationId?: string; message
     //
     // No canUseTool: o `dontAsk` nega o que nao esta pre-aprovado sem consultar
     // ninguem. Se uma ferramenta nativa precisar de uma pessoa, ela fica
-    // proibida aqui e vira uma ferramenta mcp__aurora__, que tem o card.
+    // proibida aqui e vira uma ferramenta mcp__aurora__, que tem o card. A
+    // excecao e a web, que nao tem como ser refeita: ela fica pre-aprovada, e
+    // o gancho PreToolUse abaixo pergunta ao painel antes de cada uso
+    // (cartao_da_web.ts); um "nao" do gancho vence a pre-aprovacao.
     permissionMode: PERMISSION_MODE,
     allowedTools: PRE_APROVADAS,
+    hooks: ganchosDaWeb(webContents, toolBridge.runTool),
     // Nenhuma configuracao do disco (usuario, projeto, local): um `allow` em
     // ~/.claude/settings.json reabriria o que o `dontAsk` fecha.
     settingSources: [],

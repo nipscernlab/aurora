@@ -102,9 +102,17 @@ const PRE_APROVADAS = [
 ];
 
 /**
+ * O pre-aprovado do caminho antigo da CLI (claude_code.ts sem o SDK): o mesmo,
+ * sem a web. No motor do SDK a web continua na lista, mas cada uso passa antes
+ * pelo gancho do cartao_da_web.ts, que pergunta ao painel; a CLI direta nao tem
+ * gancho, entao la a web fica de fora e o `dontAsk` a nega.
+ */
+const PRE_APROVADAS_SEM_WEB = PRE_APROVADAS.filter((t) => t !== 'WebFetch' && t !== 'WebSearch');
+
+/**
  * O modo de permissao dos dois motores. Era `bypassPermissions`, que aprova
  * tudo; com ele o Read lia qualquer arquivo da maquina.
  */
 const PERMISSION_MODE = 'dontAsk';
 
-export { NATIVE_TOOLS, DISALLOWED_TOOLS, PRE_APROVADAS, PERMISSION_MODE };
+export { NATIVE_TOOLS, DISALLOWED_TOOLS, PRE_APROVADAS, PRE_APROVADAS_SEM_WEB, PERMISSION_MODE };

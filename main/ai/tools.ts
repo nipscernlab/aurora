@@ -510,7 +510,8 @@ const TOOL_MANIFEST: ToolDef[] = [
       'Create a new file (or overwrite an existing one) with the given content. ' +
       'A new .v/.sv/.vh enters the project with the `role` you give, or with no role yet ' +
       '(left out of every build, shown with a question mark in the tree) if you give none. ' +
-      'A file already in the project keeps its role.',
+      'A file already in the project keeps its role. ' +
+      'The path must be inside the open project folder; a relative path starts at its root.',
     access: 'write',
     api: ['project', 'createFile'],
     argStyle: 'positional',
@@ -553,7 +554,7 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'create_folder',
-    description: 'Create a directory, including any missing parent folders. Use a project-relative path; creating one that already exists is not an error.',
+    description: 'Create a directory, including any missing parent folders. Use a project-relative path; creating one that already exists is not an error. The path must be inside the open project folder.',
     access: 'write',
     api: ['project', 'createFolder'],
     argStyle: 'positional',
@@ -566,7 +567,7 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'delete_file',
-    description: 'Delete a file or directory.',
+    description: 'Delete a file or directory inside the open project folder (never the project folder itself).',
     access: 'write',
     api: ['project', 'deleteFile'],
     argStyle: 'positional',
@@ -579,7 +580,7 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'rename_file',
-    description: 'Rename or move a file from one absolute path to another.',
+    description: 'Rename or move a file from one path to another, both inside the open project folder.',
     access: 'write',
     api: ['project', 'renameFile'],
     argStyle: 'positional',
@@ -977,7 +978,7 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'import_file',
-    description: 'Register an existing .v / .sv / .vh / .py file in the current project SPF. Copies the file into the project root if it lives elsewhere. Python .py files are cocotb testbenches. Without `kind`, a Verilog file enters with no role yet, for the user to choose; pass `kind` only when the user told you the role.',
+    description: 'Register an existing .v / .sv / .vh / .py file in the current project SPF. Copies the file into the project root if it lives elsewhere; reading a file outside the project always asks the user first, in every permission mode. Python .py files are cocotb testbenches. Without `kind`, a Verilog file enters with no role yet, for the user to choose; pass `kind` only when the user told you the role.',
     access: 'write',
     api: ['project', 'importFile'],
     argStyle: 'object',
@@ -992,7 +993,7 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'rename_imported_file',
-    description: 'Rename an imported file (in both the SPF list and on disk).',
+    description: 'Rename an imported file (in both the SPF list and on disk). Both paths must be inside the open project folder.',
     access: 'write',
     api: ['project', 'renameImportedFile'],
     argStyle: 'object',
@@ -1007,7 +1008,7 @@ const TOOL_MANIFEST: ToolDef[] = [
   },
   {
     name: 'remove_imported_file',
-    description: 'Remove a file from the SPF synthesizable / testbench list. By default the file is kept on disk; set deleteFromDisk:true to also delete it.',
+    description: 'Remove a file from the SPF synthesizable / testbench list. By default the file is kept on disk; set deleteFromDisk:true to also delete it, which only works for a file inside the open project folder.',
     access: 'write',
     api: ['project', 'removeImportedFile'],
     argStyle: 'object',

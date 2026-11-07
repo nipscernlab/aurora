@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    decideToolPermission, previewArgs, splitArgs, permissionOptionsHtml,
+    decideToolPermission, previewArgs, splitArgs, permissionOptionsHtml, limiteDaPrevia,
 } from '../../js/ai/tool_permission.js';
 
 describe('decideToolPermission', () => {
@@ -8,10 +8,24 @@ describe('decideToolPermission', () => {
         expect(decideToolPermission({ name: 'set_command_override', access: 'write' }, 'allow'))
             .toBe('confirm');
     });
-    it('pre-authorizes renames and rename-status polling in any mode', () => {
-        expect(decideToolPermission({ name: 'rename_project', access: 'write' }, 'confirm')).toBe('allow');
-        expect(decideToolPermission({ name: 'rename_processor', access: 'write' }, 'writes')).toBe('allow');
+    it('pre-authorizes only the rename-status poll; renames follow the mode like any write', () => {
         expect(decideToolPermission({ name: 'get_rename_status', access: 'read' }, 'confirm')).toBe('allow');
+        // They used to skip the card even in "ask every time".
+        expect(decideToolPermission({ name: 'rename_project', access: 'write' }, 'confirm')).toBe('confirm');
+        expect(decideToolPermission({ name: 'rename_processor', access: 'write' }, 'writes')).toBe('confirm');
+        expect(decideToolPermission({ name: 'rename_project', access: 'write' }, 'allow')).toBe('allow');
+    });
+    it('foraDoProjeto forces the card in every mode', () => {
+        const imp = { name: 'import_file', access: 'write' };
+        expect(decideToolPermission(imp, 'allow', { foraDoProjeto: true })).toBe('confirm');
+        expect(decideToolPermission(imp, 'allow', { foraDoProjeto: false })).toBe('allow');
+        expect(decideToolPermission(imp, 'allow')).toBe('allow');
+    });
+    it('web access (access network) asks in writes and confirm modes, not in allow', () => {
+        const web = { name: 'WebFetch', access: 'network' };
+        expect(decideToolPermission(web, 'writes')).toBe('confirm');
+        expect(decideToolPermission(web, 'confirm')).toBe('confirm');
+        expect(decideToolPermission(web, 'allow')).toBe('allow');
     });
     it('allow mode auto-approves everything else', () => {
         expect(decideToolPermission({ name: 'write_file', access: 'write' }, 'allow')).toBe('allow');
@@ -42,6 +56,17 @@ describe('previewArgs', () => {
         const out = previewArgs({ big: 'x'.repeat(2000) });
         expect(out.length).toBeLessThanOrEqual(502); // 500 + "\n…"
         expect(out.endsWith('\n…')).toBe(true);
+    });
+    it('the shell command and the web request are shown whole', () => {
+        const longo = 'echo ' + 'a'.repeat(600) + ' ; rm -r C:\\fim';
+        for (const name of ['run_in_terminal', 'WebFetch', 'WebSearch']) {
+            expect(limiteDaPrevia({ name })).toBe(Infinity);
+        }
+        expect(limiteDaPrevia({ name: 'create_file' })).toBe(500);
+        expect(limiteDaPrevia(null)).toBe(500);
+        const inteiro = previewArgs({ command: longo }, limiteDaPrevia({ name: 'run_in_terminal' }));
+        expect(inteiro).toContain('rm -r C:');
+        expect(inteiro.endsWith('…')).toBe(false);
     });
 });
 

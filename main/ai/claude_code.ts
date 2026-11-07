@@ -45,7 +45,7 @@ import { REGRAS_CLAUDE } from './mcp_tool_rules.js';
 // Shared with the Agent SDK engine (claude_agent.js), one list, two consumers.
 // Two hand-kept copies is exactly how AskUserQuestion drifted back on over
 // there and silently stopped rendering its card. See native_tools.js.
-import { NATIVE_TOOLS, DISALLOWED_TOOLS, PRE_APROVADAS, PERMISSION_MODE } from './native_tools.js';
+import { NATIVE_TOOLS, DISALLOWED_TOOLS, PRE_APROVADAS_SEM_WEB, PERMISSION_MODE } from './native_tools.js';
 
 /*
  * Compilado por `tsc` (npm run build:ts, tsconfig.main.json) num
@@ -260,6 +260,11 @@ function permissionFlag(_mode?: string): string {
  * janela A em `--add-dir`: ele lia e escrevia no projeto errado, e com
  * permissao concedida, porque a pasta estava mesmo autorizada.
  *
+ * Sem projeto aberto, a pasta de trabalho e a pasta neutra do agente
+ * (agentScratchDir), e nao mais a pasta pessoal. A pasta pessoal ia para o
+ * `--add-dir` e para o `additionalDirectories`, e com isso o Read alcancava
+ * `~/.ssh` e `~/.claude/.credentials.json`.
+ *
  * @param webContents quem pediu o turno (ai.js ja o tem em maos)
  */
 function workspaceDir(webContents?: Janela): string {
@@ -270,7 +275,7 @@ function workspaceDir(webContents?: Janela): string {
       return stat.isDirectory() ? spf : path.dirname(spf);
     } catch (_) { /* fall through */ }
   }
-  return os.homedir();
+  return agentScratchDir();
 }
 
 /** A neutral scratch directory for the CLI's working dir, deliberately NOT the
@@ -493,7 +498,8 @@ export async function start(payload: PedidoDoTurno | null | undefined, webConten
     '--include-partial-messages',
     '--permission-mode', permissionFlag(permission),
     // Pre-approved under `dontAsk`; anything else is denied (native_tools.ts).
-    '--allowedTools', PRE_APROVADAS.join(','),
+    // Sem a web: aqui nao ha gancho para o cartao (ver cartao_da_web.ts).
+    '--allowedTools', PRE_APROVADAS_SEM_WEB.join(','),
     // No settings from disk: an `allow` rule in the user's ~/.claude would
     // reopen what `dontAsk` closes. An empty list is the documented form.
     '--setting-sources', '',

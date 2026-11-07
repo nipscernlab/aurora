@@ -31,6 +31,39 @@ export interface PedidoDeFerramenta { requestId: string; toolName: string; args?
 
 type Metodo = (...a: unknown[]) => unknown;
 
+/**
+ * O pedido do main para o WebFetch e o WebSearch nativos do Claude (o gancho
+ * de main/ai/cartao_da_web.ts, que tem o mesmo nome). Nao executa nada: so
+ * passa pelo cartao, conforme o modo de permissao, e responde se a pessoa
+ * permitiu.
+ */
+export const PEDIDO_DA_WEB = 'native_web_access';
+
+/** Como o cartao descreve cada acesso a web; `network` tem o seu verbo. */
+const DEFS_DA_WEB: Record<string, DefDaFerramenta> = {
+  WebFetch: {
+    name: 'WebFetch',
+    access: 'network',
+    description: 'Fetch a web page. The address and the prompt below leave this computer.',
+  },
+  WebSearch: {
+    name: 'WebSearch',
+    access: 'network',
+    description: 'Search the web. The query below leaves this computer.',
+  },
+};
+
+/** O cartao de um acesso a web: `{ ok:true, data:{ allowed } }`, nunca executa. */
+async function pedidoDaWeb(args: Record<string, unknown> | null | undefined): Promise<unknown> {
+  const { tool, ...resto } = args ?? {};
+  const def = DEFS_DA_WEB[String(tool)];
+  if (!def) return { ok: false, error: `unknown web tool: ${String(tool)}` };
+  let allowed = false;
+  try { allowed = await aiAssistantManager.confirmToolCall(def, resto); }
+  catch { allowed = false; }
+  return { ok: true, data: { allowed: allowed === true } };
+}
+
 /** toolName → manifest definition */
 let manifest = new Map<string, DefDoManifesto>();
 let unsubscribe: (() => void) | null = null;
@@ -44,6 +77,11 @@ function buildCallArgs(def: DefDoManifesto, args: Record<string, unknown> | null
 
 async function handleToolExec({ requestId, toolName, args }: PedidoDeFerramenta): Promise<void> {
   const reply = (result: unknown) => window.aiAPI?.sendToolResult?.(requestId, result);
+
+  if (toolName === PEDIDO_DA_WEB) {
+    reply(await pedidoDaWeb(args));
+    return;
+  }
 
   const def = manifest.get(toolName);
   if (!def) {

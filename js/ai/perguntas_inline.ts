@@ -16,7 +16,9 @@
 
 import { escapeHtml } from './chat_render.js';
 import type { MensagemDoChat } from './chat_history.js';
-import { decideToolPermission, previewArgs, splitArgs, type DefDaFerramenta } from './tool_permission.js';
+import { decideToolPermission, limiteDaPrevia, previewArgs, splitArgs, type DefDaFerramenta } from './tool_permission.js';
+import { dentroDoProjeto } from '../api/caminho_no_projeto.js';
+import { ProjectStore } from '../project/project_store.js';
 
 const tr = (k: string, p?: Record<string, unknown>): string => (window.t ? window.t(k, p) : k);
 
@@ -56,9 +58,21 @@ const SAIDA_MS = 180;
  * ele manda perguntar, o cartao de permissao aparece e a resposta e a da pessoa.
  */
 export function confirmarFerramenta(p: PainelDasPerguntas, def: DefDaFerramenta | null | undefined, args: unknown): Promise<boolean> {
-  return decideToolPermission(def, p.permissionMode) === 'allow'
+  return decideToolPermission(def, p.permissionMode, { foraDoProjeto: importaDeFora(def, args) }) === 'allow'
     ? Promise.resolve(true)
     : cartaoDePermissao(p, def, args);
+}
+
+/**
+ * O import_file que le um arquivo de fora do projeto. Copiar para dentro e o
+ * que ele faz, entao ler fora e legitimo, mas e a unica ferramenta que leva
+ * para o projeto um arquivo de qualquer lugar do disco: pede o cartao em todo
+ * modo, ate no "allow".
+ */
+function importaDeFora(def: DefDaFerramenta | null | undefined, args: unknown): boolean {
+  if (!def || def.name !== 'import_file') return false;
+  const origem = args && typeof args === 'object' ? (args as { filePath?: unknown }).filePath : undefined;
+  return !dentroDoProjeto(origem, ProjectStore.getProjectPath());
 }
 
 /**
@@ -69,7 +83,8 @@ function cartaoDePermissao(p: PainelDasPerguntas, def: DefDaFerramenta | null | 
   return new Promise((resolve) => {
     const card = document.createElement('div');
     card.className = 'ai-confirm enter';
-    const verb = def && def.access === 'write' ? 'make a change' : 'read something';
+    const verb = def && def.access === 'write' ? 'make a change'
+      : def && def.access === 'network' ? 'reach the web' : 'read something';
     card.innerHTML = `
       <div class="ai-confirm-head">
         <i class="ph ph-shield-check" aria-hidden="true"></i>
@@ -106,7 +121,7 @@ function cartaoDePermissao(p: PainelDasPerguntas, def: DefDaFerramenta | null | 
     }
     if (!prose.length) notes.remove();
 
-    const preview = previewArgs(rest);
+    const preview = previewArgs(rest, limiteDaPrevia(def));
     const pre = achar('.ai-confirm-args');
     if (preview) pre.textContent = preview; else pre.remove();
 

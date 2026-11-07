@@ -92,6 +92,22 @@ describe('tool_runner', () => {
     expect(confirmToolCall).not.toHaveBeenCalled();
   });
 
+  it('o pedido da web so passa pelo cartao, como acesso de rede, e responde allowed', async () => {
+    await iniciar();
+    expect(await pedir('native_web_access', { tool: 'WebFetch', url: 'https://x.org' })).toEqual({ ok: true, data: { allowed: true } });
+    expect(confirmToolCall).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'WebFetch', access: 'network' }), { url: 'https://x.org' });
+    confirmToolCall.mockResolvedValueOnce(false);
+    expect(await pedir('native_web_access', { tool: 'WebSearch', query: 'q' })).toEqual({ ok: true, data: { allowed: false } });
+    confirmToolCall.mockRejectedValueOnce(new Error('x'));
+    expect(await pedir('native_web_access', { tool: 'WebSearch' })).toEqual({ ok: true, data: { allowed: false } });
+    confirmToolCall.mockResolvedValueOnce('sim');
+    expect(await pedir('native_web_access', { tool: 'WebSearch' })).toEqual({ ok: true, data: { allowed: false } });
+    expect(await pedir('native_web_access', { tool: 'Bash' })).toEqual({ ok: false, error: 'unknown web tool: Bash' });
+    expect(await pedir('native_web_access', null)).toEqual({ ok: false, error: 'unknown web tool: undefined' });
+    // nunca chama o AuroraAPI
+    expect(Object.values(proj).every((f) => f.mock.calls.length === 0)).toBe(true);
+  });
+
   it('manifesto que falha fica vazio; iniciar de novo troca a assinatura', async () => {
     const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
     window.aiAPI.getToolManifest.mockRejectedValueOnce(new Error('sem main'));

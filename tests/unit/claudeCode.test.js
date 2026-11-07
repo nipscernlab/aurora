@@ -296,7 +296,9 @@ describe('start: pelo Agent SDK', () => {
     ctx.setRateLimit({ rateLimitType: 'five_hour', utilization: 0.3 });
     expect(cc.getUsage()).toMatchObject({ plan: 'max', windows: [{ rateLimitType: 'five_hour', utilization: 0.3 }] });
     expect(cc.getUsage().session.tokens).toBeGreaterThanOrEqual(100);
-    expect(ctx.workspaceDir(janela)).toBe(casa);
+    // Sem projeto aberto, a pasta neutra do agente, nunca a pasta pessoal.
+    expect(ctx.workspaceDir(janela)).not.toBe(casa);
+    expect(ctx.workspaceDir(janela)).toBe(path.join(os.tmpdir(), 'aurora-ai-cwd'));
   });
 
   it('sessao do SDK: abort chama stop, e o push que lanca ou falta volta false', async () => {
@@ -353,15 +355,18 @@ describe('start: a CLI direto (sem o SDK)', () => {
     delete process.env.ANTHROPIC_API_KEY;
     expect(s.cmd).toBe(binario.exe);
     expect(s.args.slice(0, 7)).toEqual(['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--permission-mode', 'dontAsk']);
-    // So o pre-aprovado passa, e nenhuma configuracao do disco entra.
-    expect(s.args[s.args.indexOf('--allowedTools') + 1]).toBe('WebFetch,WebSearch,TodoWrite,ToolSearch,mcp__aurora');
+    // So o pre-aprovado passa, e nenhuma configuracao do disco entra. Sem a
+    // web: a CLI direta nao tem o gancho do cartao (cartao_da_web.ts).
+    expect(s.args[s.args.indexOf('--allowedTools') + 1]).toBe('TodoWrite,ToolSearch,mcp__aurora');
     expect(s.args[s.args.indexOf('--setting-sources') + 1]).toBe('');
     expect(s.args).not.toContain('bypassPermissions');
     expect(s.args).toEqual(expect.arrayContaining(['--model', 'sonnet', '--effort', 'low', '--append-system-prompt', 'curto', '--strict-mcp-config', '--tools', '--disallowed-tools']));
     expect(s.opcoes.env.ANTHROPIC_API_KEY).toBeUndefined();
     expect(s.opcoes.env.MCP_TOOL_TIMEOUT).toBeTruthy();
     expect(s.opcoes.cwd).toBe(path.join(temp, 'aurora-ai-cwd'));
-    expect(s.args).toEqual(expect.arrayContaining(['--add-dir', casa]));
+    // Sem projeto, so a pasta neutra entra; a pasta pessoal nunca.
+    expect(s.args).toEqual(expect.arrayContaining(['--add-dir', path.join(temp, 'aurora-ai-cwd')]));
+    expect(s.args).not.toContain(casa);
     const cfg = s.args[s.args.indexOf('--mcp-config') + 1];
     expect(JSON.parse(fs.readFileSync(cfg, 'utf-8')).mcpServers.aurora.url).toBe('http://127.0.0.1:5999/mcp/7');
     expect(s.filho.entrada).toMatch(/^<aurora_mcp_tools>/);
@@ -384,7 +389,9 @@ describe('start: a CLI direto (sem o SDK)', () => {
     const r = await rodar();
     expect(r.s.args).toEqual(expect.arrayContaining(['--add-dir', projeto]));
     estado.currentOpenProjectPath = path.join(raiz, 'sumiu.spf');
-    expect((await rodar()).s.args).toEqual(expect.arrayContaining(['--add-dir', casa]));
+    const sumiu = (await rodar()).s.args;
+    expect(sumiu).toEqual(expect.arrayContaining(['--add-dir', path.join(temp, 'aurora-ai-cwd')]));
+    expect(sumiu).not.toContain(casa);
   });
 
   it('sem a ponte MCP, o turno segue sem ela e com as mesmas ferramentas nativas', async () => {

@@ -17,18 +17,41 @@ export interface ProsaDoArgumento { key: string; text: string }
 
 const ALWAYS_CONFIRM = new Set(['set_command_override']);
 
-// Pre-authorized tools, never routed through the blocking card. Renames are
-// explicit (the user asked) and reversible, and run DECOUPLED from the AI (the
-// tool dispatches the move + reopen in the background and returns at once); a
-// blocking card would just hang the MCP call until timeout. get_rename_status
-// is the harmless poll the model runs after a rename.
-const PRE_AUTHORIZED = new Set(['rename_project', 'rename_processor', 'get_rename_status']);
+// How much of the args JSON the card and the chip show by default.
+const PREVIEW_CAP = 500;
+
+// Pre-authorized tools, never routed through the blocking card.
+// get_rename_status is the harmless poll the model runs after a rename.
+//
+// rename_project and rename_processor used to be here too, skipping the card
+// even in "ask every time". They are writes that move the project folder, so
+// they now follow the mode like any write. The card waits inside the tool
+// call, whose leash for renames is TOOL_SLOW_MS (main/ai/timeouts.js), and
+// the rename itself still runs in the background once allowed.
+const PRE_AUTHORIZED = new Set(['get_rename_status']);
+
+// Tools whose arguments the card shows whole, never cut at PREVIEW_CAP: the
+// command typed into the user's real shell, and what goes out to the web. A
+// cut command can hide its dangerous tail past the 500th character.
+const SEM_CORTE = new Set(['run_in_terminal', 'WebFetch', 'WebSearch']);
+
+/** Quantos caracteres do JSON dos argumentos o cartao mostra desta ferramenta. */
+export function limiteDaPrevia(def: DefDaFerramenta | null | undefined): number {
+    return def && SEM_CORTE.has(def.name) ? Infinity : PREVIEW_CAP;
+}
 
 // Decide a tool call's fate from the def + current permission mode. Returns
 // 'allow' (auto-approve, resolve true) or 'confirm' (show the inline card).
 // `allow` mode auto-approves everything; `writes` mode auto-approves reads.
-export function decideToolPermission(def: DefDaFerramenta | null | undefined, mode: string): 'allow' | 'confirm' {
+// `foraDoProjeto` forces the card in every mode: import_file reading a file
+// outside the open project (perguntas_inline.ts decides it).
+export function decideToolPermission(
+    def: DefDaFerramenta | null | undefined,
+    mode: string,
+    { foraDoProjeto = false }: { foraDoProjeto?: boolean } = {},
+): 'allow' | 'confirm' {
     if (def && ALWAYS_CONFIRM.has(def.name)) return 'confirm';
+    if (foraDoProjeto) return 'confirm';
     if (def && PRE_AUTHORIZED.has(def.name)) return 'allow';
     if (mode === 'allow') return 'allow';
     if (mode === 'writes' && def && def.access === 'read') return 'allow';
@@ -68,14 +91,15 @@ export function splitArgs(args: unknown): { prose: ProsaDoArgumento[]; rest: Rec
     return { prose, rest };
 }
 
-// Pretty-print tool args for the confirm card / tool chip, capped at 500 chars.
+// Pretty-print tool args for the confirm card / tool chip, capped at `limite`
+// chars (500 unless limiteDaPrevia says the tool is shown whole).
 // Feed it splitArgs().rest, the prose fields render separately.
-export function previewArgs(args: Record<string, unknown> | null | undefined): string {
+export function previewArgs(args: Record<string, unknown> | null | undefined, limite: number = PREVIEW_CAP): string {
     if (!args || Object.keys(args).length === 0) return '';
     let json;
     try { json = JSON.stringify(args, null, 2); }
     catch { json = String(args); }
-    return json.length > 500 ? json.slice(0, 500) + '\n…' : json;
+    return json.length > limite ? json.slice(0, limite) + '\n…' : json;
 }
 
 // Radio-option markup for the permission picker. `modes` is PERMISSION_MODES;
